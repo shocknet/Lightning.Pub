@@ -279,15 +279,29 @@ export class AdminManager {
     }
 
     ListPeers = async (): Promise<Types.LndPeers> => {
-        const res = await this.lnd.ListPeers()
+        const [peerRes, chanRes] = await Promise.all([
+            this.lnd.ListPeers(),
+            this.lnd.ListChannels(true),
+        ])
+        const channelAlias = aliasByRemotePubkey(chanRes.channels || [])
+        const peers = await Promise.all((peerRes.peers || []).map((peer) => this.toListedPeer(peer, channelAlias)))
+        return { peers }
+    }
+
+    private toListedPeer = async (
+        peer: { pubKey: string; address: string; inbound: boolean; satSent: bigint; satRecv: bigint },
+        channelAlias: Map<string, string>,
+    ): Promise<Types.LndPeer> => {
+        const fromChannel = channelAlias.get(peer.pubKey) || ""
+        const alias = fromChannel || await this.lnd.GetNodeAlias(peer.pubKey)
         return {
-            peers: (res.peers || []).map((peer) => ({
-                pubkey: peer.pubKey,
-                address: peer.address,
-                inbound: peer.inbound,
-                sats_sent: Number(peer.satSent),
-                sats_recv: Number(peer.satRecv),
-            }))
+            pubkey: peer.pubKey,
+            address: peer.address,
+            inbound: peer.inbound,
+            sats_sent: Number(peer.satSent),
+            sats_recv: Number(peer.satRecv),
+            alias,
+            has_channel: channelAlias.has(peer.pubKey),
         }
     }
 
@@ -853,4 +867,18 @@ class AssetOperationTracker {
 
 const getDataPath = (dataDir: string, dataPath: string) => {
     return dataDir !== "" ? `${dataDir}/${dataPath}` : dataPath
+}
+
+function aliasByRemotePubkey(channels: { remotePubkey: string; peerAlias: string }[]): Map<string, string> {
+    const map = new Map<string, string>()
+    for (const c of channels) {
+        if (!c.remotePubkey) continue
+        const prev = map.get(c.remotePubkey) || ""
+        if (!map.has(c.remotePubkey)) {
+            map.set(c.remotePubkey, c.peerAlias || "")
+        } else if (!prev && c.peerAlias) {
+            map.set(c.remotePubkey, c.peerAlias)
+        }
+    }
+    return map
 }

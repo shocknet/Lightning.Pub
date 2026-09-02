@@ -3286,6 +3286,8 @@ export const LndNodeMetricsValidate = (o?: LndNodeMetrics, opts: LndNodeMetricsO
 
 export type LndPeer = {
     address: string
+    alias: string
+    has_channel: boolean
     inbound: boolean
     pubkey: string
     sats_recv: number
@@ -3295,6 +3297,8 @@ export const LndPeerOptionalFields: [] = []
 export type LndPeerOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: []
     address_CustomCheck?: (v: string) => boolean
+    alias_CustomCheck?: (v: string) => boolean
+    has_channel_CustomCheck?: (v: boolean) => boolean
     inbound_CustomCheck?: (v: boolean) => boolean
     pubkey_CustomCheck?: (v: string) => boolean
     sats_recv_CustomCheck?: (v: number) => boolean
@@ -3306,6 +3310,12 @@ export const LndPeerValidate = (o?: LndPeer, opts: LndPeerOptions = {}, path: st
 
     if (typeof o.address !== 'string') return new Error(`${path}.address: is not a string`)
     if (opts.address_CustomCheck && !opts.address_CustomCheck(o.address)) return new Error(`${path}.address: custom check failed`)
+
+    if (typeof o.alias !== 'string') return new Error(`${path}.alias: is not a string`)
+    if (opts.alias_CustomCheck && !opts.alias_CustomCheck(o.alias)) return new Error(`${path}.alias: custom check failed`)
+
+    if (typeof o.has_channel !== 'boolean') return new Error(`${path}.has_channel: is not a boolean`)
+    if (opts.has_channel_CustomCheck && !opts.has_channel_CustomCheck(o.has_channel)) return new Error(`${path}.has_channel: custom check failed`)
 
     if (typeof o.inbound !== 'boolean') return new Error(`${path}.inbound: is not a boolean`)
     if (opts.inbound_CustomCheck && !opts.inbound_CustomCheck(o.inbound)) return new Error(`${path}.inbound: custom check failed`)

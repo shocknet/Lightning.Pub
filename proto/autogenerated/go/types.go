@@ -541,11 +541,13 @@ type LndNodeMetrics struct {
 	Root_ops          []RootOperation `json:"root_ops"`
 }
 type LndPeer struct {
-	Address   string `json:"address"`
-	Inbound   bool   `json:"inbound"`
-	Pubkey    string `json:"pubkey"`
-	Sats_recv int64  `json:"sats_recv"`
-	Sats_sent int64  `json:"sats_sent"`
+	Address     string `json:"address"`
+	Alias       string `json:"alias"`
+	Has_channel bool   `json:"has_channel"`
+	Inbound     bool   `json:"inbound"`
+	Pubkey      string `json:"pubkey"`
+	Sats_recv   int64  `json:"sats_recv"`
+	Sats_sent   int64  `json:"sats_sent"`
 }
 type LndPeers struct {
 	Peers []LndPeer `json:"peers"`

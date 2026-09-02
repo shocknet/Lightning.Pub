@@ -1630,6 +1630,8 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### LndPeer
   - __address__: _string_
+  - __alias__: _string_
+  - __has_channel__: _boolean_
   - __inbound__: _boolean_
   - __pubkey__: _string_
   - __sats_recv__: _number_

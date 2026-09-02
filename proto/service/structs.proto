@@ -475,6 +475,8 @@ message LndPeer {
     bool inbound = 3;
     int64 sats_sent = 4;
     int64 sats_recv = 5;
+    string alias = 6;
+    bool has_channel = 7;
 }
 
 message LndPeers {
