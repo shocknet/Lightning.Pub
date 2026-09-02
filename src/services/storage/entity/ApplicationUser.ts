@@ -29,6 +29,9 @@ export class ApplicationUser {
     @Column({ unique: true })
     topic_id: string;
 
+    @Column({ default: false })
+    owner_only_clink: boolean
+
     @CreateDateColumn()
     created_at: Date
 
