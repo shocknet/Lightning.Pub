@@ -338,7 +338,7 @@ export default class Handler {
     }
 
     async GetChannelsInfo() {
-        const { channels } = await this.lnd.ListChannels()
+        const { channels } = await this.lnd.ListChannels(true)
         let totalActive = 0
         let totalInactive = 0
         channels.forEach(c => {
@@ -351,6 +351,11 @@ export default class Handler {
         return {
             totalActive, totalInactive, openChannels: channels
         }
+    }
+
+    private async channelPeerLabel(channel: Channel): Promise<string> {
+        if (channel.peerAlias) return channel.peerAlias
+        return this.lnd.GetNodeAlias(channel.remotePubkey)
     }
     async GetPendingChannelsInfo() {
         const { pendingForceClosingChannels, pendingOpenChannels } = await this.lnd.ListPendingChannels()
@@ -445,7 +450,17 @@ export default class Handler {
                 offline_channels: totalInactive,
                 online_channels: totalActive,
                 closed_channels: closed,
-                open_channels: openChannels.map(c => ({ channel_point: c.channelPoint, active: c.active, capacity: Number(c.capacity), channel_id: c.chanId, lifetime: Number(c.lifetime), local_balance: Number(c.localBalance), remote_balance: Number(c.remoteBalance), label: c.peerAlias, inactive_since_unix: resolveInactiveSince(c.active, c.chanId, channelsActivity) })),
+                open_channels: await Promise.all(openChannels.map(async c => ({
+                    channel_point: c.channelPoint,
+                    active: c.active,
+                    capacity: Number(c.capacity),
+                    channel_id: String(c.chanId),
+                    lifetime: Number(c.lifetime),
+                    local_balance: Number(c.localBalance),
+                    remote_balance: Number(c.remoteBalance),
+                    label: await this.channelPeerLabel(c),
+                    inactive_since_unix: resolveInactiveSince(c.active, String(c.chanId), channelsActivity),
+                }))),
                 forwarding_events: totalEvents,
                 forwarding_fees: totalFees,
                 root_ops: rootOps.map(r => ({ amount: r.operation_amount, created_at_unix: r.at_unix || 0, op_id: r.operation_identifier, op_type: mapRootOpType(r.operation_type) })),
