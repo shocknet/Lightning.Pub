@@ -133,6 +133,15 @@ type AddProductRequest struct {
 type AdminInvoiceSwapResponse struct {
 	Tx_id string `json:"tx_id"`
 }
+type AdminNodeSettings struct {
+	Automate_liquidity            bool   `json:"automate_liquidity"`
+	Automate_liquidity_env_locked bool   `json:"automate_liquidity_env_locked"`
+	Avatar_url                    string `json:"avatar_url"`
+	Backups_env_locked            bool   `json:"backups_env_locked"`
+	Node_name                     string `json:"node_name"`
+	Node_name_env_locked          bool   `json:"node_name_env_locked"`
+	Push_backups_to_nostr         bool   `json:"push_backups_to_nostr"`
+}
 type AdminTxSwapResponse struct {
 	Network_fee int64  `json:"network_fee"`
 	Tx_id       string `json:"tx_id"`
@@ -914,6 +923,12 @@ type TxSwapOperation struct {
 }
 type TxSwapsList struct {
 	Swaps []TxSwapOperation `json:"swaps"`
+}
+type UpdateAdminNodeSettingsRequest struct {
+	Automate_liquidity    bool   `json:"automate_liquidity"`
+	Avatar_url            string `json:"avatar_url"`
+	Node_name             string `json:"node_name"`
+	Push_backups_to_nostr bool   `json:"push_backups_to_nostr"`
 }
 type UpdateChannelPolicyRequest struct {
 	Policy *ChannelPolicy                     `json:"policy"`

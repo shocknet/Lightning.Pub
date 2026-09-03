@@ -287,6 +287,20 @@ service LightningPub {
         option (nostr) = true;
     }
 
+    rpc GetAdminNodeSettings(structs.Empty) returns (structs.AdminNodeSettings) {
+        option (auth_type) = "Admin";
+        option (http_method) = "get";
+        option (http_route) = "/api/admin/node/settings";
+        option (nostr) = true;
+    }
+
+    rpc UpdateAdminNodeSettings(structs.UpdateAdminNodeSettingsRequest) returns (structs.AdminNodeSettings) {
+        option (auth_type) = "Admin";
+        option (http_method) = "post";
+        option (http_route) = "/api/admin/node/settings";
+        option (nostr) = true;
+    }
+
         // </Admin>
         // <Metrics>
 

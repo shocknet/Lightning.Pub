@@ -76,6 +76,7 @@ type Client struct {
 	EnrollAdminToken              func(req EnrollAdminTokenRequest) error
 	EnrollMessagingToken          func(req MessagingToken) error
 	GetAdminInvoiceSwapQuotes     func(req InvoiceSwapRequest) (*InvoiceSwapQuoteList, error)
+	GetAdminNodeSettings          func() (*AdminNodeSettings, error)
 	GetAdminTransactionSwapQuotes func(req TransactionSwapRequest) (*TransactionSwapQuoteList, error)
 	GetApp                        func() (*Application, error)
 	GetAppUser                    func(req GetAppUserRequest) (*AppUser, error)
@@ -151,6 +152,7 @@ type Client struct {
 	SetMockInvoiceAsPaid          func(req SetMockInvoiceAsPaidRequest) error
 	SubToWebRtcCandidates         func() (*WebRtcCandidate, error)
 	SubmitWebRtcMessage           func(req WebRtcMessage) (*WebRtcAnswer, error)
+	UpdateAdminNodeSettings       func(req UpdateAdminNodeSettingsRequest) (*AdminNodeSettings, error)
 	UpdateCallbackUrl             func(req CallbackUrl) (*CallbackUrl, error)
 	UpdateChannelPolicy           func(req UpdateChannelPolicyRequest) error
 	UpdateUserOffer               func(req OfferUpdateRequest) error
@@ -725,6 +727,28 @@ func NewClient(params ClientParams) *Client {
 				return nil, fmt.Errorf(result.Reason)
 			}
 			res := InvoiceSwapQuoteList{}
+			err = json.Unmarshal(resBody, &res)
+			if err != nil {
+				return nil, err
+			}
+			return &res, nil
+		},
+		GetAdminNodeSettings: func() (*AdminNodeSettings, error) {
+			auth, err := params.RetrieveAdminAuth()
+			if err != nil {
+				return nil, err
+			}
+			finalRoute := "/api/admin/node/settings"
+			resBody, err := doGetRequest(params.BaseURL+finalRoute, auth)
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return nil, err
+			}
+			if result.Status == "ERROR" {
+				return nil, fmt.Errorf(result.Reason)
+			}
+			res := AdminNodeSettings{}
 			err = json.Unmarshal(resBody, &res)
 			if err != nil {
 				return nil, err
@@ -2603,6 +2627,35 @@ func NewClient(params ClientParams) *Client {
 				return nil, fmt.Errorf(result.Reason)
 			}
 			res := WebRtcAnswer{}
+			err = json.Unmarshal(resBody, &res)
+			if err != nil {
+				return nil, err
+			}
+			return &res, nil
+		},
+		UpdateAdminNodeSettings: func(req UpdateAdminNodeSettingsRequest) (*AdminNodeSettings, error) {
+			auth, err := params.RetrieveAdminAuth()
+			if err != nil {
+				return nil, err
+			}
+			finalRoute := "/api/admin/node/settings"
+			body, err := json.Marshal(req)
+			if err != nil {
+				return nil, err
+			}
+			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
+			if err != nil {
+				return nil, err
+			}
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return nil, err
+			}
+			if result.Status == "ERROR" {
+				return nil, fmt.Errorf(result.Reason)
+			}
+			res := AdminNodeSettings{}
 			err = json.Unmarshal(resBody, &res)
 			if err != nil {
 				return nil, err

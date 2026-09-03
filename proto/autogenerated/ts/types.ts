@@ -23,8 +23,8 @@ export type RequestContext = {
 export type AdminContext = {
     admin_id: string
 }
-export type AdminMethodInputs = AddApp_Input | AddPeer_Input | AuthApp_Input | BanUser_Input | BumpTx_Input | CloseChannel_Input | CreateOneTimeInviteLink_Input | GetAdminInvoiceSwapQuotes_Input | GetAdminTransactionSwapQuotes_Input | GetAssetsAndLiabilities_Input | GetAssetsAndLiabilitiesV2_Input | GetInviteLinkState_Input | GetSeed_Input | GetUserOperationsFromAdmin_Input | GetUsersAdminInfo_Input | ListAdminInvoiceSwaps_Input | ListAdminTxSwaps_Input | ListChannels_Input | ListPeers_Input | ListUtxos_Input | LndGetInfo_Input | OpenChannel_Input | PayAdminInvoiceSwap_Input | PayAdminTransactionSwap_Input | RefundAdminInvoiceSwap_Input | UpdateChannelPolicy_Input
-export type AdminMethodOutputs = AddApp_Output | AddPeer_Output | AuthApp_Output | BanUser_Output | BumpTx_Output | CloseChannel_Output | CreateOneTimeInviteLink_Output | GetAdminInvoiceSwapQuotes_Output | GetAdminTransactionSwapQuotes_Output | GetAssetsAndLiabilities_Output | GetAssetsAndLiabilitiesV2_Output | GetInviteLinkState_Output | GetSeed_Output | GetUserOperationsFromAdmin_Output | GetUsersAdminInfo_Output | ListAdminInvoiceSwaps_Output | ListAdminTxSwaps_Output | ListChannels_Output | ListPeers_Output | ListUtxos_Output | LndGetInfo_Output | OpenChannel_Output | PayAdminInvoiceSwap_Output | PayAdminTransactionSwap_Output | RefundAdminInvoiceSwap_Output | UpdateChannelPolicy_Output
+export type AdminMethodInputs = AddApp_Input | AddPeer_Input | AuthApp_Input | BanUser_Input | BumpTx_Input | CloseChannel_Input | CreateOneTimeInviteLink_Input | GetAdminInvoiceSwapQuotes_Input | GetAdminNodeSettings_Input | GetAdminTransactionSwapQuotes_Input | GetAssetsAndLiabilities_Input | GetAssetsAndLiabilitiesV2_Input | GetInviteLinkState_Input | GetSeed_Input | GetUserOperationsFromAdmin_Input | GetUsersAdminInfo_Input | ListAdminInvoiceSwaps_Input | ListAdminTxSwaps_Input | ListChannels_Input | ListPeers_Input | ListUtxos_Input | LndGetInfo_Input | OpenChannel_Input | PayAdminInvoiceSwap_Input | PayAdminTransactionSwap_Input | RefundAdminInvoiceSwap_Input | UpdateAdminNodeSettings_Input | UpdateChannelPolicy_Input
+export type AdminMethodOutputs = AddApp_Output | AddPeer_Output | AuthApp_Output | BanUser_Output | BumpTx_Output | CloseChannel_Output | CreateOneTimeInviteLink_Output | GetAdminInvoiceSwapQuotes_Output | GetAdminNodeSettings_Output | GetAdminTransactionSwapQuotes_Output | GetAssetsAndLiabilities_Output | GetAssetsAndLiabilitiesV2_Output | GetInviteLinkState_Output | GetSeed_Output | GetUserOperationsFromAdmin_Output | GetUsersAdminInfo_Output | ListAdminInvoiceSwaps_Output | ListAdminTxSwaps_Output | ListChannels_Output | ListPeers_Output | ListUtxos_Output | LndGetInfo_Output | OpenChannel_Output | PayAdminInvoiceSwap_Output | PayAdminTransactionSwap_Output | RefundAdminInvoiceSwap_Output | UpdateAdminNodeSettings_Output | UpdateChannelPolicy_Output
 export type AppContext = {
     app_id: string
 }
@@ -120,6 +120,9 @@ export type EnrollMessagingToken_Output = ResultError | { status: 'OK' }
 
 export type GetAdminInvoiceSwapQuotes_Input = {rpcName:'GetAdminInvoiceSwapQuotes', req: InvoiceSwapRequest}
 export type GetAdminInvoiceSwapQuotes_Output = ResultError | ({ status: 'OK' } & InvoiceSwapQuoteList)
+
+export type GetAdminNodeSettings_Input = {rpcName:'GetAdminNodeSettings'}
+export type GetAdminNodeSettings_Output = ResultError | ({ status: 'OK' } & AdminNodeSettings)
 
 export type GetAdminTransactionSwapQuotes_Input = {rpcName:'GetAdminTransactionSwapQuotes', req: TransactionSwapRequest}
 export type GetAdminTransactionSwapQuotes_Output = ResultError | ({ status: 'OK' } & TransactionSwapQuoteList)
@@ -368,6 +371,9 @@ export type SubToWebRtcCandidates_Output = ResultError | { status: 'OK' }
 export type SubmitWebRtcMessage_Input = {rpcName:'SubmitWebRtcMessage', req: WebRtcMessage}
 export type SubmitWebRtcMessage_Output = ResultError | ({ status: 'OK' } & WebRtcAnswer)
 
+export type UpdateAdminNodeSettings_Input = {rpcName:'UpdateAdminNodeSettings', req: UpdateAdminNodeSettingsRequest}
+export type UpdateAdminNodeSettings_Output = ResultError | ({ status: 'OK' } & AdminNodeSettings)
+
 export type UpdateCallbackUrl_Input = {rpcName:'UpdateCallbackUrl', req: CallbackUrl}
 export type UpdateCallbackUrl_Output = ResultError | ({ status: 'OK' } & CallbackUrl)
 
@@ -408,6 +414,7 @@ export type ServerMethods = {
     EnrollAdminToken?: (req: EnrollAdminToken_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<void>
     EnrollMessagingToken?: (req: EnrollMessagingToken_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<void>
     GetAdminInvoiceSwapQuotes?: (req: GetAdminInvoiceSwapQuotes_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<InvoiceSwapQuoteList>
+    GetAdminNodeSettings?: (req: GetAdminNodeSettings_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<AdminNodeSettings>
     GetAdminTransactionSwapQuotes?: (req: GetAdminTransactionSwapQuotes_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<TransactionSwapQuoteList>
     GetApp?: (req: GetApp_Input & {ctx: AppContext, requestContext?: RequestContext }) => Promise<Application>
     GetAppUser?: (req: GetAppUser_Input & {ctx: AppContext, requestContext?: RequestContext }) => Promise<AppUser>
@@ -483,6 +490,7 @@ export type ServerMethods = {
     SetMockInvoiceAsPaid?: (req: SetMockInvoiceAsPaid_Input & {ctx: GuestContext, requestContext?: RequestContext }) => Promise<void>
     SubToWebRtcCandidates?: (req: SubToWebRtcCandidates_Input & {ctx: MetricsContext, requestContext?: RequestContext }) => Promise<void>
     SubmitWebRtcMessage?: (req: SubmitWebRtcMessage_Input & {ctx: MetricsContext, requestContext?: RequestContext }) => Promise<WebRtcAnswer>
+    UpdateAdminNodeSettings?: (req: UpdateAdminNodeSettings_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<AdminNodeSettings>
     UpdateCallbackUrl?: (req: UpdateCallbackUrl_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<CallbackUrl>
     UpdateChannelPolicy?: (req: UpdateChannelPolicy_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<void>
     UpdateUserOffer?: (req: UpdateUserOffer_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<void>
@@ -753,6 +761,54 @@ export const AdminInvoiceSwapResponseValidate = (o?: AdminInvoiceSwapResponse, o
 
     if (typeof o.tx_id !== 'string') return new Error(`${path}.tx_id: is not a string`)
     if (opts.tx_id_CustomCheck && !opts.tx_id_CustomCheck(o.tx_id)) return new Error(`${path}.tx_id: custom check failed`)
+
+    return null
+}
+
+export type AdminNodeSettings = {
+    automate_liquidity: boolean
+    automate_liquidity_env_locked: boolean
+    avatar_url: string
+    backups_env_locked: boolean
+    node_name: string
+    node_name_env_locked: boolean
+    push_backups_to_nostr: boolean
+}
+export const AdminNodeSettingsOptionalFields: [] = []
+export type AdminNodeSettingsOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    automate_liquidity_CustomCheck?: (v: boolean) => boolean
+    automate_liquidity_env_locked_CustomCheck?: (v: boolean) => boolean
+    avatar_url_CustomCheck?: (v: string) => boolean
+    backups_env_locked_CustomCheck?: (v: boolean) => boolean
+    node_name_CustomCheck?: (v: string) => boolean
+    node_name_env_locked_CustomCheck?: (v: boolean) => boolean
+    push_backups_to_nostr_CustomCheck?: (v: boolean) => boolean
+}
+export const AdminNodeSettingsValidate = (o?: AdminNodeSettings, opts: AdminNodeSettingsOptions = {}, path: string = 'AdminNodeSettings::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.automate_liquidity !== 'boolean') return new Error(`${path}.automate_liquidity: is not a boolean`)
+    if (opts.automate_liquidity_CustomCheck && !opts.automate_liquidity_CustomCheck(o.automate_liquidity)) return new Error(`${path}.automate_liquidity: custom check failed`)
+
+    if (typeof o.automate_liquidity_env_locked !== 'boolean') return new Error(`${path}.automate_liquidity_env_locked: is not a boolean`)
+    if (opts.automate_liquidity_env_locked_CustomCheck && !opts.automate_liquidity_env_locked_CustomCheck(o.automate_liquidity_env_locked)) return new Error(`${path}.automate_liquidity_env_locked: custom check failed`)
+
+    if (typeof o.avatar_url !== 'string') return new Error(`${path}.avatar_url: is not a string`)
+    if (opts.avatar_url_CustomCheck && !opts.avatar_url_CustomCheck(o.avatar_url)) return new Error(`${path}.avatar_url: custom check failed`)
+
+    if (typeof o.backups_env_locked !== 'boolean') return new Error(`${path}.backups_env_locked: is not a boolean`)
+    if (opts.backups_env_locked_CustomCheck && !opts.backups_env_locked_CustomCheck(o.backups_env_locked)) return new Error(`${path}.backups_env_locked: custom check failed`)
+
+    if (typeof o.node_name !== 'string') return new Error(`${path}.node_name: is not a string`)
+    if (opts.node_name_CustomCheck && !opts.node_name_CustomCheck(o.node_name)) return new Error(`${path}.node_name: custom check failed`)
+
+    if (typeof o.node_name_env_locked !== 'boolean') return new Error(`${path}.node_name_env_locked: is not a boolean`)
+    if (opts.node_name_env_locked_CustomCheck && !opts.node_name_env_locked_CustomCheck(o.node_name_env_locked)) return new Error(`${path}.node_name_env_locked: custom check failed`)
+
+    if (typeof o.push_backups_to_nostr !== 'boolean') return new Error(`${path}.push_backups_to_nostr: is not a boolean`)
+    if (opts.push_backups_to_nostr_CustomCheck && !opts.push_backups_to_nostr_CustomCheck(o.push_backups_to_nostr)) return new Error(`${path}.push_backups_to_nostr: custom check failed`)
 
     return null
 }
@@ -5491,6 +5547,39 @@ export const TxSwapsListValidate = (o?: TxSwapsList, opts: TxSwapsListOptions = 
         if (swapsErr !== null) return swapsErr
     }
     if (opts.swaps_CustomCheck && !opts.swaps_CustomCheck(o.swaps)) return new Error(`${path}.swaps: custom check failed`)
+
+    return null
+}
+
+export type UpdateAdminNodeSettingsRequest = {
+    automate_liquidity: boolean
+    avatar_url: string
+    node_name: string
+    push_backups_to_nostr: boolean
+}
+export const UpdateAdminNodeSettingsRequestOptionalFields: [] = []
+export type UpdateAdminNodeSettingsRequestOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    automate_liquidity_CustomCheck?: (v: boolean) => boolean
+    avatar_url_CustomCheck?: (v: string) => boolean
+    node_name_CustomCheck?: (v: string) => boolean
+    push_backups_to_nostr_CustomCheck?: (v: boolean) => boolean
+}
+export const UpdateAdminNodeSettingsRequestValidate = (o?: UpdateAdminNodeSettingsRequest, opts: UpdateAdminNodeSettingsRequestOptions = {}, path: string = 'UpdateAdminNodeSettingsRequest::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.automate_liquidity !== 'boolean') return new Error(`${path}.automate_liquidity: is not a boolean`)
+    if (opts.automate_liquidity_CustomCheck && !opts.automate_liquidity_CustomCheck(o.automate_liquidity)) return new Error(`${path}.automate_liquidity: custom check failed`)
+
+    if (typeof o.avatar_url !== 'string') return new Error(`${path}.avatar_url: is not a string`)
+    if (opts.avatar_url_CustomCheck && !opts.avatar_url_CustomCheck(o.avatar_url)) return new Error(`${path}.avatar_url: custom check failed`)
+
+    if (typeof o.node_name !== 'string') return new Error(`${path}.node_name: is not a string`)
+    if (opts.node_name_CustomCheck && !opts.node_name_CustomCheck(o.node_name)) return new Error(`${path}.node_name: custom check failed`)
+
+    if (typeof o.push_backups_to_nostr !== 'boolean') return new Error(`${path}.push_backups_to_nostr: is not a boolean`)
+    if (opts.push_backups_to_nostr_CustomCheck && !opts.push_backups_to_nostr_CustomCheck(o.push_backups_to_nostr)) return new Error(`${path}.push_backups_to_nostr: custom check failed`)
 
     return null
 }

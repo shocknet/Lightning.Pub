@@ -298,6 +298,20 @@ export default (params: ClientParams) => ({
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
+    GetAdminNodeSettings: async (): Promise<ResultError | ({ status: 'OK' }& Types.AdminNodeSettings)> => {
+        let finalRoute = '/api/admin/node/settings'
+        const auth = await params.retrieveAdminAuth()
+        if (auth === null) throw new Error('retrieveAdminAuth() returned null')
+        const { data } = await axios.get(params.baseUrl + finalRoute, { headers: { 'authorization': auth }})
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.AdminNodeSettingsValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
     GetAdminTransactionSwapQuotes: async (request: Types.TransactionSwapRequest): Promise<ResultError | ({ status: 'OK' }& Types.TransactionSwapQuoteList)> => {
         let finalRoute = '/api/admin/swap/transaction/quote'
         const auth = await params.retrieveAdminAuth()
@@ -1361,6 +1375,20 @@ export default (params: ClientParams) => ({
             const result = data
             if(!params.checkResult) return { status: 'OK', ...result }
             const error = Types.WebRtcAnswerValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
+    UpdateAdminNodeSettings: async (request: Types.UpdateAdminNodeSettingsRequest): Promise<ResultError | ({ status: 'OK' }& Types.AdminNodeSettings)> => {
+        let finalRoute = '/api/admin/node/settings'
+        const auth = await params.retrieveAdminAuth()
+        if (auth === null) throw new Error('retrieveAdminAuth() returned null')
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.AdminNodeSettingsValidate(result)
             if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
         }
         return { status: 'ERROR', reason: 'invalid response' }

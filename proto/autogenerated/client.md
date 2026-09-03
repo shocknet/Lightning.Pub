@@ -103,6 +103,11 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [InvoiceSwapRequest](#InvoiceSwapRequest)
   - output: [InvoiceSwapQuoteList](#InvoiceSwapQuoteList)
 
+- GetAdminNodeSettings
+  - auth type: __Admin__
+  - This methods has an __empty__ __request__ body
+  - output: [AdminNodeSettings](#AdminNodeSettings)
+
 - GetAdminTransactionSwapQuotes
   - auth type: __Admin__
   - input: [TransactionSwapRequest](#TransactionSwapRequest)
@@ -390,6 +395,11 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [WebRtcMessage](#WebRtcMessage)
   - output: [WebRtcAnswer](#WebRtcAnswer)
 
+- UpdateAdminNodeSettings
+  - auth type: __Admin__
+  - input: [UpdateAdminNodeSettingsRequest](#UpdateAdminNodeSettingsRequest)
+  - output: [AdminNodeSettings](#AdminNodeSettings)
+
 - UpdateCallbackUrl
   - auth type: __User__
   - input: [CallbackUrl](#CallbackUrl)
@@ -608,6 +618,13 @@ The nostr server will send back a message response, and inside the body there wi
   - http route: __/api/admin/swap/invoice/quote__
   - input: [InvoiceSwapRequest](#InvoiceSwapRequest)
   - output: [InvoiceSwapQuoteList](#InvoiceSwapQuoteList)
+
+- GetAdminNodeSettings
+  - auth type: __Admin__
+  - http method: __get__
+  - http route: __/api/admin/node/settings__
+  - This methods has an __empty__ __request__ body
+  - output: [AdminNodeSettings](#AdminNodeSettings)
 
 - GetAdminTransactionSwapQuotes
   - auth type: __Admin__
@@ -1150,6 +1167,13 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [WebRtcMessage](#WebRtcMessage)
   - output: [WebRtcAnswer](#WebRtcAnswer)
 
+- UpdateAdminNodeSettings
+  - auth type: __Admin__
+  - http method: __post__
+  - http route: __/api/admin/node/settings__
+  - input: [UpdateAdminNodeSettingsRequest](#UpdateAdminNodeSettingsRequest)
+  - output: [AdminNodeSettings](#AdminNodeSettings)
+
 - UpdateCallbackUrl
   - auth type: __User__
   - http method: __post__
@@ -1232,6 +1256,15 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### AdminInvoiceSwapResponse
   - __tx_id__: _string_
+
+### AdminNodeSettings
+  - __automate_liquidity__: _boolean_
+  - __automate_liquidity_env_locked__: _boolean_
+  - __avatar_url__: _string_
+  - __backups_env_locked__: _boolean_
+  - __node_name__: _string_
+  - __node_name_env_locked__: _boolean_
+  - __push_backups_to_nostr__: _boolean_
 
 ### AdminTxSwapResponse
   - __network_fee__: _number_
@@ -2014,6 +2047,12 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### TxSwapsList
   - __swaps__: ARRAY of: _[TxSwapOperation](#TxSwapOperation)_
+
+### UpdateAdminNodeSettingsRequest
+  - __automate_liquidity__: _boolean_
+  - __avatar_url__: _string_
+  - __node_name__: _string_
+  - __push_backups_to_nostr__: _boolean_
 
 ### UpdateChannelPolicyRequest
   - __policy__: _[ChannelPolicy](#ChannelPolicy)_

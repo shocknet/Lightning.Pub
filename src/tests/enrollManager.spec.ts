@@ -122,6 +122,14 @@ const testBeaconBuilders = (T: StorageTestBase) => {
     T.expect(clinkContent.supported_kinds).to.include(CLINK_ENROLL_KIND)
     T.expect(clinkContent.website).to.equal("https://example.com")
     T.expect(clinkContent.description).to.equal("Short blurb")
+    T.expect(clinkContent.avatarUrl).to.equal("https://example.com/a.png")
+    const httpAvatar = buildClinkBeaconContent({
+        app: { name: "wallet", avatar_url: "http://insecure.example/a.png" } as any,
+        relays: ["wss://r"],
+        fees: { serviceFeeFloor: 0, serviceFeeBps: 0 },
+        enrollPowBits: 0,
+    })
+    T.expect(httpAvatar.avatarUrl).to.equal(undefined)
     const noPow = buildClinkBeaconContent({ app, relays: ["wss://r"], fees: { serviceFeeFloor: 0, serviceFeeBps: 0 }, enrollPowBits: 0 })
     T.expect(noPow.enroll_difficulty).to.equal(undefined)
     T.expect(noPow.website).to.equal(undefined)

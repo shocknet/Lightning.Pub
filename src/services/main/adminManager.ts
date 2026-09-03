@@ -17,6 +17,19 @@ import { NodeInfo } from "../lnd/settings.js";
 import { Invoice, Payment, OutputDetail, Transaction, Payment_PaymentStatus, Invoice_InvoiceState } from "../../../proto/lnd/lightning.js";
 import { LiquidityProvider } from "./liquidityProvider.js";
 import { clampPageLimit, DEFAULT_LND_PAGE_SIZE, DEFAULT_PAGE_SIZE, MAX_LIQUIDITY_PAGE_SIZE, MAX_PAGE_SIZE } from "../helpers/pageLimit.js";
+import {
+    ADMIN_AUTOMATION_ENV,
+    ADMIN_BACKUPS_ENV,
+    ADMIN_NODE_NAME_ENV,
+    assertAvatarUrl,
+    assertNodeName,
+    automationEnabled,
+    disableLiquidityFromAutomation,
+    isEnvLocked,
+    pickDefaultApp,
+    trimAvatarUrl,
+    trimNodeName,
+} from "./adminNodeSettings.js";
 import { resolveInactiveSince } from "../storage/metricsStorage.js";
 /* type TrackedOperation = {
     ts: number
@@ -70,6 +83,7 @@ export class AdminManager {
     swaps: Swaps
     nostrConnected: boolean = false
     private nostrReset: () => Promise<void> = async () => { this.log("nostr reset not initialized yet") }
+    private refreshDefaultBeacon: () => Promise<void> = async () => { }
     constructor(settings: SettingsManager, storage: Storage, swaps: Swaps) {
         this.settings = settings
         this.storage = storage
@@ -94,6 +108,10 @@ export class AdminManager {
 
     attachNostrReset(f: () => Promise<void>) {
         this.nostrReset = f
+    }
+
+    attachBeaconRefresh(f: () => Promise<void>) {
+        this.refreshDefaultBeacon = f
     }
 
     async ResetNostr() {
@@ -304,6 +322,81 @@ export class AdminManager {
     ListUtxos = async (): Promise<Types.LndUtxos> => {
         const utxos = await this.lnd.ListUnspent()
         return { utxos: utxos.map(toListedUtxo) }
+    }
+
+    GetAdminNodeSettings = async (): Promise<Types.AdminNodeSettings> => {
+        const service = this.settings.getSettings().serviceSettings
+        const liquidity = this.settings.getSettings().liquiditySettings
+        const app = await this.loadDefaultApp()
+        return {
+            node_name: app?.name || service.defaultAppName,
+            avatar_url: app?.avatar_url || "",
+            automate_liquidity: automationEnabled(liquidity.disableLiquidityProvider),
+            push_backups_to_nostr: service.pushBackupsToNostr,
+            node_name_env_locked: isEnvLocked(ADMIN_NODE_NAME_ENV),
+            automate_liquidity_env_locked: isEnvLocked(ADMIN_AUTOMATION_ENV),
+            backups_env_locked: isEnvLocked(ADMIN_BACKUPS_ENV),
+        }
+    }
+
+    UpdateAdminNodeSettings = async (req: Types.UpdateAdminNodeSettingsRequest): Promise<Types.AdminNodeSettings> => {
+        assertNodeName(req.node_name)
+        const name = trimNodeName(req.node_name)
+        const avatar = trimAvatarUrl(req.avatar_url)
+        assertAvatarUrl(avatar)
+        const current = await this.GetAdminNodeSettings()
+        this.assertUnlockedChange(current, name, req)
+
+        const app = await this.loadDefaultApp()
+        let beaconDirty = false
+
+        if (!current.node_name_env_locked) {
+            const nameUpdated = await this.settings.updateDefaultAppName(name)
+            if (app && (nameUpdated || app.name !== name)) {
+                await this.storage.applicationStorage.UpdateApplication(app, { name })
+                app.name = name
+                beaconDirty = true
+            }
+        }
+
+        if (app && (app.avatar_url || "") !== avatar) {
+            await this.storage.applicationStorage.UpdateApplication(app, { avatar_url: avatar })
+            app.avatar_url = avatar
+            beaconDirty = true
+        }
+
+        if (!current.automate_liquidity_env_locked) {
+            await this.settings.updateDisableLiquidityProvider(disableLiquidityFromAutomation(req.automate_liquidity))
+            this.liquidityProvider?.syncAfterSettingsChange()
+        }
+
+        if (!current.backups_env_locked) {
+            await this.settings.updatePushBackupsToNostr(req.push_backups_to_nostr)
+        }
+
+        if (beaconDirty) {
+            await this.refreshDefaultBeacon()
+        }
+
+        return this.GetAdminNodeSettings()
+    }
+
+    private assertUnlockedChange = (current: Types.AdminNodeSettings, name: string, req: Types.UpdateAdminNodeSettingsRequest) => {
+        if (current.node_name_env_locked && name !== current.node_name) {
+            throw new Error("node name is set in the environment")
+        }
+        if (current.automate_liquidity_env_locked && req.automate_liquidity !== current.automate_liquidity) {
+            throw new Error("automation is set in the environment")
+        }
+        if (current.backups_env_locked && req.push_backups_to_nostr !== current.push_backups_to_nostr) {
+            throw new Error("channel backups are set in the environment")
+        }
+    }
+
+    private loadDefaultApp = async () => {
+        const name = this.settings.getSettings().serviceSettings.defaultAppName
+        const apps = await this.storage.applicationStorage.GetApplications()
+        return pickDefaultApp(apps, name)
     }
 
     private toListedPeer = async (

@@ -34,6 +34,8 @@ import { PaymentSideEffects } from "./paymentSideEffects.js"
 import { AddressReceivingTransaction } from '../storage/entity/AddressReceivingTransaction.js'
 import { EnrollManager } from "./enrollManager.js"
 import { buildClinkBeaconContent, buildClinkBeaconEvent, buildLegacyBeaconEvent, operatorPubkeyHex } from "../helpers/clinkBeacon.js"
+import { pickDefaultApp } from "./adminNodeSettings.js"
+import { isHttpsAvatarUrl } from "../helpers/httpsAvatarUrl.js"
 type UserOperationsSub = {
     id: string
     newIncomingInvoice: (operation: Types.UserOperation) => void
@@ -96,6 +98,8 @@ export default class {
         this.managementManager = new ManagementManager(this.storage, this.settings, this.notificationsManager)
         this.enrollManager = new EnrollManager(this.storage, this.settings)
 
+        this.adminManager.attachBeaconRefresh(() => this.publishDefaultAppBeacon())
+
         //this.webRTC = new webRTC(this.storage, this.utils)
     }
 
@@ -111,6 +115,21 @@ export default class {
     StartBeacons() {
         this.applicationManager.StartAppsServiceBeacon((app, fees) => {
             this.UpdateBeacon(app, { type: 'service', name: app.name, avatarUrl: app.avatar_url, fees })
+        })
+    }
+
+    private async publishDefaultAppBeacon() {
+        const apps = await this.storage.applicationStorage.GetApplications()
+        const name = this.settings.getSettings().serviceSettings.defaultAppName
+        const app = pickDefaultApp(apps, name)
+        if (!app) {
+            return
+        }
+        await this.UpdateBeacon(app, {
+            type: 'service',
+            name: app.name,
+            avatarUrl: app.avatar_url,
+            fees: this.paymentManager.GetFees(),
         })
     }
 
@@ -311,8 +330,10 @@ export default class {
             getLogger({ appName: app.name })("cannot update beacon, public key not set")
             return
         }
+        const avatarUrl = content.avatarUrl && isHttpsAvatarUrl(content.avatarUrl) ? content.avatarUrl : undefined
+        const safeContent = { ...content, avatarUrl }
         const sender = { type: 'app' as const, appId: app.app_id }
-        this.utils.nostrSender.Send(sender, { type: 'event', event: buildLegacyBeaconEvent(app.nostr_public_key, content) })
+        this.utils.nostrSender.Send(sender, { type: 'event', event: buildLegacyBeaconEvent(app.nostr_public_key, safeContent) })
 
         const nostr = this.settings.getSettings().nostrRelaySettings
         const clinkContent = buildClinkBeaconContent({

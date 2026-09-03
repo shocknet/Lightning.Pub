@@ -1178,6 +1178,23 @@ message BeaconData {
     optional CumulativeFees fees = 5;
 }
 
+message AdminNodeSettings {
+    string node_name = 1;
+    string avatar_url = 2;
+    bool automate_liquidity = 3;
+    bool push_backups_to_nostr = 4;
+    bool node_name_env_locked = 5;
+    bool automate_liquidity_env_locked = 6;
+    bool backups_env_locked = 7;
+}
+
+message UpdateAdminNodeSettingsRequest {
+    string node_name = 1;
+    string avatar_url = 2;
+    bool automate_liquidity = 3;
+    bool push_backups_to_nostr = 4;
+}
+
 
 message PushNotificationEnvelope {
   string topic_id = 1;
