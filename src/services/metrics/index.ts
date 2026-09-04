@@ -401,10 +401,6 @@ export default class Handler {
             this.storage.metricsStorage.GetChannelsActivity(),
         ])
         const { openChannels, totalActive, totalInactive } = chansInfo
-        await this.storage.metricsStorage.MarkChannelsSeen(
-            openChannels.filter(c => c.active).map(c => c.chanId),
-            60,
-        )
         const { totalPendingOpen, totalPendingClose } = pendingChansInfo
         const { channels: closedChannels } = closedChansInfo
         const rawRouting = routing

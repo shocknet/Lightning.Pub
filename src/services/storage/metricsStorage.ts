@@ -41,7 +41,12 @@ export default class {
         const unique = [...new Set(chanIds.filter(id => !!id))]
         if (unique.length === 0) return
         const atUnix = Math.floor(Date.now() / 1000)
-        const existing = await this.dbs.Find<ChannelEvent>('ChannelEvent', { where: { event_type: 'activity' } })
+        const existing = await this.dbs.Find<ChannelEvent>('ChannelEvent', {
+            where: {
+                event_type: 'activity',
+                channel_id: In(unique),
+            },
+        })
         const byId = new Map(existing.map(e => [e.channel_id, e]))
         for (const chanId of unique) {
             await this.touchLastSeen(chanId, atUnix, byId.get(chanId), debounceSec)

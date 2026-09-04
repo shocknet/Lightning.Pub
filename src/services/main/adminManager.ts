@@ -274,10 +274,6 @@ export class AdminManager {
         const { channels } = await this.lnd.ListChannels(true)
         const { identityPubkey } = await this.lnd.GetInfo()
         const activity = await this.storage.metricsStorage.GetChannelsActivity()
-        await this.storage.metricsStorage.MarkChannelsSeen(
-            channels.filter(c => c.active).map(c => c.chanId),
-            60,
-        )
         const openChannels = await Promise.all(channels.map(async c => ({
             channel_point: c.channelPoint,
             active: c.active,

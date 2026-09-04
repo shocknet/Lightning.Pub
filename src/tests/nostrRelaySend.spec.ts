@@ -7,8 +7,8 @@ export const dev = false
 export const requires = "storage" as const
 
 export default async (T: StorageTestBase) => {
-    testSendUsesPublisherNotInbound(T)
-    testSendThrowsWhenPublisherDown(T)
+    testSendUsesConnectedRelay(T)
+    testSendThrowsWhenRelayDown(T)
 }
 
 const settings = {
@@ -28,27 +28,23 @@ const dummyEvent = {
     sig: "c".repeat(128),
 } as Event
 
-const testSendUsesPublisherNotInbound = (T: StorageTestBase) => {
-    T.d("starting testSendUsesPublisherNotInbound")
+const testSendUsesConnectedRelay = (T: StorageTestBase) => {
+    T.d("starting testSendUsesConnectedRelay")
     const deduper = new EventsDeduper()
     const conn = new RelayConnection(settings, () => { }, deduper, false)
-    const inbound = fakeRelay("inbound")
-    const outbound = fakeRelay("outbound")
-    conn.relay = inbound as never
-    conn.publisher = outbound as never
+    const relay = fakeRelay()
+    conn.relay = relay as never
     void conn.Send(dummyEvent)
-    T.expect(outbound.published).to.equal(1)
-    T.expect(inbound.published).to.equal(0)
+    T.expect(relay.published).to.equal(1)
     conn.Stop()
     deduper.Stop()
-    T.d("send uses the outbound socket, not the subscribe socket")
+    T.d("send uses the connected relay")
 }
 
-const testSendThrowsWhenPublisherDown = (T: StorageTestBase) => {
-    T.d("starting testSendThrowsWhenPublisherDown")
+const testSendThrowsWhenRelayDown = (T: StorageTestBase) => {
+    T.d("starting testSendThrowsWhenRelayDown")
     const deduper = new EventsDeduper()
     const conn = new RelayConnection(settings, () => { }, deduper, false)
-    conn.relay = fakeRelay("inbound") as never
     let message = ""
     try {
         conn.Send(dummyEvent)
@@ -58,14 +54,13 @@ const testSendThrowsWhenPublisherDown = (T: StorageTestBase) => {
     T.expect(message).to.equal("relay not connected")
     conn.Stop()
     deduper.Stop()
-    T.d("send fails closed when the outbound socket is down")
+    T.d("send fails closed when the relay is down")
 }
 
-const fakeRelay = (name: string) => {
+const fakeRelay = () => {
     const relay = {
         connected: true,
         published: 0,
-        name,
         publish() {
             relay.published++
             return Promise.resolve("")

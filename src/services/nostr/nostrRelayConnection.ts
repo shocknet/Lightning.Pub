@@ -73,7 +73,6 @@ export class RelayConnection {
     eventCallback: RelayCallback
     log: PubLogger
     relay: Relay | null = null
-    publisher: Relay | null = null
     sub: Subscription | null = null
     stopped = false
     settings: RelaySettings
@@ -85,7 +84,6 @@ export class RelayConnection {
         this.eventsDeduper = deduper
         if (autoconnect) {
             this.ConnectLoop()
-            this.OutboundLoop()
         }
     }
 
@@ -97,9 +95,7 @@ export class RelayConnection {
         this.stopped = true
         this.sub?.close()
         this.relay?.close()
-        this.publisher?.close()
         this.relay = null
-        this.publisher = null
         this.sub = null
     }
 
@@ -182,50 +178,11 @@ export class RelayConnection {
         })
     }
 
-    async OutboundLoop() {
-        let failures = 0
-        while (!this.stopped) {
-            const relay = await this.GetRelay()
-            if (this.stopped) {
-                relay?.close()
-                break
-            }
-            if (relay) {
-                this.publisher = relay
-                failures = 0
-                await untilClosed(relay)
-                if (this.publisher === relay) {
-                    this.publisher = null
-                }
-            }
-            if (this.stopped) {
-                break
-            }
-            const delay = Math.min(Math.pow(2, failures), 900)
-            this.log("outbound connection failed, will try again in", delay, "seconds (failures:", failures, ")")
-            await sleep(delay * 1000)
-            failures++
-        }
-    }
-
     Send(e: Event) {
-        if (!this.publisher?.connected) {
+        if (!this.relay?.connected) {
             throw new Error("relay not connected")
         }
-        return this.publisher.publish(e)
+        return this.relay.publish(e)
     }
 }
-
-const untilClosed = (relay: Relay) => new Promise<void>(resolve => {
-    relay.onclose = () => {
-        relay.onclose = null
-        resolve()
-    }
-    if (!relay.connected) {
-        relay.onclose = null
-        resolve()
-    }
-})
-
-const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms))
 
