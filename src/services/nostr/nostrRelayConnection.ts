@@ -218,7 +218,7 @@ export class RelayConnection {
 
 const untilClosed = (relay: Relay) => new Promise<void>(resolve => {
     relay.onclose = () => {
-        relay.onclose = nulln
+        relay.onclose = null
         resolve()
     }
     if (!relay.connected) {
