@@ -179,7 +179,7 @@ export class RelayConnection {
     }
 
     Send(e: Event) {
-        if (!this.relay) {
+        if (!this.relay?.connected) {
             throw new Error("relay not connected")
         }
         return this.relay.publish(e)
