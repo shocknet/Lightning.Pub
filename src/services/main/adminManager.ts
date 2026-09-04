@@ -321,10 +321,10 @@ export class AdminManager {
     ListPeers = async (): Promise<Types.LndPeers> => {
         const [peerRes, chanRes] = await Promise.all([
             this.lnd.ListPeers(),
-            this.lnd.ListChannels(true),
+            this.lnd.ListChannels(),
         ])
         const channelAlias = aliasByRemotePubkey(chanRes.channels || [])
-        const peers = await Promise.all((peerRes.peers || []).map((peer) => this.toListedPeer(peer, channelAlias)))
+        const peers = (peerRes.peers || []).map((peer) => this.toListedPeer(peer, channelAlias))
         return { peers }
     }
 
@@ -418,22 +418,18 @@ export class AdminManager {
         return pickDefaultApp(apps, name)
     }
 
-    private toListedPeer = async (
+    private toListedPeer = (
         peer: { pubKey: string; address: string; inbound: boolean; satSent: bigint; satRecv: bigint },
         channelAlias: Map<string, string>,
-    ): Promise<Types.LndPeer> => {
-        const fromChannel = channelAlias.get(peer.pubKey) || ""
-        const alias = fromChannel || await this.lnd.GetNodeAlias(peer.pubKey)
-        return {
-            pubkey: peer.pubKey,
-            address: peer.address,
-            inbound: peer.inbound,
-            sats_sent: Number(peer.satSent),
-            sats_recv: Number(peer.satRecv),
-            alias,
-            has_channel: channelAlias.has(peer.pubKey),
-        }
-    }
+    ): Types.LndPeer => ({
+        pubkey: peer.pubKey,
+        address: peer.address,
+        inbound: peer.inbound,
+        sats_sent: Number(peer.satSent),
+        sats_recv: Number(peer.satRecv),
+        alias: channelAlias.get(peer.pubKey) || "",
+        has_channel: channelAlias.has(peer.pubKey),
+    })
 
     async UpdateChannelPolicy(req: Types.UpdateChannelPolicyRequest): Promise<void> {
         const chanPoint = req.update.type === Types.UpdateChannelPolicyRequest_update_type.CHANNEL_POINT ? req.update.channel_point : ""

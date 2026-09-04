@@ -353,10 +353,6 @@ export default class Handler {
         }
     }
 
-    private async channelPeerLabel(channel: Channel): Promise<string> {
-        if (channel.peerAlias) return channel.peerAlias
-        return this.lnd.GetNodeAlias(channel.remotePubkey)
-    }
     async GetPendingChannelsInfo() {
         const { pendingForceClosingChannels, pendingOpenChannels } = await this.lnd.ListPendingChannels()
         return { totalPendingClose: pendingForceClosingChannels.length, totalPendingOpen: pendingOpenChannels.length }
@@ -446,7 +442,7 @@ export default class Handler {
                 offline_channels: totalInactive,
                 online_channels: totalActive,
                 closed_channels: closed,
-                open_channels: await Promise.all(openChannels.map(async c => ({
+                open_channels: openChannels.map(c => ({
                     channel_point: c.channelPoint,
                     active: c.active,
                     capacity: Number(c.capacity),
@@ -454,9 +450,9 @@ export default class Handler {
                     lifetime: Number(c.lifetime),
                     local_balance: Number(c.localBalance),
                     remote_balance: Number(c.remoteBalance),
-                    label: await this.channelPeerLabel(c),
+                    label: c.peerAlias,
                     inactive_since_unix: resolveInactiveSince(c.active, String(c.chanId), channelsActivity),
-                }))),
+                })),
                 forwarding_events: totalEvents,
                 forwarding_fees: totalFees,
                 root_ops: rootOps.map(r => ({ amount: r.operation_amount, created_at_unix: r.at_unix || 0, op_id: r.operation_identifier, op_type: mapRootOpType(r.operation_type) })),

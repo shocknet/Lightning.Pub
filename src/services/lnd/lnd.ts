@@ -926,19 +926,6 @@ export default class {
         return res.response.utxos || []
     }
 
-    async GetNodeAlias(pubkey: string): Promise<string> {
-        try {
-            const { response } = await this.lightning.getNodeInfo({
-                pubKey: pubkey,
-                includeChannels: false,
-                includeAuthProof: false,
-            }, DeadLineMetadata())
-            return response.node?.alias || ""
-        } catch {
-            return ""
-        }
-    }
-
     async OpenChannel(destination: string, closeAddress: string, fundingAmount: number, pushSats: number, satsPerVByte: number): Promise<OpenStatusUpdate> {
         this.log(DEBUG, "Opening channel")
         const abortController = new AbortController()
