@@ -237,27 +237,23 @@ export class NostrPool {
             return true
         } catch (e: any) {
             const reason = e?.message || String(e)
-            this.log(ERROR, `Failed to publish Kind ${event.kind} event to ${url}:`, reason)
+            this.log(ERROR, `Failed to publish Kind ${event.kind} event to ${url}:`, reason, `bytes=${event.content.length}`)
             log(reason)
             return false
         }
     }
 
     private async publishEvent(url: string, event: Event): Promise<void> {
-        const connected = this.connectedRelay(url)
-        if (connected) {
-            await connected.Send(event)
+        const known = this.relayByUrl(url)
+        if (known) {
+            await known.Send(event)
             return
         }
         await this.publishViaNewPool(url, event)
     }
 
-    private connectedRelay(url: string): RelayConnection | undefined {
-        const relay = this.relays[url] || Object.values(this.relays).find(r => r.GetUrl() === url)
-        if (relay?.IsConnected()) {
-            return relay
-        }
-        return undefined
+    private relayByUrl(url: string): RelayConnection | undefined {
+        return this.relays[url] || Object.values(this.relays).find(r => r.GetUrl() === url)
     }
 
     private async publishViaNewPool(url: string, event: Event): Promise<void> {
