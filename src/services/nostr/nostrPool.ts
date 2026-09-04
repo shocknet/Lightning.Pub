@@ -2,12 +2,11 @@ import WebSocket from 'ws'
 Object.assign(global, { WebSocket: WebSocket });
 import crypto from 'crypto'
 import { SimplePool, Event, UnsignedEvent, finalizeEvent, nip44, verifyEvent } from 'nostr-tools'
-import { ERROR, getLogger, PubLogger } from '../helpers/logger.js'
+import { ERROR, getLogger } from '../helpers/logger.js'
 import { nip19 } from 'nostr-tools'
 import { encrypt as encryptV1, decrypt as decryptV1, getSharedSecret as getConversationKeyV1 } from './nip44v1.js'
 import { RelayConnection, RelaySettings, PartialFilter, EventsDeduper } from './nostrRelayConnection.js'
 import { CLINK_ACTION_KINDS, CLINK_BEACON_KIND, LEGACY_BEACON_D_TAG } from '../helpers/clinkConstants.js'
-import { toNip01Event } from './nip01Event.js'
 const { nprofileEncode } = nip19
 const { v2 } = nip44
 const { encrypt: encryptV2, decrypt: decryptV2, utils } = v2
@@ -217,51 +216,26 @@ export class NostrPool {
     }
 
     private async sendEvent(event: UnsignedEvent, keys: { name: string, privateKey: string }, relays: string[]) {
-        const signed = toNip01Event(finalizeEvent(event, Buffer.from(keys.privateKey, 'hex')))
+        const signed = finalizeEvent(event, Buffer.from(keys.privateKey, 'hex'))
+        let sent = false
         const log = getLogger({ appName: keys.name })
-        if (relays.length === 0) {
-            this.log(ERROR, `Failed to send Kind ${event.kind} event: no relays`)
-            return
-        }
-        const results = await Promise.all(relays.map(url => this.publishToRelay(url, signed, log)))
-        if (!results.some(Boolean)) {
-            this.log(ERROR, `Failed to send Kind ${event.kind} event to any relay`)
-            log("failed to send event")
-        }
-    }
-
-    private async publishToRelay(url: string, event: Event, log: PubLogger): Promise<boolean> {
-        try {
-            await this.publishEvent(url, event)
-            return true
-        } catch (e: any) {
-            const reason = e?.message || String(e)
-            this.log(ERROR, `Failed to publish Kind ${event.kind} event to ${url}:`, reason, `bytes=${event.content.length}`)
-            log(reason)
-            return false
-        }
-    }
-
-    private async publishEvent(url: string, event: Event): Promise<void> {
-        const known = this.relayByUrl(url)
-        if (known) {
-            await known.Send(event)
-            return
-        }
-        await this.publishViaNewPool(url, event)
-    }
-
-    private relayByUrl(url: string): RelayConnection | undefined {
-        return this.relays[url] || Object.values(this.relays).find(r => r.GetUrl() === url)
-    }
-
-    private async publishViaNewPool(url: string, event: Event): Promise<void> {
         const pool = new SimplePool()
         try {
-            const [published] = pool.publish([url], event)
-            await published
+            await Promise.all(pool.publish(relays, signed).map(async p => {
+                try {
+                    await p
+                    sent = true
+                } catch (e: any) {
+                    this.log(ERROR, `Failed to publish Kind ${event.kind} event:`, e.message || e)
+                    log(e)
+                }
+            }))
+            if (!sent) {
+                this.log(ERROR, `Failed to send Kind ${event.kind} event to any relay`)
+                log("failed to send event")
+            }
         } finally {
-            pool.close([url])
+            pool.close(relays)
         }
     }
 

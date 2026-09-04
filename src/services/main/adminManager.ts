@@ -14,7 +14,7 @@ import { UserReceivingInvoice } from "../storage/entity/UserReceivingInvoice.js"
 import { UserTransactionPayment } from "../storage/entity/UserTransactionPayment.js";
 import { TrackedProvider } from "../storage/entity/TrackedProvider.js";
 import { NodeInfo } from "../lnd/settings.js";
-import { Invoice, Payment, OutputDetail, Transaction, Payment_PaymentStatus, Invoice_InvoiceState } from "../../../proto/lnd/lightning.js";
+import { Channel, Invoice, Payment, OutputDetail, Transaction, Payment_PaymentStatus, Invoice_InvoiceState } from "../../../proto/lnd/lightning.js";
 import { LiquidityProvider } from "./liquidityProvider.js";
 import { clampPageLimit, DEFAULT_LND_PAGE_SIZE, DEFAULT_PAGE_SIZE, MAX_LIQUIDITY_PAGE_SIZE, MAX_PAGE_SIZE } from "../helpers/pageLimit.js";
 import {
@@ -274,22 +274,28 @@ export class AdminManager {
         const { channels } = await this.lnd.ListChannels(true)
         const { identityPubkey } = await this.lnd.GetInfo()
         const activity = await this.storage.metricsStorage.GetChannelsActivity()
-        const openChannels = await Promise.all(channels.map(async c => ({
-            channel_point: c.channelPoint,
-            active: c.active,
-            capacity: Number(c.capacity),
-            local_balance: Number(c.localBalance),
-            remote_balance: Number(c.remoteBalance),
-            channel_id: c.chanId,
-            label: c.peerAlias || c.remotePubkey,
-            lifetime: Number(c.lifetime),
-            policy: await this.policyForChannel(c.chanId, identityPubkey),
-            inactive_since_unix: resolveInactiveSince(c.active, c.chanId, activity),
-        })))
-        return {
-            open_channels: openChannels
-        }
+        const openChannels = await Promise.all(
+            channels.map(c => this.toOpenChannel(c, identityPubkey, activity)),
+        )
+        return { open_channels: openChannels }
     }
+
+    private toOpenChannel = async (
+        c: Channel,
+        identityPubkey: string,
+        activity: Record<string, number>,
+    ): Promise<Types.OpenChannel> => ({
+        channel_point: c.channelPoint,
+        active: c.active,
+        capacity: Number(c.capacity),
+        local_balance: Number(c.localBalance),
+        remote_balance: Number(c.remoteBalance),
+        channel_id: c.chanId,
+        label: c.peerAlias || c.remotePubkey,
+        lifetime: Number(c.lifetime),
+        policy: await this.policyForChannel(c.chanId, identityPubkey),
+        inactive_since_unix: resolveInactiveSince(c.active, c.chanId, activity),
+    })
 
     private policyForChannel = async (chanId: string, identityPubkey: string): Promise<Types.ChannelPolicy | undefined> => {
         try {

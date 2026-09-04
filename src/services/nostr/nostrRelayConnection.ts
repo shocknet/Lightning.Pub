@@ -1,7 +1,7 @@
 import WebSocket from 'ws'
 Object.assign(global, { WebSocket: WebSocket });
 import { Event, UnsignedEvent, Relay, Filter } from 'nostr-tools'
-import { ERROR, getLogger, PubLogger } from '../helpers/logger.js'
+import { getLogger, PubLogger } from '../helpers/logger.js'
 import { Subscription } from 'nostr-tools/lib/types/abstract-relay.js';
 
 type RelayCallback = (event: Event, relay: RelayConnection) => void
@@ -179,7 +179,7 @@ export class RelayConnection {
     }
 
     Send(e: Event) {
-        if (!this.relay?.connected) {
+        if (!this.relay) {
             throw new Error("relay not connected")
         }
         return this.relay.publish(e)
