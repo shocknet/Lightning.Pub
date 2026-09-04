@@ -29,14 +29,6 @@ export default class {
         //return executedMigrations;
     }
 
-    async FlagActiveChannel(chanId: string) {
-        await this.MarkChannelsSeen([chanId])
-    }
-
-    async FlagInactiveChannel(chanId: string) {
-        await this.MarkChannelsSeen([chanId])
-    }
-
     async MarkChannelsSeen(chanIds: string[], debounceSec = 0) {
         const unique = [...new Set(chanIds.filter(id => !!id))]
         if (unique.length === 0) return

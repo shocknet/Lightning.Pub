@@ -63,14 +63,14 @@ export default class Handler {
             if (!channel) {
                 return
             }
-            await this.storage.metricsStorage.FlagInactiveChannel(channel.chanId)
+            await this.storage.metricsStorage.MarkChannelsSeen([channel.chanId])
             return
         } else if (event.channel.oneofKind === 'activeChannel') {
             const channel = this.getRelevantChannel(event.channel.activeChannel, channels)
             if (!channel) {
                 return
             }
-            await this.storage.metricsStorage.FlagActiveChannel(channel.chanId)
+            await this.storage.metricsStorage.MarkChannelsSeen([channel.chanId])
             return
         }
     }

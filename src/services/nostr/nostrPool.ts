@@ -1,11 +1,10 @@
 import WebSocket from 'ws'
 Object.assign(global, { WebSocket: WebSocket });
 import crypto from 'crypto'
-import { SimplePool, Event, UnsignedEvent, finalizeEvent, Relay, nip44, Filter, verifyEvent } from 'nostr-tools'
+import { SimplePool, Event, UnsignedEvent, finalizeEvent, nip44, verifyEvent } from 'nostr-tools'
 import { ERROR, getLogger, PubLogger } from '../helpers/logger.js'
 import { nip19 } from 'nostr-tools'
 import { encrypt as encryptV1, decrypt as decryptV1, getSharedSecret as getConversationKeyV1 } from './nip44v1.js'
-import { Subscription } from 'nostr-tools/lib/types/abstract-relay.js';
 import { RelayConnection, RelaySettings, PartialFilter, EventsDeduper } from './nostrRelayConnection.js'
 import { CLINK_ACTION_KINDS, CLINK_BEACON_KIND, LEGACY_BEACON_D_TAG } from '../helpers/clinkConstants.js'
 import { toNip01Event } from './nip01Event.js'
