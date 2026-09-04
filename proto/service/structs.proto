@@ -1186,6 +1186,8 @@ message AdminNodeSettings {
     bool node_name_env_locked = 5;
     bool automate_liquidity_env_locked = 6;
     bool backups_env_locked = 7;
+    int64 lsp_channel_threshold = 8;
+    bool lsp_threshold_env_locked = 9;
 }
 
 message UpdateAdminNodeSettingsRequest {
@@ -1193,6 +1195,7 @@ message UpdateAdminNodeSettingsRequest {
     string avatar_url = 2;
     bool automate_liquidity = 3;
     bool push_backups_to_nostr = 4;
+    int64 lsp_channel_threshold = 5;
 }
 
 

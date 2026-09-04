@@ -33,7 +33,7 @@ import { ShockPushNotification } from '../ShockPush/index.js'
 import { PaymentSideEffects } from "./paymentSideEffects.js"
 import { AddressReceivingTransaction } from '../storage/entity/AddressReceivingTransaction.js'
 import { EnrollManager } from "./enrollManager.js"
-import { buildClinkBeaconContent, buildClinkBeaconEvent, buildLegacyBeaconEvent, operatorPubkeyHex } from "../helpers/clinkBeacon.js"
+import { buildClinkBeaconContent, buildServiceBeaconEvent, operatorPubkeyHex } from "../helpers/clinkBeacon.js"
 import { pickDefaultApp } from "./adminNodeSettings.js"
 import { isHttpsAvatarUrl } from "../helpers/httpsAvatarUrl.js"
 type UserOperationsSub = {
@@ -333,8 +333,6 @@ export default class {
         const avatarUrl = content.avatarUrl && isHttpsAvatarUrl(content.avatarUrl) ? content.avatarUrl : undefined
         const safeContent = { ...content, avatarUrl }
         const sender = { type: 'app' as const, appId: app.app_id }
-        this.utils.nostrSender.Send(sender, { type: 'event', event: buildLegacyBeaconEvent(app.nostr_public_key, safeContent) })
-
         const nostr = this.settings.getSettings().nostrRelaySettings
         const clinkContent = buildClinkBeaconContent({
             app,
@@ -347,7 +345,7 @@ export default class {
         const operatorHex = operatorPubkeyHex(nostr.operatorNpub)
         this.utils.nostrSender.Send(sender, {
             type: 'event',
-            event: buildClinkBeaconEvent(app.nostr_public_key, clinkContent, operatorHex),
+            event: buildServiceBeaconEvent(app.nostr_public_key, safeContent, clinkContent, operatorHex),
         })
     }
 

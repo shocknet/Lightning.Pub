@@ -36,16 +36,6 @@ export const operatorPubkeyHex = (npubOrHex: string): string | undefined => {
     return undefined
 }
 
-export const buildLegacyBeaconEvent = (pubkey: string, content: Types.BeaconData): UnsignedEvent => {
-    return {
-        content: JSON.stringify(content),
-        created_at: Math.floor(Date.now() / 1000),
-        kind: CLINK_BEACON_KIND,
-        pubkey,
-        tags: [["d", LEGACY_BEACON_D_TAG]],
-    }
-}
-
 export const buildClinkBeaconContent = (args: {
     app: Application
     relays: string[]
@@ -81,8 +71,14 @@ export const buildClinkBeaconContent = (args: {
     return content
 }
 
-export const buildClinkBeaconEvent = (pubkey: string, content: ClinkBeaconContent, operatorHex?: string): UnsignedEvent => {
+export const buildServiceBeaconEvent = (
+    pubkey: string,
+    beacon: Types.BeaconData,
+    clink: ClinkBeaconContent,
+    operatorHex?: string,
+): UnsignedEvent => {
     const tags: string[][] = [
+        ["d", LEGACY_BEACON_D_TAG],
         ["d", CLINK_BEACON_D_TAG],
         ["clink_version", CLINK_VERSION],
     ]
@@ -90,7 +86,14 @@ export const buildClinkBeaconEvent = (pubkey: string, content: ClinkBeaconConten
         tags.push(["operator", operatorHex])
     }
     return {
-        content: JSON.stringify(content),
+        content: JSON.stringify({
+            ...beacon,
+            relays: clink.relays,
+            website: clink.website,
+            description: clink.description,
+            enroll_difficulty: clink.enroll_difficulty,
+            supported_kinds: clink.supported_kinds,
+        }),
         created_at: Math.floor(Date.now() / 1000),
         kind: CLINK_BEACON_KIND,
         pubkey,

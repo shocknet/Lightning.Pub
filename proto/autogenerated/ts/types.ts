@@ -770,6 +770,8 @@ export type AdminNodeSettings = {
     automate_liquidity_env_locked: boolean
     avatar_url: string
     backups_env_locked: boolean
+    lsp_channel_threshold: number
+    lsp_threshold_env_locked: boolean
     node_name: string
     node_name_env_locked: boolean
     push_backups_to_nostr: boolean
@@ -781,6 +783,8 @@ export type AdminNodeSettingsOptions = OptionsBaseMessage & {
     automate_liquidity_env_locked_CustomCheck?: (v: boolean) => boolean
     avatar_url_CustomCheck?: (v: string) => boolean
     backups_env_locked_CustomCheck?: (v: boolean) => boolean
+    lsp_channel_threshold_CustomCheck?: (v: number) => boolean
+    lsp_threshold_env_locked_CustomCheck?: (v: boolean) => boolean
     node_name_CustomCheck?: (v: string) => boolean
     node_name_env_locked_CustomCheck?: (v: boolean) => boolean
     push_backups_to_nostr_CustomCheck?: (v: boolean) => boolean
@@ -800,6 +804,12 @@ export const AdminNodeSettingsValidate = (o?: AdminNodeSettings, opts: AdminNode
 
     if (typeof o.backups_env_locked !== 'boolean') return new Error(`${path}.backups_env_locked: is not a boolean`)
     if (opts.backups_env_locked_CustomCheck && !opts.backups_env_locked_CustomCheck(o.backups_env_locked)) return new Error(`${path}.backups_env_locked: custom check failed`)
+
+    if (typeof o.lsp_channel_threshold !== 'number') return new Error(`${path}.lsp_channel_threshold: is not a number`)
+    if (opts.lsp_channel_threshold_CustomCheck && !opts.lsp_channel_threshold_CustomCheck(o.lsp_channel_threshold)) return new Error(`${path}.lsp_channel_threshold: custom check failed`)
+
+    if (typeof o.lsp_threshold_env_locked !== 'boolean') return new Error(`${path}.lsp_threshold_env_locked: is not a boolean`)
+    if (opts.lsp_threshold_env_locked_CustomCheck && !opts.lsp_threshold_env_locked_CustomCheck(o.lsp_threshold_env_locked)) return new Error(`${path}.lsp_threshold_env_locked: custom check failed`)
 
     if (typeof o.node_name !== 'string') return new Error(`${path}.node_name: is not a string`)
     if (opts.node_name_CustomCheck && !opts.node_name_CustomCheck(o.node_name)) return new Error(`${path}.node_name: custom check failed`)
@@ -5554,6 +5564,7 @@ export const TxSwapsListValidate = (o?: TxSwapsList, opts: TxSwapsListOptions = 
 export type UpdateAdminNodeSettingsRequest = {
     automate_liquidity: boolean
     avatar_url: string
+    lsp_channel_threshold: number
     node_name: string
     push_backups_to_nostr: boolean
 }
@@ -5562,6 +5573,7 @@ export type UpdateAdminNodeSettingsRequestOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: []
     automate_liquidity_CustomCheck?: (v: boolean) => boolean
     avatar_url_CustomCheck?: (v: string) => boolean
+    lsp_channel_threshold_CustomCheck?: (v: number) => boolean
     node_name_CustomCheck?: (v: string) => boolean
     push_backups_to_nostr_CustomCheck?: (v: boolean) => boolean
 }
@@ -5574,6 +5586,9 @@ export const UpdateAdminNodeSettingsRequestValidate = (o?: UpdateAdminNodeSettin
 
     if (typeof o.avatar_url !== 'string') return new Error(`${path}.avatar_url: is not a string`)
     if (opts.avatar_url_CustomCheck && !opts.avatar_url_CustomCheck(o.avatar_url)) return new Error(`${path}.avatar_url: custom check failed`)
+
+    if (typeof o.lsp_channel_threshold !== 'number') return new Error(`${path}.lsp_channel_threshold: is not a number`)
+    if (opts.lsp_channel_threshold_CustomCheck && !opts.lsp_channel_threshold_CustomCheck(o.lsp_channel_threshold)) return new Error(`${path}.lsp_channel_threshold: custom check failed`)
 
     if (typeof o.node_name !== 'string') return new Error(`${path}.node_name: is not a string`)
     if (opts.node_name_CustomCheck && !opts.node_name_CustomCheck(o.node_name)) return new Error(`${path}.node_name: custom check failed`)

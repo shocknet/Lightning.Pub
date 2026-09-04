@@ -138,6 +138,8 @@ type AdminNodeSettings struct {
 	Automate_liquidity_env_locked bool   `json:"automate_liquidity_env_locked"`
 	Avatar_url                    string `json:"avatar_url"`
 	Backups_env_locked            bool   `json:"backups_env_locked"`
+	Lsp_channel_threshold         int64  `json:"lsp_channel_threshold"`
+	Lsp_threshold_env_locked      bool   `json:"lsp_threshold_env_locked"`
 	Node_name                     string `json:"node_name"`
 	Node_name_env_locked          bool   `json:"node_name_env_locked"`
 	Push_backups_to_nostr         bool   `json:"push_backups_to_nostr"`
@@ -927,6 +929,7 @@ type TxSwapsList struct {
 type UpdateAdminNodeSettingsRequest struct {
 	Automate_liquidity    bool   `json:"automate_liquidity"`
 	Avatar_url            string `json:"avatar_url"`
+	Lsp_channel_threshold int64  `json:"lsp_channel_threshold"`
 	Node_name             string `json:"node_name"`
 	Push_backups_to_nostr bool   `json:"push_backups_to_nostr"`
 }

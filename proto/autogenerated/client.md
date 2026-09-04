@@ -1262,6 +1262,8 @@ The nostr server will send back a message response, and inside the body there wi
   - __automate_liquidity_env_locked__: _boolean_
   - __avatar_url__: _string_
   - __backups_env_locked__: _boolean_
+  - __lsp_channel_threshold__: _number_
+  - __lsp_threshold_env_locked__: _boolean_
   - __node_name__: _string_
   - __node_name_env_locked__: _boolean_
   - __push_backups_to_nostr__: _boolean_
@@ -2051,6 +2053,7 @@ The nostr server will send back a message response, and inside the body there wi
 ### UpdateAdminNodeSettingsRequest
   - __automate_liquidity__: _boolean_
   - __avatar_url__: _string_
+  - __lsp_channel_threshold__: _number_
   - __node_name__: _string_
   - __push_backups_to_nostr__: _boolean_
 

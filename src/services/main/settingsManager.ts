@@ -126,6 +126,21 @@ export default class SettingsManager {
         return true
     }
 
+    async updateLspChannelThreshold(threshold: number): Promise<boolean> {
+        if (!this.settings) {
+            throw new Error("Settings not initialized")
+        }
+        if (threshold === this.settings.lspSettings.channelThreshold) {
+            return false
+        }
+        if (!!process.env.LSP_CHANNEL_THRESHOLD) {
+            return false
+        }
+        await this.storage.settingsStorage.setDbEnvIFNeeded("LSP_CHANNEL_THRESHOLD", String(threshold))
+        this.settings.lspSettings.channelThreshold = threshold
+        return true
+    }
+
 
 
     async updatePushBackupsToNostr(push: boolean): Promise<boolean> {

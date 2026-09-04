@@ -20,8 +20,10 @@ import { clampPageLimit, DEFAULT_LND_PAGE_SIZE, DEFAULT_PAGE_SIZE, MAX_LIQUIDITY
 import {
     ADMIN_AUTOMATION_ENV,
     ADMIN_BACKUPS_ENV,
+    ADMIN_LSP_THRESHOLD_ENV,
     ADMIN_NODE_NAME_ENV,
     assertAvatarUrl,
+    assertLspThreshold,
     assertNodeName,
     automationEnabled,
     disableLiquidityFromAutomation,
@@ -66,6 +68,11 @@ type ProviderAssetProvider = {
 } */
 const ROOT_OP = Types.TrackedOperationType.ROOT
 const USER_OP = Types.TrackedOperationType.USER
+
+const untrackedLiquidityAsset = (pubkey: string): Types.LiquidityAssetProviderV2 => ({
+    pubkey,
+    tracked: undefined,
+})
 export class AdminManager {
     settings: SettingsManager
     liquidityProvider: LiquidityProvider | null = null
@@ -336,6 +343,8 @@ export class AdminManager {
             node_name_env_locked: isEnvLocked(ADMIN_NODE_NAME_ENV),
             automate_liquidity_env_locked: isEnvLocked(ADMIN_AUTOMATION_ENV),
             backups_env_locked: isEnvLocked(ADMIN_BACKUPS_ENV),
+            lsp_channel_threshold: this.settings.getSettings().lspSettings.channelThreshold,
+            lsp_threshold_env_locked: isEnvLocked(ADMIN_LSP_THRESHOLD_ENV),
         }
     }
 
@@ -344,6 +353,7 @@ export class AdminManager {
         const name = trimNodeName(req.node_name)
         const avatar = trimAvatarUrl(req.avatar_url)
         assertAvatarUrl(avatar)
+        assertLspThreshold(req.lsp_channel_threshold)
         const current = await this.GetAdminNodeSettings()
         this.assertUnlockedChange(current, name, req)
 
@@ -370,6 +380,10 @@ export class AdminManager {
             this.liquidityProvider?.syncAfterSettingsChange()
         }
 
+        if (!current.lsp_threshold_env_locked) {
+            await this.settings.updateLspChannelThreshold(req.lsp_channel_threshold)
+        }
+
         if (!current.backups_env_locked) {
             await this.settings.updatePushBackupsToNostr(req.push_backups_to_nostr)
         }
@@ -387,6 +401,9 @@ export class AdminManager {
         }
         if (current.automate_liquidity_env_locked && req.automate_liquidity !== current.automate_liquidity) {
             throw new Error("automation is set in the environment")
+        }
+        if (current.lsp_threshold_env_locked && req.lsp_channel_threshold !== current.lsp_channel_threshold) {
+            throw new Error("LSP channel threshold is set in the environment")
         }
         if (current.backups_env_locked && req.push_backups_to_nostr !== current.push_backups_to_nostr) {
             throw new Error("channel backups are set in the environment")
@@ -600,32 +617,35 @@ export class AdminManager {
     }
 
     async GetProviderAssetsAndLiabilities(req: Types.AssetsAndLiabilitiesReqV2, provider: TrackedProvider): Promise<Types.LiquidityAssetProviderV2> {
-        if (!this.liquidityProvider) {
-            throw new Error("liquidity provider not attached")
+        const pubkey = provider.provider_pubkey
+        const lp = this.liquidityProvider
+        if (!this.canFetchLiquidityAssets(lp, pubkey)) {
+            return untrackedLiquidityAsset(pubkey)
         }
-        if (this.liquidityProvider.GetProviderPubkey() !== provider.provider_pubkey) {
-            return { pubkey: provider.provider_pubkey, tracked: undefined }
+        try {
+            return await this.fetchLiquidityAssets(req, provider, lp)
+        } catch (err: any) {
+            this.log("failed to fetch liquidity provider assets", err?.message || err)
+            return untrackedLiquidityAsset(pubkey)
         }
+    }
+
+    private canFetchLiquidityAssets(lp: LiquidityProvider | null, pubkey: string): lp is LiquidityProvider {
+        return !!lp && lp.IsReady() && lp.GetProviderPubkey() === pubkey
+    }
+
+    private async fetchLiquidityAssets(
+        req: Types.AssetsAndLiabilitiesReqV2,
+        provider: TrackedProvider,
+        lp: LiquidityProvider,
+    ): Promise<Types.LiquidityAssetProviderV2> {
         const filter = req.liquidity_providers.find(p => p.pubkey === provider.provider_pubkey)
         const incoming = filter?.latestIncomingInvoice
         const outgoing = filter?.latestOutgoingInvoice
         const limit = clampPageLimit(filter?.limit, DEFAULT_PAGE_SIZE, MAX_LIQUIDITY_PAGE_SIZE)
-        const providerOps = await this.liquidityProvider.GetOperations(incoming, outgoing, limit)
+        const providerOps = await lp.GetOperations(incoming, outgoing, limit)
         if (providerOps === 'timeout') {
-            const emptyPage: Types.LiquidityAssetOperationsPage = {
-                operations: [],
-                has_more: false,
-                timeout: true,
-            }
-            const balance = await this.liquidityProvider.GetUserState()
-            return {
-                pubkey: provider.provider_pubkey,
-                tracked: {
-                    balance: balance.status === 'OK' ? balance.balance : 0,
-                    payments: emptyPage,
-                    invoices: emptyPage,
-                }
-            }
+            return this.timedOutLiquidityAsset(provider.provider_pubkey, lp)
         }
         const invoices = await this.BuildLiquidityAssetOperationsPage(
             providerOps.latestIncomingInvoiceOperations,
@@ -637,13 +657,30 @@ export class AdminManager {
             limit,
             'payment',
         )
-        const balance = await this.liquidityProvider.GetUserState()
+        const balance = await lp.GetUserState()
         return {
             pubkey: provider.provider_pubkey,
             tracked: {
                 balance: balance.status === 'OK' ? balance.balance : 0,
                 payments,
                 invoices,
+            }
+        }
+    }
+
+    private async timedOutLiquidityAsset(pubkey: string, lp: LiquidityProvider): Promise<Types.LiquidityAssetProviderV2> {
+        const emptyPage: Types.LiquidityAssetOperationsPage = {
+            operations: [],
+            has_more: false,
+            timeout: true,
+        }
+        const balance = await lp.GetUserState()
+        return {
+            pubkey,
+            tracked: {
+                balance: balance.status === 'OK' ? balance.balance : 0,
+                payments: emptyPage,
+                invoices: emptyPage,
             }
         }
     }

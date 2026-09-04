@@ -1,7 +1,10 @@
 export const ADMIN_NODE_NAME_ENV = "DEFAULT_APP_NAME"
 export const ADMIN_AUTOMATION_ENV = "DISABLE_LIQUIDITY_PROVIDER"
 export const ADMIN_BACKUPS_ENV = "PUSH_BACKUPS_TO_NOSTR"
+export const ADMIN_LSP_THRESHOLD_ENV = "LSP_CHANNEL_THRESHOLD"
 export const MAX_NODE_NAME_LEN = 64
+export const DEFAULT_LSP_CHANNEL_THRESHOLD = 1_000_000
+export const MAX_LSP_CHANNEL_THRESHOLD = 100_000_000_000
 
 export const isEnvLocked = (key: string) => !!process.env[key]
 
@@ -9,6 +12,23 @@ export const isEnvLocked = (key: string) => !!process.env[key]
 export const automationEnabled = (disableLiquidityProvider: boolean) => !disableLiquidityProvider
 
 export const disableLiquidityFromAutomation = (automate: boolean) => !automate
+
+/** 0 skips auto LSP channel buys in shouldOpenChannel. */
+export const lspAutoBuyEnabled = (threshold: number) => threshold > 0
+
+export const persistLspThreshold = (autoBuy: boolean, threshold: number) => {
+    if (!autoBuy) return 0
+    return threshold > 0 ? threshold : DEFAULT_LSP_CHANNEL_THRESHOLD
+}
+
+export const isValidLspThreshold = (threshold: number) =>
+    Number.isSafeInteger(threshold) && threshold >= 0 && threshold <= MAX_LSP_CHANNEL_THRESHOLD
+
+export const assertLspThreshold = (threshold: number) => {
+    if (!isValidLspThreshold(threshold)) {
+        throw new Error("LSP channel threshold must be 0 or a sat amount")
+    }
+}
 
 export const defaultAppCandidates = (defaultAppName: string) => ["wallet", "wallet-test", defaultAppName]
 
