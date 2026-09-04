@@ -226,8 +226,6 @@ export class NostrPool {
         if (!results.some(Boolean)) {
             this.log(ERROR, `Failed to send Kind ${event.kind} event to any relay`)
             log("failed to send event")
-        } else {
-            log("sent event", "kind", signed.kind)
         }
     }
 

@@ -45,7 +45,7 @@ export default (serverMethods: Types.ServerMethods, mainHandler: Main, nostrSett
         let j: NostrRequest
         try {
             j = JSON.parse(event.content)
-            log("nostr event", j.rpcName || 'no rpc name', "kind", event.kind) 
+            //log("nostr event", j.rpcName || 'no rpc name') 
         } catch {
             log(ERROR, "invalid json event received", event.content)
             return
