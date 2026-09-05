@@ -12,6 +12,7 @@ import HtlcTracker from './htlcTracker.js'
 import { getLogger } from '../helpers/logger.js'
 import { encodeTLV, usageMetricsToTlv } from '../helpers/tlv.js'
 import { ChannelCloseSummary_ClosureType } from '../../../proto/lnd/lightning.js'
+import { resolveInactiveSince } from '../storage/metricsStorage.js'
 const cacheTTL = 1000 * 60 * 5 // 5 minutes
 export default class Handler {
 
@@ -27,6 +28,14 @@ export default class Handler {
         this.lnd = lnd
         this.htlcTracker = new HtlcTracker(this.storage)
 
+    }
+
+    async StampActiveChannels() {
+        const { channels } = await this.lnd.ListChannels()
+        await this.storage.metricsStorage.MarkChannelsSeen(
+            channels.filter(c => c.active).map(c => c.chanId),
+            60,
+        )
     }
 
     async GetProvidersDisruption(): Promise<Types.ProvidersDisruption> {
@@ -54,21 +63,22 @@ export default class Handler {
             if (!channel) {
                 return
             }
-            await this.storage.metricsStorage.FlagInactiveChannel(channel.chanId)
+            await this.storage.metricsStorage.MarkChannelsSeen([channel.chanId])
             return
         } else if (event.channel.oneofKind === 'activeChannel') {
             const channel = this.getRelevantChannel(event.channel.activeChannel, channels)
             if (!channel) {
                 return
             }
-            await this.storage.metricsStorage.FlagActiveChannel(channel.chanId)
+            await this.storage.metricsStorage.MarkChannelsSeen([channel.chanId])
             return
         }
     }
 
-    getRelevantChannel(c: ChannelPoint, channels: Channel[]) {
-        const point = `${c.fundingTxid}:${c.outputIndex}`
-        return channels.find(c => c.channelPoint === point)
+    getRelevantChannel(point: ChannelPoint, channels: Channel[]) {
+        const key = channelPointKey(point)
+        if (!key) return undefined
+        return channels.find(c => c.channelPoint.toLowerCase() === key)
     }
 
 
@@ -101,6 +111,14 @@ export default class Handler {
         }))
         await this.storage.metricsStorage.SaveBalanceEvents(balanceEvent, channelsEvents)
         await this.FetchLatestForwardingEvents()
+        try {
+            await this.storage.metricsStorage.MarkChannelsSeen(
+                balanceInfo.channelsBalance.filter(c => c.active).map(c => c.channelId),
+                60,
+            )
+        } catch (err: any) {
+            this.logger("failed to stamp channel last seen", err.message || err)
+        }
     }
 
     async FetchLatestForwardingEvents() {
@@ -320,7 +338,7 @@ export default class Handler {
     }
 
     async GetChannelsInfo() {
-        const { channels } = await this.lnd.ListChannels()
+        const { channels } = await this.lnd.ListChannels(true)
         let totalActive = 0
         let totalInactive = 0
         channels.forEach(c => {
@@ -334,6 +352,7 @@ export default class Handler {
             totalActive, totalInactive, openChannels: channels
         }
     }
+
     async GetPendingChannelsInfo() {
         const { pendingForceClosingChannels, pendingOpenChannels } = await this.lnd.ListPendingChannels()
         return { totalPendingClose: pendingForceClosingChannels.length, totalPendingOpen: pendingOpenChannels.length }
@@ -375,7 +394,7 @@ export default class Handler {
             this.lnd.ListClosedChannels(),
             this.storage.metricsStorage.GetChannelRouting({ from: req.from_unix, to: req.to_unix }),
             this.storage.metricsStorage.GetRootOperations({ from: req.from_unix, to: req.to_unix }),
-            this.storage.metricsStorage.GetChannelsActivity()
+            this.storage.metricsStorage.GetChannelsActivity(),
         ])
         const { openChannels, totalActive, totalInactive } = chansInfo
         const { totalPendingOpen, totalPendingClose } = pendingChansInfo
@@ -423,7 +442,17 @@ export default class Handler {
                 offline_channels: totalInactive,
                 online_channels: totalActive,
                 closed_channels: closed,
-                open_channels: openChannels.map(c => ({ channel_point: c.channelPoint, active: c.active, capacity: Number(c.capacity), channel_id: c.chanId, lifetime: Number(c.lifetime), local_balance: Number(c.localBalance), remote_balance: Number(c.remoteBalance), label: c.peerAlias, inactive_since_unix: channelsActivity[c.chanId] || 0 })),
+                open_channels: openChannels.map(c => ({
+                    channel_point: c.channelPoint,
+                    active: c.active,
+                    capacity: Number(c.capacity),
+                    channel_id: String(c.chanId),
+                    lifetime: Number(c.lifetime),
+                    local_balance: Number(c.localBalance),
+                    remote_balance: Number(c.remoteBalance),
+                    label: c.peerAlias,
+                    inactive_since_unix: resolveInactiveSince(c.active, String(c.chanId), channelsActivity),
+                })),
                 forwarding_events: totalEvents,
                 forwarding_fees: totalFees,
                 root_ops: rootOps.map(r => ({ amount: r.operation_amount, created_at_unix: r.at_unix || 0, op_id: r.operation_identifier, op_type: mapRootOpType(r.operation_type) })),
@@ -455,6 +484,22 @@ const mapRootOpType = (opType: string): Types.OperationType => {
 
         default: throw new Error("Unknown operation type")
     }
+}
+
+function channelPointKey(point: ChannelPoint): string {
+    const txid = fundingTxidHex(point)
+    if (!txid) return ""
+    return `${txid}:${point.outputIndex}`.toLowerCase()
+}
+
+function fundingTxidHex(point: ChannelPoint): string {
+    if (point.fundingTxid.oneofKind === "fundingTxidStr") {
+        return point.fundingTxid.fundingTxidStr
+    }
+    if (point.fundingTxid.oneofKind === "fundingTxidBytes") {
+        return Buffer.from(point.fundingTxid.fundingTxidBytes).reverse().toString("hex")
+    }
+    return ""
 }
 
 type CacheData<T> = {

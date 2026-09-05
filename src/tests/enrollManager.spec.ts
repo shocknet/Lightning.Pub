@@ -1,7 +1,7 @@
 import { decodeBech32 } from "@shocknet/clink-sdk"
 import { NostrEvent } from "../services/nostr/nostrPool.js"
 import { countLeadingZeroBits, enrollPowSatisfied, parseNip13Nonce } from "../services/helpers/nip13.js"
-import { buildClinkBeaconContent, buildClinkBeaconEvent, buildLegacyBeaconEvent, operatorPubkeyHex } from "../services/helpers/clinkBeacon.js"
+import { buildClinkBeaconContent, buildServiceBeaconEvent, operatorPubkeyHex } from "../services/helpers/clinkBeacon.js"
 import { CLINK_BEACON_D_TAG, CLINK_ENROLL_KIND, CLINK_VERSION, LEGACY_BEACON_D_TAG } from "../services/helpers/clinkConstants.js"
 import { EnrollManager } from "../services/main/enrollManager.js"
 import { EnrollRateLimiter, EnrollReplyGate } from "../services/helpers/enrollRateLimit.js"
@@ -105,10 +105,6 @@ const testEnrollReplyGateCapsPublishes = (T: StorageTestBase) => {
 
 const testBeaconBuilders = (T: StorageTestBase) => {
     T.d("starting testBeaconBuilders")
-    const legacy = buildLegacyBeaconEvent("ab".repeat(32), { type: "service", name: "wallet" })
-    T.expect(legacy.tags).to.deep.equal([["d", LEGACY_BEACON_D_TAG]])
-    T.expect(JSON.parse(legacy.content).type).to.equal("service")
-
     const app = { name: "wallet", avatar_url: "https://example.com/a.png" } as any
     const clinkContent = buildClinkBeaconContent({
         app,
@@ -122,20 +118,36 @@ const testBeaconBuilders = (T: StorageTestBase) => {
     T.expect(clinkContent.supported_kinds).to.include(CLINK_ENROLL_KIND)
     T.expect(clinkContent.website).to.equal("https://example.com")
     T.expect(clinkContent.description).to.equal("Short blurb")
+    T.expect(clinkContent.avatarUrl).to.equal("https://example.com/a.png")
+    const httpAvatar = buildClinkBeaconContent({
+        app: { name: "wallet", avatar_url: "http://insecure.example/a.png" } as any,
+        relays: ["wss://r"],
+        fees: { serviceFeeFloor: 0, serviceFeeBps: 0 },
+        enrollPowBits: 0,
+    })
+    T.expect(httpAvatar.avatarUrl).to.equal(undefined)
     const noPow = buildClinkBeaconContent({ app, relays: ["wss://r"], fees: { serviceFeeFloor: 0, serviceFeeBps: 0 }, enrollPowBits: 0 })
     T.expect(noPow.enroll_difficulty).to.equal(undefined)
     T.expect(noPow.website).to.equal(undefined)
     T.expect(noPow.description).to.equal(undefined)
 
-    const clink = buildClinkBeaconEvent("ab".repeat(32), clinkContent, "cd".repeat(32))
-    T.expect(clink.tags.find(t => t[0] === "d")?.[1]).to.equal(CLINK_BEACON_D_TAG)
-    T.expect(clink.tags.find(t => t[0] === "clink_version")?.[1]).to.equal(CLINK_VERSION)
-    T.expect(clink.tags.find(t => t[0] === "operator")?.[1]).to.equal("cd".repeat(32))
-    const noOperator = buildClinkBeaconEvent("ab".repeat(32), clinkContent)
+    const beacon = buildServiceBeaconEvent(
+        "ab".repeat(32),
+        { type: "service", name: "wallet" },
+        clinkContent,
+        "cd".repeat(32),
+    )
+    T.expect(beacon.tags.filter(t => t[0] === "d").map(t => t[1])).to.deep.equal([LEGACY_BEACON_D_TAG, CLINK_BEACON_D_TAG])
+    T.expect(beacon.tags.find(t => t[0] === "clink_version")?.[1]).to.equal(CLINK_VERSION)
+    T.expect(beacon.tags.find(t => t[0] === "operator")?.[1]).to.equal("cd".repeat(32))
+    const parsed = JSON.parse(beacon.content)
+    T.expect(parsed.type).to.equal("service")
+    T.expect(parsed.enroll_difficulty).to.equal(18)
+    const noOperator = buildServiceBeaconEvent("ab".repeat(32), { type: "service", name: "wallet" }, clinkContent)
     T.expect(noOperator.tags.find(t => t[0] === "operator")).to.equal(undefined)
     T.expect(operatorPubkeyHex("AB".repeat(32))).to.equal("ab".repeat(32))
     T.expect(operatorPubkeyHex("")).to.equal(undefined)
-    T.d("beacon builders emit legacy d-tag and clink-node with version")
+    T.d("one service beacon carries Lightning.Pub and clink-node d-tags")
 }
 
 const testEnrollCreatesAccountAndPointers = async (h: Harness) => {

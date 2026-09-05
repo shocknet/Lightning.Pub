@@ -23,8 +23,8 @@ export type RequestContext = {
 export type AdminContext = {
     admin_id: string
 }
-export type AdminMethodInputs = AddApp_Input | AddPeer_Input | AuthApp_Input | BanUser_Input | BumpTx_Input | CloseChannel_Input | CreateOneTimeInviteLink_Input | GetAdminInvoiceSwapQuotes_Input | GetAdminTransactionSwapQuotes_Input | GetAssetsAndLiabilities_Input | GetAssetsAndLiabilitiesV2_Input | GetInviteLinkState_Input | GetSeed_Input | GetUserOperationsFromAdmin_Input | GetUsersAdminInfo_Input | ListAdminInvoiceSwaps_Input | ListAdminTxSwaps_Input | ListChannels_Input | LndGetInfo_Input | OpenChannel_Input | PayAdminInvoiceSwap_Input | PayAdminTransactionSwap_Input | RefundAdminInvoiceSwap_Input | UpdateChannelPolicy_Input
-export type AdminMethodOutputs = AddApp_Output | AddPeer_Output | AuthApp_Output | BanUser_Output | BumpTx_Output | CloseChannel_Output | CreateOneTimeInviteLink_Output | GetAdminInvoiceSwapQuotes_Output | GetAdminTransactionSwapQuotes_Output | GetAssetsAndLiabilities_Output | GetAssetsAndLiabilitiesV2_Output | GetInviteLinkState_Output | GetSeed_Output | GetUserOperationsFromAdmin_Output | GetUsersAdminInfo_Output | ListAdminInvoiceSwaps_Output | ListAdminTxSwaps_Output | ListChannels_Output | LndGetInfo_Output | OpenChannel_Output | PayAdminInvoiceSwap_Output | PayAdminTransactionSwap_Output | RefundAdminInvoiceSwap_Output | UpdateChannelPolicy_Output
+export type AdminMethodInputs = AddApp_Input | AddPeer_Input | AuthApp_Input | BanUser_Input | BumpTx_Input | CloseChannel_Input | CreateOneTimeInviteLink_Input | GetAdminInvoiceSwapQuotes_Input | GetAdminNodeSettings_Input | GetAdminTransactionSwapQuotes_Input | GetAssetsAndLiabilities_Input | GetAssetsAndLiabilitiesV2_Input | GetInviteLinkState_Input | GetSeed_Input | GetUserOperationsFromAdmin_Input | GetUsersAdminInfo_Input | ListAdminInvoiceSwaps_Input | ListAdminTxSwaps_Input | ListChannels_Input | ListPeers_Input | ListUtxos_Input | LndGetInfo_Input | OpenChannel_Input | PayAdminInvoiceSwap_Input | PayAdminTransactionSwap_Input | RefundAdminInvoiceSwap_Input | UpdateAdminNodeSettings_Input | UpdateChannelPolicy_Input
+export type AdminMethodOutputs = AddApp_Output | AddPeer_Output | AuthApp_Output | BanUser_Output | BumpTx_Output | CloseChannel_Output | CreateOneTimeInviteLink_Output | GetAdminInvoiceSwapQuotes_Output | GetAdminNodeSettings_Output | GetAdminTransactionSwapQuotes_Output | GetAssetsAndLiabilities_Output | GetAssetsAndLiabilitiesV2_Output | GetInviteLinkState_Output | GetSeed_Output | GetUserOperationsFromAdmin_Output | GetUsersAdminInfo_Output | ListAdminInvoiceSwaps_Output | ListAdminTxSwaps_Output | ListChannels_Output | ListPeers_Output | ListUtxos_Output | LndGetInfo_Output | OpenChannel_Output | PayAdminInvoiceSwap_Output | PayAdminTransactionSwap_Output | RefundAdminInvoiceSwap_Output | UpdateAdminNodeSettings_Output | UpdateChannelPolicy_Output
 export type AppContext = {
     app_id: string
 }
@@ -120,6 +120,9 @@ export type EnrollMessagingToken_Output = ResultError | { status: 'OK' }
 
 export type GetAdminInvoiceSwapQuotes_Input = {rpcName:'GetAdminInvoiceSwapQuotes', req: InvoiceSwapRequest}
 export type GetAdminInvoiceSwapQuotes_Output = ResultError | ({ status: 'OK' } & InvoiceSwapQuoteList)
+
+export type GetAdminNodeSettings_Input = {rpcName:'GetAdminNodeSettings'}
+export type GetAdminNodeSettings_Output = ResultError | ({ status: 'OK' } & AdminNodeSettings)
 
 export type GetAdminTransactionSwapQuotes_Input = {rpcName:'GetAdminTransactionSwapQuotes', req: TransactionSwapRequest}
 export type GetAdminTransactionSwapQuotes_Output = ResultError | ({ status: 'OK' } & TransactionSwapQuoteList)
@@ -281,8 +284,14 @@ export type ListAdminTxSwaps_Output = ResultError | ({ status: 'OK' } & TxSwapsL
 export type ListChannels_Input = {rpcName:'ListChannels'}
 export type ListChannels_Output = ResultError | ({ status: 'OK' } & LndChannels)
 
+export type ListPeers_Input = {rpcName:'ListPeers'}
+export type ListPeers_Output = ResultError | ({ status: 'OK' } & LndPeers)
+
 export type ListTxSwaps_Input = {rpcName:'ListTxSwaps'}
 export type ListTxSwaps_Output = ResultError | ({ status: 'OK' } & TxSwapsList)
+
+export type ListUtxos_Input = {rpcName:'ListUtxos'}
+export type ListUtxos_Output = ResultError | ({ status: 'OK' } & LndUtxos)
 
 export type LndGetInfo_Input = {rpcName:'LndGetInfo', req: LndGetInfoRequest}
 export type LndGetInfo_Output = ResultError | ({ status: 'OK' } & LndGetInfoResponse)
@@ -362,6 +371,9 @@ export type SubToWebRtcCandidates_Output = ResultError | { status: 'OK' }
 export type SubmitWebRtcMessage_Input = {rpcName:'SubmitWebRtcMessage', req: WebRtcMessage}
 export type SubmitWebRtcMessage_Output = ResultError | ({ status: 'OK' } & WebRtcAnswer)
 
+export type UpdateAdminNodeSettings_Input = {rpcName:'UpdateAdminNodeSettings', req: UpdateAdminNodeSettingsRequest}
+export type UpdateAdminNodeSettings_Output = ResultError | ({ status: 'OK' } & AdminNodeSettings)
+
 export type UpdateCallbackUrl_Input = {rpcName:'UpdateCallbackUrl', req: CallbackUrl}
 export type UpdateCallbackUrl_Output = ResultError | ({ status: 'OK' } & CallbackUrl)
 
@@ -402,6 +414,7 @@ export type ServerMethods = {
     EnrollAdminToken?: (req: EnrollAdminToken_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<void>
     EnrollMessagingToken?: (req: EnrollMessagingToken_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<void>
     GetAdminInvoiceSwapQuotes?: (req: GetAdminInvoiceSwapQuotes_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<InvoiceSwapQuoteList>
+    GetAdminNodeSettings?: (req: GetAdminNodeSettings_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<AdminNodeSettings>
     GetAdminTransactionSwapQuotes?: (req: GetAdminTransactionSwapQuotes_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<TransactionSwapQuoteList>
     GetApp?: (req: GetApp_Input & {ctx: AppContext, requestContext?: RequestContext }) => Promise<Application>
     GetAppUser?: (req: GetAppUser_Input & {ctx: AppContext, requestContext?: RequestContext }) => Promise<AppUser>
@@ -449,7 +462,9 @@ export type ServerMethods = {
     ListAdminInvoiceSwaps?: (req: ListAdminInvoiceSwaps_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<InvoiceSwapsList>
     ListAdminTxSwaps?: (req: ListAdminTxSwaps_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<TxSwapsList>
     ListChannels?: (req: ListChannels_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<LndChannels>
+    ListPeers?: (req: ListPeers_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<LndPeers>
     ListTxSwaps?: (req: ListTxSwaps_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<TxSwapsList>
+    ListUtxos?: (req: ListUtxos_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<LndUtxos>
     LndGetInfo?: (req: LndGetInfo_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<LndGetInfoResponse>
     NewAddress?: (req: NewAddress_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<NewAddressResponse>
     NewInvoice?: (req: NewInvoice_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<NewInvoiceResponse>
@@ -475,6 +490,7 @@ export type ServerMethods = {
     SetMockInvoiceAsPaid?: (req: SetMockInvoiceAsPaid_Input & {ctx: GuestContext, requestContext?: RequestContext }) => Promise<void>
     SubToWebRtcCandidates?: (req: SubToWebRtcCandidates_Input & {ctx: MetricsContext, requestContext?: RequestContext }) => Promise<void>
     SubmitWebRtcMessage?: (req: SubmitWebRtcMessage_Input & {ctx: MetricsContext, requestContext?: RequestContext }) => Promise<WebRtcAnswer>
+    UpdateAdminNodeSettings?: (req: UpdateAdminNodeSettings_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<AdminNodeSettings>
     UpdateCallbackUrl?: (req: UpdateCallbackUrl_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<CallbackUrl>
     UpdateChannelPolicy?: (req: UpdateChannelPolicy_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<void>
     UpdateUserOffer?: (req: UpdateUserOffer_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<void>
@@ -745,6 +761,64 @@ export const AdminInvoiceSwapResponseValidate = (o?: AdminInvoiceSwapResponse, o
 
     if (typeof o.tx_id !== 'string') return new Error(`${path}.tx_id: is not a string`)
     if (opts.tx_id_CustomCheck && !opts.tx_id_CustomCheck(o.tx_id)) return new Error(`${path}.tx_id: custom check failed`)
+
+    return null
+}
+
+export type AdminNodeSettings = {
+    automate_liquidity: boolean
+    automate_liquidity_env_locked: boolean
+    avatar_url: string
+    backups_env_locked: boolean
+    lsp_channel_threshold: number
+    lsp_threshold_env_locked: boolean
+    node_name: string
+    node_name_env_locked: boolean
+    push_backups_to_nostr: boolean
+}
+export const AdminNodeSettingsOptionalFields: [] = []
+export type AdminNodeSettingsOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    automate_liquidity_CustomCheck?: (v: boolean) => boolean
+    automate_liquidity_env_locked_CustomCheck?: (v: boolean) => boolean
+    avatar_url_CustomCheck?: (v: string) => boolean
+    backups_env_locked_CustomCheck?: (v: boolean) => boolean
+    lsp_channel_threshold_CustomCheck?: (v: number) => boolean
+    lsp_threshold_env_locked_CustomCheck?: (v: boolean) => boolean
+    node_name_CustomCheck?: (v: string) => boolean
+    node_name_env_locked_CustomCheck?: (v: boolean) => boolean
+    push_backups_to_nostr_CustomCheck?: (v: boolean) => boolean
+}
+export const AdminNodeSettingsValidate = (o?: AdminNodeSettings, opts: AdminNodeSettingsOptions = {}, path: string = 'AdminNodeSettings::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.automate_liquidity !== 'boolean') return new Error(`${path}.automate_liquidity: is not a boolean`)
+    if (opts.automate_liquidity_CustomCheck && !opts.automate_liquidity_CustomCheck(o.automate_liquidity)) return new Error(`${path}.automate_liquidity: custom check failed`)
+
+    if (typeof o.automate_liquidity_env_locked !== 'boolean') return new Error(`${path}.automate_liquidity_env_locked: is not a boolean`)
+    if (opts.automate_liquidity_env_locked_CustomCheck && !opts.automate_liquidity_env_locked_CustomCheck(o.automate_liquidity_env_locked)) return new Error(`${path}.automate_liquidity_env_locked: custom check failed`)
+
+    if (typeof o.avatar_url !== 'string') return new Error(`${path}.avatar_url: is not a string`)
+    if (opts.avatar_url_CustomCheck && !opts.avatar_url_CustomCheck(o.avatar_url)) return new Error(`${path}.avatar_url: custom check failed`)
+
+    if (typeof o.backups_env_locked !== 'boolean') return new Error(`${path}.backups_env_locked: is not a boolean`)
+    if (opts.backups_env_locked_CustomCheck && !opts.backups_env_locked_CustomCheck(o.backups_env_locked)) return new Error(`${path}.backups_env_locked: custom check failed`)
+
+    if (typeof o.lsp_channel_threshold !== 'number') return new Error(`${path}.lsp_channel_threshold: is not a number`)
+    if (opts.lsp_channel_threshold_CustomCheck && !opts.lsp_channel_threshold_CustomCheck(o.lsp_channel_threshold)) return new Error(`${path}.lsp_channel_threshold: custom check failed`)
+
+    if (typeof o.lsp_threshold_env_locked !== 'boolean') return new Error(`${path}.lsp_threshold_env_locked: is not a boolean`)
+    if (opts.lsp_threshold_env_locked_CustomCheck && !opts.lsp_threshold_env_locked_CustomCheck(o.lsp_threshold_env_locked)) return new Error(`${path}.lsp_threshold_env_locked: custom check failed`)
+
+    if (typeof o.node_name !== 'string') return new Error(`${path}.node_name: is not a string`)
+    if (opts.node_name_CustomCheck && !opts.node_name_CustomCheck(o.node_name)) return new Error(`${path}.node_name: custom check failed`)
+
+    if (typeof o.node_name_env_locked !== 'boolean') return new Error(`${path}.node_name_env_locked: is not a boolean`)
+    if (opts.node_name_env_locked_CustomCheck && !opts.node_name_env_locked_CustomCheck(o.node_name_env_locked)) return new Error(`${path}.node_name_env_locked: custom check failed`)
+
+    if (typeof o.push_backups_to_nostr !== 'boolean') return new Error(`${path}.push_backups_to_nostr: is not a boolean`)
+    if (opts.push_backups_to_nostr_CustomCheck && !opts.push_backups_to_nostr_CustomCheck(o.push_backups_to_nostr)) return new Error(`${path}.push_backups_to_nostr: custom check failed`)
 
     return null
 }
@@ -3280,6 +3354,77 @@ export const LndNodeMetricsValidate = (o?: LndNodeMetrics, opts: LndNodeMetricsO
     return null
 }
 
+export type LndPeer = {
+    address: string
+    alias: string
+    has_channel: boolean
+    inbound: boolean
+    pubkey: string
+    sats_recv: number
+    sats_sent: number
+}
+export const LndPeerOptionalFields: [] = []
+export type LndPeerOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    address_CustomCheck?: (v: string) => boolean
+    alias_CustomCheck?: (v: string) => boolean
+    has_channel_CustomCheck?: (v: boolean) => boolean
+    inbound_CustomCheck?: (v: boolean) => boolean
+    pubkey_CustomCheck?: (v: string) => boolean
+    sats_recv_CustomCheck?: (v: number) => boolean
+    sats_sent_CustomCheck?: (v: number) => boolean
+}
+export const LndPeerValidate = (o?: LndPeer, opts: LndPeerOptions = {}, path: string = 'LndPeer::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.address !== 'string') return new Error(`${path}.address: is not a string`)
+    if (opts.address_CustomCheck && !opts.address_CustomCheck(o.address)) return new Error(`${path}.address: custom check failed`)
+
+    if (typeof o.alias !== 'string') return new Error(`${path}.alias: is not a string`)
+    if (opts.alias_CustomCheck && !opts.alias_CustomCheck(o.alias)) return new Error(`${path}.alias: custom check failed`)
+
+    if (typeof o.has_channel !== 'boolean') return new Error(`${path}.has_channel: is not a boolean`)
+    if (opts.has_channel_CustomCheck && !opts.has_channel_CustomCheck(o.has_channel)) return new Error(`${path}.has_channel: custom check failed`)
+
+    if (typeof o.inbound !== 'boolean') return new Error(`${path}.inbound: is not a boolean`)
+    if (opts.inbound_CustomCheck && !opts.inbound_CustomCheck(o.inbound)) return new Error(`${path}.inbound: custom check failed`)
+
+    if (typeof o.pubkey !== 'string') return new Error(`${path}.pubkey: is not a string`)
+    if (opts.pubkey_CustomCheck && !opts.pubkey_CustomCheck(o.pubkey)) return new Error(`${path}.pubkey: custom check failed`)
+
+    if (typeof o.sats_recv !== 'number') return new Error(`${path}.sats_recv: is not a number`)
+    if (opts.sats_recv_CustomCheck && !opts.sats_recv_CustomCheck(o.sats_recv)) return new Error(`${path}.sats_recv: custom check failed`)
+
+    if (typeof o.sats_sent !== 'number') return new Error(`${path}.sats_sent: is not a number`)
+    if (opts.sats_sent_CustomCheck && !opts.sats_sent_CustomCheck(o.sats_sent)) return new Error(`${path}.sats_sent: custom check failed`)
+
+    return null
+}
+
+export type LndPeers = {
+    peers: LndPeer[]
+}
+export const LndPeersOptionalFields: [] = []
+export type LndPeersOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    peers_ItemOptions?: LndPeerOptions
+    peers_CustomCheck?: (v: LndPeer[]) => boolean
+}
+export const LndPeersValidate = (o?: LndPeers, opts: LndPeersOptions = {}, path: string = 'LndPeers::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (!Array.isArray(o.peers)) return new Error(`${path}.peers: is not an array`)
+    for (let index = 0; index < o.peers.length; index++) {
+        const peersErr = LndPeerValidate(o.peers[index], opts.peers_ItemOptions, `${path}.peers[${index}]`)
+        if (peersErr !== null) return peersErr
+    }
+    if (opts.peers_CustomCheck && !opts.peers_CustomCheck(o.peers)) return new Error(`${path}.peers: custom check failed`)
+
+    return null
+}
+
 export type LndProviderFilter = {
     invoice_index_offset?: number
     limit_invoices?: number
@@ -3351,6 +3496,67 @@ export const LndSeedValidate = (o?: LndSeed, opts: LndSeedOptions = {}, path: st
         if (typeof o.seed[index] !== 'string') return new Error(`${path}.seed[${index}]: is not a string`)
     }
     if (opts.seed_CustomCheck && !opts.seed_CustomCheck(o.seed)) return new Error(`${path}.seed: custom check failed`)
+
+    return null
+}
+
+export type LndUtxo = {
+    address: string
+    amount_sat: number
+    confirmations: number
+    output_index: number
+    txid: string
+}
+export const LndUtxoOptionalFields: [] = []
+export type LndUtxoOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    address_CustomCheck?: (v: string) => boolean
+    amount_sat_CustomCheck?: (v: number) => boolean
+    confirmations_CustomCheck?: (v: number) => boolean
+    output_index_CustomCheck?: (v: number) => boolean
+    txid_CustomCheck?: (v: string) => boolean
+}
+export const LndUtxoValidate = (o?: LndUtxo, opts: LndUtxoOptions = {}, path: string = 'LndUtxo::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.address !== 'string') return new Error(`${path}.address: is not a string`)
+    if (opts.address_CustomCheck && !opts.address_CustomCheck(o.address)) return new Error(`${path}.address: custom check failed`)
+
+    if (typeof o.amount_sat !== 'number') return new Error(`${path}.amount_sat: is not a number`)
+    if (opts.amount_sat_CustomCheck && !opts.amount_sat_CustomCheck(o.amount_sat)) return new Error(`${path}.amount_sat: custom check failed`)
+
+    if (typeof o.confirmations !== 'number') return new Error(`${path}.confirmations: is not a number`)
+    if (opts.confirmations_CustomCheck && !opts.confirmations_CustomCheck(o.confirmations)) return new Error(`${path}.confirmations: custom check failed`)
+
+    if (typeof o.output_index !== 'number') return new Error(`${path}.output_index: is not a number`)
+    if (opts.output_index_CustomCheck && !opts.output_index_CustomCheck(o.output_index)) return new Error(`${path}.output_index: custom check failed`)
+
+    if (typeof o.txid !== 'string') return new Error(`${path}.txid: is not a string`)
+    if (opts.txid_CustomCheck && !opts.txid_CustomCheck(o.txid)) return new Error(`${path}.txid: custom check failed`)
+
+    return null
+}
+
+export type LndUtxos = {
+    utxos: LndUtxo[]
+}
+export const LndUtxosOptionalFields: [] = []
+export type LndUtxosOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    utxos_ItemOptions?: LndUtxoOptions
+    utxos_CustomCheck?: (v: LndUtxo[]) => boolean
+}
+export const LndUtxosValidate = (o?: LndUtxos, opts: LndUtxosOptions = {}, path: string = 'LndUtxos::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (!Array.isArray(o.utxos)) return new Error(`${path}.utxos: is not an array`)
+    for (let index = 0; index < o.utxos.length; index++) {
+        const utxosErr = LndUtxoValidate(o.utxos[index], opts.utxos_ItemOptions, `${path}.utxos[${index}]`)
+        if (utxosErr !== null) return utxosErr
+    }
+    if (opts.utxos_CustomCheck && !opts.utxos_CustomCheck(o.utxos)) return new Error(`${path}.utxos: custom check failed`)
 
     return null
 }
@@ -5351,6 +5557,44 @@ export const TxSwapsListValidate = (o?: TxSwapsList, opts: TxSwapsListOptions = 
         if (swapsErr !== null) return swapsErr
     }
     if (opts.swaps_CustomCheck && !opts.swaps_CustomCheck(o.swaps)) return new Error(`${path}.swaps: custom check failed`)
+
+    return null
+}
+
+export type UpdateAdminNodeSettingsRequest = {
+    automate_liquidity: boolean
+    avatar_url: string
+    lsp_channel_threshold: number
+    node_name: string
+    push_backups_to_nostr: boolean
+}
+export const UpdateAdminNodeSettingsRequestOptionalFields: [] = []
+export type UpdateAdminNodeSettingsRequestOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    automate_liquidity_CustomCheck?: (v: boolean) => boolean
+    avatar_url_CustomCheck?: (v: string) => boolean
+    lsp_channel_threshold_CustomCheck?: (v: number) => boolean
+    node_name_CustomCheck?: (v: string) => boolean
+    push_backups_to_nostr_CustomCheck?: (v: boolean) => boolean
+}
+export const UpdateAdminNodeSettingsRequestValidate = (o?: UpdateAdminNodeSettingsRequest, opts: UpdateAdminNodeSettingsRequestOptions = {}, path: string = 'UpdateAdminNodeSettingsRequest::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.automate_liquidity !== 'boolean') return new Error(`${path}.automate_liquidity: is not a boolean`)
+    if (opts.automate_liquidity_CustomCheck && !opts.automate_liquidity_CustomCheck(o.automate_liquidity)) return new Error(`${path}.automate_liquidity: custom check failed`)
+
+    if (typeof o.avatar_url !== 'string') return new Error(`${path}.avatar_url: is not a string`)
+    if (opts.avatar_url_CustomCheck && !opts.avatar_url_CustomCheck(o.avatar_url)) return new Error(`${path}.avatar_url: custom check failed`)
+
+    if (typeof o.lsp_channel_threshold !== 'number') return new Error(`${path}.lsp_channel_threshold: is not a number`)
+    if (opts.lsp_channel_threshold_CustomCheck && !opts.lsp_channel_threshold_CustomCheck(o.lsp_channel_threshold)) return new Error(`${path}.lsp_channel_threshold: custom check failed`)
+
+    if (typeof o.node_name !== 'string') return new Error(`${path}.node_name: is not a string`)
+    if (opts.node_name_CustomCheck && !opts.node_name_CustomCheck(o.node_name)) return new Error(`${path}.node_name: custom check failed`)
+
+    if (typeof o.push_backups_to_nostr !== 'boolean') return new Error(`${path}.push_backups_to_nostr: is not a boolean`)
+    if (opts.push_backups_to_nostr_CustomCheck && !opts.push_backups_to_nostr_CustomCheck(o.push_backups_to_nostr)) return new Error(`${path}.push_backups_to_nostr: custom check failed`)
 
     return null
 }
