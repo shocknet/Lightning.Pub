@@ -39,24 +39,13 @@ export default class {
                 channel_id: In(unique),
             },
         })
-        const byId = new Map(existing.map(e => [e.channel_id, e]))
-        for (const chanId of unique) {
-            await this.touchLastSeen(chanId, atUnix, byId.get(chanId), debounceSec)
+        const { toCreate, toUpdateIds } = partitionChannelSeenWrites(unique, existing, atUnix, debounceSec)
+        if (toCreate.length > 0) {
+            await this.dbs.CreateAndSave<ChannelEvent[]>('ChannelEvent', toCreate)
         }
-    }
-
-    private async touchLastSeen(chanId: string, atUnix: number, existing: ChannelEvent | undefined, debounceSec: number) {
-        if (!existing) {
-            await this.dbs.CreateAndSave<ChannelEvent>('ChannelEvent', { channel_id: chanId, event_type: 'activity', inactive_since_unix: atUnix })
-            return
+        if (toUpdateIds.length > 0) {
+            await this.dbs.Update<ChannelEvent>('ChannelEvent', { serial_id: In(toUpdateIds) }, { inactive_since_unix: atUnix })
         }
-        if (debounceSec > 0 && atUnix - existing.inactive_since_unix < debounceSec) {
-            return
-        }
-        if (existing.inactive_since_unix >= atUnix) {
-            return
-        }
-        await this.dbs.Update<ChannelEvent>('ChannelEvent', existing.serial_id, { inactive_since_unix: atUnix })
     }
 
     async GetChannelsActivity(): Promise<Record<string, number>> {
@@ -189,6 +178,34 @@ export function resolveInactiveSince(
 ): number {
     if (active) return 0
     return lastSeenByChan[chanId] || 0
+}
+
+function shouldStampChannelSeen(existingUnix: number, atUnix: number, debounceSec: number): boolean {
+    if (debounceSec > 0 && atUnix - existingUnix < debounceSec) return false
+    if (existingUnix >= atUnix) return false
+    return true
+}
+
+function partitionChannelSeenWrites(
+    chanIds: string[],
+    existing: ChannelEvent[],
+    atUnix: number,
+    debounceSec: number,
+): { toCreate: Partial<ChannelEvent>[]; toUpdateIds: number[] } {
+    const byId = new Map(existing.map(e => [e.channel_id, e]))
+    const toCreate: Partial<ChannelEvent>[] = []
+    const toUpdateIds: number[] = []
+    for (const chanId of chanIds) {
+        const row = byId.get(chanId)
+        if (!row) {
+            toCreate.push({ channel_id: chanId, event_type: 'activity', inactive_since_unix: atUnix })
+            continue
+        }
+        if (shouldStampChannelSeen(row.inactive_since_unix, atUnix, debounceSec)) {
+            toUpdateIds.push(row.serial_id)
+        }
+    }
+    return { toCreate, toUpdateIds }
 }
 
 const getTimeQuery = ({ from, to }: { from?: number, to?: number }): FindManyOptions<{ created_at: Date }> => {

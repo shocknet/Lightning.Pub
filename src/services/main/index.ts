@@ -198,10 +198,6 @@ export default class {
         this.storage.paymentStorage.DeleteExpiredInvoiceSwaps(height)
             .catch(err => log(ERROR, "failed to delete expired invoice swaps", err.message || err))
         try {
-            const balanceEvents = await this.paymentManager.GetLndBalance()
-            if (!skipMetrics) {
-                await this.metricsManager.NewBlockCb(height, balanceEvents)
-            }
             confirmed = await this.paymentManager.CheckNewlyConfirmedTxs()
             await this.liquidityManager.onNewBlock()
         } catch (err: any) {
@@ -249,6 +245,18 @@ export default class {
                 }
             }
         }))
+        if (!skipMetrics) {
+            await this.recordNewBlockMetrics(height, log)
+        }
+    }
+
+    recordNewBlockMetrics = async (height: number, log: PubLogger) => {
+        try {
+            const balanceEvents = await this.paymentManager.GetLndBalance()
+            await this.metricsManager.NewBlockCb(height, balanceEvents)
+        } catch (err: any) {
+            log(ERROR, "failed to record metrics after new block", err.message || err)
+        }
     }
 
     addressPaidCb: AddressPaidCb = async (txOutput, address, amount, used, broadcastHeight) => {
