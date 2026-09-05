@@ -13,6 +13,7 @@ import { UserInvoicePayment } from "../storage/entity/UserInvoicePayment.js";
 import { UserReceivingInvoice } from "../storage/entity/UserReceivingInvoice.js";
 import { UserTransactionPayment } from "../storage/entity/UserTransactionPayment.js";
 import { TrackedProvider } from "../storage/entity/TrackedProvider.js";
+import { Application } from "../storage/entity/Application.js";
 import { NodeInfo } from "../lnd/settings.js";
 import { Channel, Invoice, Payment, OutputDetail, Transaction, Payment_PaymentStatus, Invoice_InvoiceState } from "../../../proto/lnd/lightning.js";
 import { LiquidityProvider } from "./liquidityProvider.js";
@@ -363,10 +364,7 @@ export class AdminManager {
         let beaconDirty = false
 
         if (!current.node_name_env_locked) {
-            const nameUpdated = await this.settings.updateDefaultAppName(name)
-            if (app && (nameUpdated || app.name !== name)) {
-                await this.storage.applicationStorage.UpdateApplication(app, { name })
-                app.name = name
+            if (await this.commitDefaultAppName(app, name)) {
                 beaconDirty = true
             }
         }
@@ -416,6 +414,50 @@ export class AdminManager {
         const name = this.settings.getSettings().serviceSettings.defaultAppName
         const apps = await this.storage.applicationStorage.GetApplications()
         return pickDefaultApp(apps, name)
+    }
+
+    private commitDefaultAppName = async (app: Application | undefined, name: string): Promise<boolean> => {
+        const result = await this.storage.StartTransaction(
+            txId => this.writeDefaultAppName(app, name, txId),
+            "rename-default-app",
+        )
+        this.applyDefaultAppName(app, name, result)
+        return result.didRename
+    }
+
+    private writeDefaultAppName = async (app: Application | undefined, name: string, txId: string) => {
+        const didRename = await this.renameDefaultApp(app, name, txId)
+        const didPersist = await this.settings.updateDefaultAppName(name, txId)
+        return { didRename, didPersist }
+    }
+
+    private applyDefaultAppName = (
+        app: Application | undefined,
+        name: string,
+        result: { didRename: boolean, didPersist: boolean },
+    ) => {
+        if (result.didPersist) {
+            this.settings.getSettings().serviceSettings.defaultAppName = name
+        }
+        if (result.didRename && app) {
+            app.name = name
+        }
+    }
+
+    private renameDefaultApp = async (app: Application | undefined, name: string, txId: string): Promise<boolean> => {
+        if (!app || app.name === name) {
+            return false
+        }
+        await this.assertAppNameAvailable(name, txId)
+        await this.storage.applicationStorage.UpdateApplication(app, { name }, txId)
+        return true
+    }
+
+    private assertAppNameAvailable = async (name: string, txId: string) => {
+        const apps = await this.storage.applicationStorage.GetApplications(txId)
+        if (apps.some(app => app.name === name)) {
+            throw new Error("that name is already in use")
+        }
     }
 
     private toListedPeer = (

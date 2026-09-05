@@ -81,7 +81,7 @@ export default class SettingsManager {
         return this.settings
     }
 
-    async updateDefaultAppName(name: string): Promise<boolean> {
+    async updateDefaultAppName(name: string, txId?: string): Promise<boolean> {
         if (!this.settings) {
             throw new Error("Settings not initialized")
         }
@@ -91,8 +91,10 @@ export default class SettingsManager {
         if (!!process.env.DEFAULT_APP_NAME) {
             return false
         }
-        await this.storage.settingsStorage.setDbEnvIFNeeded("DEFAULT_APP_NAME", name)
-        this.settings.serviceSettings.defaultAppName = name
+        await this.storage.settingsStorage.setDbEnvIFNeeded("DEFAULT_APP_NAME", name, txId)
+        if (!txId) {
+            this.settings.serviceSettings.defaultAppName = name
+        }
         return true
     }
 
