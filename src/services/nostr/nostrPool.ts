@@ -55,6 +55,8 @@ const beaconKind = CLINK_BEACON_KIND
 const appTag = LEGACY_BEACON_D_TAG
 
 
+export const MAX_FALLBACK_IN_FLIGHT = 8
+
 export class NostrPool {
     relays: Record<string, RelayConnection> = {}
     apps: Record<string /* app pubKey */, AppInfo> = {}
@@ -64,13 +66,21 @@ export class NostrPool {
     log = getLogger({ component: "nostrMiddleware" })
     eventsDeduper: EventsDeduper
     providerInfo: (LinkedProviderInfo & { appPub: string }) | undefined = undefined
-    constructor(eventCallback: RelayEventCallback) {
+    private createPool: () => SimplePool
+    private fallbackPool: SimplePool | null = null
+    private fallbackInFlight = 0
+    private stopped = false
+    constructor(eventCallback: RelayEventCallback, createPool: () => SimplePool = () => new SimplePool()) {
         this.eventCallback = eventCallback
         this.eventsDeduper = new EventsDeduper()
+        this.createPool = createPool
     }
 
     Stop = () => {
+        this.stopped = true
         this.eventsDeduper.Stop()
+        this.fallbackPool?.destroy()
+        this.fallbackPool = null
     }
 
     UpdateSettings(settings: NostrSettings) {
@@ -242,25 +252,61 @@ export class NostrPool {
 
     private async publishEvent(url: string, event: Event): Promise<void> {
         const known = this.relayByUrl(url)
-        if (known) {
-            await known.Send(event)
-            return
+        if (known?.IsConnected()) {
+            try {
+                await known.Send(event)
+                return
+            } catch (e: any) {
+                if (e?.message !== "relay not connected") {
+                    throw e
+                }
+            }
         }
-        await this.publishViaNewPool(url, event)
+        await this.publishViaFallbackPool(url, event)
     }
 
     private relayByUrl(url: string): RelayConnection | undefined {
         return this.relays[url] || Object.values(this.relays).find(r => r.GetUrl() === url)
     }
 
-    private async publishViaNewPool(url: string, event: Event): Promise<void> {
-        const pool = new SimplePool()
+    private async publishViaFallbackPool(url: string, event: Event): Promise<void> {
+        this.acquireFallbackSlot()
         try {
+            const pool = this.getFallbackPool()
             const [published] = pool.publish([url], event)
             await published
         } finally {
-            pool.close([url])
+            this.releaseFallbackSlot()
         }
+    }
+
+    private getFallbackPool(): SimplePool {
+        if (this.stopped) {
+            throw new Error("nostr pool stopped")
+        }
+        if (!this.fallbackPool) {
+            this.fallbackPool = this.createPool()
+            if (this.stopped) {
+                this.fallbackPool.destroy()
+                this.fallbackPool = null
+                throw new Error("nostr pool stopped")
+            }
+        }
+        return this.fallbackPool
+    }
+
+    private acquireFallbackSlot() {
+        if (this.stopped) {
+            throw new Error("nostr pool stopped")
+        }
+        if (this.fallbackInFlight >= MAX_FALLBACK_IN_FLIGHT) {
+            throw new Error("fallback publish limit reached")
+        }
+        this.fallbackInFlight++
+    }
+
+    private releaseFallbackSlot() {
+        this.fallbackInFlight--
     }
 
     private getRelays(initiator: SendInitiator, requestRelays?: string[]) {

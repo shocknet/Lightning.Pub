@@ -184,5 +184,9 @@ export class RelayConnection {
         }
         return this.relay.publish(e)
     }
+
+    IsConnected() {
+        return !!this.relay?.connected
+    }
 }
 
