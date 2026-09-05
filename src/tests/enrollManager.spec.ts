@@ -137,7 +137,7 @@ const testBeaconBuilders = (T: StorageTestBase) => {
         clinkContent,
         "cd".repeat(32),
     )
-    T.expect(beacon.tags.filter(t => t[0] === "d").map(t => t[1])).to.deep.equal([LEGACY_BEACON_D_TAG, CLINK_BEACON_D_TAG])
+    T.expect(beacon.tags.filter(t => t[0] === "d").map(t => t[1])).to.deep.equal([CLINK_BEACON_D_TAG, LEGACY_BEACON_D_TAG])
     T.expect(beacon.tags.find(t => t[0] === "clink_version")?.[1]).to.equal(CLINK_VERSION)
     T.expect(beacon.tags.find(t => t[0] === "operator")?.[1]).to.equal("cd".repeat(32))
     const parsed = JSON.parse(beacon.content)

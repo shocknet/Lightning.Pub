@@ -78,8 +78,8 @@ export const buildServiceBeaconEvent = (
     operatorHex?: string,
 ): UnsignedEvent => {
     const tags: string[][] = [
-        ["d", LEGACY_BEACON_D_TAG],
         ["d", CLINK_BEACON_D_TAG],
+        ["d", LEGACY_BEACON_D_TAG],
         ["clink_version", CLINK_VERSION],
     ]
     if (operatorHex) {
