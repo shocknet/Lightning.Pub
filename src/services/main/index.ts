@@ -367,8 +367,7 @@ export default class {
             await this.UpdateBeacon(app, { type: 'service', name: app.name, avatarUrl: app.avatar_url, nextRelay, fees })
         }
 
-        const defaultNames = ['wallet', 'wallet-test', this.settings.getSettings().serviceSettings.defaultAppName]
-        const local = apps.find(app => defaultNames.includes(app.name))
+        const local = pickDefaultApp(apps, this.settings.getSettings().serviceSettings.defaultAppName)
         if (!local) {
             throw new Error("local app not initialized correctly")
         }

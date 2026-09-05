@@ -30,10 +30,17 @@ export const assertLspThreshold = (threshold: number) => {
     }
 }
 
-export const defaultAppCandidates = (defaultAppName: string) => ["wallet", "wallet-test", defaultAppName]
+export const defaultAppCandidates = (defaultAppName: string) => {
+    const fallbacks = ["wallet", "wallet-test"].filter(name => name !== defaultAppName)
+    return [defaultAppName, ...fallbacks]
+}
 
-export const pickDefaultApp = <T extends { name: string }>(apps: T[], defaultAppName: string): T | undefined =>
-    apps.find(app => defaultAppCandidates(defaultAppName).includes(app.name))
+export const pickDefaultApp = <T extends { name: string }>(apps: T[], defaultAppName: string): T | undefined => {
+    for (const name of defaultAppCandidates(defaultAppName)) {
+        const match = apps.find(app => app.name === name)
+        if (match) return match
+    }
+}
 
 export { assertAvatarUrl, isHttpsAvatarUrl, trimAvatarUrl } from "../helpers/httpsAvatarUrl.js"
 
