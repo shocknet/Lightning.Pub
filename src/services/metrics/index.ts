@@ -13,6 +13,7 @@ import { getLogger } from '../helpers/logger.js'
 import { encodeTLV, usageMetricsToTlv } from '../helpers/tlv.js'
 import { ChannelCloseSummary_ClosureType } from '../../../proto/lnd/lightning.js'
 import { resolveInactiveSince } from '../storage/metricsStorage.js'
+import { CHANNEL_ALIAS_CACHE_TTL_MS, CHANNEL_ALIAS_RETRY_TTL_MS, aliasByRemotePubkey, channelPeerLabel, mergeAliasMaps } from '../helpers/channelAliases.js'
 const cacheTTL = 1000 * 60 * 5 // 5 minutes
 export default class Handler {
 
@@ -22,6 +23,9 @@ export default class Handler {
     appsMetricsCache: CacheController<Types.AppsMetrics> = new CacheController<Types.AppsMetrics>()
     lndForwardingMetricsCache: CacheController<Types.LndForwardingMetrics> = new CacheController<Types.LndForwardingMetrics>()
     lndMetricsCache: CacheController<Types.LndMetrics> = new CacheController<Types.LndMetrics>()
+    channelAliases = new Map<string, string>()
+    channelAliasRefresh: Promise<void> | null = null
+    nextChannelAliasRefreshAt = 0
     logger = getLogger({ component: "metrics" })
     constructor(storage: Storage, lnd: LND) {
         this.storage = storage
@@ -36,6 +40,35 @@ export default class Handler {
             channels.filter(c => c.active).map(c => c.chanId),
             60,
         )
+        this.rememberChannelAliases(channels)
+        void this.RefreshChannelAliases()
+    }
+
+    rememberChannelAliases(channels: Channel[]) {
+        const changed = mergeAliasMaps(this.channelAliases, aliasByRemotePubkey(channels))
+        if (changed) this.lndMetricsCache.ClearAll()
+    }
+
+    async RefreshChannelAliases() {
+        if (this.channelAliasRefresh) return this.channelAliasRefresh
+        if (Date.now() < this.nextChannelAliasRefreshAt) return
+
+        this.nextChannelAliasRefreshAt = Date.now() + CHANNEL_ALIAS_RETRY_TTL_MS
+        const refresh = this.loadGraphAliases().finally(() => {
+            this.channelAliasRefresh = null
+        })
+        this.channelAliasRefresh = refresh
+        return refresh
+    }
+
+    private async loadGraphAliases() {
+        try {
+            const { channels } = await this.lnd.ListChannels(true)
+            this.rememberChannelAliases(channels)
+            this.nextChannelAliasRefreshAt = Date.now() + CHANNEL_ALIAS_CACHE_TTL_MS
+        } catch (err: any) {
+            this.logger("failed to refresh channel aliases", err.message || err)
+        }
     }
 
     async GetProvidersDisruption(): Promise<Types.ProvidersDisruption> {
@@ -58,6 +91,7 @@ export default class Handler {
     }
 
     async ChannelEventCb(event: ChannelEventUpdate, channels: Channel[]) {
+        this.rememberChannelAliases(channels)
         if (event.channel.oneofKind === 'inactiveChannel') {
             const channel = this.getRelevantChannel(event.channel.inactiveChannel, channels)
             if (!channel) {
@@ -338,7 +372,8 @@ export default class Handler {
     }
 
     async GetChannelsInfo() {
-        const { channels } = await this.lnd.ListChannels(true)
+        const { channels } = await this.lnd.ListChannels()
+        this.rememberChannelAliases(channels)
         let totalActive = 0
         let totalInactive = 0
         channels.forEach(c => {
@@ -450,7 +485,7 @@ export default class Handler {
                     lifetime: Number(c.lifetime),
                     local_balance: Number(c.localBalance),
                     remote_balance: Number(c.remoteBalance),
-                    label: c.peerAlias,
+                    label: channelPeerLabel(this.channelAliases, c.remotePubkey, c.peerAlias),
                     inactive_since_unix: resolveInactiveSince(c.active, String(c.chanId), channelsActivity),
                 })),
                 forwarding_events: totalEvents,
@@ -459,6 +494,7 @@ export default class Handler {
             }],
         }
         this.lndMetricsCache.Set(req, { metrics, createdAt: now })
+        void this.RefreshChannelAliases()
         return metrics
     }
 
@@ -520,6 +556,9 @@ class CacheController<T> {
     Clear = (req: Types.AppsMetricsRequest) => {
         const key = this.getKey(req)
         delete this.cache[key]
+    }
+    ClearAll = () => {
+        this.cache = {}
     }
 
     private getKey = (req: Types.AppsMetricsRequest) => {

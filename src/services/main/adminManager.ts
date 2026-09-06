@@ -18,6 +18,7 @@ import { NodeInfo } from "../lnd/settings.js";
 import { Channel, Invoice, Payment, OutputDetail, Transaction, Payment_PaymentStatus, Invoice_InvoiceState } from "../../../proto/lnd/lightning.js";
 import { LiquidityProvider } from "./liquidityProvider.js";
 import { clampPageLimit, DEFAULT_LND_PAGE_SIZE, DEFAULT_PAGE_SIZE, MAX_LIQUIDITY_PAGE_SIZE, MAX_PAGE_SIZE } from "../helpers/pageLimit.js";
+import { aliasByRemotePubkey } from "../helpers/channelAliases.js";
 import {
     ADMIN_AUTOMATION_ENV,
     ADMIN_BACKUPS_ENV,
@@ -1055,20 +1056,6 @@ class AssetOperationTracker {
 
 const getDataPath = (dataDir: string, dataPath: string) => {
     return dataDir !== "" ? `${dataDir}/${dataPath}` : dataPath
-}
-
-function aliasByRemotePubkey(channels: { remotePubkey: string; peerAlias: string }[]): Map<string, string> {
-    const map = new Map<string, string>()
-    for (const c of channels) {
-        if (!c.remotePubkey) continue
-        const prev = map.get(c.remotePubkey) || ""
-        if (!map.has(c.remotePubkey)) {
-            map.set(c.remotePubkey, c.peerAlias || "")
-        } else if (!prev && c.peerAlias) {
-            map.set(c.remotePubkey, c.peerAlias)
-        }
-    }
-    return map
 }
 
 function toListedUtxo(utxo: {
