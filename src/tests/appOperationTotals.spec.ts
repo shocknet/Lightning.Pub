@@ -235,6 +235,14 @@ const testBoundedModeIsExplicit = async (T: StorageTestBase, seed: Seed) => {
     T.expect(boundedResponse.users.total).to.equal(2)
     T.expect(boundedResponse.users.no_balance).to.equal(0)
     T.expect(boundedResponse.operations).to.deep.equal([])
+
+    const boundedInOldWindow = await metrics.GetAppMetrics({
+        include_operations: false,
+        bounded: true,
+        from_unix: 1_700_000_000,
+        to_unix: 1_700_000_600,
+    }, seed.app)
+    T.expect(boundedInOldWindow.users.total).to.equal(2)
     T.d('Finished testBoundedModeIsExplicit')
 }
 

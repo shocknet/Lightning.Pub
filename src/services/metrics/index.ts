@@ -295,7 +295,7 @@ export default class Handler {
         const [totalFees, totals, users, operationPage] = await Promise.all([
             this.storage.paymentStorage.GetTotalFeesPaidInApp(app),
             this.storage.paymentStorage.GetAppOperationTotals(app, range),
-            this.storage.applicationStorage.CountApplicationUsers(app, range),
+            this.storage.applicationStorage.CountApplicationUsers(app, {}),
             includeOperations ? this.firstAppOperationsPage(app, range, operationsCursor) : undefined,
         ])
         const metrics: Types.AppMetrics = {
