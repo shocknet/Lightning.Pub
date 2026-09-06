@@ -5,6 +5,7 @@ import SettingsManager from "../main/settingsManager.js"
 import Storage from '../storage/index.js'
 import { Unlocker } from "../main/unlocker.js"
 import { AdminManager } from '../main/adminManager.js';
+import { pickDefaultApp } from '../main/adminNodeSettings.js'
 export type WizardSettings = {
     sourceName: string
     relayUrl: string
@@ -41,7 +42,7 @@ export class Wizard {
             const appNamesList = apps.map(app => app.name).join(', ')
             const relays = this.settings.getSettings().nostrRelaySettings.relays
             const relayUrl = (relays && relays.length > 0) ? relays[0] : '';
-            const defaultApp = apps.find(a => a.name === this.settings.getSettings().serviceSettings.defaultAppName) || apps[0]
+            const defaultApp = pickDefaultApp(apps, this.settings.getSettings().serviceSettings.defaultAppName) || apps[0]
             // Determine LND state and watchdog
             let lndState: WizardTypes.LndState = WizardTypes.LndState.OFFLINE
             let watchdogOk = false
@@ -191,8 +192,7 @@ export class Wizard {
         const newName = this.settings.getSettings().serviceSettings.defaultAppName
         try {
             const appsList = await this.storage.applicationStorage.GetApplications()
-            const defaultNames = ['wallet', 'wallet-test', currentName]
-            const existingDefaultApp = appsList.find(app => defaultNames.includes(app.name)) || appsList[0]
+            const existingDefaultApp = pickDefaultApp(appsList, currentName) || appsList[0]
             if (existingDefaultApp) {
                 await this.storage.applicationStorage.UpdateApplication(existingDefaultApp, { name: newName, avatar_url: avatarUrl || existingDefaultApp.avatar_url })
             }

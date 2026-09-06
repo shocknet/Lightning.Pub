@@ -12,6 +12,7 @@ import SettingsManager from "./settingsManager.js"
 import { LoadStorageSettingsFromEnv } from "../storage/index.js"
 import { NostrSender } from "../nostr/sender.js"
 import { Swaps } from "../lnd/swaps/swaps.js"
+import { pickDefaultApp } from "./adminNodeSettings.js"
 export type AppData = {
     privateKey: string;
     publicKey: string;
@@ -44,15 +45,20 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
     const mainHandler = new Main(settingsManager, storageManager, adminManager, utils, unlocker)
     adminManager.setLND(mainHandler.lnd)
     await mainHandler.lnd.Warmup()
+    if (!settingsManager.getSettings().liquiditySettings.useOnlyLiquidityProvider) {
+        try {
+            await mainHandler.metricsManager.StampActiveChannels()
+        } catch (err: any) {
+            log("failed to stamp active channels", err.message || err)
+        }
+    }
     if (!settingsManager.getSettings().serviceSettings.skipSanityCheck && !settingsManager.getSettings().liquiditySettings.useOnlyLiquidityProvider) {
         const sanityChecker = new SanityChecker(storageManager, mainHandler.lnd)
         await sanityChecker.VerifyEventsLog()
     }
     const defaultAppName = settingsManager.getSettings().serviceSettings.defaultAppName
     const appsData = await mainHandler.storage.applicationStorage.GetApplications()
-    const defaultNames = ['wallet', 'wallet-test', defaultAppName]
-    const existingWalletApp = await appsData.find(app => defaultNames.includes(app.name))
-    if (!existingWalletApp) {
+    if (!pickDefaultApp(appsData, defaultAppName)) {
         log("no default wallet app found, creating one...")
         const newWalletApp = await mainHandler.storage.applicationStorage.AddApplication(defaultAppName, true)
         appsData.push(newWalletApp)
@@ -65,7 +71,7 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
             return { privateKey: app.nostr_private_key, publicKey: app.nostr_public_key, appId: app.app_id, name: app.name }
         }
     }))
-    const localProviderClient = apps.find(app => defaultNames.includes(app.name))
+    const localProviderClient = pickDefaultApp(apps, defaultAppName)
     if (!localProviderClient) {
         throw new Error("local app not initialized correctly")
     }

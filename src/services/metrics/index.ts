@@ -12,6 +12,10 @@ import HtlcTracker from './htlcTracker.js'
 import { getLogger } from '../helpers/logger.js'
 import { encodeTLV, usageMetricsToTlv } from '../helpers/tlv.js'
 import { ChannelCloseSummary_ClosureType } from '../../../proto/lnd/lightning.js'
+import { resolveInactiveSince } from '../storage/metricsStorage.js'
+import { CHANNEL_ALIAS_CACHE_TTL_MS, CHANNEL_ALIAS_RETRY_TTL_MS, aliasByRemotePubkey, channelPeerLabel, mergeAliasMaps } from '../helpers/channelAliases.js'
+import { DEFAULT_PAGE_SIZE } from '../helpers/pageLimit.js'
+import { AppOperationKind, AppOperationsCursor, AppOperationsPage } from '../storage/paymentStorage.js'
 const cacheTTL = 1000 * 60 * 5 // 5 minutes
 export default class Handler {
 
@@ -21,12 +25,52 @@ export default class Handler {
     appsMetricsCache: CacheController<Types.AppsMetrics> = new CacheController<Types.AppsMetrics>()
     lndForwardingMetricsCache: CacheController<Types.LndForwardingMetrics> = new CacheController<Types.LndForwardingMetrics>()
     lndMetricsCache: CacheController<Types.LndMetrics> = new CacheController<Types.LndMetrics>()
+    channelAliases = new Map<string, string>()
+    channelAliasRefresh: Promise<void> | null = null
+    nextChannelAliasRefreshAt = 0
     logger = getLogger({ component: "metrics" })
     constructor(storage: Storage, lnd: LND) {
         this.storage = storage
         this.lnd = lnd
         this.htlcTracker = new HtlcTracker(this.storage)
 
+    }
+
+    async StampActiveChannels() {
+        const { channels } = await this.lnd.ListChannels()
+        await this.storage.metricsStorage.MarkChannelsSeen(
+            channels.filter(c => c.active).map(c => c.chanId),
+            60,
+        )
+        this.rememberChannelAliases(channels)
+        void this.RefreshChannelAliases()
+    }
+
+    rememberChannelAliases(channels: Channel[]) {
+        const changed = mergeAliasMaps(this.channelAliases, aliasByRemotePubkey(channels))
+        if (changed) this.lndMetricsCache.ClearAll()
+    }
+
+    async RefreshChannelAliases() {
+        if (this.channelAliasRefresh) return this.channelAliasRefresh
+        if (Date.now() < this.nextChannelAliasRefreshAt) return
+
+        this.nextChannelAliasRefreshAt = Date.now() + CHANNEL_ALIAS_RETRY_TTL_MS
+        const refresh = this.loadGraphAliases().finally(() => {
+            this.channelAliasRefresh = null
+        })
+        this.channelAliasRefresh = refresh
+        return refresh
+    }
+
+    private async loadGraphAliases() {
+        try {
+            const { channels } = await this.lnd.ListChannels(true)
+            this.rememberChannelAliases(channels)
+            this.nextChannelAliasRefreshAt = Date.now() + CHANNEL_ALIAS_CACHE_TTL_MS
+        } catch (err: any) {
+            this.logger("failed to refresh channel aliases", err.message || err)
+        }
     }
 
     async GetProvidersDisruption(): Promise<Types.ProvidersDisruption> {
@@ -49,26 +93,28 @@ export default class Handler {
     }
 
     async ChannelEventCb(event: ChannelEventUpdate, channels: Channel[]) {
+        this.rememberChannelAliases(channels)
         if (event.channel.oneofKind === 'inactiveChannel') {
             const channel = this.getRelevantChannel(event.channel.inactiveChannel, channels)
             if (!channel) {
                 return
             }
-            await this.storage.metricsStorage.FlagInactiveChannel(channel.chanId)
+            await this.storage.metricsStorage.MarkChannelsSeen([channel.chanId])
             return
         } else if (event.channel.oneofKind === 'activeChannel') {
             const channel = this.getRelevantChannel(event.channel.activeChannel, channels)
             if (!channel) {
                 return
             }
-            await this.storage.metricsStorage.FlagActiveChannel(channel.chanId)
+            await this.storage.metricsStorage.MarkChannelsSeen([channel.chanId])
             return
         }
     }
 
-    getRelevantChannel(c: ChannelPoint, channels: Channel[]) {
-        const point = `${c.fundingTxid}:${c.outputIndex}`
-        return channels.find(c => c.channelPoint === point)
+    getRelevantChannel(point: ChannelPoint, channels: Channel[]) {
+        const key = channelPointKey(point)
+        if (!key) return undefined
+        return channels.find(c => c.channelPoint.toLowerCase() === key)
     }
 
 
@@ -101,6 +147,14 @@ export default class Handler {
         }))
         await this.storage.metricsStorage.SaveBalanceEvents(balanceEvent, channelsEvents)
         await this.FetchLatestForwardingEvents()
+        try {
+            await this.storage.metricsStorage.MarkChannelsSeen(
+                balanceInfo.channelsBalance.filter(c => c.active).map(c => c.channelId),
+                60,
+            )
+        } catch (err: any) {
+            this.logger("failed to stamp channel last seen", err.message || err)
+        }
     }
 
     async FetchLatestForwardingEvents() {
@@ -204,6 +258,9 @@ export default class Handler {
         } */
 
     async GetAppsMetrics(req: Types.AppsMetricsRequest): Promise<Types.AppsMetrics> {
+        if (req.operations_before_id && (!req.bounded || !req.to_unix || !req.operations_app_id)) {
+            throw new Error("operations_before_id requires bounded, to_unix, and operations_app_id")
+        }
         const cached = this.appsMetricsCache.Get(req)
         const now = Date.now()
         if (cached && now - cached.createdAt < cacheTTL) {
@@ -222,11 +279,46 @@ export default class Handler {
     }
 
     async GetAppMetrics(req: Types.AppsMetricsRequest, app: Application | null): Promise<Types.AppMetrics> {
+        if (!req.bounded) {
+            return this.GetUnboundedAppMetrics(req, app)
+        }
+        return this.GetBoundedAppMetrics(req, app)
+    }
+
+    async GetBoundedAppMetrics(req: Types.AppsMetricsRequest, app: Application | null): Promise<Types.AppMetrics> {
+        const range = { from: req.from_unix, to: req.to_unix }
+        const appIdentity = appMetricsIdentity(app)
+        const includeOperations = !!req.include_operations && (!req.operations_app_id || req.operations_app_id === appIdentity.id)
+        const operationsCursor = includeOperations && req.operations_before_id
+            ? parseAppOperationsCursor(req.operations_before_id)
+            : undefined
+        const [totalFees, totals, users, operationPage] = await Promise.all([
+            this.storage.paymentStorage.GetTotalFeesPaidInApp(app),
+            this.storage.paymentStorage.GetAppOperationTotals(app, range),
+            this.storage.applicationStorage.CountApplicationUsers(app, {}),
+            includeOperations ? this.firstAppOperationsPage(app, range, operationsCursor) : undefined,
+        ])
+        const metrics: Types.AppMetrics = {
+            app: appIdentity,
+            users: { total: users, always_been_inactive: 0, balance_avg: 0, balance_median: 0, no_balance: 0, negative_balance: 0 },
+            received: totals.received,
+            spent: totals.spent,
+            available: 0,
+            fees: totals.fees,
+            total_fees: totalFees,
+            invoices: totals.invoices,
+            operation_count: totals.operations,
+            operations_has_more: operationPage?.hasMore || false,
+            operations: operationPage?.operations || [],
+        }
+        return metrics
+    }
+
+    async GetUnboundedAppMetrics(req: Types.AppsMetricsRequest, app: Application | null): Promise<Types.AppMetrics> {
         const totalFees = await this.storage.paymentStorage.GetTotalFeesPaidInApp(app)
         const ops = await this.storage.paymentStorage.GetAppOperations(app, { from: req.from_unix, to: req.to_unix })
         let totalReceived = 0
         let totalSpent = 0
-        let unpaidInvoices = 0
         let feesInRange = 0
         const operations: Types.UserOperation[] = []
         ops.receivingInvoices.forEach(i => {
@@ -234,8 +326,6 @@ export default class Handler {
                 totalReceived += i.paid_amount
                 feesInRange += i.service_fee
                 if (req.include_operations) operations.push({ type: Types.UserOperationType.INCOMING_INVOICE, amount: i.paid_amount, inbound: true, paidAtUnix: i.paid_at_unix, confirmed: true, service_fee: i.service_fee, network_fee: 0, identifier: "", operationId: "", tx_hash: "", internal: i.internal })
-            } else {
-                unpaidInvoices++
             }
         })
         ops.receivingTransactions.forEach(txs => {
@@ -250,21 +340,19 @@ export default class Handler {
         ops.outgoingInvoices.forEach(i => {
             if (req.include_operations) operations.push({ type: Types.UserOperationType.OUTGOING_INVOICE, amount: i.paid_amount, inbound: false, paidAtUnix: i.paid_at_unix, confirmed: true, service_fee: i.service_fees, network_fee: i.routing_fees, identifier: "", operationId: "", tx_hash: "", internal: i.internal })
             totalSpent += i.paid_amount
-            feesInRange += (i.service_fees - i.routing_fees)
+            feesInRange += i.service_fees - i.routing_fees
         })
         ops.outgoingTransactions.forEach(tx => {
             if (req.include_operations) operations.push({ type: Types.UserOperationType.OUTGOING_TX, amount: tx.paid_amount, inbound: false, paidAtUnix: tx.paid_at_unix, confirmed: tx.confs > 1, service_fee: tx.service_fees, network_fee: tx.chain_fees, identifier: "", operationId: "", tx_hash: tx.tx_hash, internal: tx.internal })
             totalSpent += tx.paid_amount
-            feesInRange += (tx.service_fees - tx.chain_fees)
+            feesInRange += tx.service_fees - tx.chain_fees
         })
-
         ops.userToUser.forEach(op => {
             if (req.include_operations) operations.push({ type: Types.UserOperationType.INCOMING_USER_TO_USER, amount: op.paid_amount, inbound: true, paidAtUnix: op.paid_at_unix, confirmed: true, service_fee: op.service_fees, network_fee: 0, identifier: "", operationId: "", tx_hash: "", internal: true })
             feesInRange += op.service_fees
         })
 
         const users = await this.storage.applicationStorage.GetApplicationUsers(app, { from: req.from_unix, to: req.to_unix })
-
         let totalUserWithBalance = 0
         let totalUserWithNoBalance = 0
         let totalUsersWithNegativeBalance = 0
@@ -278,27 +366,16 @@ export default class Handler {
             } else if (u.user.balance_sats === 0) {
                 const wasActive = await this.storage.paymentStorage.UserHasOutgoingOperation(u.user.user_id)
                 totalUserWithNoBalance++
-                if (!wasActive) {
-                    totalAlwaysBeenInactive++
-                }
+                if (!wasActive) totalAlwaysBeenInactive++
             } else {
                 balanceSum += u.user.balance_sats
                 totalUserWithBalance++
-                if (u.user.balance_sats < minBalance) {
-                    minBalance = u.user.balance_sats
-                }
-                if (u.user.balance_sats > maxBalance) {
-                    maxBalance = u.user.balance_sats
-                }
+                if (u.user.balance_sats < minBalance) minBalance = u.user.balance_sats
+                if (u.user.balance_sats > maxBalance) maxBalance = u.user.balance_sats
             }
         }))
         return {
-            app: {
-                name: app ? app.name : "unlinked to app",
-                id: app ? app.app_id : "unlinked",
-                npub: app ? (app.nostr_public_key || "") : "",
-                balance: app ? app.owner.balance_sats : 0,
-            },
+            app: appMetricsIdentity(app),
             users: {
                 total: users.length,
                 always_been_inactive: totalAlwaysBeenInactive,
@@ -307,20 +384,25 @@ export default class Handler {
                 no_balance: totalUserWithNoBalance,
                 negative_balance: totalUsersWithNegativeBalance,
             },
-
             received: totalReceived,
             spent: totalSpent,
             available: balanceSum,
             fees: feesInRange,
             total_fees: totalFees,
             invoices: ops.receivingInvoices.length,
-
-            operations: req.include_operations ? operations : []
+            operations: req.include_operations ? operations : [],
         }
+    }
+
+    async firstAppOperationsPage(app: Application | null, range: { from?: number, to?: number }, cursor?: AppOperationsCursor) {
+        const page = await this.storage.paymentStorage.GetAppOperationsPage(app, range, DEFAULT_PAGE_SIZE + 1, cursor)
+        const merged = mergeAppOperationsPage(page)
+        return { operations: merged.slice(0, DEFAULT_PAGE_SIZE), hasMore: merged.length > DEFAULT_PAGE_SIZE }
     }
 
     async GetChannelsInfo() {
         const { channels } = await this.lnd.ListChannels()
+        this.rememberChannelAliases(channels)
         let totalActive = 0
         let totalInactive = 0
         channels.forEach(c => {
@@ -334,6 +416,7 @@ export default class Handler {
             totalActive, totalInactive, openChannels: channels
         }
     }
+
     async GetPendingChannelsInfo() {
         const { pendingForceClosingChannels, pendingOpenChannels } = await this.lnd.ListPendingChannels()
         return { totalPendingClose: pendingForceClosingChannels.length, totalPendingOpen: pendingOpenChannels.length }
@@ -375,7 +458,7 @@ export default class Handler {
             this.lnd.ListClosedChannels(),
             this.storage.metricsStorage.GetChannelRouting({ from: req.from_unix, to: req.to_unix }),
             this.storage.metricsStorage.GetRootOperations({ from: req.from_unix, to: req.to_unix }),
-            this.storage.metricsStorage.GetChannelsActivity()
+            this.storage.metricsStorage.GetChannelsActivity(),
         ])
         const { openChannels, totalActive, totalInactive } = chansInfo
         const { totalPendingOpen, totalPendingClose } = pendingChansInfo
@@ -423,13 +506,24 @@ export default class Handler {
                 offline_channels: totalInactive,
                 online_channels: totalActive,
                 closed_channels: closed,
-                open_channels: openChannels.map(c => ({ channel_point: c.channelPoint, active: c.active, capacity: Number(c.capacity), channel_id: c.chanId, lifetime: Number(c.lifetime), local_balance: Number(c.localBalance), remote_balance: Number(c.remoteBalance), label: c.peerAlias, inactive_since_unix: channelsActivity[c.chanId] || 0 })),
+                open_channels: openChannels.map(c => ({
+                    channel_point: c.channelPoint,
+                    active: c.active,
+                    capacity: Number(c.capacity),
+                    channel_id: String(c.chanId),
+                    lifetime: Number(c.lifetime),
+                    local_balance: Number(c.localBalance),
+                    remote_balance: Number(c.remoteBalance),
+                    label: channelPeerLabel(this.channelAliases, c.remotePubkey, c.peerAlias),
+                    inactive_since_unix: resolveInactiveSince(c.active, String(c.chanId), channelsActivity),
+                })),
                 forwarding_events: totalEvents,
                 forwarding_fees: totalFees,
                 root_ops: rootOps.map(r => ({ amount: r.operation_amount, created_at_unix: r.at_unix || 0, op_id: r.operation_identifier, op_type: mapRootOpType(r.operation_type) })),
             }],
         }
         this.lndMetricsCache.Set(req, { metrics, createdAt: now })
+        void this.RefreshChannelAliases()
         return metrics
     }
 
@@ -457,6 +551,129 @@ const mapRootOpType = (opType: string): Types.OperationType => {
     }
 }
 
+function channelPointKey(point: ChannelPoint): string {
+    const txid = fundingTxidHex(point)
+    if (!txid) return ""
+    return `${txid}:${point.outputIndex}`.toLowerCase()
+}
+
+function appMetricsIdentity(app: Application | null): Types.Application {
+    return {
+        name: app ? app.name : "unlinked to app",
+        id: app ? app.app_id : "unlinked",
+        npub: app ? (app.nostr_public_key || "") : "",
+        balance: app ? app.owner.balance_sats : 0,
+    }
+}
+
+function mergeAppOperationsPage(page: AppOperationsPage): Types.UserOperation[] {
+    const ops: Types.UserOperation[] = [
+        ...page.incomingInvoices.map(i => userOp({
+            type: Types.UserOperationType.INCOMING_INVOICE,
+            amount: i.paid_amount,
+            inbound: true,
+            paidAtUnix: i.paid_at_unix,
+            confirmed: true,
+            service_fee: i.service_fee,
+            network_fee: 0,
+            operationId: `in-inv-${i.serial_id}`,
+            tx_hash: "",
+            internal: i.internal,
+        })),
+        ...page.incomingTxs.map(tx => userOp({
+            type: Types.UserOperationType.INCOMING_TX,
+            amount: tx.paid_amount,
+            inbound: true,
+            paidAtUnix: tx.paid_at_unix,
+            confirmed: tx.confs > 1,
+            service_fee: tx.service_fee,
+            network_fee: 0,
+            operationId: `in-tx-${tx.serial_id}`,
+            tx_hash: tx.tx_hash,
+            internal: tx.internal,
+        })),
+        ...page.outgoingInvoices.map(i => userOp({
+            type: Types.UserOperationType.OUTGOING_INVOICE,
+            amount: i.paid_amount,
+            inbound: false,
+            paidAtUnix: i.paid_at_unix,
+            confirmed: true,
+            service_fee: i.service_fees,
+            network_fee: i.routing_fees,
+            operationId: `out-inv-${i.serial_id}`,
+            tx_hash: "",
+            internal: i.internal,
+        })),
+        ...page.outgoingTxs.map(tx => userOp({
+            type: Types.UserOperationType.OUTGOING_TX,
+            amount: tx.paid_amount,
+            inbound: false,
+            paidAtUnix: tx.paid_at_unix,
+            confirmed: tx.confs > 1,
+            service_fee: tx.service_fees,
+            network_fee: tx.chain_fees,
+            operationId: `out-tx-${tx.serial_id}`,
+            tx_hash: tx.tx_hash,
+            internal: tx.internal,
+        })),
+        ...page.userToUser.map(op => userOp({
+            type: Types.UserOperationType.INCOMING_USER_TO_USER,
+            amount: op.paid_amount,
+            inbound: true,
+            paidAtUnix: op.paid_at_unix,
+            confirmed: true,
+            service_fee: op.service_fees,
+            network_fee: 0,
+            operationId: `u2u-${op.serial_id}`,
+            tx_hash: "",
+            internal: true,
+        })),
+    ]
+    ops.sort(compareAppOperations)
+    return ops
+}
+
+const appOperationPrefixes: Array<{ prefix: string, kind: AppOperationKind }> = [
+    { prefix: 'in-inv-', kind: 'incomingInvoices' },
+    { prefix: 'in-tx-', kind: 'incomingTxs' },
+    { prefix: 'out-inv-', kind: 'outgoingInvoices' },
+    { prefix: 'out-tx-', kind: 'outgoingTxs' },
+    { prefix: 'u2u-', kind: 'userToUser' },
+]
+
+function parseAppOperationsCursor(operationId: string): AppOperationsCursor {
+    const match = appOperationPrefixes.find(entry => operationId.startsWith(entry.prefix))
+    const serialId = match ? Number(operationId.slice(match.prefix.length)) : 0
+    if (!match || !Number.isSafeInteger(serialId) || serialId <= 0) {
+        throw new Error("invalid operations_before_id")
+    }
+    return { kind: match.kind, serialId }
+}
+
+function compareAppOperations(a: Types.UserOperation, b: Types.UserOperation) {
+    const timeOrder = b.paidAtUnix - a.paidAtUnix
+    if (timeOrder) return timeOrder
+    const aCursor = parseAppOperationsCursor(a.operationId)
+    const bCursor = parseAppOperationsCursor(b.operationId)
+    const kindOrder = appOperationPrefixes.findIndex(entry => entry.kind === aCursor.kind)
+        - appOperationPrefixes.findIndex(entry => entry.kind === bCursor.kind)
+    return kindOrder || bCursor.serialId - aCursor.serialId
+}
+
+function userOp(op: Omit<Types.UserOperation, 'identifier'>): Types.UserOperation {
+    return { ...op, identifier: "" }
+}
+
+function fundingTxidHex(point: ChannelPoint): string {
+    if (point.fundingTxid.oneofKind === "fundingTxidStr") {
+        return point.fundingTxid.fundingTxidStr
+    }
+    if (point.fundingTxid.oneofKind === "fundingTxidBytes") {
+        return Buffer.from(point.fundingTxid.fundingTxidBytes).reverse().toString("hex")
+    }
+    return ""
+}
+
 type CacheData<T> = {
     metrics: T
     createdAt: number
@@ -476,11 +693,17 @@ class CacheController<T> {
         const key = this.getKey(req)
         delete this.cache[key]
     }
+    ClearAll = () => {
+        this.cache = {}
+    }
 
     private getKey = (req: Types.AppsMetricsRequest) => {
         const start = req.from_unix || 0
         const end = req.to_unix || 0
         const includeOperations = req.include_operations ? "1" : "0"
-        return `${start}:${end}:${includeOperations}`
+        const operationsAppId = req.operations_app_id || ""
+        const operationsBeforeId = req.operations_before_id || ""
+        const bounded = req.bounded ? "1" : "0"
+        return `${start}:${end}:${includeOperations}:${bounded}:${operationsAppId}:${operationsBeforeId}`
     }
 }

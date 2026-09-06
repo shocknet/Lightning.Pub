@@ -1,4 +1,4 @@
-import { Between, DataSource, EntityManager, FindManyOptions, FindOperator, In, LessThanOrEqual, MoreThanOrEqual } from "typeorm"
+import { Between, FindManyOptions, In, LessThanOrEqual, MoreThanOrEqual } from "typeorm"
 import { BalanceEvent } from "./entity/BalanceEvent.js"
 import { ChannelBalanceEvent } from "./entity/ChannelsBalanceEvent.js"
 import TransactionsQueue from "./db/transactionsQueue.js";
@@ -8,7 +8,6 @@ import { ChannelRouting } from "./entity/ChannelRouting.js";
 import { RootOperation } from "./entity/RootOperation.js";
 import { StorageInterface } from "./db/storageInterface.js";
 import { Utils } from "../helpers/utilsWrapper.js";
-import { Channel, ChannelEventUpdate } from "../../../proto/lnd/lightning.js";
 import { ChannelEvent } from "./entity/ChannelEvent.js";
 export type RootOperationType = 'chain' | 'invoice' | 'chain_payment' | 'invoice_payment'
 export default class {
@@ -30,31 +29,23 @@ export default class {
         //return executedMigrations;
     }
 
-    async FlagActiveChannel(chanId: string) {
-        const existing = await this.dbs.FindOne<ChannelEvent>('ChannelEvent', { where: { channel_id: chanId, event_type: 'activity' } })
-        if (!existing) {
-            await this.dbs.CreateAndSave<ChannelEvent>('ChannelEvent', { channel_id: chanId, event_type: 'activity', inactive_since_unix: 0 })
-            return
+    async MarkChannelsSeen(chanIds: string[], debounceSec = 0) {
+        const unique = [...new Set(chanIds.filter(id => !!id))]
+        if (unique.length === 0) return
+        const atUnix = Math.floor(Date.now() / 1000)
+        const existing = await this.dbs.Find<ChannelEvent>('ChannelEvent', {
+            where: {
+                event_type: 'activity',
+                channel_id: In(unique),
+            },
+        })
+        const { toCreate, toUpdateIds } = partitionChannelSeenWrites(unique, existing, atUnix, debounceSec)
+        if (toCreate.length > 0) {
+            await this.dbs.CreateAndSave<ChannelEvent[]>('ChannelEvent', toCreate)
         }
-
-        if (existing.inactive_since_unix > 0) {
-            await this.dbs.Update<ChannelEvent>('ChannelEvent', existing.serial_id, { inactive_since_unix: 0 })
-            return
+        if (toUpdateIds.length > 0) {
+            await this.dbs.Update<ChannelEvent>('ChannelEvent', { serial_id: In(toUpdateIds) }, { inactive_since_unix: atUnix })
         }
-        return
-    }
-
-    async FlagInactiveChannel(chanId: string) {
-        const existing = await this.dbs.FindOne<ChannelEvent>('ChannelEvent', { where: { channel_id: chanId, event_type: 'activity' } })
-        if (!existing) {
-            await this.dbs.CreateAndSave<ChannelEvent>('ChannelEvent', { channel_id: chanId, event_type: 'activity', inactive_since_unix: Math.floor(Date.now() / 1000) })
-            return
-        }
-        if (existing.inactive_since_unix > 0) {
-            return
-        }
-        await this.dbs.Update<ChannelEvent>('ChannelEvent', existing.serial_id, { inactive_since_unix: Math.floor(Date.now() / 1000) })
-        return
     }
 
     async GetChannelsActivity(): Promise<Record<string, number>> {
@@ -178,6 +169,43 @@ export default class {
         const q = getTimeQuery({ from, to })
         return this.dbs.Find<RootOperation>('RootOperation', q, txId)
     }
+}
+
+export function resolveInactiveSince(
+    active: boolean,
+    chanId: string,
+    lastSeenByChan: Record<string, number>,
+): number {
+    if (active) return 0
+    return lastSeenByChan[chanId] || 0
+}
+
+function shouldStampChannelSeen(existingUnix: number, atUnix: number, debounceSec: number): boolean {
+    if (debounceSec > 0 && atUnix - existingUnix < debounceSec) return false
+    if (existingUnix >= atUnix) return false
+    return true
+}
+
+function partitionChannelSeenWrites(
+    chanIds: string[],
+    existing: ChannelEvent[],
+    atUnix: number,
+    debounceSec: number,
+): { toCreate: Partial<ChannelEvent>[]; toUpdateIds: number[] } {
+    const byId = new Map(existing.map(e => [e.channel_id, e]))
+    const toCreate: Partial<ChannelEvent>[] = []
+    const toUpdateIds: number[] = []
+    for (const chanId of chanIds) {
+        const row = byId.get(chanId)
+        if (!row) {
+            toCreate.push({ channel_id: chanId, event_type: 'activity', inactive_since_unix: atUnix })
+            continue
+        }
+        if (shouldStampChannelSeen(row.inactive_since_unix, atUnix, debounceSec)) {
+            toUpdateIds.push(row.serial_id)
+        }
+    }
+    return { toCreate, toUpdateIds }
 }
 
 const getTimeQuery = ({ from, to }: { from?: number, to?: number }): FindManyOptions<{ created_at: Date }> => {

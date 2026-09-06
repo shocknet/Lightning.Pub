@@ -81,7 +81,7 @@ export default class SettingsManager {
         return this.settings
     }
 
-    async updateDefaultAppName(name: string): Promise<boolean> {
+    async updateDefaultAppName(name: string, txId?: string): Promise<boolean> {
         if (!this.settings) {
             throw new Error("Settings not initialized")
         }
@@ -91,8 +91,10 @@ export default class SettingsManager {
         if (!!process.env.DEFAULT_APP_NAME) {
             return false
         }
-        await this.storage.settingsStorage.setDbEnvIFNeeded("DEFAULT_APP_NAME", name)
-        this.settings.serviceSettings.defaultAppName = name
+        await this.storage.settingsStorage.setDbEnvIFNeeded("DEFAULT_APP_NAME", name, txId)
+        if (!txId) {
+            this.settings.serviceSettings.defaultAppName = name
+        }
         return true
     }
 
@@ -123,6 +125,21 @@ export default class SettingsManager {
         }
         await this.storage.settingsStorage.setDbEnvIFNeeded("DISABLE_LIQUIDITY_PROVIDER", disable ? "true" : "false")
         this.settings.liquiditySettings.disableLiquidityProvider = disable
+        return true
+    }
+
+    async updateLspChannelThreshold(threshold: number): Promise<boolean> {
+        if (!this.settings) {
+            throw new Error("Settings not initialized")
+        }
+        if (threshold === this.settings.lspSettings.channelThreshold) {
+            return false
+        }
+        if (!!process.env.LSP_CHANNEL_THRESHOLD) {
+            return false
+        }
+        await this.storage.settingsStorage.setDbEnvIFNeeded("LSP_CHANNEL_THRESHOLD", String(threshold))
+        this.settings.lspSettings.channelThreshold = threshold
         return true
     }
 

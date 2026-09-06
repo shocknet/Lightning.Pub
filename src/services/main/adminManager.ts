@@ -13,10 +13,28 @@ import { UserInvoicePayment } from "../storage/entity/UserInvoicePayment.js";
 import { UserReceivingInvoice } from "../storage/entity/UserReceivingInvoice.js";
 import { UserTransactionPayment } from "../storage/entity/UserTransactionPayment.js";
 import { TrackedProvider } from "../storage/entity/TrackedProvider.js";
+import { Application } from "../storage/entity/Application.js";
 import { NodeInfo } from "../lnd/settings.js";
-import { Invoice, Payment, OutputDetail, Transaction, Payment_PaymentStatus, Invoice_InvoiceState } from "../../../proto/lnd/lightning.js";
+import { Channel, Invoice, Payment, OutputDetail, Transaction, Payment_PaymentStatus, Invoice_InvoiceState } from "../../../proto/lnd/lightning.js";
 import { LiquidityProvider } from "./liquidityProvider.js";
 import { clampPageLimit, DEFAULT_LND_PAGE_SIZE, DEFAULT_PAGE_SIZE, MAX_LIQUIDITY_PAGE_SIZE, MAX_PAGE_SIZE } from "../helpers/pageLimit.js";
+import { aliasByRemotePubkey } from "../helpers/channelAliases.js";
+import {
+    ADMIN_AUTOMATION_ENV,
+    ADMIN_BACKUPS_ENV,
+    ADMIN_LSP_THRESHOLD_ENV,
+    ADMIN_NODE_NAME_ENV,
+    assertAvatarUrl,
+    assertLspThreshold,
+    assertNodeName,
+    automationEnabled,
+    disableLiquidityFromAutomation,
+    isEnvLocked,
+    pickDefaultApp,
+    trimAvatarUrl,
+    trimNodeName,
+} from "./adminNodeSettings.js";
+import { resolveInactiveSince } from "../storage/metricsStorage.js";
 /* type TrackedOperation = {
     ts: number
     amount: number
@@ -52,6 +70,11 @@ type ProviderAssetProvider = {
 } */
 const ROOT_OP = Types.TrackedOperationType.ROOT
 const USER_OP = Types.TrackedOperationType.USER
+
+const untrackedLiquidityAsset = (pubkey: string): Types.LiquidityAssetProviderV2 => ({
+    pubkey,
+    tracked: undefined,
+})
 export class AdminManager {
     settings: SettingsManager
     liquidityProvider: LiquidityProvider | null = null
@@ -69,6 +92,7 @@ export class AdminManager {
     swaps: Swaps
     nostrConnected: boolean = false
     private nostrReset: () => Promise<void> = async () => { this.log("nostr reset not initialized yet") }
+    private refreshDefaultBeacon: () => Promise<void> = async () => { }
     constructor(settings: SettingsManager, storage: Storage, swaps: Swaps) {
         this.settings = settings
         this.storage = storage
@@ -93,6 +117,10 @@ export class AdminManager {
 
     attachNostrReset(f: () => Promise<void>) {
         this.nostrReset = f
+    }
+
+    attachBeaconRefresh(f: () => Promise<void>) {
+        this.refreshDefaultBeacon = f
     }
 
     async ResetNostr() {
@@ -248,35 +276,203 @@ export class AdminManager {
         const { channels } = await this.lnd.ListChannels(true)
         const { identityPubkey } = await this.lnd.GetInfo()
         const activity = await this.storage.metricsStorage.GetChannelsActivity()
-        const openChannels = await Promise.all(channels.map(async c => {
-            const info = await this.lnd.GetChannelInfo(c.chanId)
-            const policies = [{ pub: info.node1Pub, policy: info.node1Policy }, { pub: info.node2Pub, policy: info.node2Policy }]
-            const myPolicy = policies.find(p => p.pub === identityPubkey)?.policy
-            const policy: Types.ChannelPolicy | undefined = myPolicy ? {
-                base_fee_msat: Number(myPolicy.feeBaseMsat),
-                fee_rate_ppm: Number(myPolicy.feeRateMilliMsat),
-                timelock_delta: Number(myPolicy.timeLockDelta),
-                max_htlc_msat: Number(myPolicy.maxHtlcMsat),
-                min_htlc_msat: Number(myPolicy.minHtlc),
+        const openChannels = await Promise.all(
+            channels.map(c => this.toOpenChannel(c, identityPubkey, activity)),
+        )
+        return { open_channels: openChannels }
+    }
 
-            } : undefined
+    private toOpenChannel = async (
+        c: Channel,
+        identityPubkey: string,
+        activity: Record<string, number>,
+    ): Promise<Types.OpenChannel> => ({
+        channel_point: c.channelPoint,
+        active: c.active,
+        capacity: Number(c.capacity),
+        local_balance: Number(c.localBalance),
+        remote_balance: Number(c.remoteBalance),
+        channel_id: c.chanId,
+        label: c.peerAlias || c.remotePubkey,
+        lifetime: Number(c.lifetime),
+        policy: await this.policyForChannel(c.chanId, identityPubkey),
+        inactive_since_unix: resolveInactiveSince(c.active, c.chanId, activity),
+    })
+
+    private policyForChannel = async (chanId: string, identityPubkey: string): Promise<Types.ChannelPolicy | undefined> => {
+        try {
+            const info = await this.lnd.GetChannelInfo(chanId)
+            const mine = info.node1Pub === identityPubkey
+                ? info.node1Policy
+                : info.node2Pub === identityPubkey
+                    ? info.node2Policy
+                    : undefined
+            if (!mine) return undefined
             return {
-                channel_point: c.channelPoint,
-                active: c.active,
-                capacity: Number(c.capacity),
-                local_balance: Number(c.localBalance),
-                remote_balance: Number(c.remoteBalance),
-                channel_id: c.chanId,
-                label: c.peerAlias || c.remotePubkey,
-                lifetime: Number(c.lifetime),
-                policy,
-                inactive_since_unix: activity[c.chanId] || 0
+                base_fee_msat: Number(mine.feeBaseMsat),
+                fee_rate_ppm: Number(mine.feeRateMilliMsat),
+                timelock_delta: Number(mine.timeLockDelta),
+                max_htlc_msat: Number(mine.maxHtlcMsat),
+                min_htlc_msat: Number(mine.minHtlc),
             }
-        }))
-        return {
-            open_channels: openChannels
+        } catch {
+            return undefined
         }
     }
+
+    ListPeers = async (): Promise<Types.LndPeers> => {
+        const [peerRes, chanRes] = await Promise.all([
+            this.lnd.ListPeers(),
+            this.lnd.ListChannels(),
+        ])
+        const channelAlias = aliasByRemotePubkey(chanRes.channels || [])
+        const peers = (peerRes.peers || []).map((peer) => this.toListedPeer(peer, channelAlias))
+        return { peers }
+    }
+
+    ListUtxos = async (): Promise<Types.LndUtxos> => {
+        const utxos = await this.lnd.ListUnspent()
+        return { utxos: utxos.map(toListedUtxo) }
+    }
+
+    GetAdminNodeSettings = async (): Promise<Types.AdminNodeSettings> => {
+        const service = this.settings.getSettings().serviceSettings
+        const liquidity = this.settings.getSettings().liquiditySettings
+        const app = await this.loadDefaultApp()
+        return {
+            node_name: app?.name || service.defaultAppName,
+            avatar_url: app?.avatar_url || "",
+            automate_liquidity: automationEnabled(liquidity.disableLiquidityProvider),
+            push_backups_to_nostr: service.pushBackupsToNostr,
+            node_name_env_locked: isEnvLocked(ADMIN_NODE_NAME_ENV),
+            automate_liquidity_env_locked: isEnvLocked(ADMIN_AUTOMATION_ENV),
+            backups_env_locked: isEnvLocked(ADMIN_BACKUPS_ENV),
+            lsp_channel_threshold: this.settings.getSettings().lspSettings.channelThreshold,
+            lsp_threshold_env_locked: isEnvLocked(ADMIN_LSP_THRESHOLD_ENV),
+        }
+    }
+
+    UpdateAdminNodeSettings = async (req: Types.UpdateAdminNodeSettingsRequest): Promise<Types.AdminNodeSettings> => {
+        assertNodeName(req.node_name)
+        const name = trimNodeName(req.node_name)
+        const avatar = trimAvatarUrl(req.avatar_url)
+        assertAvatarUrl(avatar)
+        assertLspThreshold(req.lsp_channel_threshold)
+        const current = await this.GetAdminNodeSettings()
+        this.assertUnlockedChange(current, name, req)
+
+        const app = await this.loadDefaultApp()
+        let beaconDirty = false
+
+        if (!current.node_name_env_locked) {
+            if (await this.commitDefaultAppName(app, name)) {
+                beaconDirty = true
+            }
+        }
+
+        if (app && (app.avatar_url || "") !== avatar) {
+            await this.storage.applicationStorage.UpdateApplication(app, { avatar_url: avatar })
+            app.avatar_url = avatar
+            beaconDirty = true
+        }
+
+        if (!current.automate_liquidity_env_locked) {
+            await this.settings.updateDisableLiquidityProvider(disableLiquidityFromAutomation(req.automate_liquidity))
+            this.liquidityProvider?.syncAfterSettingsChange()
+        }
+
+        if (!current.lsp_threshold_env_locked) {
+            await this.settings.updateLspChannelThreshold(req.lsp_channel_threshold)
+        }
+
+        if (!current.backups_env_locked) {
+            await this.settings.updatePushBackupsToNostr(req.push_backups_to_nostr)
+        }
+
+        if (beaconDirty) {
+            await this.refreshDefaultBeacon()
+        }
+
+        return this.GetAdminNodeSettings()
+    }
+
+    private assertUnlockedChange = (current: Types.AdminNodeSettings, name: string, req: Types.UpdateAdminNodeSettingsRequest) => {
+        if (current.node_name_env_locked && name !== current.node_name) {
+            throw new Error("node name is set in the environment")
+        }
+        if (current.automate_liquidity_env_locked && req.automate_liquidity !== current.automate_liquidity) {
+            throw new Error("automation is set in the environment")
+        }
+        if (current.lsp_threshold_env_locked && req.lsp_channel_threshold !== current.lsp_channel_threshold) {
+            throw new Error("LSP channel threshold is set in the environment")
+        }
+        if (current.backups_env_locked && req.push_backups_to_nostr !== current.push_backups_to_nostr) {
+            throw new Error("channel backups are set in the environment")
+        }
+    }
+
+    private loadDefaultApp = async () => {
+        const name = this.settings.getSettings().serviceSettings.defaultAppName
+        const apps = await this.storage.applicationStorage.GetApplications()
+        return pickDefaultApp(apps, name)
+    }
+
+    private commitDefaultAppName = async (app: Application | undefined, name: string): Promise<boolean> => {
+        const result = await this.storage.StartTransaction(
+            txId => this.writeDefaultAppName(app, name, txId),
+            "rename-default-app",
+        )
+        this.applyDefaultAppName(app, name, result)
+        return result.didRename
+    }
+
+    private writeDefaultAppName = async (app: Application | undefined, name: string, txId: string) => {
+        const didRename = await this.renameDefaultApp(app, name, txId)
+        const didPersist = await this.settings.updateDefaultAppName(name, txId)
+        return { didRename, didPersist }
+    }
+
+    private applyDefaultAppName = (
+        app: Application | undefined,
+        name: string,
+        result: { didRename: boolean, didPersist: boolean },
+    ) => {
+        if (result.didPersist) {
+            this.settings.getSettings().serviceSettings.defaultAppName = name
+        }
+        if (result.didRename && app) {
+            app.name = name
+        }
+    }
+
+    private renameDefaultApp = async (app: Application | undefined, name: string, txId: string): Promise<boolean> => {
+        if (!app || app.name === name) {
+            return false
+        }
+        await this.assertAppNameAvailable(name, txId)
+        await this.storage.applicationStorage.UpdateApplication(app, { name }, txId)
+        return true
+    }
+
+    private assertAppNameAvailable = async (name: string, txId: string) => {
+        const apps = await this.storage.applicationStorage.GetApplications(txId)
+        if (apps.some(app => app.name === name)) {
+            throw new Error("that name is already in use")
+        }
+    }
+
+    private toListedPeer = (
+        peer: { pubKey: string; address: string; inbound: boolean; satSent: bigint; satRecv: bigint },
+        channelAlias: Map<string, string>,
+    ): Types.LndPeer => ({
+        pubkey: peer.pubKey,
+        address: peer.address,
+        inbound: peer.inbound,
+        sats_sent: Number(peer.satSent),
+        sats_recv: Number(peer.satRecv),
+        alias: channelAlias.get(peer.pubKey) || "",
+        has_channel: channelAlias.has(peer.pubKey),
+    })
 
     async UpdateChannelPolicy(req: Types.UpdateChannelPolicyRequest): Promise<void> {
         const chanPoint = req.update.type === Types.UpdateChannelPolicyRequest_update_type.CHANNEL_POINT ? req.update.channel_point : ""
@@ -462,32 +658,35 @@ export class AdminManager {
     }
 
     async GetProviderAssetsAndLiabilities(req: Types.AssetsAndLiabilitiesReqV2, provider: TrackedProvider): Promise<Types.LiquidityAssetProviderV2> {
-        if (!this.liquidityProvider) {
-            throw new Error("liquidity provider not attached")
+        const pubkey = provider.provider_pubkey
+        const lp = this.liquidityProvider
+        if (!this.canFetchLiquidityAssets(lp, pubkey)) {
+            return untrackedLiquidityAsset(pubkey)
         }
-        if (this.liquidityProvider.GetProviderPubkey() !== provider.provider_pubkey) {
-            return { pubkey: provider.provider_pubkey, tracked: undefined }
+        try {
+            return await this.fetchLiquidityAssets(req, provider, lp)
+        } catch (err: any) {
+            this.log("failed to fetch liquidity provider assets", err?.message || err)
+            return untrackedLiquidityAsset(pubkey)
         }
+    }
+
+    private canFetchLiquidityAssets(lp: LiquidityProvider | null, pubkey: string): lp is LiquidityProvider {
+        return !!lp && lp.IsReady() && lp.GetProviderPubkey() === pubkey
+    }
+
+    private async fetchLiquidityAssets(
+        req: Types.AssetsAndLiabilitiesReqV2,
+        provider: TrackedProvider,
+        lp: LiquidityProvider,
+    ): Promise<Types.LiquidityAssetProviderV2> {
         const filter = req.liquidity_providers.find(p => p.pubkey === provider.provider_pubkey)
         const incoming = filter?.latestIncomingInvoice
         const outgoing = filter?.latestOutgoingInvoice
         const limit = clampPageLimit(filter?.limit, DEFAULT_PAGE_SIZE, MAX_LIQUIDITY_PAGE_SIZE)
-        const providerOps = await this.liquidityProvider.GetOperations(incoming, outgoing, limit)
+        const providerOps = await lp.GetOperations(incoming, outgoing, limit)
         if (providerOps === 'timeout') {
-            const emptyPage: Types.LiquidityAssetOperationsPage = {
-                operations: [],
-                has_more: false,
-                timeout: true,
-            }
-            const balance = await this.liquidityProvider.GetUserState()
-            return {
-                pubkey: provider.provider_pubkey,
-                tracked: {
-                    balance: balance.status === 'OK' ? balance.balance : 0,
-                    payments: emptyPage,
-                    invoices: emptyPage,
-                }
-            }
+            return this.timedOutLiquidityAsset(provider.provider_pubkey, lp)
         }
         const invoices = await this.BuildLiquidityAssetOperationsPage(
             providerOps.latestIncomingInvoiceOperations,
@@ -499,13 +698,30 @@ export class AdminManager {
             limit,
             'payment',
         )
-        const balance = await this.liquidityProvider.GetUserState()
+        const balance = await lp.GetUserState()
         return {
             pubkey: provider.provider_pubkey,
             tracked: {
                 balance: balance.status === 'OK' ? balance.balance : 0,
                 payments,
                 invoices,
+            }
+        }
+    }
+
+    private async timedOutLiquidityAsset(pubkey: string, lp: LiquidityProvider): Promise<Types.LiquidityAssetProviderV2> {
+        const emptyPage: Types.LiquidityAssetOperationsPage = {
+            operations: [],
+            has_more: false,
+            timeout: true,
+        }
+        const balance = await lp.GetUserState()
+        return {
+            pubkey,
+            tracked: {
+                balance: balance.status === 'OK' ? balance.balance : 0,
+                payments: emptyPage,
+                invoices: emptyPage,
             }
         }
     }
@@ -840,4 +1056,19 @@ class AssetOperationTracker {
 
 const getDataPath = (dataDir: string, dataPath: string) => {
     return dataDir !== "" ? `${dataDir}/${dataPath}` : dataPath
+}
+
+function toListedUtxo(utxo: {
+    address: string
+    amountSat: bigint
+    confirmations: bigint
+    outpoint?: { txidStr: string; outputIndex: number }
+}): Types.LndUtxo {
+    return {
+        address: utxo.address,
+        amount_sat: Number(utxo.amountSat),
+        txid: utxo.outpoint?.txidStr || "",
+        output_index: utxo.outpoint?.outputIndex ?? 0,
+        confirmations: Number(utxo.confirmations),
+    }
 }

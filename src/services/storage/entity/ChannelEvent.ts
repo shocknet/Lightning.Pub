@@ -11,6 +11,7 @@ export class ChannelEvent {
     @Column()
     event_type: 'activity'
 
+    /** Last unix Pub observed this channel live (online, or the moment it dropped). */
     @Column({ default: 0 })
     inactive_since_unix: number
 
