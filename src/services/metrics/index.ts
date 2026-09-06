@@ -14,6 +14,8 @@ import { encodeTLV, usageMetricsToTlv } from '../helpers/tlv.js'
 import { ChannelCloseSummary_ClosureType } from '../../../proto/lnd/lightning.js'
 import { resolveInactiveSince } from '../storage/metricsStorage.js'
 import { CHANNEL_ALIAS_CACHE_TTL_MS, CHANNEL_ALIAS_RETRY_TTL_MS, aliasByRemotePubkey, channelPeerLabel, mergeAliasMaps } from '../helpers/channelAliases.js'
+import { DEFAULT_PAGE_SIZE } from '../helpers/pageLimit.js'
+import { AppOperationKind, AppOperationsCursor, AppOperationsPage } from '../storage/paymentStorage.js'
 const cacheTTL = 1000 * 60 * 5 // 5 minutes
 export default class Handler {
 
@@ -256,6 +258,9 @@ export default class Handler {
         } */
 
     async GetAppsMetrics(req: Types.AppsMetricsRequest): Promise<Types.AppsMetrics> {
+        if (req.operations_before_id && (!req.bounded || !req.to_unix || !req.operations_app_id)) {
+            throw new Error("operations_before_id requires bounded, to_unix, and operations_app_id")
+        }
         const cached = this.appsMetricsCache.Get(req)
         const now = Date.now()
         if (cached && now - cached.createdAt < cacheTTL) {
@@ -274,11 +279,46 @@ export default class Handler {
     }
 
     async GetAppMetrics(req: Types.AppsMetricsRequest, app: Application | null): Promise<Types.AppMetrics> {
+        if (!req.bounded) {
+            return this.GetUnboundedAppMetrics(req, app)
+        }
+        return this.GetBoundedAppMetrics(req, app)
+    }
+
+    async GetBoundedAppMetrics(req: Types.AppsMetricsRequest, app: Application | null): Promise<Types.AppMetrics> {
+        const range = { from: req.from_unix, to: req.to_unix }
+        const appIdentity = appMetricsIdentity(app)
+        const includeOperations = !!req.include_operations && (!req.operations_app_id || req.operations_app_id === appIdentity.id)
+        const operationsCursor = includeOperations && req.operations_before_id
+            ? parseAppOperationsCursor(req.operations_before_id)
+            : undefined
+        const [totalFees, totals, users, operationPage] = await Promise.all([
+            this.storage.paymentStorage.GetTotalFeesPaidInApp(app),
+            this.storage.paymentStorage.GetAppOperationTotals(app, range),
+            this.storage.applicationStorage.CountApplicationUsers(app, range),
+            includeOperations ? this.firstAppOperationsPage(app, range, operationsCursor) : undefined,
+        ])
+        const metrics: Types.AppMetrics = {
+            app: appIdentity,
+            users: { total: users, always_been_inactive: 0, balance_avg: 0, balance_median: 0, no_balance: 0, negative_balance: 0 },
+            received: totals.received,
+            spent: totals.spent,
+            available: 0,
+            fees: totals.fees,
+            total_fees: totalFees,
+            invoices: totals.invoices,
+            operation_count: totals.operations,
+            operations_has_more: operationPage?.hasMore || false,
+            operations: operationPage?.operations || [],
+        }
+        return metrics
+    }
+
+    async GetUnboundedAppMetrics(req: Types.AppsMetricsRequest, app: Application | null): Promise<Types.AppMetrics> {
         const totalFees = await this.storage.paymentStorage.GetTotalFeesPaidInApp(app)
         const ops = await this.storage.paymentStorage.GetAppOperations(app, { from: req.from_unix, to: req.to_unix })
         let totalReceived = 0
         let totalSpent = 0
-        let unpaidInvoices = 0
         let feesInRange = 0
         const operations: Types.UserOperation[] = []
         ops.receivingInvoices.forEach(i => {
@@ -286,8 +326,6 @@ export default class Handler {
                 totalReceived += i.paid_amount
                 feesInRange += i.service_fee
                 if (req.include_operations) operations.push({ type: Types.UserOperationType.INCOMING_INVOICE, amount: i.paid_amount, inbound: true, paidAtUnix: i.paid_at_unix, confirmed: true, service_fee: i.service_fee, network_fee: 0, identifier: "", operationId: "", tx_hash: "", internal: i.internal })
-            } else {
-                unpaidInvoices++
             }
         })
         ops.receivingTransactions.forEach(txs => {
@@ -302,21 +340,19 @@ export default class Handler {
         ops.outgoingInvoices.forEach(i => {
             if (req.include_operations) operations.push({ type: Types.UserOperationType.OUTGOING_INVOICE, amount: i.paid_amount, inbound: false, paidAtUnix: i.paid_at_unix, confirmed: true, service_fee: i.service_fees, network_fee: i.routing_fees, identifier: "", operationId: "", tx_hash: "", internal: i.internal })
             totalSpent += i.paid_amount
-            feesInRange += (i.service_fees - i.routing_fees)
+            feesInRange += i.service_fees - i.routing_fees
         })
         ops.outgoingTransactions.forEach(tx => {
             if (req.include_operations) operations.push({ type: Types.UserOperationType.OUTGOING_TX, amount: tx.paid_amount, inbound: false, paidAtUnix: tx.paid_at_unix, confirmed: tx.confs > 1, service_fee: tx.service_fees, network_fee: tx.chain_fees, identifier: "", operationId: "", tx_hash: tx.tx_hash, internal: tx.internal })
             totalSpent += tx.paid_amount
-            feesInRange += (tx.service_fees - tx.chain_fees)
+            feesInRange += tx.service_fees - tx.chain_fees
         })
-
         ops.userToUser.forEach(op => {
             if (req.include_operations) operations.push({ type: Types.UserOperationType.INCOMING_USER_TO_USER, amount: op.paid_amount, inbound: true, paidAtUnix: op.paid_at_unix, confirmed: true, service_fee: op.service_fees, network_fee: 0, identifier: "", operationId: "", tx_hash: "", internal: true })
             feesInRange += op.service_fees
         })
 
         const users = await this.storage.applicationStorage.GetApplicationUsers(app, { from: req.from_unix, to: req.to_unix })
-
         let totalUserWithBalance = 0
         let totalUserWithNoBalance = 0
         let totalUsersWithNegativeBalance = 0
@@ -330,27 +366,16 @@ export default class Handler {
             } else if (u.user.balance_sats === 0) {
                 const wasActive = await this.storage.paymentStorage.UserHasOutgoingOperation(u.user.user_id)
                 totalUserWithNoBalance++
-                if (!wasActive) {
-                    totalAlwaysBeenInactive++
-                }
+                if (!wasActive) totalAlwaysBeenInactive++
             } else {
                 balanceSum += u.user.balance_sats
                 totalUserWithBalance++
-                if (u.user.balance_sats < minBalance) {
-                    minBalance = u.user.balance_sats
-                }
-                if (u.user.balance_sats > maxBalance) {
-                    maxBalance = u.user.balance_sats
-                }
+                if (u.user.balance_sats < minBalance) minBalance = u.user.balance_sats
+                if (u.user.balance_sats > maxBalance) maxBalance = u.user.balance_sats
             }
         }))
         return {
-            app: {
-                name: app ? app.name : "unlinked to app",
-                id: app ? app.app_id : "unlinked",
-                npub: app ? (app.nostr_public_key || "") : "",
-                balance: app ? app.owner.balance_sats : 0,
-            },
+            app: appMetricsIdentity(app),
             users: {
                 total: users.length,
                 always_been_inactive: totalAlwaysBeenInactive,
@@ -359,16 +384,20 @@ export default class Handler {
                 no_balance: totalUserWithNoBalance,
                 negative_balance: totalUsersWithNegativeBalance,
             },
-
             received: totalReceived,
             spent: totalSpent,
             available: balanceSum,
             fees: feesInRange,
             total_fees: totalFees,
             invoices: ops.receivingInvoices.length,
-
-            operations: req.include_operations ? operations : []
+            operations: req.include_operations ? operations : [],
         }
+    }
+
+    async firstAppOperationsPage(app: Application | null, range: { from?: number, to?: number }, cursor?: AppOperationsCursor) {
+        const page = await this.storage.paymentStorage.GetAppOperationsPage(app, range, DEFAULT_PAGE_SIZE + 1, cursor)
+        const merged = mergeAppOperationsPage(page)
+        return { operations: merged.slice(0, DEFAULT_PAGE_SIZE), hasMore: merged.length > DEFAULT_PAGE_SIZE }
     }
 
     async GetChannelsInfo() {
@@ -528,6 +557,113 @@ function channelPointKey(point: ChannelPoint): string {
     return `${txid}:${point.outputIndex}`.toLowerCase()
 }
 
+function appMetricsIdentity(app: Application | null): Types.Application {
+    return {
+        name: app ? app.name : "unlinked to app",
+        id: app ? app.app_id : "unlinked",
+        npub: app ? (app.nostr_public_key || "") : "",
+        balance: app ? app.owner.balance_sats : 0,
+    }
+}
+
+function mergeAppOperationsPage(page: AppOperationsPage): Types.UserOperation[] {
+    const ops: Types.UserOperation[] = [
+        ...page.incomingInvoices.map(i => userOp({
+            type: Types.UserOperationType.INCOMING_INVOICE,
+            amount: i.paid_amount,
+            inbound: true,
+            paidAtUnix: i.paid_at_unix,
+            confirmed: true,
+            service_fee: i.service_fee,
+            network_fee: 0,
+            operationId: `in-inv-${i.serial_id}`,
+            tx_hash: "",
+            internal: i.internal,
+        })),
+        ...page.incomingTxs.map(tx => userOp({
+            type: Types.UserOperationType.INCOMING_TX,
+            amount: tx.paid_amount,
+            inbound: true,
+            paidAtUnix: tx.paid_at_unix,
+            confirmed: tx.confs > 1,
+            service_fee: tx.service_fee,
+            network_fee: 0,
+            operationId: `in-tx-${tx.serial_id}`,
+            tx_hash: tx.tx_hash,
+            internal: tx.internal,
+        })),
+        ...page.outgoingInvoices.map(i => userOp({
+            type: Types.UserOperationType.OUTGOING_INVOICE,
+            amount: i.paid_amount,
+            inbound: false,
+            paidAtUnix: i.paid_at_unix,
+            confirmed: true,
+            service_fee: i.service_fees,
+            network_fee: i.routing_fees,
+            operationId: `out-inv-${i.serial_id}`,
+            tx_hash: "",
+            internal: i.internal,
+        })),
+        ...page.outgoingTxs.map(tx => userOp({
+            type: Types.UserOperationType.OUTGOING_TX,
+            amount: tx.paid_amount,
+            inbound: false,
+            paidAtUnix: tx.paid_at_unix,
+            confirmed: tx.confs > 1,
+            service_fee: tx.service_fees,
+            network_fee: tx.chain_fees,
+            operationId: `out-tx-${tx.serial_id}`,
+            tx_hash: tx.tx_hash,
+            internal: tx.internal,
+        })),
+        ...page.userToUser.map(op => userOp({
+            type: Types.UserOperationType.INCOMING_USER_TO_USER,
+            amount: op.paid_amount,
+            inbound: true,
+            paidAtUnix: op.paid_at_unix,
+            confirmed: true,
+            service_fee: op.service_fees,
+            network_fee: 0,
+            operationId: `u2u-${op.serial_id}`,
+            tx_hash: "",
+            internal: true,
+        })),
+    ]
+    ops.sort(compareAppOperations)
+    return ops
+}
+
+const appOperationPrefixes: Array<{ prefix: string, kind: AppOperationKind }> = [
+    { prefix: 'in-inv-', kind: 'incomingInvoices' },
+    { prefix: 'in-tx-', kind: 'incomingTxs' },
+    { prefix: 'out-inv-', kind: 'outgoingInvoices' },
+    { prefix: 'out-tx-', kind: 'outgoingTxs' },
+    { prefix: 'u2u-', kind: 'userToUser' },
+]
+
+function parseAppOperationsCursor(operationId: string): AppOperationsCursor {
+    const match = appOperationPrefixes.find(entry => operationId.startsWith(entry.prefix))
+    const serialId = match ? Number(operationId.slice(match.prefix.length)) : 0
+    if (!match || !Number.isSafeInteger(serialId) || serialId <= 0) {
+        throw new Error("invalid operations_before_id")
+    }
+    return { kind: match.kind, serialId }
+}
+
+function compareAppOperations(a: Types.UserOperation, b: Types.UserOperation) {
+    const timeOrder = b.paidAtUnix - a.paidAtUnix
+    if (timeOrder) return timeOrder
+    const aCursor = parseAppOperationsCursor(a.operationId)
+    const bCursor = parseAppOperationsCursor(b.operationId)
+    const kindOrder = appOperationPrefixes.findIndex(entry => entry.kind === aCursor.kind)
+        - appOperationPrefixes.findIndex(entry => entry.kind === bCursor.kind)
+    return kindOrder || bCursor.serialId - aCursor.serialId
+}
+
+function userOp(op: Omit<Types.UserOperation, 'identifier'>): Types.UserOperation {
+    return { ...op, identifier: "" }
+}
+
 function fundingTxidHex(point: ChannelPoint): string {
     if (point.fundingTxid.oneofKind === "fundingTxidStr") {
         return point.fundingTxid.fundingTxidStr
@@ -565,6 +701,9 @@ class CacheController<T> {
         const start = req.from_unix || 0
         const end = req.to_unix || 0
         const includeOperations = req.include_operations ? "1" : "0"
-        return `${start}:${end}:${includeOperations}`
+        const operationsAppId = req.operations_app_id || ""
+        const operationsBeforeId = req.operations_before_id || ""
+        const bounded = req.bounded ? "1" : "0"
+        return `${start}:${end}:${includeOperations}:${bounded}:${operationsAppId}:${operationsBeforeId}`
     }
 }

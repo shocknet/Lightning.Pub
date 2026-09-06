@@ -142,6 +142,20 @@ export default class {
         return this.dbs.Find<ApplicationUser>('ApplicationUser', { where: { application: q, ...time } }, txId)
     }
 
+    async CountApplicationUsers(application: Application | null, range: { from?: number, to?: number }, txId?: string) {
+        const q = application ? { app_id: application.app_id } : IsNull()
+        let time: { created_at?: FindOperator<Date> } = {}
+        if (!!range.from && !!range.to) {
+            time.created_at = Between<Date>(new Date(range.from * 1000), new Date(range.to * 1000))
+        } else if (!!range.from) {
+            time.created_at = MoreThanOrEqual<Date>(new Date(range.from * 1000))
+        } else if (!!range.to) {
+            time.created_at = LessThanOrEqual<Date>(new Date(range.to * 1000))
+        }
+        const [, n] = await this.dbs.FindAndCount<ApplicationUser>('ApplicationUser', { where: { application: q, ...time }, take: 1 }, txId)
+        return n
+    }
+
     async GetAppUserFromUser(application: Application, userId: string, txId?: string): Promise<ApplicationUser | null> {
         return this.dbs.FindOne<ApplicationUser>('ApplicationUser', { where: { user: { user_id: userId }, application: { app_id: application.app_id } } }, txId)
     }

@@ -851,21 +851,26 @@ export type AppMetrics = {
     available: number
     fees: number
     invoices: number
+    operation_count?: number
     operations: UserOperation[]
+    operations_has_more?: boolean
     received: number
     spent: number
     total_fees: number
     users: UsersInfo
 }
-export const AppMetricsOptionalFields: [] = []
+export type AppMetricsOptionalField = 'operation_count' | 'operations_has_more'
+export const AppMetricsOptionalFields: AppMetricsOptionalField[] = ['operation_count', 'operations_has_more']
 export type AppMetricsOptions = OptionsBaseMessage & {
-    checkOptionalsAreSet?: []
+    checkOptionalsAreSet?: AppMetricsOptionalField[]
     app_Options?: ApplicationOptions
     available_CustomCheck?: (v: number) => boolean
     fees_CustomCheck?: (v: number) => boolean
     invoices_CustomCheck?: (v: number) => boolean
+    operation_count_CustomCheck?: (v?: number) => boolean
     operations_ItemOptions?: UserOperationOptions
     operations_CustomCheck?: (v: UserOperation[]) => boolean
+    operations_has_more_CustomCheck?: (v?: boolean) => boolean
     received_CustomCheck?: (v: number) => boolean
     spent_CustomCheck?: (v: number) => boolean
     total_fees_CustomCheck?: (v: number) => boolean
@@ -888,12 +893,18 @@ export const AppMetricsValidate = (o?: AppMetrics, opts: AppMetricsOptions = {},
     if (typeof o.invoices !== 'number') return new Error(`${path}.invoices: is not a number`)
     if (opts.invoices_CustomCheck && !opts.invoices_CustomCheck(o.invoices)) return new Error(`${path}.invoices: custom check failed`)
 
+    if ((o.operation_count || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('operation_count')) && typeof o.operation_count !== 'number') return new Error(`${path}.operation_count: is not a number`)
+    if (opts.operation_count_CustomCheck && !opts.operation_count_CustomCheck(o.operation_count)) return new Error(`${path}.operation_count: custom check failed`)
+
     if (!Array.isArray(o.operations)) return new Error(`${path}.operations: is not an array`)
     for (let index = 0; index < o.operations.length; index++) {
         const operationsErr = UserOperationValidate(o.operations[index], opts.operations_ItemOptions, `${path}.operations[${index}]`)
         if (operationsErr !== null) return operationsErr
     }
     if (opts.operations_CustomCheck && !opts.operations_CustomCheck(o.operations)) return new Error(`${path}.operations: custom check failed`)
+
+    if ((o.operations_has_more || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('operations_has_more')) && typeof o.operations_has_more !== 'boolean') return new Error(`${path}.operations_has_more: is not a boolean`)
+    if (opts.operations_has_more_CustomCheck && !opts.operations_has_more_CustomCheck(o.operations_has_more)) return new Error(`${path}.operations_has_more: custom check failed`)
 
     if (typeof o.received !== 'number') return new Error(`${path}.received: is not a number`)
     if (opts.received_CustomCheck && !opts.received_CustomCheck(o.received)) return new Error(`${path}.received: custom check failed`)
@@ -1052,27 +1063,42 @@ export const AppsMetricsValidate = (o?: AppsMetrics, opts: AppsMetricsOptions = 
 }
 
 export type AppsMetricsRequest = {
+    bounded?: boolean
     from_unix?: number
     include_operations?: boolean
+    operations_app_id?: string
+    operations_before_id?: string
     to_unix?: number
 }
-export type AppsMetricsRequestOptionalField = 'from_unix' | 'include_operations' | 'to_unix'
-export const AppsMetricsRequestOptionalFields: AppsMetricsRequestOptionalField[] = ['from_unix', 'include_operations', 'to_unix']
+export type AppsMetricsRequestOptionalField = 'bounded' | 'from_unix' | 'include_operations' | 'operations_app_id' | 'operations_before_id' | 'to_unix'
+export const AppsMetricsRequestOptionalFields: AppsMetricsRequestOptionalField[] = ['bounded', 'from_unix', 'include_operations', 'operations_app_id', 'operations_before_id', 'to_unix']
 export type AppsMetricsRequestOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: AppsMetricsRequestOptionalField[]
+    bounded_CustomCheck?: (v?: boolean) => boolean
     from_unix_CustomCheck?: (v?: number) => boolean
     include_operations_CustomCheck?: (v?: boolean) => boolean
+    operations_app_id_CustomCheck?: (v?: string) => boolean
+    operations_before_id_CustomCheck?: (v?: string) => boolean
     to_unix_CustomCheck?: (v?: number) => boolean
 }
 export const AppsMetricsRequestValidate = (o?: AppsMetricsRequest, opts: AppsMetricsRequestOptions = {}, path: string = 'AppsMetricsRequest::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
     if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
 
+    if ((o.bounded || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('bounded')) && typeof o.bounded !== 'boolean') return new Error(`${path}.bounded: is not a boolean`)
+    if (opts.bounded_CustomCheck && !opts.bounded_CustomCheck(o.bounded)) return new Error(`${path}.bounded: custom check failed`)
+
     if ((o.from_unix || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('from_unix')) && typeof o.from_unix !== 'number') return new Error(`${path}.from_unix: is not a number`)
     if (opts.from_unix_CustomCheck && !opts.from_unix_CustomCheck(o.from_unix)) return new Error(`${path}.from_unix: custom check failed`)
 
     if ((o.include_operations || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('include_operations')) && typeof o.include_operations !== 'boolean') return new Error(`${path}.include_operations: is not a boolean`)
     if (opts.include_operations_CustomCheck && !opts.include_operations_CustomCheck(o.include_operations)) return new Error(`${path}.include_operations: custom check failed`)
+
+    if ((o.operations_app_id || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('operations_app_id')) && typeof o.operations_app_id !== 'string') return new Error(`${path}.operations_app_id: is not a string`)
+    if (opts.operations_app_id_CustomCheck && !opts.operations_app_id_CustomCheck(o.operations_app_id)) return new Error(`${path}.operations_app_id: custom check failed`)
+
+    if ((o.operations_before_id || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('operations_before_id')) && typeof o.operations_before_id !== 'string') return new Error(`${path}.operations_before_id: is not a string`)
+    if (opts.operations_before_id_CustomCheck && !opts.operations_before_id_CustomCheck(o.operations_before_id)) return new Error(`${path}.operations_before_id: custom check failed`)
 
     if ((o.to_unix || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('to_unix')) && typeof o.to_unix !== 'number') return new Error(`${path}.to_unix: is not a number`)
     if (opts.to_unix_CustomCheck && !opts.to_unix_CustomCheck(o.to_unix)) return new Error(`${path}.to_unix: custom check failed`)

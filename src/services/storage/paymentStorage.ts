@@ -18,6 +18,25 @@ import { TransactionSwap } from './entity/TransactionSwap.js';
 import { InvoiceSwap } from './entity/InvoiceSwap.js';
 export type InboundOptionals = { product?: Product, callbackUrl?: string, expiry: number, expectedPayer?: User, linkedApplication?: Application, zapInfo?: ZapInfo, offerId?: string, payerData?: Record<string, string>, rejectUnauthorized?: boolean, token?: string, blind?: boolean, clinkRequesterPub?: string, clinkRequesterEventId?: string }
 export const defaultInvoiceExpiry = 60 * 60
+export type AppOperationTotals = {
+    received: number
+    spent: number
+    fees: number
+    invoices: number
+    operations: number
+}
+export type AppOperationsPage = {
+    incomingInvoices: UserReceivingInvoice[]
+    incomingTxs: AddressReceivingTransaction[]
+    outgoingInvoices: UserInvoicePayment[]
+    outgoingTxs: UserTransactionPayment[]
+    userToUser: UserToUserPayment[]
+}
+export type AppOperationKind = keyof AppOperationsPage
+export type AppOperationsCursor = {
+    kind: AppOperationKind
+    serialId: number
+}
 export default class {
     dbs: StorageInterface
     userStorage: UserStorage
@@ -480,15 +499,8 @@ export default class {
     }
 
     async GetAppOperations(application: Application | null, { from, to }: { from?: number, to?: number }) {
-        const q = application ? { app_id: application.app_id } : IsNull()
-        let time: { created_at?: FindOperator<Date> } = {}
-        if (!!from && !!to) {
-            time.created_at = Between<Date>(new Date(from * 1000), new Date(to * 1000))
-        } else if (!!from) {
-            time.created_at = MoreThanOrEqual<Date>(new Date(from * 1000))
-        } else if (!!to) {
-            time.created_at = LessThanOrEqual<Date>(new Date(to * 1000))
-        }
+        const q = appLink(application)
+        const time = createdAtFilter({ from, to })
         const [receivingInvoices, receivingAddresses, outgoingInvoices, outgoingTransactions, userToUser] = await Promise.all([
             this.dbs.Find<UserReceivingInvoice>('UserReceivingInvoice', { where: { linkedApplication: q, ...time } }),
             this.dbs.Find<UserReceivingAddress>('UserReceivingAddress', { where: { linkedApplication: q, ...time } }),
@@ -506,12 +518,70 @@ export default class {
     }
 
     async UserHasOutgoingOperation(userId: string) {
-        const [i, tx, u2u] = await Promise.all([
+        const [invoice, tx, userToUser] = await Promise.all([
             this.dbs.FindOne<UserInvoicePayment>('UserInvoicePayment', { where: { user: { user_id: userId } } }),
             this.dbs.FindOne<UserTransactionPayment>('UserTransactionPayment', { where: { user: { user_id: userId } } }),
             this.dbs.FindOne<UserToUserPayment>('UserToUserPayment', { where: { from_user: { user_id: userId } } }),
         ])
-        return !!i || !!tx || !!u2u
+        return !!invoice || !!tx || !!userToUser
+    }
+
+    async GetAppOperationTotals(application: Application | null, range: { from?: number, to?: number }): Promise<AppOperationTotals> {
+        const invoiceCreated = appOpWhere(application, range)
+        const paid = paidAtOpWhere(application, range)
+        const inTxWhere = incomingTxPaidWhere(application, range)
+        const confirmedTx = { ...inTxWhere, confs: MoreThan(1) }
+        const [
+            receivedIn, receivedTx, spentOut, spentTx,
+            feeIn, feeTxIn, feeOut, routeOut, feeTxOut, chainOut, feeU2u,
+            invoices, paidInCount, inTxCount, outCount, outTxCount, u2uCount,
+        ] = await Promise.all([
+            this.sumCol<UserReceivingInvoice>('UserReceivingInvoice', 'paid_amount', paid),
+            this.sumCol<AddressReceivingTransaction>('AddressReceivingTransaction', 'paid_amount', confirmedTx),
+            this.sumCol<UserInvoicePayment>('UserInvoicePayment', 'paid_amount', paid),
+            this.sumCol<UserTransactionPayment>('UserTransactionPayment', 'paid_amount', paid),
+            this.sumCol<UserReceivingInvoice>('UserReceivingInvoice', 'service_fee', paid),
+            this.sumCol<AddressReceivingTransaction>('AddressReceivingTransaction', 'service_fee', confirmedTx),
+            this.sumCol<UserInvoicePayment>('UserInvoicePayment', 'service_fees', paid),
+            this.sumCol<UserInvoicePayment>('UserInvoicePayment', 'routing_fees', paid),
+            this.sumCol<UserTransactionPayment>('UserTransactionPayment', 'service_fees', paid),
+            this.sumCol<UserTransactionPayment>('UserTransactionPayment', 'chain_fees', paid),
+            this.sumCol<UserToUserPayment>('UserToUserPayment', 'service_fees', paid),
+            this.countWhere('UserReceivingInvoice', invoiceCreated),
+            this.countWhere('UserReceivingInvoice', paid),
+            this.countWhere('AddressReceivingTransaction', inTxWhere),
+            this.countWhere('UserInvoicePayment', paid),
+            this.countWhere('UserTransactionPayment', paid),
+            this.countWhere('UserToUserPayment', paid),
+        ])
+        return {
+            received: receivedIn + receivedTx,
+            spent: spentOut + spentTx,
+            fees: feeIn + feeTxIn + (feeOut - routeOut) + (feeTxOut - chainOut) + feeU2u,
+            invoices,
+            operations: paidInCount + inTxCount + outCount + outTxCount + u2uCount,
+        }
+    }
+
+    async GetAppOperationsPage(application: Application | null, range: { from?: number, to?: number }, take: number, cursor?: AppOperationsCursor): Promise<AppOperationsPage> {
+        const page = { order: { paid_at_unix: 'DESC' as const, serial_id: 'DESC' as const }, take }
+        const [incomingInvoices, incomingTxs, outgoingInvoices, outgoingTxs, userToUser] = await Promise.all([
+            this.dbs.Find<UserReceivingInvoice>('UserReceivingInvoice', { where: appOperationPageWhere(application, range, 'incomingInvoices', cursor), ...page }),
+            this.dbs.Find<AddressReceivingTransaction>('AddressReceivingTransaction', { where: appOperationPageWhere(application, range, 'incomingTxs', cursor), ...page }),
+            this.dbs.Find<UserInvoicePayment>('UserInvoicePayment', { where: appOperationPageWhere(application, range, 'outgoingInvoices', cursor), ...page }),
+            this.dbs.Find<UserTransactionPayment>('UserTransactionPayment', { where: appOperationPageWhere(application, range, 'outgoingTxs', cursor), ...page }),
+            this.dbs.Find<UserToUserPayment>('UserToUserPayment', { where: appOperationPageWhere(application, range, 'userToUser', cursor), ...page }),
+        ])
+        return { incomingInvoices, incomingTxs, outgoingInvoices, outgoingTxs, userToUser }
+    }
+
+    private sumCol<T>(entity: 'UserReceivingInvoice' | 'AddressReceivingTransaction' | 'UserInvoicePayment' | 'UserTransactionPayment' | 'UserToUserPayment', column: string, where: object) {
+        return this.dbs.Sum<T>(entity, column as never, where as never).then(n => n || 0)
+    }
+
+    private async countWhere(entity: 'UserReceivingInvoice' | 'AddressReceivingTransaction' | 'UserInvoicePayment' | 'UserTransactionPayment' | 'UserToUserPayment', where: object) {
+        const [, n] = await this.dbs.FindAndCount(entity, { where, take: 1 })
+        return n
     }
 
     async VerifyDbEvent(e: LoggedEvent) {
@@ -723,4 +793,75 @@ const orFail = async <T>(resultPromise: Promise<T | null>, message: string) => {
         throw new Error(message)
     }
     return result
+}
+
+function appLink(application: Application | null) {
+    return application ? { app_id: application.app_id } : IsNull()
+}
+
+function createdAtFilter(range: { from?: number, to?: number }): { created_at?: FindOperator<Date> } {
+    if (range.from && range.to) {
+        return { created_at: Between<Date>(new Date(range.from * 1000), new Date(range.to * 1000)) }
+    }
+    if (range.from) {
+        return { created_at: MoreThanOrEqual<Date>(new Date(range.from * 1000)) }
+    }
+    if (range.to) {
+        return { created_at: LessThanOrEqual<Date>(new Date(range.to * 1000)) }
+    }
+    return {}
+}
+
+function appOpWhere(application: Application | null, range: { from?: number, to?: number }) {
+    return { linkedApplication: appLink(application), ...createdAtFilter(range) }
+}
+
+function paidAtFilter(range: { from?: number, to?: number }): { paid_at_unix: FindOperator<number> } {
+    const bounds: FindOperator<number>[] = [MoreThan(0)]
+    if (range.from) bounds.push(MoreThanOrEqual(range.from))
+    if (range.to) bounds.push(LessThanOrEqual(range.to))
+    return { paid_at_unix: combineAnd(bounds) }
+}
+
+function paidAtOpWhere(application: Application | null, range: { from?: number, to?: number }) {
+    return { linkedApplication: appLink(application), ...paidAtFilter(range) }
+}
+
+function incomingTxPaidWhere(application: Application | null, range: { from?: number, to?: number }) {
+    return { ...paidAtFilter(range), user_address: { linkedApplication: appLink(application) } }
+}
+
+const appOperationKinds: AppOperationKind[] = ['incomingInvoices', 'incomingTxs', 'outgoingInvoices', 'outgoingTxs', 'userToUser']
+
+function appOperationPageWhere(application: Application | null, range: { from?: number, to?: number }, kind: AppOperationKind, cursor?: AppOperationsCursor): object | object[] {
+    const linked = kind === 'incomingTxs'
+        ? { user_address: { linkedApplication: appLink(application) } }
+        : { linkedApplication: appLink(application) }
+    if (!cursor || !range.to) {
+        return { ...linked, ...paidAtFilter(range) }
+    }
+
+    const rank = appOperationKinds.indexOf(kind)
+    const cursorRank = appOperationKinds.indexOf(cursor.kind)
+    if (rank < cursorRank) {
+        return { ...linked, ...paidAtFilterWithUpper(range, LessThan(range.to)) }
+    }
+    if (rank > cursorRank) {
+        return { ...linked, ...paidAtFilter(range) }
+    }
+
+    return [
+        { ...linked, ...paidAtFilterWithUpper(range, LessThan(range.to)) },
+        { ...linked, ...paidAtFilterWithUpper(range, Equal(range.to)), serial_id: LessThan(cursor.serialId) },
+    ]
+}
+
+function paidAtFilterWithUpper(range: { from?: number }, upper: FindOperator<number>) {
+    const bounds: FindOperator<number>[] = [MoreThan(0), upper]
+    if (range.from) bounds.push(MoreThanOrEqual(range.from))
+    return { paid_at_unix: combineAnd(bounds) }
+}
+
+function combineAnd<T>(operators: FindOperator<T>[]): FindOperator<T> {
+    return operators.reduce((left, right) => And(left, right))
 }

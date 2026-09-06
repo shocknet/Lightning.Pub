@@ -1277,7 +1277,9 @@ The nostr server will send back a message response, and inside the body there wi
   - __available__: _number_
   - __fees__: _number_
   - __invoices__: _number_
+  - __operation_count__: _number_ *this field is optional
   - __operations__: ARRAY of: _[UserOperation](#UserOperation)_
+  - __operations_has_more__: _boolean_ *this field is optional
   - __received__: _number_
   - __spent__: _number_
   - __total_fees__: _number_
@@ -1307,8 +1309,11 @@ The nostr server will send back a message response, and inside the body there wi
   - __apps__: ARRAY of: _[AppMetrics](#AppMetrics)_
 
 ### AppsMetricsRequest
+  - __bounded__: _boolean_ *this field is optional
   - __from_unix__: _number_ *this field is optional
   - __include_operations__: _boolean_ *this field is optional
+  - __operations_app_id__: _string_ *this field is optional
+  - __operations_before_id__: _string_ *this field is optional
   - __to_unix__: _number_ *this field is optional
 
 ### AssetOperation

@@ -282,6 +282,9 @@ message AppsMetricsRequest {
     optional int64 from_unix = 1;
     optional int64 to_unix = 2;
     optional bool include_operations = 3;
+    optional string operations_before_id = 4;
+    optional string operations_app_id = 5;
+    optional bool bounded = 6;
 }
 
 message UsersInfo {
@@ -307,6 +310,8 @@ message AppMetrics {
     int64 invoices = 9;
 
     int64 total_fees = 10;
+    optional int64 operation_count = 11;
+    optional bool operations_has_more = 12;
 
     repeated UserOperation operations = 100;
 }

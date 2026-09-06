@@ -149,15 +149,17 @@ type AdminTxSwapResponse struct {
 	Tx_id       string `json:"tx_id"`
 }
 type AppMetrics struct {
-	App        *Application    `json:"app"`
-	Available  int64           `json:"available"`
-	Fees       int64           `json:"fees"`
-	Invoices   int64           `json:"invoices"`
-	Operations []UserOperation `json:"operations"`
-	Received   int64           `json:"received"`
-	Spent      int64           `json:"spent"`
-	Total_fees int64           `json:"total_fees"`
-	Users      *UsersInfo      `json:"users"`
+	App                 *Application    `json:"app"`
+	Available           int64           `json:"available"`
+	Fees                int64           `json:"fees"`
+	Invoices            int64           `json:"invoices"`
+	Operation_count     int64           `json:"operation_count"`
+	Operations          []UserOperation `json:"operations"`
+	Operations_has_more bool            `json:"operations_has_more"`
+	Received            int64           `json:"received"`
+	Spent               int64           `json:"spent"`
+	Total_fees          int64           `json:"total_fees"`
+	Users               *UsersInfo      `json:"users"`
 }
 type AppUsageMetrics struct {
 	App_metrics map[string]UsageMetricTlv `json:"app_metrics"`
@@ -183,9 +185,12 @@ type AppsMetrics struct {
 	Apps []AppMetrics `json:"apps"`
 }
 type AppsMetricsRequest struct {
-	From_unix          int64 `json:"from_unix"`
-	Include_operations bool  `json:"include_operations"`
-	To_unix            int64 `json:"to_unix"`
+	Bounded              bool   `json:"bounded"`
+	From_unix            int64  `json:"from_unix"`
+	Include_operations   bool   `json:"include_operations"`
+	Operations_app_id    string `json:"operations_app_id"`
+	Operations_before_id string `json:"operations_before_id"`
+	To_unix              int64  `json:"to_unix"`
 }
 type AssetOperation struct {
 	Amount  int64             `json:"amount"`
