@@ -299,7 +299,7 @@ export default class Handler {
         const [totalFees, totals, users, operationPage] = await Promise.all([
             this.storage.paymentStorage.GetTotalFeesPaidInApp(app),
             this.storage.paymentStorage.GetAppOperationTotals(app, range),
-            this.storage.applicationStorage.CountApplicationUsers(app, {}),
+            this.storage.applicationStorage.CountApplicationUsers(app, range),
             includeOperations ? this.firstAppOperationsPage(app, range, operationsCursor) : undefined,
         ])
         const metrics: Types.AppMetrics = {
@@ -528,31 +528,11 @@ export default class Handler {
 }
 
 export function balanceGraphPoints(events: BalanceEvent[]) {
-    const chainBalance: Types.GraphPoint[] = []
-    const chansBalance: Types.GraphPoint[] = []
-    const externalBalance: Types.GraphPoint[] = []
-    events.forEach(e => {
-        if (chainBalance.length === 0 || chainBalance[chainBalance.length - 1].y !== e.total_chain_balance) {
-            chainBalance.push({ x: e.block_height, y: e.total_chain_balance })
-        }
-        if (chansBalance.length === 0 || chansBalance[chansBalance.length - 1].y !== e.channels_balance) {
-            chansBalance.push({ x: e.block_height, y: e.channels_balance })
-        }
-        if (externalBalance.length === 0 || externalBalance[externalBalance.length - 1].y !== e.external_balance) {
-            externalBalance.push({ x: e.block_height, y: e.external_balance })
-        }
-    })
-    const latest = events[events.length - 1]
-    if (latest) {
-        appendGraphEndpoint(chainBalance, latest.block_height, latest.total_chain_balance)
-        appendGraphEndpoint(chansBalance, latest.block_height, latest.channels_balance)
-        appendGraphEndpoint(externalBalance, latest.block_height, latest.external_balance)
+    return {
+        chainBalance: events.map(e => ({ x: e.block_height, y: e.total_chain_balance })),
+        chansBalance: events.map(e => ({ x: e.block_height, y: e.channels_balance })),
+        externalBalance: events.map(e => ({ x: e.block_height, y: e.external_balance })),
     }
-    return { chainBalance, chansBalance, externalBalance }
-}
-
-function appendGraphEndpoint(points: Types.GraphPoint[], x: number, y: number) {
-    if (points[points.length - 1]?.x !== x) points.push({ x, y })
 }
 
 const mapRootOpType = (opType: string): Types.OperationType => {

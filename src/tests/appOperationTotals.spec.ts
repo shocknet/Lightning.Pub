@@ -220,7 +220,16 @@ const testSameSecondPagination = async (T: StorageTestBase, seed: Seed) => {
 
 const testUserCount = async (T: StorageTestBase, seed: Seed) => {
     T.d('Starting testUserCount')
+    const now = Math.floor(Date.now() / 1000)
     T.expect(await T.storage.applicationStorage.CountApplicationUsers(seed.app, {})).to.equal(2)
+    T.expect(await T.storage.applicationStorage.CountApplicationUsers(seed.app, {
+        from: now - 3600,
+        to: now + 60,
+    })).to.equal(2)
+    T.expect(await T.storage.applicationStorage.CountApplicationUsers(seed.app, {
+        from: 1_700_000_000,
+        to: 1_700_000_600,
+    })).to.equal(0)
     T.expect(await T.storage.applicationStorage.CountApplicationUsers(seed.other, {})).to.equal(0)
     T.d('Finished testUserCount')
 }
@@ -237,13 +246,22 @@ const testBoundedModeIsExplicit = async (T: StorageTestBase, seed: Seed) => {
     T.expect(boundedResponse.users.no_balance).to.equal(0)
     T.expect(boundedResponse.operations).to.deep.equal([])
 
+    const now = Math.floor(Date.now() / 1000)
+    const boundedThisPeriod = await metrics.GetAppMetrics({
+        include_operations: false,
+        bounded: true,
+        from_unix: now - 3600,
+        to_unix: now + 60,
+    }, seed.app)
+    T.expect(boundedThisPeriod.users.total).to.equal(2)
+
     const boundedInOldWindow = await metrics.GetAppMetrics({
         include_operations: false,
         bounded: true,
         from_unix: 1_700_000_000,
         to_unix: 1_700_000_600,
     }, seed.app)
-    T.expect(boundedInOldWindow.users.total).to.equal(2)
+    T.expect(boundedInOldWindow.users.total).to.equal(0)
 
     const boundedOther = await metrics.GetAppMetrics({ include_operations: false, bounded: true }, seed.other)
     T.expect(boundedOther.users.total).to.equal(0)
@@ -288,9 +306,9 @@ const testBalanceGraphEndpoints = (T: StorageTestBase) => {
         external_balance: 0,
     })) as BalanceEvent[]
     const graph = balanceGraphPoints(events)
-    T.expect(graph.chainBalance).to.deep.equal([{ x: 100, y: 500 }, { x: 102, y: 500 }])
+    T.expect(graph.chainBalance).to.deep.equal([{ x: 100, y: 500 }, { x: 101, y: 500 }, { x: 102, y: 500 }])
     T.expect(graph.chansBalance).to.deep.equal([{ x: 100, y: 200 }, { x: 101, y: 250 }, { x: 102, y: 200 }])
-    T.expect(graph.externalBalance).to.deep.equal([{ x: 100, y: 0 }, { x: 102, y: 0 }])
+    T.expect(graph.externalBalance).to.deep.equal([{ x: 100, y: 0 }, { x: 101, y: 0 }, { x: 102, y: 0 }])
 }
 
 const scanTotals = (ops: Awaited<ReturnType<StorageTestBase['storage']['paymentStorage']['GetAppOperations']>>) => {
