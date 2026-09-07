@@ -143,7 +143,7 @@ export default class {
     }
 
     async CountApplicationUsers(application: Application | null, range: { from?: number, to?: number }, txId?: string) {
-        const q = application ? { app_id: application.app_id } : IsNull()
+        const q = application ? { serial_id: application.serial_id } : IsNull()
         let time: { created_at?: FindOperator<Date> } = {}
         if (!!range.from && !!range.to) {
             time.created_at = Between<Date>(new Date(range.from * 1000), new Date(range.to * 1000))

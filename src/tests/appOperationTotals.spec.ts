@@ -7,8 +7,9 @@ import { UserInvoicePayment } from '../services/storage/entity/UserInvoicePaymen
 import { UserTransactionPayment } from '../services/storage/entity/UserTransactionPayment.js'
 import { AddressReceivingTransaction } from '../services/storage/entity/AddressReceivingTransaction.js'
 import { UserToUserPayment } from '../services/storage/entity/UserToUserPayment.js'
+import { BalanceEvent } from '../services/storage/entity/BalanceEvent.js'
 import { StorageTestBase } from './testBase.js'
-import MetricsHandler from '../services/metrics/index.js'
+import MetricsHandler, { balanceGraphPoints } from '../services/metrics/index.js'
 
 export const ignore = false
 export const dev = false
@@ -31,6 +32,8 @@ export default async (T: StorageTestBase) => {
     await testSameSecondPagination(T, seed)
     await testUserCount(T, seed)
     await testBoundedModeIsExplicit(T, seed)
+    await testBalancePeriodBaseline(T)
+    testBalanceGraphEndpoints(T)
 }
 
 const seedAppOps = async (T: StorageTestBase): Promise<Seed> => {
@@ -217,10 +220,8 @@ const testSameSecondPagination = async (T: StorageTestBase, seed: Seed) => {
 
 const testUserCount = async (T: StorageTestBase, seed: Seed) => {
     T.d('Starting testUserCount')
-    const n = await T.storage.applicationStorage.CountApplicationUsers(seed.app, {})
-    const rows = await T.storage.applicationStorage.GetApplicationUsers(seed.app, {})
-    T.expect(n).to.equal(rows.length)
-    T.expect(n).to.equal(2)
+    T.expect(await T.storage.applicationStorage.CountApplicationUsers(seed.app, {})).to.equal(2)
+    T.expect(await T.storage.applicationStorage.CountApplicationUsers(seed.other, {})).to.equal(0)
     T.d('Finished testUserCount')
 }
 
@@ -243,7 +244,53 @@ const testBoundedModeIsExplicit = async (T: StorageTestBase, seed: Seed) => {
         to_unix: 1_700_000_600,
     }, seed.app)
     T.expect(boundedInOldWindow.users.total).to.equal(2)
+
+    const boundedOther = await metrics.GetAppMetrics({ include_operations: false, bounded: true }, seed.other)
+    T.expect(boundedOther.users.total).to.equal(0)
     T.d('Finished testBoundedModeIsExplicit')
+}
+
+const testBalancePeriodBaseline = async (T: StorageTestBase) => {
+    T.d('Starting testBalancePeriodBaseline')
+    const event = (block_height: number) => ({
+        block_height,
+        total_chain_balance: block_height,
+        channels_balance: block_height,
+        external_balance: 0,
+    }) as BalanceEvent
+    const dbs = T.storage.metricsStorage.dbs as any
+    const originalFind = dbs.Find
+    const calls: any[] = []
+    dbs.Find = async (_entity: string, options: any) => {
+        calls.push(options)
+        return calls.length === 1 ? [event(100), event(101)] : [event(99)]
+    }
+
+    try {
+        const bounded = await T.storage.metricsStorage.GetBalanceEvents({ from: 1_000, to: 2_000 })
+        T.expect(bounded.chainBalanceEvents.map(e => e.block_height)).to.deep.equal([99, 100, 101])
+        T.expect(calls[0].order).to.deep.equal({ created_at: 'ASC', serial_id: 'ASC' })
+        T.expect(calls[1].take).to.equal(1)
+        T.expect(calls[1].order).to.deep.equal({ created_at: 'DESC', serial_id: 'DESC' })
+        T.expect(calls[1].where.created_at.type).to.equal('lessThan')
+        T.expect(calls[1].where.created_at.value).to.deep.equal(new Date(1_000_000))
+    } finally {
+        dbs.Find = originalFind
+    }
+    T.d('Finished testBalancePeriodBaseline')
+}
+
+const testBalanceGraphEndpoints = (T: StorageTestBase) => {
+    const events = [100, 101, 102].map(block_height => ({
+        block_height,
+        total_chain_balance: 500,
+        channels_balance: block_height === 101 ? 250 : 200,
+        external_balance: 0,
+    })) as BalanceEvent[]
+    const graph = balanceGraphPoints(events)
+    T.expect(graph.chainBalance).to.deep.equal([{ x: 100, y: 500 }, { x: 102, y: 500 }])
+    T.expect(graph.chansBalance).to.deep.equal([{ x: 100, y: 200 }, { x: 101, y: 250 }, { x: 102, y: 200 }])
+    T.expect(graph.externalBalance).to.deep.equal([{ x: 100, y: 0 }, { x: 102, y: 0 }])
 }
 
 const scanTotals = (ops: Awaited<ReturnType<StorageTestBase['storage']['paymentStorage']['GetAppOperations']>>) => {

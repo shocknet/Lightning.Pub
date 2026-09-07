@@ -146,7 +146,11 @@ export default class Handler {
             remote_balance_sats: c.remoteBalanceSats,
         }))
         await this.storage.metricsStorage.SaveBalanceEvents(balanceEvent, channelsEvents)
-        await this.FetchLatestForwardingEvents()
+        try {
+            await this.FetchLatestForwardingEvents()
+        } finally {
+            this.lndMetricsCache.ClearAll()
+        }
         try {
             await this.storage.metricsStorage.MarkChannelsSeen(
                 balanceInfo.channelsBalance.filter(c => c.active).map(c => c.channelId),
@@ -471,22 +475,7 @@ export default class Handler {
             totalFees += r.forward_fee_as_input
         })
         const { chainBalanceEvents } = await this.storage.metricsStorage.GetBalanceEvents({ from: req.from_unix, to: req.to_unix })
-        const chainBalance: Types.GraphPoint[] = []
-        const chansBalance: Types.GraphPoint[] = []
-        const externalBalance: Types.GraphPoint[] = []
-        chainBalanceEvents.forEach(e => {
-            if (chainBalance.length === 0 || chainBalance[chainBalance.length - 1].y !== e.total_chain_balance) {
-                chainBalance.push({ x: e.block_height, y: e.total_chain_balance })
-            }
-
-            if (chansBalance.length === 0 || chansBalance[chansBalance.length - 1].y !== e.channels_balance) {
-                chansBalance.push({ x: e.block_height, y: e.channels_balance })
-            }
-
-            if (externalBalance.length === 0 || externalBalance[externalBalance.length - 1].y !== e.external_balance) {
-                externalBalance.push({ x: e.block_height, y: e.external_balance })
-            }
-        })
+        const { chainBalance, chansBalance, externalBalance } = balanceGraphPoints(chainBalanceEvents)
         const closed = await Promise.all(closedChannels.filter(c => c.closeType !== ChannelCloseSummary_ClosureType.FUNDING_CANCELED).map(async c => {
             try {
                 const tx = await this.lnd.GetTx(c.closingTxHash)
@@ -536,6 +525,34 @@ export default class Handler {
     async AddRootInvoicePaid(paymentRequest: string, amount: number) {
         await this.storage.metricsStorage.AddRootOperation("invoice", paymentRequest, amount)
     }
+}
+
+export function balanceGraphPoints(events: BalanceEvent[]) {
+    const chainBalance: Types.GraphPoint[] = []
+    const chansBalance: Types.GraphPoint[] = []
+    const externalBalance: Types.GraphPoint[] = []
+    events.forEach(e => {
+        if (chainBalance.length === 0 || chainBalance[chainBalance.length - 1].y !== e.total_chain_balance) {
+            chainBalance.push({ x: e.block_height, y: e.total_chain_balance })
+        }
+        if (chansBalance.length === 0 || chansBalance[chansBalance.length - 1].y !== e.channels_balance) {
+            chansBalance.push({ x: e.block_height, y: e.channels_balance })
+        }
+        if (externalBalance.length === 0 || externalBalance[externalBalance.length - 1].y !== e.external_balance) {
+            externalBalance.push({ x: e.block_height, y: e.external_balance })
+        }
+    })
+    const latest = events[events.length - 1]
+    if (latest) {
+        appendGraphEndpoint(chainBalance, latest.block_height, latest.total_chain_balance)
+        appendGraphEndpoint(chansBalance, latest.block_height, latest.channels_balance)
+        appendGraphEndpoint(externalBalance, latest.block_height, latest.external_balance)
+    }
+    return { chainBalance, chansBalance, externalBalance }
+}
+
+function appendGraphEndpoint(points: Types.GraphPoint[], x: number, y: number) {
+    if (points[points.length - 1]?.x !== x) points.push({ x, y })
 }
 
 const mapRootOpType = (opType: string): Types.OperationType => {

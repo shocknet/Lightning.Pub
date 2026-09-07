@@ -1,4 +1,4 @@
-import { Between, FindManyOptions, In, LessThanOrEqual, MoreThanOrEqual } from "typeorm"
+import { Between, FindManyOptions, In, LessThan, LessThanOrEqual, MoreThanOrEqual } from "typeorm"
 import { BalanceEvent } from "./entity/BalanceEvent.js"
 import { ChannelBalanceEvent } from "./entity/ChannelsBalanceEvent.js"
 import TransactionsQueue from "./db/transactionsQueue.js";
@@ -72,9 +72,20 @@ export default class {
     }
 
     async GetBalanceEvents({ from, to }: { from?: number, to?: number }, txId?: string) {
-        const q = getTimeQuery({ from, to })
+        const q: FindManyOptions<BalanceEvent> = {
+            ...getTimeQuery({ from, to }),
+            order: { created_at: 'ASC', serial_id: 'ASC' },
+        }
         const chainBalanceEvents = await this.dbs.Find<BalanceEvent>('BalanceEvent', q, txId)
-        return { chainBalanceEvents }
+        if (!from) {
+            return { chainBalanceEvents }
+        }
+        const baseline = await this.dbs.Find<BalanceEvent>('BalanceEvent', {
+            where: { created_at: LessThan(new Date(from * 1000)) },
+            order: { created_at: 'DESC', serial_id: 'DESC' },
+            take: 1,
+        }, txId)
+        return { chainBalanceEvents: [...baseline, ...chainBalanceEvents] }
     }
 
     async initChannelRoutingEvent(dayUnix: number, channelId: string) {
