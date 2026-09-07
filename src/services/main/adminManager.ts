@@ -507,13 +507,12 @@ export class AdminManager {
             }
         }
         const balance = await this.lnd.GetBalance()
-        const channelsBalance = balance.channelsBalance.reduce((acc, c) => acc + Number(c.localBalanceSats), 0)
         return {
             pubkey: provider.provider_pubkey,
             tracked: {
                 confirmed_balance: Number(balance.confirmedBalance),
                 unconfirmed_balance: Number(balance.unconfirmedBalance),
-                channels_balance: channelsBalance,
+                channels_balance: balance.totalChannelsBalance,
                 payments,
                 invoices,
                 incoming_tx: txOuts, // tx outputs, are incoming sats
