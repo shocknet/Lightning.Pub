@@ -46,11 +46,11 @@ export class LiquidityProvider {
             this.log("No pub provider to liquidity provider, will not be initialized")
             return
         }
+        this.providerPubkey = providerPubkey
         if (disableLiquidityProvider) {
             this.log("Liquidity provider is disabled, will not be initialized")
             return
         }
-        this.providerPubkey = providerPubkey
     }
 
     usesExternalProvider = () => {
@@ -395,6 +395,17 @@ export class LiquidityProvider {
         if (!this.configured && this.utils.nostrSender.IsReady()) {
             this.setSetIfConfigured()
         }
+    }
+
+    syncAfterSettingsChange = () => {
+        if (!this.providerPubkey) {
+            this.providerPubkey = this.getSettings().liquidityProviderPub
+        }
+        if (!this.usesExternalProvider() || !this.localPubkey) {
+            return
+        }
+        this.initExternalProviderClient()
+        this.setSetIfConfigured()
     }
 
 

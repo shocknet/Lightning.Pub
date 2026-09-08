@@ -779,6 +779,7 @@ export default class {
             channelId: c.chanId,
             localBalanceSats: Number(c.localBalance),
             remoteBalanceSats: Number(c.remoteBalance),
+            active: c.active,
             commitFeeSats: Number(c.commitFee),
             initiator: c.initiator,
             htlcs: c.pendingHtlcs.map(htlc => ({ incoming: htlc.incoming, amount: Number(htlc.amount), index: Number(htlc.htlcIndex), fwIndex: Number(htlc.forwardingHtlcIndex) }))
@@ -923,6 +924,17 @@ export default class {
         this.log(DEBUG, "Listing peers")
         const res = await this.lightning.listPeers({ latestError: true }, DeadLineMetadata())
         return res.response
+    }
+
+    async ListUnspent() {
+        this.log(DEBUG, "Listing unspent")
+        const res = await this.walletKit.listUnspent({
+            minConfs: 0,
+            maxConfs: 0,
+            account: "",
+            unconfirmedOnly: false,
+        }, DeadLineMetadata())
+        return res.response.utxos || []
     }
 
     async OpenChannel(destination: string, closeAddress: string, fundingAmount: number, pushSats: number, satsPerVByte: number): Promise<OpenStatusUpdate> {

@@ -175,6 +175,20 @@ service LightningPub {
         option (nostr) = true;
     }
 
+    rpc ListPeers(structs.Empty) returns (structs.LndPeers) {
+        option (auth_type)  = "Admin";
+        option (http_method) = "get";
+        option (http_route) = "/api/admin/peers";
+        option (nostr) = true;
+    }
+
+    rpc ListUtxos(structs.Empty) returns (structs.LndUtxos) {
+        option (auth_type)  = "Admin";
+        option (http_method) = "get";
+        option (http_route) = "/api/admin/utxos";
+        option (nostr) = true;
+    }
+
     rpc UpdateChannelPolicy (structs.UpdateChannelPolicyRequest) returns (structs.Empty) {
         option (auth_type)  = "Admin";
         option (http_method) = "post";
@@ -270,6 +284,20 @@ service LightningPub {
         option (auth_type) = "Admin";
         option (http_method) = "post";
         option (http_route) = "/api/admin/user/operations";
+        option (nostr) = true;
+    }
+
+    rpc GetAdminNodeSettings(structs.Empty) returns (structs.AdminNodeSettings) {
+        option (auth_type) = "Admin";
+        option (http_method) = "get";
+        option (http_route) = "/api/admin/node/settings";
+        option (nostr) = true;
+    }
+
+    rpc UpdateAdminNodeSettings(structs.UpdateAdminNodeSettingsRequest) returns (structs.AdminNodeSettings) {
+        option (auth_type) = "Admin";
+        option (http_method) = "post";
+        option (http_route) = "/api/admin/node/settings";
         option (nostr) = true;
     }
 

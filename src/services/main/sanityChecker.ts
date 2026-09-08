@@ -2,7 +2,7 @@ import Storage from '../storage/index.js'
 import LND from "../lnd/lnd.js"
 import { LoggedEvent } from '../storage/eventsLog.js'
 import { Invoice, Payment } from '../../../proto/lnd/lightning';
-import { getLogger } from '../helpers/logger.js';
+import { DEBUG, INFO, getLogger } from '../helpers/logger.js';
 const LN_INVOICE_REGEX = /^(lightning:)?(lnbc|lntb)[0-9a-zA-Z]+$/;
 const BITCOIN_ADDRESS_REGEX = /^(bitcoin:)?([13][a-km-zA-HJ-NP-Z1-9]{25,34}|bc1[a-zA-HJ-NP-Z0-9]{39,59})$/;
 type UniqueDecrementReasons = 'ban'
@@ -146,7 +146,7 @@ export default class SanityChecker {
             throw new Error("payment user id mismatch for invoice " + invoice)
         }
         if (entry.paid_at_unix === 0) {
-            this.log("payment still not settled for invoice " + invoice)
+            this.log(DEBUG, "payment still not settled for invoice " + invoice)
             this.decrementEvents[invoice] = { userId, refund: amt, failure: false, pending: true }
             return
         }
@@ -286,7 +286,7 @@ export default class SanityChecker {
         this.requireLndInvoices = this.invoices.length < 1000
         this.oldestPaymentRequest = oldestPayment?.paymentRequest || null
         this.oldestInvoiceRequest = oldestInvoice?.paymentRequest || null
-        this.log("lnd window: payments=", this.payments.length, "invoices=", this.invoices.length)
+        this.log(INFO, "checking", this.events.length, "events; lnd window payments=", this.payments.length, "invoices=", this.invoices.length)
 
         this.incrementSources = {}
         this.decrementSources = {}
@@ -295,7 +295,7 @@ export default class SanityChecker {
         this.liveUsers = {}
         for (let i = 0; i < this.events.length; i++) {
             const e = this.events[i]
-            this.log("checking event", e.type, e.data)
+            this.log(DEBUG, "checking event", e.type, e.data)
             if (e.type === 'balance_decrement') {
                 await this.verifyDecrementEvent(e)
             } else if (e.type === 'balance_increment') {
@@ -305,6 +305,7 @@ export default class SanityChecker {
             }
         }
         await this.verifyReconstructedBalances()
+        this.log(INFO, "events log ok,", this.events.length, "events,", Object.keys(this.users).length, "users")
     }
 
     private async userIsLive(userId: string) {
@@ -345,7 +346,7 @@ export default class SanityChecker {
             return
         }
         if (!await this.userIsLive(e.userId)) {
-            this.log("new_address skipped, user deleted", e.userId, e.data)
+            this.log(DEBUG, "new_address skipped, user deleted", e.userId, e.data)
             return
         }
         throw new Error("address not found for live user " + e.userId + " " + e.data)
@@ -366,7 +367,7 @@ export default class SanityChecker {
     checkUserEntry(e: LoggedEvent, u: { ts: number, updatedBalance: number } | undefined) {
         const newEntry = { ts: e.timestampMs, updatedBalance: e.balance + e.amount * (e.type === 'balance_decrement' ? -1 : 1) }
         if (!u) {
-            this.log(e.userId, "balance starts at", e.balance, "sats and moves by", e.amount * (e.type === 'balance_decrement' ? -1 : 1), "sats, resulting in", newEntry.updatedBalance, "sats")
+            this.log(DEBUG, e.userId, "balance starts at", e.balance, "sats and moves by", e.amount * (e.type === 'balance_decrement' ? -1 : 1), "sats, resulting in", newEntry.updatedBalance, "sats")
             return newEntry
         }
         if (e.timestampMs < u.ts) {
@@ -375,7 +376,7 @@ export default class SanityChecker {
         if (e.balance !== u.updatedBalance) {
             throw new Error("inconsistent balance update got: " + e.balance + " expected " + u.updatedBalance)
         }
-        this.log(e.userId, "balance updates from", e.balance, "sats and moves by", e.amount * (e.type === 'balance_decrement' ? -1 : 1), "sats, resulting in", newEntry.updatedBalance, "sats")
+        this.log(DEBUG, e.userId, "balance updates from", e.balance, "sats and moves by", e.amount * (e.type === 'balance_decrement' ? -1 : 1), "sats, resulting in", newEntry.updatedBalance, "sats")
         return newEntry
     }
 }
