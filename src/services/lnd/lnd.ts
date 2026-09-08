@@ -743,6 +743,10 @@ export default class {
         return res.response
     }
 
+    sumInitiatorCommitFees = (channels: { commitFee: bigint | number; initiator: boolean }[]): number =>
+        channels.reduce((sum, c) => c.initiator ? sum + Number(c.commitFee) : sum, 0)
+    
+
     async GetTotalBalace() {
         this.log(DEBUG, "Getting total balance")
         const walletBalance = await this.GetWalletBalance()
@@ -751,8 +755,11 @@ export default class {
         const channelsBalance = await this.GetChannelBalance()
         const totalLightningBalanceMsats = (channelsBalance.localBalance?.msat || 0n) + (channelsBalance.unsettledLocalBalance?.msat || 0n)
         const totalLightningBalance = Math.ceil(Number(totalLightningBalanceMsats) / 1000)
-        this.utils.stateBundler.AddBalancePoint('channelBalance', totalLightningBalance)
-        const totalLndBalance = confirmedWalletBalance + totalLightningBalance
+        const { channels } = await this.ListChannels()
+        const commitFeeReserve = this.sumInitiatorCommitFees(channels)
+        const channelBalanceWithReserve = totalLightningBalance + commitFeeReserve
+        this.utils.stateBundler.AddBalancePoint('channelBalance', channelBalanceWithReserve)
+        const totalLndBalance = confirmedWalletBalance + channelBalanceWithReserve
         this.utils.stateBundler.AddBalancePoint('totalLndBalance', totalLndBalance)
         const othersFromLnd = { wc: Number(walletBalance.confirmedBalance), wu: Number(walletBalance.unconfirmedBalance), cl: Number(channelsBalance.localBalance?.msat), cul: Number(channelsBalance.unsettledLocalBalance?.msat), cr: Number(channelsBalance.remoteBalance?.msat), cur: Number(channelsBalance.unsettledRemoteBalance?.msat) }
         return { totalLndBalance, othersFromLnd }
@@ -761,7 +768,7 @@ export default class {
     async GetBalance(): Promise<BalanceInfo> { // TODO: remove this
         this.log(DEBUG, "Getting balance")
         if (this.liquidProvider.getSettings().useOnlyLiquidityProvider) {
-            return { confirmedBalance: 0, unconfirmedBalance: 0, totalBalance: 0, channelsBalance: [] }
+            return { confirmedBalance: 0, unconfirmedBalance: 0, totalBalance: 0, channelsBalance: [], totalChannelsBalance: 0 }
         }
         const wRes = await this.lightning.walletBalance({ account: "", minConfs: 1 }, DeadLineMetadata())
         const { confirmedBalance, unconfirmedBalance, totalBalance } = wRes.response
@@ -773,9 +780,13 @@ export default class {
             localBalanceSats: Number(c.localBalance),
             remoteBalanceSats: Number(c.remoteBalance),
             active: c.active,
+            commitFeeSats: Number(c.commitFee),
+            initiator: c.initiator,
             htlcs: c.pendingHtlcs.map(htlc => ({ incoming: htlc.incoming, amount: Number(htlc.amount), index: Number(htlc.htlcIndex), fwIndex: Number(htlc.forwardingHtlcIndex) }))
         }))
-        return { confirmedBalance: Number(confirmedBalance), unconfirmedBalance: Number(unconfirmedBalance), totalBalance: Number(totalBalance), channelsBalance }
+        const localChannels = channelsBalance.reduce((acc, c) => acc + c.localBalanceSats, 0)
+        const totalChannelsBalance = localChannels + this.sumInitiatorCommitFees(response.channels)
+        return { confirmedBalance: Number(confirmedBalance), unconfirmedBalance: Number(unconfirmedBalance), totalBalance: Number(totalBalance), channelsBalance, totalChannelsBalance }
     }
 
     async GetForwardingHistory(indexOffset: number, startTime = 0, endTime = 0): Promise<ForwardingHistoryResponse> {
