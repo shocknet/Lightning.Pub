@@ -11,7 +11,6 @@ import { ERROR, getLogger, PubLogger } from "../helpers/logger.js"
 import AppUserManager from "./appUserManager.js"
 import { Application } from '../storage/entity/Application.js'
 import { UserReceivingInvoice } from '../storage/entity/UserReceivingInvoice.js'
-import { UnsignedEvent } from 'nostr-tools'
 import { NostrSend } from '../nostr/nostrPool.js'
 import MetricsManager from '../metrics/index.js'
 import { LiquidityProvider } from "./liquidityProvider.js"
@@ -33,6 +32,8 @@ import { NostrSettings, AppInfo } from '../nostr/nostrPool.js'
 import { ShockPushNotification } from '../ShockPush/index.js'
 import { PaymentSideEffects } from "./paymentSideEffects.js"
 import { AddressReceivingTransaction } from '../storage/entity/AddressReceivingTransaction.js'
+import { EnrollManager } from "./enrollManager.js"
+import { buildClinkBeaconContent, buildClinkBeaconEvent, buildLegacyBeaconEvent, operatorPubkeyHex } from "../helpers/clinkBeacon.js"
 type UserOperationsSub = {
     id: string
     newIncomingInvoice: (operation: Types.UserOperation) => void
@@ -40,7 +41,6 @@ type UserOperationsSub = {
     newIncomingTx: (operation: Types.UserOperation) => void
     newOutgoingTx: (operation: Types.UserOperation) => void
 }
-const appTag = "Lightning.Pub"
 
 export default class {
     storage: Storage
@@ -59,6 +59,7 @@ export default class {
     debitManager: DebitManager
     offerManager: OfferManager
     managementManager: ManagementManager
+    enrollManager: EnrollManager
     utils: Utils
     rugPullTracker: RugPullTracker
     unlocker: Unlocker
@@ -84,15 +85,17 @@ export default class {
         this.lnd = new LND(lndGetSettings, this.liquidityProvider, () => this.unlocker.Unlock(), this.utils, this.addressPaidCb, this.invoicePaidCb, this.newBlockCb, this.htlcCb, this.channelEventCb)
         this.liquidityManager = new LiquidityManager(this.settings, this.storage, this.utils, this.liquidityProvider, this.lnd, this.rugPullTracker)
         this.metricsManager = new MetricsManager(this.storage, this.lnd)
-        this.notificationsManager = new NotificationsManager(this.settings)
+        this.notificationsManager = new NotificationsManager(this.settings, this.storage)
         this.paymentSideEffects = new PaymentSideEffects(this.storage, this.utils, this.notificationsManager)
         this.paymentManager = new PaymentManager(this.storage, this.metricsManager, this.lnd, adminManager.swaps, this.settings, this.liquidityManager, this.paymentSideEffects, this.utils, this.addressPaidCb, /* this.invoicePaidCb, */ this.newBlockCb)
         this.productManager = new ProductManager(this.storage, this.paymentManager, this.settings)
         this.applicationManager = new ApplicationManager(this.storage, this.settings, this.paymentManager)
         this.appUserManager = new AppUserManager(this.storage, this.settings, this.applicationManager)
-        this.debitManager = new DebitManager(this.storage, this.lnd, this.applicationManager, this.paymentManager)
+        this.debitManager = new DebitManager(this.storage, this.lnd, this.applicationManager, this.paymentManager, this.notificationsManager)
         this.offerManager = new OfferManager(this.storage, this.settings, this.lnd, this.applicationManager, this.productManager, this.liquidityManager)
-        this.managementManager = new ManagementManager(this.storage, this.settings)
+        this.managementManager = new ManagementManager(this.storage, this.settings, this.notificationsManager)
+        this.enrollManager = new EnrollManager(this.storage, this.settings)
+
         //this.webRTC = new webRTC(this.storage, this.utils)
     }
 
@@ -308,15 +311,23 @@ export default class {
             getLogger({ appName: app.name })("cannot update beacon, public key not set")
             return
         }
-        const tags = [["d", appTag]]
-        const event: UnsignedEvent = {
-            content: JSON.stringify(content),
-            created_at: Math.floor(Date.now() / 1000),
-            kind: 30078,
-            pubkey: app.nostr_public_key,
-            tags,
-        }
-        this.utils.nostrSender.Send({ type: 'app', appId: app.app_id }, { type: 'event', event })
+        const sender = { type: 'app' as const, appId: app.app_id }
+        this.utils.nostrSender.Send(sender, { type: 'event', event: buildLegacyBeaconEvent(app.nostr_public_key, content) })
+
+        const nostr = this.settings.getSettings().nostrRelaySettings
+        const clinkContent = buildClinkBeaconContent({
+            app,
+            relays: nostr.relays,
+            fees: content.fees || this.paymentManager.GetFees(),
+            enrollPowBits: nostr.enrollPowBits,
+            website: nostr.beaconWebsite,
+            description: nostr.beaconDescription,
+        })
+        const operatorHex = operatorPubkeyHex(nostr.operatorNpub)
+        this.utils.nostrSender.Send(sender, {
+            type: 'event',
+            event: buildClinkBeaconEvent(app.nostr_public_key, clinkContent, operatorHex),
+        })
     }
 
 
