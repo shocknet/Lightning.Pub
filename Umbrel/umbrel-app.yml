@@ -1,36 +1,45 @@
 manifestVersion: 1
 id: lightning-pub
-category: finance
+category: bitcoin
 name: Lightning.Pub
-version: "1.0.0"
-tagline: lightning, nostr, accounts, lnurl, web
+version: "0.0.40"
+tagline: Nostr-native Lightning accounts for friends, family, and apps
 description: >-
-  "Pub" is a Nostr-native account system designed 
-  to make running Lightning infrastructure for your friends/family/customers 
-  easier than previously thought possible.
+  Lightning.Pub ("Pub") turns your Umbrel Lightning Node into a Nostr-native
+  account system you can share with guests and apps — without port forwarding,
+  Tor gymnastics, or LNURL reverse proxies.
 
-  Being Nostr-native eliminates the complexity of configuring your node like a server by using commodity Nostr relays. 
-  These relays, unlike LNURL proxies, are trustless by nature of Nostr's own encryption spec (NIP44).
 
-  Support for optional services are integrated into Pub for operators seeking backward compatibility with legacy LNURLs and Lightning Addresses.
+  SET-UP
 
-  By solving the networking and programability hurdles, Pub provides Lightning with a 3rd Layer that enables node-runners and 
-  Uncle Jims to more easily bring their personal network into Bitcoin's permissionless economy. In doing so, Pub runners 
-  can keep the Lightning Network decentralized, with custodial scaling that is free of fiat rails, large banks, 
-  and other forms of high-time-preference shitcoinery.
+
+  1. Install and unlock the Lightning Node app first (LND).
+
+
+  2. Open Lightning.Pub and complete the on-device wizard (source name, relay).
+
+
+  3. Scan or copy the admin connection string into ShockWallet to manage the Pub.
+
+
+  Guests and apps connect over encrypted Nostr (NIP-44). Optional LNURL / Lightning
+  Address support needs a public HTTPS domain pointed at Pub (advanced).
+
+
+  This Pub shares your Umbrel LND. Other Lightning apps on the same node remain
+  supported; the watchdog allowance is raised for shared use.
+
+releaseNotes: ""
 developer: shocknet
-website: https://shock.network
+website: https://lightning.pub
 dependencies:
   - lightning
 repo: https://github.com/shocknet/Lightning.Pub
 support: https://github.com/shocknet/Lightning.Pub/discussions
-port: 1776
-gallery:
-  - 1.jpg
-  - 2.jpg
-  - 3.jpg
+port: 40176
+gallery: []
 path: ""
 defaultUsername: ""
 defaultPassword: ""
 submitter: shocknet
-submission: https://github.com/getumbrel/umbrel/pull/334
+submission: ""

@@ -1,22 +1,33 @@
 version: "3.7"
+
 services:
   app_proxy:
     environment:
-      APP_HOST: lightning-pub
-      APP_PORT: 1776
-      
-  server:
-    image: ghcr.io/shocknet/lightning.pub:umbrel-works
-    volumes:
-      - "${APP_DATA_DIR}/data:/data"
-      - "${APP_LIGHTNING_NODE_DATA_DIR}:/lnd:ro"
-    environment:
-      LN_BACKEND_TYPE: "LND"
-      LND_ADDRESS: $APP_LIGHTNING_NODE_IP:$APP_LIGHTNING_NODE_GRPC_PORT
-      LND_CERT_PATH: "/lnd/tls.cert"
-      LND_MACAROON_PATH: "/lnd/data/chain/bitcoin/${APP_BITCOIN_NETWORK}/admin.macaroon"
-      DATABASE_FILE: "/data/db.sqlite"
-      METRICS_DATABASE_FILE: "/data/metrics.sqlite"
-      PORT: 1776
+      # Umbrel injects container name as <app-id>_<service>_1
+      APP_HOST: lightning-pub_web_1
+      # Wizard UI listens on PORT+1 (see src/services/wizard/index.ts)
+      APP_PORT: 1777
+
+  web:
+    image: ghcr.io/shocknet/lightning-pub:0.0.40@sha256:adfd284a7c49f78df3d5dedf97ce8c292e83203732dd5bdd9de6ffca17d7713e
+    # Upstream image currently builds TypeScript on start and expects write access under /app,
+    # so it must run as the image default (root). Follow-up: ship a prebuilt image and run as 1000:1000.
     restart: on-failure
     stop_grace_period: 1m
+    volumes:
+      - ${APP_DATA_DIR}/data:/data
+      - ${APP_LIGHTNING_NODE_DATA_DIR}:/lnd:ro
+    environment:
+      DATA_DIR: /data
+      DATABASE_FILE: /data/db.sqlite
+      METRICS_DATABASE_FILE: /data/metrics.sqlite
+      PORT: "1776"
+      WIZARD: "true"
+      BTC_NETWORK: ${APP_BITCOIN_NETWORK}
+      LND_ADDRESS: ${APP_LIGHTNING_NODE_IP}:${APP_LIGHTNING_NODE_GRPC_PORT}
+      LND_CERT_PATH: /lnd/tls.cert
+      LND_MACAROON_PATH: /lnd/data/chain/bitcoin/${APP_BITCOIN_NETWORK}/admin.macaroon
+      LND_LOG_DIR: /lnd/logs/bitcoin/${APP_BITCOIN_NETWORK}/lnd.log
+      JWT_SECRET: ${APP_SEED}
+      # Shared Umbrel LND is also used by other apps; give the watchdog headroom.
+      WATCHDOG_MAX_DIFF_SATS: "100000000"
