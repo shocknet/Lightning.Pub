@@ -10,8 +10,9 @@ services:
 
   web:
     image: ghcr.io/shocknet/lightning-pub:0.0.40@sha256:adfd284a7c49f78df3d5dedf97ce8c292e83203732dd5bdd9de6ffca17d7713e
-    # Upstream image currently builds TypeScript on start and expects write access under /app,
-    # so it must run as the image default (root). Follow-up: ship a prebuilt image and run as 1000:1000.
+    # This image compiles TypeScript on start and needs write access under /app,
+    # so it runs as the image default user (root). Next step: prebuild the image
+    # and run as user 1000:1000.
     restart: on-failure
     stop_grace_period: 1m
     volumes:
@@ -29,5 +30,7 @@ services:
       LND_MACAROON_PATH: /lnd/data/chain/bitcoin/${APP_BITCOIN_NETWORK}/admin.macaroon
       LND_LOG_DIR: /lnd/logs/bitcoin/${APP_BITCOIN_NETWORK}/lnd.log
       JWT_SECRET: ${APP_SEED}
-      # Shared Umbrel LND is also used by other apps; give the watchdog headroom.
+      # Default watchdog limit is 0 sats. Other Umbrel apps can spend from the same
+      # LND, so allow up to 100,000,000 sats (1 BTC) of balance difference before
+      # Pub blocks outbound payments.
       WATCHDOG_MAX_DIFF_SATS: "100000000"

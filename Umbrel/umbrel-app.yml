@@ -7,7 +7,7 @@ tagline: Nostr-native Lightning accounts for friends, family, and apps
 description: >-
   Lightning.Pub ("Pub") turns your Umbrel Lightning Node into a Nostr-native
   account system you can share with guests and apps — without port forwarding,
-  Tor gymnastics, or LNURL reverse proxies.
+  Tor setup, or LNURL reverse proxies.
 
 
   SET-UP
@@ -26,8 +26,10 @@ description: >-
   Address support needs a public HTTPS domain pointed at Pub (advanced).
 
 
-  This Pub shares your Umbrel LND. Other Lightning apps on the same node remain
-  supported; the watchdog allowance is raised for shared use.
+  Pub uses the same LND as your other Umbrel Lightning apps. Pub's balance watchdog
+  normally blocks sends if LND's balance differs from Pub's internal books by more
+  than 0 sats. On Umbrel that difference is expected when other apps also spend from
+  LND, so this package sets the allowed difference to 100,000,000 sats (1 BTC).
 
 releaseNotes: ""
 developer: shocknet
