@@ -7,7 +7,7 @@ import { nip19 } from 'nostr-tools'
 import { encrypt as encryptV1, decrypt as decryptV1, getSharedSecret as getConversationKeyV1 } from './nip44v1.js'
 import { Subscription } from 'nostr-tools/lib/types/abstract-relay.js';
 import { RelayConnection, RelaySettings, PartialFilter, EventsDeduper } from './nostrRelayConnection.js'
-import { CLINK_ACTION_KINDS, CLINK_BEACON_KIND, LEGACY_BEACON_D_TAG } from '../helpers/clinkConstants.js'
+import { CLINK_ACTION_KINDS, CLINK_BEACON_KIND, LEGACY_BEACON_D_TAG } from '../CLINK/clinkConstants.js'
 const { nprofileEncode } = nip19
 const { v2 } = nip44
 const { encrypt: encryptV2, decrypt: decryptV2, utils } = v2

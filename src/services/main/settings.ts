@@ -1,5 +1,5 @@
 import { EnvCacher, EnvMustBeNonEmptyString, EnvMustBeInteger, chooseEnv, chooseEnvBool, chooseEnvInt } from '../helpers/envParser.js'
-import { DEFAULT_ENROLL_POW_BITS, ENROLL_MAX_DELTA_MS } from '../helpers/clinkConstants.js'
+import { DEFAULT_ENROLL_POW_BITS, ENROLL_MAX_DELTA_MS } from '../CLINK/clinkConstants.js'
 import os from 'os'
 import path from 'path'
 import { nip19 } from '@shocknet/clink-sdk'

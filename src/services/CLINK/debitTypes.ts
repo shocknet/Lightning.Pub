@@ -4,8 +4,8 @@ import { Application } from '../storage/entity/Application.js';
 import { ApplicationUser } from '../storage/entity/ApplicationUser.js';
 import { UnsignedEvent } from 'nostr-tools';
 import { NdebitFailure, NdebitSuccess, RecurringDebitTimeUnit } from "@shocknet/clink-sdk";
-import { clinkResponseTags } from "../helpers/clinkTags.js";
-import { CLINK_DEBIT_KIND } from "../helpers/clinkConstants.js";
+import { clinkResponseTags } from "./clinkTypes.js";
+import { CLINK_DEBIT_KIND } from "./clinkConstants.js";
 
 export const expirationRuleName = 'expiration'
 export const frequencyRuleName = 'frequency'
