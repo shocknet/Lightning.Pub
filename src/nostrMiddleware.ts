@@ -7,6 +7,7 @@ import { ERROR, getLogger } from "./services/helpers/logger.js";
 import { NdebitData, NofferData, NmanageRequest, validateNdebitData } from "@shocknet/clink-sdk";
 import { ndebitInvalidRequest } from "./services/main/debitTypes.js";
 import { isSupportedClinkEvent } from "./services/nostr/clinkVersion.js";
+import { CLINK_ENROLL_KIND } from "./services/helpers/clinkConstants.js";
 type ExportedCalls = { Stop: () => void, Send: NostrSend, Ping: () => Promise<void>, Reset: (settings: NostrSettings) => void }
 type ClientEventCallback = (e: { requestId: string }, fromPub: string) => void
 export default (serverMethods: Types.ServerMethods, mainHandler: Main, nostrSettings: NostrSettings, onClientEvent: ClientEventCallback): ExportedCalls => {
@@ -99,6 +100,13 @@ export default (serverMethods: Types.ServerMethods, mainHandler: Main, nostrSett
             const nmanageReq = j as NmanageRequest
             void mainHandler.managementManager.handleRequest(nmanageReq, event).catch(err => log(ERROR, "handleRequest failed", err.message || err))
             return;
+        } else if (event.kind === CLINK_ENROLL_KIND) {
+            if (event.relayConstraint === 'provider') {
+                log("got enroll request on provider only relay, ignoring")
+                return
+            }
+            void mainHandler.enrollManager.handleEnroll(j, event).catch(err => log(ERROR, "handleEnroll failed", err.message || err))
+            return
         }
         if (!j.rpcName) {
             if (event.relayConstraint === 'service') {

@@ -47,7 +47,7 @@ const testSuccessfulInternalAddressPayment = async (T: TestBase) => {
 
     const outgoingTx = await T.main.storage.paymentStorage.GetUserTransactionPaymentOwner(user2Address.address, pay.txId)
     expect(outgoingTx?.internal).to.be.true
-    const incomingTx = await T.main.storage.paymentStorage.GetAddressReceivingTransactionOwner(user2Address.address, pay.txId)
+    const incomingTx = await T.main.storage.paymentStorage.GetAddressReceivingTransactionOwner(user2Address.address, pay.txId, 0)
     expect(incomingTx?.internal).to.be.true
     T.d("payment is recorded as internal in storage")
 }

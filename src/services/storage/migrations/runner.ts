@@ -39,6 +39,7 @@ import { ConsumedDebitK1Hold1787850000003 } from './1787850000003-consumed_debit
 import { ConsumedDebitK1Attempts1787850000004 } from './1787850000004-consumed_debit_k1_attempts.js'
 import { ConsumedDebitK1InvoiceIdx1787850000005 } from './1787850000005-consumed_debit_k1_invoice_idx.js'
 import { ConsumedDebitK1ReleasedAt1787850000006 } from './1787850000006-consumed_debit_k1_released_at.js'
+import { ApplicationUserOwnerOnlyClink1786649280000 } from './1786649280000-application_user_owner_only_clink.js'
 
 import { LndMetrics1703170330183 } from './1703170330183-lnd_metrics.js'
 import { ChannelRouting1709316653538 } from './1709316653538-channel_routing.js'
@@ -60,7 +61,10 @@ export const allMigrations = [Initial1703170309875, LspOrder1718387847693, Liqui
     UserAccess1759426050669, AddBlindToUserOffer1760000000000, ApplicationAvatarUrl1761000001000, AdminSettings1761683639419, TxSwap1762890527098,
     TxSwapAddress1764779178945, ClinkRequester1765497600000, TrackedProviderHeight1766504040000, SwapsServiceUrl1768413055036,
     InvoiceSwaps1769529793283, InvoiceSwapsFixes1769805357459, ApplicationUserTopicId1770038768784, SwapTimestamps1771347307798,
-    TxSwapTimestamps1771878683383, RefundSwapInfo1773082318982, SwapRate1785519558948, ConsumedDebitK11787850000000, ConsumedDebitK1RateIdx1787850000001, ConsumedDebitK1Invoice1787850000002, ConsumedDebitK1Hold1787850000003, ConsumedDebitK1Attempts1787850000004, ConsumedDebitK1InvoiceIdx1787850000005, ConsumedDebitK1ReleasedAt1787850000006]
+    TxSwapTimestamps1771878683383, RefundSwapInfo1773082318982, SwapRate1785519558948, ConsumedDebitK11787850000000, ConsumedDebitK1RateIdx1787850000001, 
+    ConsumedDebitK1Invoice1787850000002, ConsumedDebitK1Hold1787850000003, ConsumedDebitK1Attempts1787850000004, ConsumedDebitK1InvoiceIdx1787850000005, 
+    ConsumedDebitK1ReleasedAt1787850000006, TxSwapTimestamps1771878683383, RefundSwapInfo1773082318982, SwapRate1785519558948, 
+    ApplicationUserOwnerOnlyClink1786649280000]
 
 
 export const allMetricsMigrations = [LndMetrics1703170330183, ChannelRouting1709316653538, HtlcCount1724266887195, BalanceEvents1724860966825,

@@ -23,6 +23,7 @@ import { Transaction, OutputDetail } from '../../../proto/lnd/lightning.js'
 import { LndAddress } from '../lnd/lnd.js'
 import Metrics from '../metrics/index.js'
 import { TxPointSettings } from '../storage/tlv/stateBundler.js'
+import { clampPageLimit, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from '../helpers/pageLimit.js'
 import { PaymentSideEffects } from './paymentSideEffects.js'
 import { AssertDebitFrequency } from './debitTypes.js'
 import { InvoiceAlreadyFailedError, InvoiceAlreadyPaidError, InvoicePaymentInProgressError, UserBannedError } from './invoicePaymentErrors.js'
@@ -158,7 +159,9 @@ export default class {
             log("provider payment succeeded", p.serial_id, "updating payment info")
             const serviceFee = p.service_fees
             const networkFee = state.service_fee
-            const fullAmount = p.paid_amount + p.service_fees
+            // Provider balance must debit what the provider actually charged (amount + its service fee),
+            // not the local service fee reserved from the user — same as live PayExternalInvoice finalize.
+            const providerTotal = state.amount + state.service_fee
             await this.storage.StartTransaction(async tx => {
                 await this.storage.paymentStorage.UpdateExternalPayment(p.serial_id, networkFee, serviceFee, true, undefined, tx)
                 const remainingFee = serviceFee - networkFee
@@ -169,13 +172,13 @@ export default class {
                     await this.storage.userStorage.IncrementUserBalance(p.linkedApplication.owner.user_id, remainingFee, "fees", tx)
                 }
 
-                await this.lnd.liquidProvider.incrementProviderBalance(-fullAmount, tx)
+                await this.lnd.liquidProvider.SettleProviderPayment(p.invoice, providerTotal, tx)
 
             })
             const user = await this.storage.userStorage.GetUser(p.user.user_id)
             this.storage.eventsLog.LogEvent({ type: 'invoice_payment', userId: p.user.user_id, appId: p.linkedApplication?.app_id || "", appUserId: "", balance: user.balance_sats, data: p.invoice, amount: p.paid_amount })
             const txPoint: TxPointSettings = { used: 'provider', from: 'user', timeDiscount: true }
-            this.utils.stateBundler.AddTxPoint('paidAnInvoice', fullAmount, txPoint)
+            this.utils.stateBundler.AddTxPoint('paidAnInvoice', providerTotal, txPoint)
             return
         }
         log("provider payment still pending", p.serial_id, "no action will be performed")
@@ -366,17 +369,17 @@ export default class {
     }
 
     private async processUserAddressOutput(output: OutputDetail, tx: Transaction, log: PubLogger, startHeight: number) {
+        const amount = Number(output.amount)
+        const outputIndex = Number(output.outputIndex)
         const existingTx = await this.storage.paymentStorage.GetAddressReceivingTransactionOwner(
             output.address,
-            tx.txHash
+            tx.txHash,
+            outputIndex
         )
 
         if (existingTx) {
             return false
         }
-
-        const amount = Number(output.amount)
-        const outputIndex = Number(output.outputIndex)
         log(`processing missed chain tx: address=${output.address}, txHash=${tx.txHash}, amount=${amount}, outputIndex=${outputIndex}`)
         try {
             await this.addressPaidCb({ hash: tx.txHash, index: outputIndex }, output.address, amount, 'lnd', startHeight)
@@ -654,7 +657,15 @@ export default class {
                 this.storage.paymentStorage.SetExternalPaymentIndex(pendingPayment.serial_id, index)
                 gotIndex = true
             })
-            await this.storage.paymentStorage.UpdateExternalPayment(pendingPayment.serial_id, payment.feeSat, serviceFee, true, payment.providerPubkey)
+            if (use === 'provider') {
+                const providerTotal = payment.valueSat + payment.feeSat
+                await this.storage.StartTransaction(async tx => {
+                    await this.storage.paymentStorage.UpdateExternalPayment(pendingPayment.serial_id, payment.feeSat, serviceFee, true, payment.providerPubkey, tx)
+                    await this.lnd.liquidProvider.SettleProviderPayment(invoice, providerTotal, tx)
+                }, "finalize provider payment")
+            } else {
+                await this.storage.paymentStorage.UpdateExternalPayment(pendingPayment.serial_id, payment.feeSat, serviceFee, true, payment.providerPubkey)
+            }
             const feeDiff = serviceFee - payment.feeSat
             if (feeDiff < 0) { // should not happen to lnd beacuse of the fee limit, culd happen to provider if the fee used to calculate the provider fee are out of date
                 this.log("WARNING: network fee was higher than expected,", feeDiff, "were lost by", use === 'provider' ? "provider" : "lnd")
@@ -1078,8 +1089,11 @@ export default class {
             throw new Error("amount out of range")
         }
         let zapInfo: ZapInfo | undefined
-        if (ctx.nostr) {
+        if (ctx.nostr && typeof ctx.nostr === 'string') {
             zapInfo = this.validateZapEvent(ctx.nostr, amountMillis)
+        }
+        if (typeof ctx.k1 !== 'string') {
+            throw new Error("invalid k1 in lnurl pay to handle")
         }
         const key = await this.storage.paymentStorage.UseUserEphemeralKey(ctx.k1, 'pay', true)
         const sats = amountMillis / 1000
@@ -1194,18 +1208,19 @@ export default class {
         }
     }
 
-    async GetUserOperations(userId: string, req: Types.GetUserOperationsRequest): Promise<Types.GetUserOperationsResponse> {
+    async GetUserOperations(userId: string, req: Types.GetUserOperationsRequest, admin: boolean = false): Promise<Types.GetUserOperationsResponse> {
         const user = await this.storage.userStorage.GetUser(userId)
-        if (user.locked) {
+        if (user.locked && !admin) {
             throw new Error("user is banned, cannot retrieve operations")
         }
+        const maxSize = admin ? clampPageLimit(req.max_size, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE) : req.max_size
         const [outgoingInvoices, outgoingTransactions, incomingInvoices, incomingTransactions, incomingUserToUser, outgoingUserToUser] = await Promise.all([
-            this.storage.paymentStorage.GetUserInvoicePayments(userId, req.latestOutgoingInvoice.id, req.max_size), //
-            this.storage.paymentStorage.GetUserTransactionPayments(userId, req.latestOutgoingTx.id, req.max_size),
-            this.storage.paymentStorage.GetUserInvoicesFlaggedAsPaid(user.serial_id, req.latestIncomingInvoice.id, req.latestIncomingInvoice.ts, req.max_size),
-            this.storage.paymentStorage.GetUserReceivingTransactions(userId, req.latestIncomingTx.id, req.max_size),
-            this.storage.paymentStorage.GetUserToUserReceivedPayments(userId, req.latestIncomingUserToUserPayment.id, req.max_size),
-            this.storage.paymentStorage.GetUserToUserSentPayments(userId, req.latestOutgoingUserToUserPayment.id, req.max_size)
+            this.storage.paymentStorage.GetUserInvoicePayments(userId, req.latestOutgoingInvoice.id, maxSize), //
+            this.storage.paymentStorage.GetUserTransactionPayments(userId, req.latestOutgoingTx.id, maxSize),
+            this.storage.paymentStorage.GetUserInvoicesFlaggedAsPaid(user.serial_id, req.latestIncomingInvoice.id, req.latestIncomingInvoice.ts, maxSize),
+            this.storage.paymentStorage.GetUserReceivingTransactions(userId, req.latestIncomingTx.id, maxSize),
+            this.storage.paymentStorage.GetUserToUserReceivedPayments(userId, req.latestIncomingUserToUserPayment.id, maxSize),
+            this.storage.paymentStorage.GetUserToUserSentPayments(userId, req.latestOutgoingUserToUserPayment.id, maxSize)
         ])
         return {
             latestIncomingInvoiceOperations: this.mapOperations(incomingInvoices, Types.UserOperationType.INCOMING_INVOICE, true),
@@ -1213,7 +1228,8 @@ export default class {
             latestOutgoingInvoiceOperations: this.mapOperations(outgoingInvoices, Types.UserOperationType.OUTGOING_INVOICE, false),
             latestOutgoingTxOperations: this.mapOperations(outgoingTransactions, Types.UserOperationType.OUTGOING_TX, false),
             latestIncomingUserToUserPayemnts: this.mapOperations(incomingUserToUser, Types.UserOperationType.INCOMING_USER_TO_USER, true),
-            latestOutgoingUserToUserPayemnts: this.mapOperations(outgoingUserToUser, Types.UserOperationType.OUTGOING_USER_TO_USER, false)
+            latestOutgoingUserToUserPayemnts: this.mapOperations(outgoingUserToUser, Types.UserOperationType.OUTGOING_USER_TO_USER, false),
+            user_id: userId
         }
     }
 
