@@ -287,7 +287,7 @@ export default class Handler {
             return
 
         }
-        this.eventCallback({ id: eventId, content, pub: e.pubkey, appId: app.appId, startAtNano, startAtMs, kind: e.kind })
+        this.eventCallback({ id: eventId, content, pub: e.pubkey, appId: app.appId, startAtNano, startAtMs, kind: e.kind, tags: e.tags })
     }
 
     async Send(initiator: SendInitiator, data: SendData, relays?: string[]) {

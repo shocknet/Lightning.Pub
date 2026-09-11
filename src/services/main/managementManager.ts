@@ -372,7 +372,7 @@ export class ManagementManager {
     }
 }
 
-const newNmanageResponse = (content: string, event: NostrEvent): UnsignedEvent => {
+export const newNmanageResponse = (content: string, event: NostrEvent): UnsignedEvent => {
     return {
         content,
         created_at: Math.floor(Date.now() / 1000),

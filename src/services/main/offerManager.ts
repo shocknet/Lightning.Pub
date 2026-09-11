@@ -314,7 +314,7 @@ export class OfferManager {
     }
 
 }
-const newNofferResponse = (content: string, event: NostrEvent): UnsignedEvent => {
+export const newNofferResponse = (content: string, event: NostrEvent): UnsignedEvent => {
     return {
         content,
         created_at: Math.floor(Date.now() / 1000),
