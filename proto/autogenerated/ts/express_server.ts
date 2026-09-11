@@ -967,6 +967,26 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
+    if (!opts.allowNotImplementedMethods && !methods.GetAdminNodeSettings) throw new Error('method: GetAdminNodeSettings is not implemented')
+    app.get('/api/admin/node/settings', json(), urlencoded({ extended: true }), async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'GetAdminNodeSettings', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        const requestContext = createRequestContext(req, res)
+        try {
+            if (!methods.GetAdminNodeSettings) throw new Error('method: GetAdminNodeSettings is not implemented')
+            const authContext = await opts.AdminAuthGuard(req.headers['authorization'], requestContext)
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            stats.validate = stats.guard
+            const query = req.query
+            const params = req.params
+            const response =  await methods.GetAdminNodeSettings({rpcName:'GetAdminNodeSettings', ctx:authContext , requestContext})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
     if (!opts.allowNotImplementedMethods && !methods.GetAdminTransactionSwapQuotes) throw new Error('method: GetAdminTransactionSwapQuotes is not implemented')
     app.post('/api/admin/swap/transaction/quote', json(), urlencoded({ extended: true }), async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'GetAdminTransactionSwapQuotes', batch: false, nostr: false, batchSize: 0}
@@ -1985,6 +2005,26 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
+    if (!opts.allowNotImplementedMethods && !methods.ListPeers) throw new Error('method: ListPeers is not implemented')
+    app.get('/api/admin/peers', json(), urlencoded({ extended: true }), async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'ListPeers', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        const requestContext = createRequestContext(req, res)
+        try {
+            if (!methods.ListPeers) throw new Error('method: ListPeers is not implemented')
+            const authContext = await opts.AdminAuthGuard(req.headers['authorization'], requestContext)
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            stats.validate = stats.guard
+            const query = req.query
+            const params = req.params
+            const response =  await methods.ListPeers({rpcName:'ListPeers', ctx:authContext , requestContext})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
     if (!opts.allowNotImplementedMethods && !methods.ListTxSwaps) throw new Error('method: ListTxSwaps is not implemented')
     app.post('/api/user/swap/transaction/list', json(), urlencoded({ extended: true }), async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'ListTxSwaps', batch: false, nostr: false, batchSize: 0}
@@ -2000,6 +2040,26 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             const query = req.query
             const params = req.params
             const response =  await methods.ListTxSwaps({rpcName:'ListTxSwaps', ctx:authContext , requestContext})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.ListUtxos) throw new Error('method: ListUtxos is not implemented')
+    app.get('/api/admin/utxos', json(), urlencoded({ extended: true }), async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'ListUtxos', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        const requestContext = createRequestContext(req, res)
+        try {
+            if (!methods.ListUtxos) throw new Error('method: ListUtxos is not implemented')
+            const authContext = await opts.AdminAuthGuard(req.headers['authorization'], requestContext)
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            stats.validate = stats.guard
+            const query = req.query
+            const params = req.params
+            const response =  await methods.ListUtxos({rpcName:'ListUtxos', ctx:authContext , requestContext})
             stats.handle = process.hrtime.bigint()
             res.json({status: 'OK', ...response})
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
@@ -2566,6 +2626,29 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             const query = req.query
             const params = req.params
             const response =  await methods.SubmitWebRtcMessage({rpcName:'SubmitWebRtcMessage', ctx:authContext , req: request, requestContext})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.UpdateAdminNodeSettings) throw new Error('method: UpdateAdminNodeSettings is not implemented')
+    app.post('/api/admin/node/settings', json(), urlencoded({ extended: true }), async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'UpdateAdminNodeSettings', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        const requestContext = createRequestContext(req, res)
+        try {
+            if (!methods.UpdateAdminNodeSettings) throw new Error('method: UpdateAdminNodeSettings is not implemented')
+            const authContext = await opts.AdminAuthGuard(req.headers['authorization'], requestContext)
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            const request = req.body
+            const error = Types.UpdateAdminNodeSettingsRequestValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            const query = req.query
+            const params = req.params
+            const response =  await methods.UpdateAdminNodeSettings({rpcName:'UpdateAdminNodeSettings', ctx:authContext , req: request, requestContext})
             stats.handle = process.hrtime.bigint()
             res.json({status: 'OK', ...response})
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])

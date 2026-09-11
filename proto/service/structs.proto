@@ -282,6 +282,9 @@ message AppsMetricsRequest {
     optional int64 from_unix = 1;
     optional int64 to_unix = 2;
     optional bool include_operations = 3;
+    optional string operations_before_id = 4;
+    optional string operations_app_id = 5;
+    optional bool bounded = 6;
 }
 
 message UsersInfo {
@@ -307,6 +310,8 @@ message AppMetrics {
     int64 invoices = 9;
 
     int64 total_fees = 10;
+    optional int64 operation_count = 11;
+    optional bool operations_has_more = 12;
 
     repeated UserOperation operations = 100;
 }
@@ -467,6 +472,32 @@ message AddPeerRequest {
     string pubkey = 1;
     string host = 2;
     int64 port = 3;
+}
+
+message LndPeer {
+    string pubkey = 1;
+    string address = 2;
+    bool inbound = 3;
+    int64 sats_sent = 4;
+    int64 sats_recv = 5;
+    string alias = 6;
+    bool has_channel = 7;
+}
+
+message LndPeers {
+    repeated LndPeer peers = 1;
+}
+
+message LndUtxo {
+    string address = 1;
+    int64 amount_sat = 2;
+    string txid = 3;
+    int64 output_index = 4;
+    int64 confirmations = 5;
+}
+
+message LndUtxos {
+    repeated LndUtxo utxos = 1;
 }
 
 message LndGetInfoRequest {
@@ -1150,6 +1181,26 @@ message BeaconData {
     optional string avatarUrl = 3;
     optional string nextRelay = 4;
     optional CumulativeFees fees = 5;
+}
+
+message AdminNodeSettings {
+    string node_name = 1;
+    string avatar_url = 2;
+    bool automate_liquidity = 3;
+    bool push_backups_to_nostr = 4;
+    bool node_name_env_locked = 5;
+    bool automate_liquidity_env_locked = 6;
+    bool backups_env_locked = 7;
+    int64 lsp_channel_threshold = 8;
+    bool lsp_threshold_env_locked = 9;
+}
+
+message UpdateAdminNodeSettingsRequest {
+    string node_name = 1;
+    string avatar_url = 2;
+    bool automate_liquidity = 3;
+    bool push_backups_to_nostr = 4;
+    int64 lsp_channel_threshold = 5;
 }
 
 
