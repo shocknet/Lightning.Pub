@@ -240,6 +240,7 @@ export default class {
 
     async PayAppUserInvoice(appId: string, req: Types.PayAppUserInvoiceRequest, optionals: {
         assertDebitFrequency?: AssertDebitFrequency
+        onPaymentAccepted?: (txId: string) => Promise<void>
     } = {}): Promise<Types.PayInvoiceResponse> {
         const app = await this.storage.applicationStorage.GetApplication(appId)
         const appUser = await this.storage.applicationStorage.GetApplicationUser(app, req.user_identifier)
@@ -247,6 +248,7 @@ export default class {
             const paid = await this.paymentManager.PayInvoice(appUser.user.user_id, req, app, {
                 ack: pendingOp => { this.notifyAppUserPayment(appUser, pendingOp) },
                 assertDebitFrequency: optionals.assertDebitFrequency,
+                onPaymentAccepted: optionals.onPaymentAccepted,
             })
             this.notifyAppUserPayment(appUser, paid.operation)
             getLogger({ appName: app.name })(appUser.identifier, "invoice paid", paid.amount_paid, "sats")

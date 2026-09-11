@@ -462,6 +462,15 @@ export default class {
         return { numSatoshis: Number(res.response.numSatoshis), paymentHash: res.response.paymentHash }
     }
 
+    isMalformedBolt11 = (paymentRequest: string): boolean => {
+        try {
+            decodeBolt11(paymentRequest)
+            return false
+        } catch {
+            return true
+        }
+    }
+
     async ChannelBalance(): Promise<{ local: number, remote: number }> {
         this.log(DEBUG, "Getting channel balance")
         if (this.liquidProvider.getSettings().useOnlyLiquidityProvider) {

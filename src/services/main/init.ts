@@ -10,6 +10,7 @@ import { Wizard } from "../wizard/index.js"
 import { AdminManager } from "./adminManager.js"
 import SettingsManager from "./settingsManager.js"
 import { LoadStorageSettingsFromEnv } from "../storage/index.js"
+import { acquirePubInstanceLock } from "../storage/instanceLock.js"
 import { NostrSender } from "../nostr/sender.js"
 import { Swaps } from "../lnd/swaps/swaps.js"
 export type AppData = {
@@ -20,6 +21,7 @@ export type AppData = {
 }
 
 export const initSettings = async (log: PubLogger, storageSettings: StorageSettings): Promise<SettingsManager> => {
+    acquirePubInstanceLock(storageSettings.dbSettings.databaseFile)
     const nostrSender = new NostrSender()
     const utils = new Utils({ dataDir: storageSettings.dataDir, allowResetMetricsStorages: storageSettings.allowResetMetricsStorages }, nostrSender)
     const storageManager = new Storage(storageSettings, utils)
