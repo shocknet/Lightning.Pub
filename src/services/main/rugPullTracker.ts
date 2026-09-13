@@ -26,7 +26,7 @@ export class RugPullTracker {
         }
         const providerTracker = await this.storage.liquidityStorage.GetTrackedProvider('lnPub', pubDst)
         const ready = this.liquidProvider.IsReady()
-        if (ready) {
+        if (ready && this.liquidProvider.HasObservedBalance()) {
             const balance = this.liquidProvider.GetLatestBalance()
             const pendingBalance = await this.liquidProvider.GetPendingBalance()
             const trackedBalance = balance + pendingBalance
