@@ -32,6 +32,8 @@ export class LiquidityProvider {
     feesCache: Types.CumulativeFees | null = null
     lastSeenBeacon = 0
     latestReceivedBalance = 0
+    balanceKnown = false
+    balanceSnapshotInFlight = false
     incrementProviderBalance: (balance: number, tx?: string) => Promise<void>
     pendingPaymentsAck: Record<string, boolean> = {}
     // make the sub process accept client
@@ -129,8 +131,12 @@ export class LiquidityProvider {
         if (res.status === 'ERROR' && res.reason !== 'timeout') {
             return
         }
-        this.log("provider ready with balance:", res.status === 'OK' ? res.balance : 0)
-        this.lastSeenBeacon = Date.now()
+        if (res.status === 'OK') {
+            this.log("provider ready with balance:", res.balance)
+            this.lastSeenBeacon = Date.now()
+        } else {
+            this.log("provider GetUserInfo timed out, will not treat balance as 0 until a snapshot succeeds")
+        }
         this.ready = true
         this.queue.forEach(q => q('ready'))
         this.log("subbing to user operations")
@@ -144,7 +150,7 @@ export class LiquidityProvider {
                 try {
                     await this.invoicePaidCb(res.operation.identifier, res.operation.amount, 'provider')
                     this.incrementProviderBalance(res.operation.amount)
-                    this.latestReceivedBalance = res.latest_balance
+                    this.applyReceivedBalance(res.latest_balance)
                 } catch (err: any) {
                     this.log("error processing incoming invoice", err.message)
                 }
@@ -173,10 +179,31 @@ export class LiquidityProvider {
             serviceFeeFloor: res.network_max_fee_fixed,
             serviceFeeBps: res.service_fee_bps
         }
-        this.latestReceivedBalance = res.balance
+        this.applyReceivedBalance(res.balance)
         this.utils.stateBundler.AddBalancePoint('providerBalance', res.balance)
         this.utils.stateBundler.AddBalancePoint('providerMaxWithdrawable', res.max_withdrawable)
         return res
+    }
+
+    HasKnownBalance = () => {
+        return this.balanceKnown
+    }
+
+    applyReceivedBalance = (balance: number) => {
+        this.latestReceivedBalance = balance
+        this.balanceKnown = true
+    }
+
+    refreshBalanceIfUnknown = async () => {
+        if (this.balanceKnown || this.balanceSnapshotInFlight) {
+            return
+        }
+        this.balanceSnapshotInFlight = true
+        try {
+            await this.GetUserState()
+        } finally {
+            this.balanceSnapshotInFlight = false
+        }
     }
 
     GetFees = () => {
@@ -328,7 +355,7 @@ export class LiquidityProvider {
             if (from === 'system') {
                 await this.SettleProviderPayment(invoice, totalPaid)
             }
-            this.latestReceivedBalance = res.latest_balance
+            this.applyReceivedBalance(res.latest_balance)
             this.utils.stateBundler.AddTxPoint('paidAnInvoice', decodedAmount, { used: 'provider', from, timeDiscount: true })
             return res
         } catch (err) {
@@ -412,6 +439,9 @@ export class LiquidityProvider {
         this.lastSeenBeacon = Date.now()
         if (beacon.fees) {
             this.feesCache = beacon.fees
+        }
+        if (!this.balanceKnown) {
+            void this.refreshBalanceIfUnknown()
         }
     }
 

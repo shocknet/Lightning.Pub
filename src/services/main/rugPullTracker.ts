@@ -25,20 +25,28 @@ export class RugPullTracker {
             return { balance: 0 }
         }
         const providerTracker = await this.storage.liquidityStorage.GetTrackedProvider('lnPub', pubDst)
-        const ready = this.liquidProvider.IsReady()
-        if (ready) {
-            const balance = this.liquidProvider.GetLatestBalance()
-            const pendingBalance = await this.liquidProvider.GetPendingBalance()
-            const trackedBalance = balance + pendingBalance
-            if (!providerTracker) {
-                this.log("starting to track provider", this.liquidProvider.GetProviderPubkey())
-                await this.storage.liquidityStorage.CreateTrackedProvider('lnPub', pubDst, trackedBalance)
-                return { balance: trackedBalance }
-            }
-            return this.checkForDisruption(pubDst, trackedBalance, providerTracker)
-        } else {
+        if (!this.liquidProvider.IsReady()) {
             return { balance: providerTracker?.latest_balance || 0 }
         }
+        if (!await this.ensureKnownBalance()) {
+            this.log("provider balance snapshot unavailable, skipping disruption check")
+            return { balance: providerTracker?.latest_balance || 0 }
+        }
+        const trackedBalance = this.liquidProvider.GetLatestBalance() + await this.liquidProvider.GetPendingBalance()
+        if (!providerTracker) {
+            this.log("starting to track provider", this.liquidProvider.GetProviderPubkey())
+            await this.storage.liquidityStorage.CreateTrackedProvider('lnPub', pubDst, trackedBalance)
+            return { balance: trackedBalance }
+        }
+        return this.checkForDisruption(pubDst, trackedBalance, providerTracker)
+    }
+
+    ensureKnownBalance = async () => {
+        if (this.liquidProvider.HasKnownBalance()) {
+            return true
+        }
+        await this.liquidProvider.refreshBalanceIfUnknown()
+        return this.liquidProvider.HasKnownBalance()
     }
 
     checkForDisruption = async (pubDst: string, trackedBalance: number, providerTracker: TrackedProvider) => {
