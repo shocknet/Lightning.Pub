@@ -8,11 +8,13 @@ import Storage from '../storage/index.js'
 import SettingsManager from './settingsManager.js'
 import { LiquiditySettings } from './settings.js'
 import { TxPointSettings } from '../storage/tlv/stateBundler.js'
-export type nostrCallback<T> = { startedAtMillis: number, type: 'single' | 'stream', f: (res: T) => void }
+export type nostrCallback<T> = { startedAtMillis: number, type: 'single' | 'stream', rpcName?: string, f: (res: T) => void }
 /** Burst retries for the first GetUserInfo. After that, keep polling until it lands so a relay blip does not require a process restart. */
 const INITIAL_USER_STATE_ATTEMPTS = 3
 const INITIAL_USER_STATE_RETRY_DELAY_MS = 2000
 const PROVIDER_INFO_RETRY_MS = 30 * 1000
+/** Well past the 10s GetUserInfo race, so pruning cannot drop a request that could still be answered. */
+const ABANDONED_USER_INFO_AGE_MS = 60 * 1000
 export class LiquidityProvider {
     getSettings: () => LiquiditySettings
     client: ReturnType<typeof newNostrClient>
@@ -219,6 +221,7 @@ export class LiquidityProvider {
         }
         this.providerInfoRetryInFlight = true
         try {
+            this.dropAbandonedUserInfoRequests()
             const res = await this.GetUserState()
             if (res.status === 'OK') {
                 this.markProviderReady(res.balance)
@@ -226,6 +229,16 @@ export class LiquidityProvider {
         } finally {
             this.providerInfoRetryInFlight = false
         }
+    }
+
+    /** GetUserInfo is raced against a 10s timeout, so an older pending entry can never be answered. */
+    private dropAbandonedUserInfoRequests = () => {
+        const deadline = Date.now() - ABANDONED_USER_INFO_AGE_MS
+        Object.entries(this.clientCbs).forEach(([reqId, cb]) => {
+            if (cb.type === 'single' && cb.rpcName === 'GetUserInfo' && cb.startedAtMillis < deadline) {
+                delete this.clientCbs[reqId]
+            }
+        })
     }
 
     GetUserState = async () => {
@@ -529,6 +542,7 @@ export class LiquidityProvider {
             this.clientCbs[reqId] = {
                 startedAtMillis: Date.now(),
                 type: 'single',
+                rpcName: message.rpcName,
                 f: (response: any) => { res(response) },
             }
         })
