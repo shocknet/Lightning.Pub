@@ -136,12 +136,12 @@ export class LiquidityProvider {
         }
         if (res.status === 'OK') {
             this.log("provider ready with balance:", res.balance)
+            this.lastSeenBeacon = Date.now()
+            this.ready = true
+            this.queue.forEach(q => q('ready'))
         } else {
-            this.log(ERROR, "provider ready but balance is unknown, provider info request timed out")
+            this.log(ERROR, "provider not ready, provider info request timed out")
         }
-        this.lastSeenBeacon = Date.now()
-        this.ready = true
-        this.queue.forEach(q => q('ready'))
         this.log("subbing to user operations")
         this.client.GetLiveUserOperations(async res => {
             if (res.status === 'ERROR') {
