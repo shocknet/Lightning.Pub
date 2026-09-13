@@ -9,6 +9,9 @@ import SettingsManager from './settingsManager.js'
 import { LiquiditySettings } from './settings.js'
 import { TxPointSettings } from '../storage/tlv/stateBundler.js'
 export type nostrCallback<T> = { startedAtMillis: number, type: 'single' | 'stream', f: (res: T) => void }
+/** The initial provider info request is a single shot over nostr; a dropped publish must not leave the balance unknown. */
+const INITIAL_USER_STATE_ATTEMPTS = 3
+const INITIAL_USER_STATE_RETRY_DELAY_MS = 2000
 export class LiquidityProvider {
     getSettings: () => LiquiditySettings
     client: ReturnType<typeof newNostrClient>
@@ -32,6 +35,8 @@ export class LiquidityProvider {
     feesCache: Types.CumulativeFees | null = null
     lastSeenBeacon = 0
     latestReceivedBalance = 0
+    /** False until a provider RPC reports a balance. Default 0 is not an observed zero. */
+    observedProviderBalance = false
     incrementProviderBalance: (balance: number, tx?: string) => Promise<void>
     pendingPaymentsAck: Record<string, boolean> = {}
     // make the sub process accept client
@@ -125,11 +130,15 @@ export class LiquidityProvider {
 
     Connect = async () => {
         await new Promise(res => setTimeout(res, 2000))
-        const res = await this.GetUserState()
+        const res = await this.getInitialUserState()
         if (res.status === 'ERROR' && res.reason !== 'timeout') {
             return
         }
-        this.log("provider ready with balance:", res.status === 'OK' ? res.balance : 0)
+        if (res.status === 'OK') {
+            this.log("provider ready with balance:", res.balance)
+        } else {
+            this.log(ERROR, "provider ready but balance is unknown, provider info request timed out")
+        }
         this.lastSeenBeacon = Date.now()
         this.ready = true
         this.queue.forEach(q => q('ready'))
@@ -144,7 +153,7 @@ export class LiquidityProvider {
                 try {
                     await this.invoicePaidCb(res.operation.identifier, res.operation.amount, 'provider')
                     this.incrementProviderBalance(res.operation.amount)
-                    this.latestReceivedBalance = res.latest_balance
+                    this.setObservedBalance(res.latest_balance)
                 } catch (err: any) {
                     this.log("error processing incoming invoice", err.message)
                 }
@@ -161,19 +170,31 @@ export class LiquidityProvider {
         })
     }
 
+    /** Retries only on timeout, since a dropped publish is silent and frequent enough to lose the single initial request. */
+    getInitialUserState = async () => {
+        let res = await this.GetUserState()
+        for (let attempt = 2; attempt <= INITIAL_USER_STATE_ATTEMPTS; attempt++) {
+            if (res.status !== 'ERROR' || res.reason !== 'timeout') {
+                return res
+            }
+            this.log("retrying provider info request, attempt", attempt, "of", INITIAL_USER_STATE_ATTEMPTS)
+            await new Promise(res => setTimeout(res, INITIAL_USER_STATE_RETRY_DELAY_MS))
+            res = await this.GetUserState()
+        }
+        return res
+    }
+
     GetUserState = async () => {
         const res = await Promise.race([this.client.GetUserInfo(), new Promise<Types.ResultError>(res => setTimeout(() => res({ status: 'ERROR', reason: 'timeout' }), 10 * 1000))])
         if (res.status === 'ERROR') {
-            if (res.reason !== 'timeout') {
-                this.log("error getting user info", res.reason)
-            }
+            this.log(ERROR, "error getting user info:", res.reason)
             return res
         }
         this.feesCache = {
             serviceFeeFloor: res.network_max_fee_fixed,
             serviceFeeBps: res.service_fee_bps
         }
-        this.latestReceivedBalance = res.balance
+        this.setObservedBalance(res.balance)
         this.utils.stateBundler.AddBalancePoint('providerBalance', res.balance)
         this.utils.stateBundler.AddBalancePoint('providerMaxWithdrawable', res.max_withdrawable)
         return res
@@ -204,6 +225,13 @@ export class LiquidityProvider {
             return 0
         }
         return this.latestReceivedBalance
+    }
+
+    HasObservedBalance = () => this.observedProviderBalance
+
+    private setObservedBalance = (balance: number) => {
+        this.latestReceivedBalance = balance
+        this.observedProviderBalance = true
     }
 
     GetPendingBalance = async () => {
@@ -328,7 +356,7 @@ export class LiquidityProvider {
             if (from === 'system') {
                 await this.SettleProviderPayment(invoice, totalPaid)
             }
-            this.latestReceivedBalance = res.latest_balance
+            this.setObservedBalance(res.latest_balance)
             this.utils.stateBundler.AddTxPoint('paidAnInvoice', decodedAmount, { used: 'provider', from, timeDiscount: true })
             return res
         } catch (err) {

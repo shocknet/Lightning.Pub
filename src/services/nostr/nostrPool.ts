@@ -1,6 +1,7 @@
 import WebSocket from 'ws'
 Object.assign(global, { WebSocket: WebSocket });
 import crypto from 'crypto'
+import { lookup as dnsLookup } from 'node:dns/promises'
 import { SimplePool, Event, UnsignedEvent, finalizeEvent, Relay, nip44, Filter, verifyEvent } from 'nostr-tools'
 import { ERROR, getLogger, PubLogger } from '../helpers/logger.js'
 import { nip19 } from 'nostr-tools'
@@ -207,14 +208,21 @@ export class NostrPool {
         let sent = false
         const log = getLogger({ appName: keys.name })
         const pool = new SimplePool()
+        if (actionKinds.includes(event.kind)) {
+            this.log("publishing kind", event.kind, "via new socket;", this.describeListenSockets(relays))
+        }
         try {
-            await Promise.all(pool.publish(relays, signed).map(async p => {
+            await Promise.all(pool.publish(relays, signed).map(async (p, i) => {
+                const url = relays[i]
+                const started = Date.now()
                 try {
                     await p
                     sent = true
                 } catch (e: any) {
-                    this.log(ERROR, `Failed to publish Kind ${event.kind} event:`, e.message || e)
+                    const elapsed = Date.now() - started
+                    this.log(ERROR, `Failed to publish Kind ${event.kind} event to ${url} after ${elapsed}ms listen=${this.listenState(url)}:`, e.message || e)
                     log(e)
+                    await this.logRelayDns(url)
                 }
             }))
             if (!sent) {
@@ -223,6 +231,34 @@ export class NostrPool {
             }
         } finally {
             pool.close(relays)
+        }
+    }
+
+    private relayByUrl(url: string) {
+        return this.relays[url] || Object.values(this.relays).find(r => r.GetUrl() === url)
+    }
+
+    private listenState(url: string) {
+        const listen = this.relayByUrl(url)
+        if (!listen) {
+            return "none"
+        }
+        return listen.IsConnected() ? "up" : "down"
+    }
+
+    private describeListenSockets(relays: string[]) {
+        return relays.map(url => `${url} listen=${this.listenState(url)}`).join(", ")
+    }
+
+    private async logRelayDns(url: string) {
+        try {
+            const host = new URL(url).hostname
+            const started = Date.now()
+            const addrs = await dnsLookup(host, { all: true })
+            const records = addrs.map(a => `${a.address} v${a.family}`).join(", ")
+            this.log("dns for", host, "in", Date.now() - started, "ms:", records || "none")
+        } catch (e: any) {
+            this.log(ERROR, "dns lookup failed:", e.message || e)
         }
     }
 
