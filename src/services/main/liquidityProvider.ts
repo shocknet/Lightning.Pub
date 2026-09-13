@@ -109,7 +109,7 @@ export class LiquidityProvider {
             return false
         }
         const seenInPast2Minutes = Date.now() - this.lastSeenBeacon < 1000 * 60 * 2
-        return this.ready && seenInPast2Minutes
+        return this.ready && seenInPast2Minutes && this.observedProviderBalance
     }
 
     AwaitProviderReady = async (): Promise<'inactive' | 'ready'> => {
