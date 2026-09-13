@@ -9,9 +9,10 @@ import SettingsManager from './settingsManager.js'
 import { LiquiditySettings } from './settings.js'
 import { TxPointSettings } from '../storage/tlv/stateBundler.js'
 export type nostrCallback<T> = { startedAtMillis: number, type: 'single' | 'stream', f: (res: T) => void }
-/** The initial provider info request is a single shot over nostr; a dropped publish must not leave the balance unknown. */
+/** Burst retries for the first GetUserInfo. After that, keep polling until it lands so a relay blip does not require a process restart. */
 const INITIAL_USER_STATE_ATTEMPTS = 3
 const INITIAL_USER_STATE_RETRY_DELAY_MS = 2000
+const PROVIDER_INFO_RETRY_MS = 30 * 1000
 export class LiquidityProvider {
     getSettings: () => LiquiditySettings
     client: ReturnType<typeof newNostrClient>
@@ -26,6 +27,8 @@ export class LiquidityProvider {
     invoicePaidCb: InvoicePaidCb
     connecting = false
     configuredInterval: NodeJS.Timeout
+    providerInfoRetryInterval: NodeJS.Timeout | null = null
+    providerInfoRetryInFlight = false
     queue: ((state: 'ready') => void)[] = []
     utils: Utils
     pendingPayments: Record<string, number> = {}
@@ -126,6 +129,7 @@ export class LiquidityProvider {
 
     Stop = () => {
         clearInterval(this.configuredInterval)
+        this.stopProviderInfoRetry()
     }
 
     Connect = async () => {
@@ -135,12 +139,10 @@ export class LiquidityProvider {
             return
         }
         if (res.status === 'OK') {
-            this.log("provider ready with balance:", res.balance)
-            this.lastSeenBeacon = Date.now()
-            this.ready = true
-            this.queue.forEach(q => q('ready'))
+            this.markProviderReady(res.balance)
         } else {
             this.log(ERROR, "provider not ready, provider info request timed out")
+            this.startProviderInfoRetry()
         }
         this.log("subbing to user operations")
         this.client.GetLiveUserOperations(async res => {
@@ -182,6 +184,48 @@ export class LiquidityProvider {
             res = await this.GetUserState()
         }
         return res
+    }
+
+    markProviderReady = (balance: number) => {
+        this.stopProviderInfoRetry()
+        this.log("provider ready with balance:", balance)
+        this.lastSeenBeacon = Date.now()
+        this.ready = true
+        this.queue.forEach(q => q('ready'))
+        this.queue = []
+    }
+
+    startProviderInfoRetry = () => {
+        if (this.providerInfoRetryInterval) {
+            return
+        }
+        this.log("will retry provider info request every", PROVIDER_INFO_RETRY_MS / 1000, "seconds")
+        this.providerInfoRetryInterval = setInterval(() => {
+            void this.retryProviderInfo()
+        }, PROVIDER_INFO_RETRY_MS)
+    }
+
+    stopProviderInfoRetry = () => {
+        if (!this.providerInfoRetryInterval) {
+            return
+        }
+        clearInterval(this.providerInfoRetryInterval)
+        this.providerInfoRetryInterval = null
+    }
+
+    retryProviderInfo = async () => {
+        if (this.ready || this.providerInfoRetryInFlight) {
+            return
+        }
+        this.providerInfoRetryInFlight = true
+        try {
+            const res = await this.GetUserState()
+            if (res.status === 'OK') {
+                this.markProviderReady(res.balance)
+            }
+        } finally {
+            this.providerInfoRetryInFlight = false
+        }
     }
 
     GetUserState = async () => {
