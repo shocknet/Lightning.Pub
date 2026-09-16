@@ -97,11 +97,12 @@ export default class {
     }
 
     k1AttemptRow(appId: string, pointer: string, k1: string, details: { invoice?: string, requestId?: string, npub?: string, status?: DebitK1Status }) {
-        const row: { app_id: string, pointer: string, k1: string, status: DebitK1Status, invoice?: string, request_id?: string, npub?: string } = {
+        const row: { app_id: string, pointer: string, k1: string, status: DebitK1Status, created_at_unix: number, invoice?: string, request_id?: string, npub?: string } = {
             app_id: appId,
             pointer,
             k1,
             status: details.status || "held",
+            created_at_unix: Math.floor(Date.now() / 1000),
         }
         if (details.invoice) {
             row.invoice = details.invoice.toLowerCase()
@@ -206,18 +207,18 @@ export default class {
     }
 
     async PruneDebitK1Attempts(now = Date.now()) {
-        const cutoff = new Date(now - K1_ATTEMPT_TTL_MS)
+        const cutoffUnix = Math.floor((now - K1_ATTEMPT_TTL_MS) / 1000)
         const run = async (tx: string) => {
-            const released = await this.dbs.Delete<ConsumedDebitK1>('ConsumedDebitK1', { created_at: LessThan(cutoff), status: "released" }, tx)
+            const released = await this.dbs.Delete<ConsumedDebitK1>('ConsumedDebitK1', { created_at_unix: LessThan(cutoffUnix), status: "released" }, tx)
             return released || 0
         }
         return this.dbs.Tx(tx => run(tx), "prune debit k1 attempts")
     }
 
     async assertK1ConsumeRate(appId: string, pointer: string, txId?: string) {
-        const since = new Date(Date.now() - K1_CONSUME_WINDOW_MS)
+        const sinceUnix = Math.floor((Date.now() - K1_CONSUME_WINDOW_MS) / 1000)
         const recent = await this.dbs.Find<ConsumedDebitK1>('ConsumedDebitK1', {
-            where: { app_id: appId, pointer, created_at: MoreThan(since) },
+            where: { app_id: appId, pointer, created_at_unix: MoreThan(sinceUnix) },
             take: K1_CONSUME_MAX_PER_WINDOW,
         }, txId)
         if (recent.length >= K1_CONSUME_MAX_PER_WINDOW) {
