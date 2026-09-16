@@ -1135,7 +1135,7 @@ const testOwnerPaysWithoutGrant = async (T: TestBase) => {
 
 const testNonOwnerStillNeedsGrant = async (T: TestBase) => {
     T.d("starting testNonOwnerStillNeedsGrant")
-    const stranger = requestorPub(14)
+    const stranger = requestorPub(44)
     const invoice = await T.externalAccessToOtherLnd.NewInvoice(100, "stranger debit", defaultInvoiceExpiry, { from: 'system', useProvider: false })
     const result = await handleDebit(T,
         mockNostrEvent(T, stranger),
@@ -1154,7 +1154,7 @@ const testOwnerOnlyClinkDeniesStranger = async (T: TestBase) => {
     const app = await T.main.storage.applicationStorage.GetApplication(T.user2.appId)
     const appUser = await T.main.storage.applicationStorage.GetApplicationUser(app, T.user2.appUserIdentifier)
     await T.main.storage.applicationStorage.SetOwnerOnlyClink(appUser.serial_id, true)
-    const stranger = requestorPub(13)
+    const stranger = requestorPub(45)
     const invoice = await T.externalAccessToOtherLnd.NewInvoice(100, "owner-only stranger debit", defaultInvoiceExpiry, { from: 'system', useProvider: false })
     await expectDebitFail(T, handleDebit(T,
         mockNostrEvent(T, stranger),
