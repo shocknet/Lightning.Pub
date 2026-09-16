@@ -1,10 +1,13 @@
 import { decodeBech32 } from "@shocknet/clink-sdk"
 import { NostrEvent } from "../services/nostr/nostrPool.js"
 import { countLeadingZeroBits, enrollPowSatisfied, parseNip13Nonce } from "../services/helpers/nip13.js"
-import { buildClinkBeaconContent, buildServiceBeaconEvent, operatorPubkeyHex } from "../services/helpers/clinkBeacon.js"
-import { CLINK_BEACON_D_TAG, CLINK_ENROLL_KIND, CLINK_VERSION, LEGACY_BEACON_D_TAG } from "../services/helpers/clinkConstants.js"
-import { EnrollManager } from "../services/main/enrollManager.js"
-import { EnrollRateLimiter, EnrollReplyGate } from "../services/helpers/enrollRateLimit.js"
+import { buildClinkBeaconContent, buildServiceBeaconEvent, operatorPubkeyHex } from "../services/CLINK/beaconManager.js"
+import { CLINK_BEACON_D_TAG, CLINK_ENROLL_KIND, CLINK_VERSION, LEGACY_BEACON_D_TAG } from "../services/CLINK/clinkConstants.js"
+import { EnrollManager } from "../services/CLINK/enrollManager.js"
+import { EnrollError, EnrollGfy, validateEnrollReq } from "../services/CLINK/enrollTypes.js"
+import { EnrollRateLimiter, EnrollReplyGate } from "../services/CLINK/enrollRateLimit.js"
+import { toClinkCtx } from "../services/CLINK/clinkTypes.js"
+import { newClinkTransport } from "../services/serverMethods/clinkTransport.js"
 import SettingsManager from "../services/main/settingsManager.js"
 import { StorageTestBase } from "./testBase.js"
 
@@ -34,6 +37,33 @@ const enrollEvent = (h: Harness, pub: string, overrides: Partial<NostrEvent> = {
     created_at: Math.floor(Date.now() / 1000),
     ...overrides,
 })
+
+const enrollCtx = (h: Harness, pub: string, overrides: Partial<NostrEvent> = {}) =>
+    toClinkCtx(enrollEvent(h, pub, overrides))
+
+const expectEnrollError = async (
+    h: Harness,
+    fn: () => Promise<unknown>,
+    code: number,
+    extra?: Partial<EnrollGfy>,
+) => {
+    let thrown: unknown
+    try {
+        await fn()
+    } catch (e) {
+        thrown = e
+    }
+    h.T.expect(thrown).to.be.instanceOf(EnrollError)
+    const payload = (thrown as EnrollError).getPayload()
+    h.T.expect(payload.res).to.equal("GFY")
+    h.T.expect(payload.code).to.equal(code)
+    if (extra?.required_difficulty !== undefined) {
+        h.T.expect(payload.required_difficulty).to.equal(extra.required_difficulty)
+    }
+    if (extra?.delta) {
+        h.T.expect(payload.delta?.max_delta_ms).to.equal(extra.delta.max_delta_ms)
+    }
+}
 
 const setEnrollPowBits = (h: Harness, bits: number) => {
     h.settings.OverrideTestSettings(s => {
@@ -153,7 +183,7 @@ const testBeaconBuilders = (T: StorageTestBase) => {
 const testEnrollCreatesAccountAndPointers = async (h: Harness) => {
     h.T.d("starting testEnrollCreatesAccountAndPointers")
     const pub = enrollPub(1)
-    const res = await h.enroll.doEnroll({}, enrollEvent(h, pub))
+    const res = await h.enroll.doEnroll({}, enrollCtx(h, pub))
     h.T.expect(res.res).to.equal("ok")
     if (res.res !== "ok") {
         return
@@ -177,8 +207,8 @@ const testEnrollCreatesAccountAndPointers = async (h: Harness) => {
 const testEnrollIdempotent = async (h: Harness) => {
     h.T.d("starting testEnrollIdempotent")
     const pub = enrollPub(2)
-    const first = await h.enroll.doEnroll({}, enrollEvent(h, pub))
-    const second = await h.enroll.doEnroll({}, enrollEvent(h, pub))
+    const first = await h.enroll.doEnroll({}, enrollCtx(h, pub))
+    const second = await h.enroll.doEnroll({}, enrollCtx(h, pub))
     h.T.expect(first).to.deep.equal(second)
     h.T.d("repeat enroll returned equivalent pointers")
 }
@@ -186,10 +216,10 @@ const testEnrollIdempotent = async (h: Harness) => {
 const testEnrollExistingSkipsPow = async (h: Harness) => {
     h.T.d("starting testEnrollExistingSkipsPow")
     const pub = enrollPub(3)
-    const created = await h.enroll.doEnroll({}, enrollEvent(h, pub))
+    const created = await h.enroll.doEnroll({}, enrollCtx(h, pub))
     h.T.expect(created.res).to.equal("ok")
     setEnrollPowBits(h, 18)
-    const again = await h.enroll.doEnroll({}, enrollEvent(h, pub, { id: "f".repeat(64), tags: [["clink_version", CLINK_VERSION]] }))
+    const again = await h.enroll.doEnroll({}, enrollCtx(h, pub, { id: "f".repeat(64), tags: [["clink_version", CLINK_VERSION]] }))
     h.T.expect(again.res).to.equal("ok")
     setEnrollPowBits(h, 0)
     h.T.d("existing account enroll skipped proof of work")
@@ -198,75 +228,58 @@ const testEnrollExistingSkipsPow = async (h: Harness) => {
 const testEnrollPowRequired = async (h: Harness) => {
     h.T.d("starting testEnrollPowRequired")
     setEnrollPowBits(h, 8)
-    const res = await h.enroll.doEnroll({}, enrollEvent(h, enrollPub(4)))
-    h.T.expect(res.res).to.equal("GFY")
-    if (res.res === "GFY") {
-        h.T.expect(res.code).to.equal(5)
-        h.T.expect(res.required_difficulty).to.equal(8)
-    }
+    await expectEnrollError(h, () => h.enroll.doEnroll({}, enrollCtx(h, enrollPub(4))), 5, { required_difficulty: 8 })
     setEnrollPowBits(h, 0)
-    h.T.d("new enroll without pow returned code 5 and required_difficulty")
+    h.T.d("new enroll without pow threw EnrollError code 5 with required_difficulty")
 }
 
 const testEnrollExpired = async (h: Harness) => {
     h.T.d("starting testEnrollExpired")
-    const res = await h.enroll.doEnroll({}, enrollEvent(h, enrollPub(5), {
-        created_at: Math.floor(Date.now() / 1000) - 120,
-    }))
-    h.T.expect(res.res).to.equal("GFY")
-    if (res.res === "GFY") {
-        h.T.expect(res.code).to.equal(3)
-        h.T.expect(res.delta?.max_delta_ms).to.equal(h.settings.getSettings().nostrRelaySettings.enrollMaxDeltaMs)
-    }
-    h.T.d("stale enroll created_at returned expired")
+    await expectEnrollError(
+        h,
+        () => h.enroll.doEnroll({}, enrollCtx(h, enrollPub(5), {
+            created_at: Math.floor(Date.now() / 1000) - 120,
+        })),
+        3,
+        { delta: { max_delta_ms: h.settings.getSettings().nostrRelaySettings.enrollMaxDeltaMs, actual_delta_ms: 0 } },
+    )
+    h.T.d("stale enroll created_at threw EnrollError expired")
 }
 
 const testEnrollInvalidVersion = async (h: Harness) => {
     h.T.d("starting testEnrollInvalidVersion")
-    const res = await h.enroll.doEnroll({}, enrollEvent(h, enrollPub(6), {
+    await expectEnrollError(h, () => h.enroll.doEnroll({}, enrollCtx(h, enrollPub(6), {
         tags: [["clink_version", "2"]],
-    }))
-    h.T.expect(res.res).to.equal("GFY")
-    if (res.res === "GFY") {
-        h.T.expect(res.code).to.equal(6)
-    }
-    h.T.d("unsupported clink_version returned invalid request")
+    })), 6)
+    h.T.d("unsupported clink_version threw EnrollError invalid request")
 }
 
 const testEnrollUserCreationDisabled = async (h: Harness) => {
     h.T.d("starting testEnrollUserCreationDisabled")
     const app = await h.T.storage.applicationStorage.AddApplication(`no-enroll-${Date.now()}`, false)
     const keys = await h.T.storage.applicationStorage.GenerateApplicationKeys(app)
-    const res = await h.enroll.doEnroll({}, enrollEvent(h, enrollPub(7), { appId: keys.appId }))
-    h.T.expect(res.res).to.equal("GFY")
-    if (res.res === "GFY") {
-        h.T.expect(res.code).to.equal(1)
-    }
+    await expectEnrollError(h, () => h.enroll.doEnroll({}, enrollCtx(h, enrollPub(7), { appId: keys.appId })), 1)
     h.T.d("enroll denied when app disallows user creation")
 }
 
 const testEnrollLockedUserDenied = async (h: Harness) => {
     h.T.d("starting testEnrollLockedUserDenied")
     const pub = enrollPub(8)
-    const ok = await h.enroll.doEnroll({}, enrollEvent(h, pub))
+    const ok = await h.enroll.doEnroll({}, enrollCtx(h, pub))
     h.T.expect(ok.res).to.equal("ok")
     const appUser = await h.T.storage.applicationStorage.FindNostrAppUser(pub)
     await h.T.storage.userStorage.BanUser(appUser!.user.user_id)
-    const res = await h.enroll.doEnroll({}, enrollEvent(h, pub))
-    h.T.expect(res.res).to.equal("GFY")
-    if (res.res === "GFY") {
-        h.T.expect(res.code).to.equal(1)
-    }
+    await expectEnrollError(h, () => h.enroll.doEnroll({}, enrollCtx(h, pub)), 1)
     h.T.d("enroll denied for locked existing account")
 }
 
 const testEnrollExistingSkipsRateLimit = async (h: Harness) => {
     h.T.d("starting testEnrollExistingSkipsRateLimit")
     const pub = enrollPub(9)
-    const first = await h.enroll.doEnroll({}, enrollEvent(h, pub))
+    const first = await h.enroll.doEnroll({}, enrollCtx(h, pub))
     h.T.expect(first.res).to.equal("ok")
     for (let i = 0; i < 25; i++) {
-        const again = await h.enroll.doEnroll({}, enrollEvent(h, pub))
+        const again = await h.enroll.doEnroll({}, enrollCtx(h, pub))
         h.T.expect(again.res).to.equal("ok")
     }
     h.T.d("repeat enroll from an existing key was not rate limited")
@@ -279,11 +292,72 @@ const testEnrollWalletUserKeepsLiveAuth = async (h: Harness) => {
     await h.T.storage.applicationStorage.GetOrCreateNostrAppUser(app, pub)
     const before = await h.T.storage.applicationStorage.FindNostrAppUser(pub)
     h.T.expect(!!before!.owner_only_clink).to.equal(false)
-    const res = await h.enroll.doEnroll({}, enrollEvent(h, pub))
+    const res = await h.enroll.doEnroll({}, enrollCtx(h, pub))
     h.T.expect(res.res).to.equal("ok")
     const after = await h.T.storage.applicationStorage.FindNostrAppUser(pub)
     h.T.expect(!!after!.owner_only_clink).to.equal(false)
     h.T.d("enroll of an existing wallet account did not flip owner-only")
+}
+
+const testHandleClinkEnrollReplyGate = async (h: Harness) => {
+    h.T.d("starting testHandleClinkEnrollReplyGate")
+    const pub = enrollPub(11)
+    const ctx = enrollCtx(h, pub)
+    const first = await h.enroll.HandleClinkEnroll(ctx, {})
+    h.T.expect(first).to.not.equal(null)
+    h.T.expect(first!.res).to.equal("ok")
+    h.T.expect((await h.enroll.HandleClinkEnroll(ctx, {}))!.res).to.equal("ok")
+    h.T.expect((await h.enroll.HandleClinkEnroll(ctx, {}))!.res).to.equal("ok")
+    const fourth = await h.enroll.HandleClinkEnroll(ctx, {})
+    h.T.expect(fourth).to.equal(null)
+    h.T.d("HandleClinkEnroll returns null after the reply gate is exhausted")
+}
+
+const testHandleClinkEnrollThroughTransport = async (h: Harness) => {
+    h.T.d("starting testHandleClinkEnrollThroughTransport")
+    const pub = enrollPub(12)
+    const event = enrollEvent(h, pub)
+    const sent: { kind: number, content: string }[] = []
+    const transport = newClinkTransport(async (ctx, _kind, req) => h.enroll.HandleClinkEnroll(ctx, req))
+    await transport(event, reply => { sent.push({ kind: reply.kind, content: reply.content }) })
+    h.T.expect(sent).to.have.length(1)
+    h.T.expect(sent[0].kind).to.equal(CLINK_ENROLL_KIND)
+    const body = JSON.parse(sent[0].content)
+    h.T.expect(body.res).to.equal("ok")
+    h.T.expect(typeof body.noffer).to.equal("string")
+    h.T.d("transport enroll success replies on kind 21004")
+
+    const denied = enrollEvent(h, enrollPub(13), { tags: [["clink_version", "2"]] })
+    const gfy: { kind: number, content: string }[] = []
+    await transport(denied, reply => { gfy.push({ kind: reply.kind, content: reply.content }) })
+    h.T.expect(gfy).to.have.length(1)
+    h.T.expect(gfy[0].kind).to.equal(CLINK_ENROLL_KIND)
+    const fail = JSON.parse(gfy[0].content)
+    h.T.expect(fail.res).to.equal("GFY")
+    h.T.expect(fail.code).to.equal(6)
+    h.T.d("transport enroll EnrollError replies GFY on kind 21004")
+}
+
+const testHandleClinkEnrollReplyGateDoesNotCreateAfterExhausted = async (h: Harness) => {
+    h.T.d("starting testHandleClinkEnrollReplyGateDoesNotCreateAfterExhausted")
+    const pub = enrollPub(14)
+    const denied = enrollCtx(h, pub, { tags: [["clink_version", "2"]] })
+    for (let i = 0; i < 3; i++) {
+        await expectEnrollError(h, () => h.enroll.HandleClinkEnroll(denied, {}), 6)
+    }
+    const fourth = await h.enroll.HandleClinkEnroll(enrollCtx(h, pub), {})
+    h.T.expect(fourth).to.equal(null)
+    h.T.expect(await h.T.storage.applicationStorage.FindNostrAppUser(pub)).to.equal(null)
+    h.T.d("exhausted enroll reply gate does not silently create an account")
+}
+
+const testValidateEnrollReqRejectsNonObject = (T: StorageTestBase) => {
+    T.d("starting testValidateEnrollReqRejectsNonObject")
+    T.expect(() => validateEnrollReq(null)).to.throw(EnrollError)
+    T.expect(() => validateEnrollReq([])).to.throw(EnrollError)
+    T.expect(() => validateEnrollReq("nope")).to.throw(EnrollError)
+    T.expect(validateEnrollReq({})).to.deep.equal({})
+    T.d("enroll adapter rejects non-object payloads as invalid request")
 }
 
 const testClinkSettingsLoaded = async (h: Harness) => {
@@ -303,6 +377,7 @@ export default async (T: StorageTestBase) => {
     testEnrollCreateLimiter(T)
     testEnrollReplyGateCapsPublishes(T)
     testBeaconBuilders(T)
+    testValidateEnrollReqRejectsNonObject(T)
     const h = await setupHarness(T)
     await testClinkSettingsLoaded(h)
     await testEnrollCreatesAccountAndPointers(h)
@@ -315,4 +390,7 @@ export default async (T: StorageTestBase) => {
     await testEnrollLockedUserDenied(h)
     await testEnrollExistingSkipsRateLimit(h)
     await testEnrollWalletUserKeepsLiveAuth(h)
+    await testHandleClinkEnrollReplyGate(h)
+    await testHandleClinkEnrollReplyGateDoesNotCreateAfterExhausted(h)
+    await testHandleClinkEnrollThroughTransport(h)
 }

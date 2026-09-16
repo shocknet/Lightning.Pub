@@ -9,7 +9,6 @@ import LND from "../lnd/lnd.js"
 import { AddressPaidCb, ChannelEventCb, HtlcCb, InvoicePaidCb, NewBlockCb } from "../lnd/settings.js"
 import { ERROR, getLogger, PubLogger } from "../helpers/logger.js"
 import AppUserManager from "./appUserManager.js"
-import { Application } from '../storage/entity/Application.js'
 import { UserReceivingInvoice } from '../storage/entity/UserReceivingInvoice.js'
 import { NostrSend } from '../nostr/nostrPool.js'
 import MetricsManager from '../metrics/index.js'
@@ -20,22 +19,20 @@ import { RugPullTracker } from "./rugPullTracker.js"
 import { AdminManager } from "./adminManager.js"
 import { Unlocker } from "./unlocker.js"
 import { defaultInvoiceExpiry } from "../storage/paymentStorage.js"
-import { DebitManager } from "./debitManager.js"
-import { OfferManager } from "./offerManager.js"
+import { DebitManager } from "../CLINK/debitManager.js"
+import { OfferManager } from "../CLINK/offerManager.js"
 import { parse } from "uri-template"
 import webRTC from "../webRTC/index.js"
-import { ManagementManager } from "./managementManager.js"
+import { ManagementManager } from "../CLINK/managementManager.js"
 import { NotificationsManager } from "./notificationsManager.js"
-import { ApplicationUser } from '../storage/entity/ApplicationUser.js'
 import SettingsManager from './settingsManager.js'
 import { NostrSettings, AppInfo } from '../nostr/nostrPool.js'
 import { ShockPushNotification } from '../ShockPush/index.js'
 import { PaymentSideEffects } from "./paymentSideEffects.js"
 import { AddressReceivingTransaction } from '../storage/entity/AddressReceivingTransaction.js'
-import { EnrollManager } from "./enrollManager.js"
-import { buildClinkBeaconContent, buildServiceBeaconEvent, operatorPubkeyHex } from "../helpers/clinkBeacon.js"
+import { EnrollManager } from "../CLINK/enrollManager.js"
+import { BeaconManager } from '../CLINK/beaconManager.js'
 import { pickDefaultApp } from "./adminNodeSettings.js"
-import { isHttpsAvatarUrl } from "../helpers/httpsAvatarUrl.js"
 type UserOperationsSub = {
     id: string
     newIncomingInvoice: (operation: Types.UserOperation) => void
@@ -67,6 +64,7 @@ export default class {
     unlocker: Unlocker
     notificationsManager: NotificationsManager
     paymentSideEffects: PaymentSideEffects
+    beaconManager: BeaconManager
     nostrProcessPing: (() => Promise<void>) | null = null
     nostrReset: (settings: NostrSettings) => void = () => { getLogger({})("nostr reset not initialized yet") }
     private newBlockInFlight: Promise<void> = Promise.resolve()
@@ -97,6 +95,7 @@ export default class {
         this.offerManager = new OfferManager(this.storage, this.settings, this.lnd, this.applicationManager, this.productManager, this.liquidityManager)
         this.managementManager = new ManagementManager(this.storage, this.settings, this.notificationsManager)
         this.enrollManager = new EnrollManager(this.storage, this.settings)
+        this.beaconManager = new BeaconManager(this.paymentManager, this.storage, this.utils, this.settings)
 
         this.adminManager.attachBeaconRefresh(() => this.publishDefaultAppBeacon())
 
@@ -110,12 +109,11 @@ export default class {
         this.utils.Stop()
         this.storage.Stop()
         this.debitManager.Stop()
+        this.beaconManager.Stop()
     }
 
     StartBeacons() {
-        this.applicationManager.StartAppsServiceBeacon((app, fees) => {
-            this.UpdateBeacon(app, { type: 'service', name: app.name, avatarUrl: app.avatar_url, fees })
-        })
+        this.beaconManager.StartBeacons()
     }
 
     private async publishDefaultAppBeacon() {
@@ -125,7 +123,7 @@ export default class {
         if (!app) {
             return
         }
-        await this.UpdateBeacon(app, {
+        await this.beaconManager.UpdateBeacon(app, {
             type: 'service',
             name: app.name,
             avatarUrl: app.avatar_url,
@@ -333,38 +331,12 @@ export default class {
         await this.paymentSideEffects.TriggerPaidInvoiceSideEffects(log, paidInvoice)
     }
 
-    async UpdateBeacon(app: Application, content: Types.BeaconData) {
-        if (!app.nostr_public_key) {
-            getLogger({ appName: app.name })("cannot update beacon, public key not set")
-            return
-        }
-        const avatarUrl = content.avatarUrl && isHttpsAvatarUrl(content.avatarUrl) ? content.avatarUrl : undefined
-        const safeContent = { ...content, avatarUrl }
-        const sender = { type: 'app' as const, appId: app.app_id }
-        const nostr = this.settings.getSettings().nostrRelaySettings
-        const clinkContent = buildClinkBeaconContent({
-            app,
-            relays: nostr.relays,
-            fees: content.fees || this.paymentManager.GetFees(),
-            enrollPowBits: nostr.enrollPowBits,
-            website: nostr.beaconWebsite,
-            description: nostr.beaconDescription,
-        })
-        const operatorHex = operatorPubkeyHex(nostr.operatorNpub)
-        this.utils.nostrSender.Send(sender, {
-            type: 'event',
-            event: buildServiceBeaconEvent(app.nostr_public_key, safeContent, clinkContent, operatorHex),
-        })
-    }
-
-
-
     async ResetNostr() {
         const apps = await this.storage.applicationStorage.GetApplications()
         const nextRelay = this.settings.getSettings().nostrRelaySettings.relays[0]
         const fees = this.paymentManager.GetFees()
         for (const app of apps) {
-            await this.UpdateBeacon(app, { type: 'service', name: app.name, avatarUrl: app.avatar_url, nextRelay, fees })
+            await this.beaconManager.UpdateBeacon(app, { type: 'service', name: app.name, avatarUrl: app.avatar_url, nextRelay, fees })
         }
 
         const local = pickDefaultApp(apps, this.settings.getSettings().serviceSettings.defaultAppName)

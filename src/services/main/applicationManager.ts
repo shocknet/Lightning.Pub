@@ -11,7 +11,7 @@ import { ZapInfo } from '../storage/entity/UserReceivingInvoice.js'
 import { nofferEncode, ndebitEncode, OfferPriceType, nmanageEncode } from '@shocknet/clink-sdk'
 import SettingsManager from './settingsManager.js'
 import { assertCallbackUrlAllowed } from '../helpers/safeOutboundFetch.js'
-import { AssertDebitFrequency } from './debitTypes.js'
+import { AssertDebitFrequency } from '../CLINK/debitTypes.js'
 const TOKEN_EXPIRY_TIME = 2 * 60 * 1000 // 2 minutes, in milliseconds
 
 type NsecLinkingData = {
@@ -24,7 +24,6 @@ export default class {
     paymentManager: PaymentManager
     nPubLinkingTokens = new Map<string, NsecLinkingData>();
     linkingTokenInterval: NodeJS.Timeout | null = null
-    serviceBeaconInterval: NodeJS.Timeout | null = null
     log: PubLogger
     constructor(storage: Storage, settings: SettingsManager, paymentManager: PaymentManager) {
         this.log = getLogger({ component: "ApplicationManager" })
@@ -48,26 +47,9 @@ export default class {
         }, 60 * 1000); // 1 minute
     }
 
-    async StartAppsServiceBeacon(publishBeacon: (app: Application, fees: Types.CumulativeFees) => void) {
-        this.serviceBeaconInterval = setInterval(async () => {
-            try {
-                const fees = this.paymentManager.GetFees()
-                const apps = await this.storage.applicationStorage.GetApplications()
-                apps.forEach(app => {
-                    publishBeacon(app, fees)
-                })
-            } catch (e) {
-                this.log("error in beacon", (e as any).message)
-            }
-        }, 60 * 1000)
-    }
-
     Stop() {
         if (this.linkingTokenInterval) {
             clearInterval(this.linkingTokenInterval)
-        }
-        if (this.serviceBeaconInterval) {
-            clearInterval(this.serviceBeaconInterval)
         }
     }
     SignAppToken(appId: string): string {

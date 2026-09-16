@@ -3,7 +3,7 @@ import { ConsumedDebitK1, DebitK1Status } from "./entity/ConsumedDebitK1.js";
 import { StorageInterface } from "./db/storageInterface.js";
 import {
     DebitK1AlreadyProcessedError, DebitRateLimitedError,
-} from "../main/debitTypes.js";
+} from "../CLINK/debitTypes.js";
 import { LessThan, MoreThan } from "typeorm";
 
 export const K1_CONSUME_WINDOW_MS = 60_000

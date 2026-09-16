@@ -465,6 +465,10 @@ export default (mainHandler: Main): Types.ServerMethods => {
             return mainHandler.debitManager.GetDebitAuthorizations(ctx)
         },
         AuthorizeManage: async ({ ctx, req }) => {
+            const err = Types.ManageAuthorizationRequestValidate(req, {
+                authorize_npub_CustomCheck: pub => pub !== '',
+            })
+            if (err != null) throw new Error(err.message)
             return mainHandler.managementManager.AuthorizeManage(ctx, req)
         },
         GetManageAuthorizations: async ({ ctx }) => {
@@ -492,6 +496,10 @@ export default (mainHandler: Main): Types.ServerMethods => {
             return mainHandler.debitManager.ResetDebit(ctx, req)
         },
         EditDebit: async ({ ctx, req }) => {
+            const err = Types.DebitAuthorizationRequestValidate(req, {
+                authorize_npub_CustomCheck: pub => pub !== '',
+            })
+            if (err != null) throw new Error(err.message)
             return mainHandler.debitManager.EditDebit(ctx, req);
         },
         RespondToDebit: async ({ ctx, req }) => {

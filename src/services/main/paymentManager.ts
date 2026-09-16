@@ -25,7 +25,7 @@ import Metrics from '../metrics/index.js'
 import { TxPointSettings } from '../storage/tlv/stateBundler.js'
 import { clampPageLimit, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from '../helpers/pageLimit.js'
 import { PaymentSideEffects } from './paymentSideEffects.js'
-import { AssertDebitFrequency } from './debitTypes.js'
+import { AssertDebitFrequency } from '../CLINK/debitTypes.js'
 import { InvoiceAlreadyFailedError, InvoiceAlreadyPaidError, InvoicePaymentInProgressError, UserBannedError } from './invoicePaymentErrors.js'
 
 const canonicalBolt11 = (invoice: string) => invoice.toLowerCase()
