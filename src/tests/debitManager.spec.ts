@@ -326,7 +326,6 @@ const testLateApproveAfterRetryConsumesK1 = async (T: TestBase) => {
     const k1 = sessionK1(40)
     const firstReq = "k1-late-first"
     const retryReq = "k1-late-retry"
-    await safelySetUserBalance(T, T.user2, 10000)
     const firstInvoice = await T.externalAccessToOtherLnd.NewInvoice(500, "debit k1 late first", defaultInvoiceExpiry, { from: 'system', useProvider: false })
     const first = await handleDebit(T,
         mockNostrEvent(T, npub, firstReq),
@@ -375,7 +374,6 @@ const testCompetingApprovalsPayOnce = async (T: TestBase) => {
     const k1 = sessionK1(41)
     const firstReq = "k1-race-first"
     const retryReq = "k1-race-retry"
-    await safelySetUserBalance(T, T.user2, 10000)
     const firstInvoice = await T.externalAccessToOtherLnd.NewInvoice(500, "debit k1 race first", defaultInvoiceExpiry, { from: 'system', useProvider: false })
     const first = await handleDebit(T,
         mockNostrEvent(T, npub, firstReq),
@@ -675,7 +673,6 @@ const testPayNdebitDeniedBeatsInvoiceReplay = async (T: TestBase) => {
 const testPayNdebitInvoicePaysWithAuthorization = async (T: TestBase) => {
     T.d("starting testPayNdebitInvoicePaysWithAuthorization")
     const npub = requestorPub(5)
-    await safelySetUserBalance(T, T.user2, 10000)
     await authorizeDebit(T, npub)
     const invoice = await T.externalAccessToOtherLnd.NewInvoice(500, "debit payment", defaultInvoiceExpiry, { from: 'system', useProvider: false })
     const result = await handleDebit(T,
