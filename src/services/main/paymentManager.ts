@@ -575,7 +575,7 @@ export default class {
             const serviceFee = this.getSendServiceFee(Types.UserOperationType.OUTGOING_INVOICE, payAmount, isManagedUser)
             await this.assertInvoiceDbConflict(req.invoice)
             const internalInvoice = await this.storage.paymentStorage.GetInvoiceOwner(req.invoice)
-            let paymentInfo = { preimage: "", amtPaid: 0, networkFee: 0, serialId: 0 }
+            let paymentInfo: {preimage:string, amtPaid:number, networkFee:number, serialId:number} 
             if (internalInvoice) {
                 paymentInfo = await this.PayInternalInvoice(userId, internalInvoice, { payAmount, serviceFee }, linkedApplication, {
                     debitNpub: req.debit_npub,
