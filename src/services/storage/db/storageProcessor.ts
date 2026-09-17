@@ -110,6 +110,15 @@ export type FindOperation<T> = {
     debug?: boolean
 }
 
+export type FindAndCountOperation<T> = {
+    type: 'findAndCount'
+    entity: DBNames
+    opId: string
+    q: QueryOptions<T>
+    txId?: string
+    debug?: boolean
+}
+
 export type SumOperation<T> = {
     type: 'sum'
     entity: DBNames
@@ -139,7 +148,7 @@ export interface IStorageOperation {
 }
 
 export type StorageOperation<T> = ConnectOperation | StartTxOperation | EndTxOperation<T> | DeleteOperation<T> | RemoveOperation<T> | UpdateOperation<T> |
-    FindOneOperation<T> | FindOperation<T> | CreateAndSaveOperation<T> | IncrementOperation<T> | DecrementOperation<T> | SumOperation<T> | PingOperation
+    FindOneOperation<T> | FindOperation<T> | FindAndCountOperation<T> | CreateAndSaveOperation<T> | IncrementOperation<T> | DecrementOperation<T> | SumOperation<T> | PingOperation
 
 export type SuccessOperationResponse<T> = { success: true, type: string, data: T, opId: string }
 export type OperationResponse<T> = SuccessOperationResponse<T> | ErrorOperationResponse
@@ -221,6 +230,9 @@ class StorageProcessor {
                     break;
                 case 'find':
                     await this.handleFind(operation);
+                    break;
+                case 'findAndCount':
+                    await this.handleFindAndCount(operation);
                     break;
                 case 'sum':
                     await this.handleSum(operation);
@@ -455,6 +467,18 @@ class StorageProcessor {
         this.sendResponse({
             success: true,
             type: 'find',
+            data: res,
+            opId: operation.opId
+        });
+    }
+
+    private async handleFindAndCount(operation: FindAndCountOperation<any>) {
+        const res = await this.handleRead(operation.txId, eM => {
+            return eM.getRepository(this.getEntity(operation.entity)).findAndCount(operation.q)
+        })
+        this.sendResponse({
+            success: true,
+            type: 'findAndCount',
             data: res,
             opId: operation.opId
         });

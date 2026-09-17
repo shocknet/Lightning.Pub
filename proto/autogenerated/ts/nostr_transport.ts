@@ -6,7 +6,7 @@ type NostrResponse = (message: object) => void
 export type NostrRequest = {
     rpcName?: string
     params?: Record<string, string>
-    query?: Record<string, string>
+    query?: Record<string, string | string[]>
     body?: any
     authIdentifier?: string
     requestId?: string
@@ -24,6 +24,8 @@ export type NostrOptions = {
 const logErrorAndReturnResponse = (error: Error, response: string, res: NostrResponse, logger: Logger, metric: Types.RequestMetric, metricsCallback: (metrics: Types.RequestMetric[]) => void) => { 
     logger.error(error.message || error); metricsCallback([{ ...metric, error: response }]); res({ status: 'ERROR', reason: response })
 }
+const nostrSubClose = () => {throw new Error('nostr subs cannot be closed')}
+const nostrSubMore = () => {throw new Error('nostr subs always subbed to more')}
 export default (methods: Types.ServerMethods, opts: NostrOptions) => {
     const logger = opts.logger || { log: console.log, error: console.error }
     return async (req: NostrRequest, res: NostrResponse, startString: string, startMs: number) => {
@@ -767,6 +769,22 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     opts.metricsCallback([{ ...info, ...stats, ...authContext }])
                 }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
                 break
+            case 'GetAssetsAndLiabilitiesV2':
+                try {
+                    if (!methods.GetAssetsAndLiabilitiesV2) throw new Error('method: GetAssetsAndLiabilitiesV2 is not implemented')
+                    const authContext = await opts.NostrAdminAuthGuard(req.appId, req.authIdentifier)
+                    stats.guard = process.hrtime.bigint()
+                    authCtx = authContext
+                    const request = req.body
+                    const error = Types.AssetsAndLiabilitiesReqV2Validate(request)
+                    stats.validate = process.hrtime.bigint()
+                    if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback)
+                    const response = await methods.GetAssetsAndLiabilitiesV2({rpcName:'GetAssetsAndLiabilitiesV2', ctx:authContext , req: request})
+                    stats.handle = process.hrtime.bigint()
+                    res({status: 'OK', ...response})
+                    opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+                break
             case 'GetBundleMetrics':
                 try {
                     if (!methods.GetBundleMetrics) throw new Error('method: GetBundleMetrics is not implemented')
@@ -858,10 +876,10 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     stats.guard = process.hrtime.bigint()
                     authCtx = authContext
                     stats.validate = stats.guard
-                    methods.GetLiveDebitRequests({rpcName:'GetLiveDebitRequests', ctx:authContext  ,cb: (response, err) => {
+                    methods.GetLiveDebitRequests({rpcName:'GetLiveDebitRequests', ctx:authContext  , socket:{ send: (response, err) => {
                     stats.handle = process.hrtime.bigint()
                     if (err) { logErrorAndReturnResponse(err, err.message, res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)} else { res({status: 'OK', ...response});opts.metricsCallback([{ ...info, ...stats, ...authContext }])}
-                    }})
+                    },getState: () => 'OPEN', close: nostrSubClose, subMore: nostrSubMore}})
                 }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
                 break
             case 'GetLiveManageRequests':
@@ -871,10 +889,10 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     stats.guard = process.hrtime.bigint()
                     authCtx = authContext
                     stats.validate = stats.guard
-                    methods.GetLiveManageRequests({rpcName:'GetLiveManageRequests', ctx:authContext  ,cb: (response, err) => {
+                    methods.GetLiveManageRequests({rpcName:'GetLiveManageRequests', ctx:authContext  , socket:{ send: (response, err) => {
                     stats.handle = process.hrtime.bigint()
                     if (err) { logErrorAndReturnResponse(err, err.message, res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)} else { res({status: 'OK', ...response});opts.metricsCallback([{ ...info, ...stats, ...authContext }])}
-                    }})
+                    },getState: () => 'OPEN', close: nostrSubClose, subMore: nostrSubMore}})
                 }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
                 break
             case 'GetLiveUserOperations':
@@ -884,10 +902,10 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     stats.guard = process.hrtime.bigint()
                     authCtx = authContext
                     stats.validate = stats.guard
-                    methods.GetLiveUserOperations({rpcName:'GetLiveUserOperations', ctx:authContext  ,cb: (response, err) => {
+                    methods.GetLiveUserOperations({rpcName:'GetLiveUserOperations', ctx:authContext  , socket:{ send: (response, err) => {
                     stats.handle = process.hrtime.bigint()
                     if (err) { logErrorAndReturnResponse(err, err.message, res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)} else { res({status: 'OK', ...response});opts.metricsCallback([{ ...info, ...stats, ...authContext }])}
-                    }})
+                    },getState: () => 'OPEN', close: nostrSubClose, subMore: nostrSubMore}})
                 }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
                 break
             case 'GetLndForwardingMetrics':
@@ -968,10 +986,10 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     stats.guard = process.hrtime.bigint()
                     authCtx = authContext
                     stats.validate = stats.guard
-                    methods.GetMigrationUpdate({rpcName:'GetMigrationUpdate', ctx:authContext  ,cb: (response, err) => {
+                    methods.GetMigrationUpdate({rpcName:'GetMigrationUpdate', ctx:authContext  , socket:{ send: (response, err) => {
                     stats.handle = process.hrtime.bigint()
                     if (err) { logErrorAndReturnResponse(err, err.message, res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)} else { res({status: 'OK', ...response});opts.metricsCallback([{ ...info, ...stats, ...authContext }])}
-                    }})
+                    },getState: () => 'OPEN', close: nostrSubClose, subMore: nostrSubMore}})
                 }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
                 break
             case 'GetPaymentState':
@@ -1149,6 +1167,38 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     stats.validate = process.hrtime.bigint()
                     if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback)
                     const response = await methods.GetUserOperations({rpcName:'GetUserOperations', ctx:authContext , req: request})
+                    stats.handle = process.hrtime.bigint()
+                    res({status: 'OK', ...response})
+                    opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+                break
+            case 'GetUserOperationsFromAdmin':
+                try {
+                    if (!methods.GetUserOperationsFromAdmin) throw new Error('method: GetUserOperationsFromAdmin is not implemented')
+                    const authContext = await opts.NostrAdminAuthGuard(req.appId, req.authIdentifier)
+                    stats.guard = process.hrtime.bigint()
+                    authCtx = authContext
+                    const request = req.body
+                    const error = Types.GetUserOperationsRequestValidate(request)
+                    stats.validate = process.hrtime.bigint()
+                    if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback)
+                    const response = await methods.GetUserOperationsFromAdmin({rpcName:'GetUserOperationsFromAdmin', ctx:authContext , req: request})
+                    stats.handle = process.hrtime.bigint()
+                    res({status: 'OK', ...response})
+                    opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+                break
+            case 'GetUsersAdminInfo':
+                try {
+                    if (!methods.GetUsersAdminInfo) throw new Error('method: GetUsersAdminInfo is not implemented')
+                    const authContext = await opts.NostrAdminAuthGuard(req.appId, req.authIdentifier)
+                    stats.guard = process.hrtime.bigint()
+                    authCtx = authContext
+                    const request = req.body
+                    const error = Types.UsersAdminInfoRequestValidate(request)
+                    stats.validate = process.hrtime.bigint()
+                    if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback)
+                    const response = await methods.GetUsersAdminInfo({rpcName:'GetUsersAdminInfo', ctx:authContext , req: request})
                     stats.handle = process.hrtime.bigint()
                     res({status: 'OK', ...response})
                     opts.metricsCallback([{ ...info, ...stats, ...authContext }])
@@ -1460,10 +1510,10 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     stats.guard = process.hrtime.bigint()
                     authCtx = authContext
                     stats.validate = stats.guard
-                    methods.SubToWebRtcCandidates({rpcName:'SubToWebRtcCandidates', ctx:authContext  ,cb: (response, err) => {
+                    methods.SubToWebRtcCandidates({rpcName:'SubToWebRtcCandidates', ctx:authContext  , socket:{ send: (response, err) => {
                     stats.handle = process.hrtime.bigint()
                     if (err) { logErrorAndReturnResponse(err, err.message, res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)} else { res({status: 'OK', ...response});opts.metricsCallback([{ ...info, ...stats, ...authContext }])}
-                    }})
+                    },getState: () => 'OPEN', close: nostrSubClose, subMore: nostrSubMore}})
                 }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
                 break
             case 'SubmitWebRtcMessage':
@@ -1572,7 +1622,11 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     opts.metricsCallback([{ ...info, ...stats, ...authContext }])
                 }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
                 break
-            default: logger.error('unknown rpc call name from nostr event:'+req.rpcName) 
+            default: {
+                const reason = 'unknown rpcName: ' + (req.rpcName || '')
+                logErrorAndReturnResponse(new Error(reason), reason, res, logger, { ...info, ...stats }, opts.metricsCallback)
+                break
+            }
         }
     }
 }

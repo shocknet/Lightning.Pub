@@ -1,4 +1,4 @@
-import { Between, DataSource, EntityManager, FindManyOptions, FindOperator, LessThanOrEqual, MoreThanOrEqual } from "typeorm"
+import { Between, DataSource, EntityManager, FindManyOptions, FindOperator, In, LessThanOrEqual, MoreThanOrEqual } from "typeorm"
 import { BalanceEvent } from "./entity/BalanceEvent.js"
 import { ChannelBalanceEvent } from "./entity/ChannelsBalanceEvent.js"
 import TransactionsQueue from "./db/transactionsQueue.js";
@@ -155,6 +155,12 @@ export default class {
 
     async GetRootOperation(opType: RootOperationType, id: string, txId?: string) {
         return this.dbs.FindOne<RootOperation>('RootOperation', { where: { operation_type: opType, operation_identifier: id } }, txId)
+    }
+    async GetRootOperationsByIdentifiers(opType: RootOperationType, ids: string[], txId?: string) {
+        if (ids.length === 0) {
+            return []
+        }
+        return this.dbs.Find<RootOperation>('RootOperation', { where: { operation_type: opType, operation_identifier: In(ids) } }, txId)
     }
     async GetRootAddressTransaction(address: string, txHash: string, index: number) {
         return this.GetRootOperation("chain", `${address}:${txHash}:${index}`)

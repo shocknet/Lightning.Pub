@@ -354,6 +354,52 @@ const testNmanageUnauthorizedOfferUpdateRejected = async (T: TestBase) => {
     T.d("handleRequest update from non-owner manager returned error")
 }
 
+const testAccountOwnerManagesWithoutGrant = async (T: TestBase) => {
+    T.d("starting testAccountOwnerManagesWithoutGrant")
+    const ownerPub = "c".repeat(64)
+    const app = await T.main.storage.applicationStorage.GetApplication(T.user2.appId)
+    const appUser = await T.main.storage.applicationStorage.GetApplicationUser(app, T.user2.appUserIdentifier)
+    await T.main.storage.applicationStorage.AddNPubToApplicationUser(appUser.serial_id, ownerPub)
+    const createReq: NmanageCreateOffer = {
+        resource: "offer",
+        pointer: T.user2.appUserIdentifier,
+        action: "create",
+        offer: { fields: offerFields({ label: "owner self offer" }) },
+    }
+    await T.main.managementManager.handleRequest(createReq, mockNostrEvent(T, ownerPub))
+    const listReq: NmanageListOffers = {
+        resource: "offer",
+        pointer: T.user2.appUserIdentifier,
+        action: "list",
+    }
+    const listed = await T.main.storage.offerStorage.GetUserOffers(T.user2.appUserIdentifier)
+    T.expect(listed.some(o => o.label === "owner self offer")).to.equal(true)
+    await T.main.managementManager.handleRequest(listReq, mockNostrEvent(T, ownerPub))
+    T.d("account owner created and listed offers without a manage grant")
+}
+
+const testOwnerOnlyClinkDeniesStrangerManage = async (T: TestBase) => {
+    T.d("starting testOwnerOnlyClinkDeniesStrangerManage")
+    const stranger = managerPub(11)
+    const app = await T.main.storage.applicationStorage.GetApplication(T.user2.appId)
+    const appUser = await T.main.storage.applicationStorage.GetApplicationUser(app, T.user2.appUserIdentifier)
+    await T.main.storage.applicationStorage.SetOwnerOnlyClink(appUser.serial_id, true)
+    const req: NmanageCreateOffer = {
+        resource: "offer",
+        action: "create",
+        pointer: T.user2.appUserIdentifier,
+        offer: { fields: offerFields({ label: "stranger owner-only" }) },
+    }
+    await withCapturedNostrSends(T.main.storage, async getLastNmanageError => {
+        await T.main.managementManager.handleRequest(req, mockNostrEvent(T, stranger))
+        expectNmanageError(T, getLastNmanageError(), 1, "Request Denied")
+    })
+    const offers = await T.main.storage.offerStorage.getManagedUserOffers(T.user2.appUserIdentifier, stranger)
+    T.expect(offers).to.have.length(0)
+    await T.main.storage.applicationStorage.SetOwnerOnlyClink(appUser.serial_id, false)
+    T.d("owner-only enroll nmanage denied stranger without live auth")
+}
+
 const testResetManage = async (T: TestBase) => {
     T.d("starting testResetManage")
     const npub = managerPub(1)
@@ -381,6 +427,8 @@ export default async (T: TestBase) => {
     await testNmanageGetUnknownOfferRejected(T)
     await testNmanageBannedManagerRejected(T)
     await testNmanageUnauthorizedOfferUpdateRejected(T)
+    await testAccountOwnerManagesWithoutGrant(T)
+    await testOwnerOnlyClinkDeniesStrangerManage(T)
     await testResetManage(T)
     await runSanityCheck(T)
 }

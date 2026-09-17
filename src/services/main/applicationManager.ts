@@ -346,14 +346,7 @@ export default class {
     }
 
     async UseInviteLink(ctx: Types.GuestWithPubContext, req: Types.UseInviteLinkRequest): Promise<void> {
-        const app = await this.storage.applicationStorage.GetApplication(ctx.app_id);
-        const inviteToken = await this.storage.applicationStorage.FindInviteToken(req.invite_token);
-        if (!inviteToken || inviteToken.used || inviteToken.application.app_id !== ctx.app_id) {
-            throw new Error("Invite token not found");
-        }
-        await this.storage.applicationStorage.AddApplicationUser(app, crypto.randomBytes(32).toString('hex'), 0, ctx.pub)
-        await this.storage.applicationStorage.SetInviteTokenAsUsed(inviteToken);
-
+        await this.storage.applicationStorage.ConsumeInviteToken(ctx.app_id, req.invite_token, ctx.pub)
     }
 
 

@@ -12,6 +12,8 @@ import { NofferData, OfferPriceType, nofferEncode } from '@shocknet/clink-sdk';
 import SettingsManager from "./settingsManager.js";
 import { assertCallbackUrlAllowed } from "../helpers/safeOutboundFetch.js";
 import { assertValidOfferPriceSats } from "../helpers/offerValidation.js";
+import { clinkResponseTags } from "../helpers/clinkTags.js";
+import { CLINK_OFFER_KIND } from "../helpers/clinkConstants.js";
 
 type NofferInvoiceFailure = { success: false, code: number, max: number, error?: string, payer_data?: string[] }
 type NofferInvoiceResult = { success: true, invoice: string } | NofferInvoiceFailure
@@ -316,12 +318,9 @@ const newNofferResponse = (content: string, event: NostrEvent): UnsignedEvent =>
     return {
         content,
         created_at: Math.floor(Date.now() / 1000),
-        kind: 21001,
+        kind: CLINK_OFFER_KIND,
         pubkey: "",
-        tags: [
-            ['p', event.pub],
-            ['e', event.id],
-        ],
+        tags: clinkResponseTags(event.pub, event.id),
     }
 }
 const codeToMessage = (code: number) => {
