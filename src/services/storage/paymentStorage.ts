@@ -36,6 +36,7 @@ export type AppOperationKind = keyof AppOperationsPage
 export type AppOperationsCursor = {
     kind: AppOperationKind
     serialId: number
+    paidAtUnix: number
 }
 export default class {
     dbs: StorageInterface
@@ -837,28 +838,29 @@ function appOperationPageWhere(application: Application | null, range: { from?: 
     const linked = kind === 'incomingTxs'
         ? { user_address: { linkedApplication: appLink(application) } }
         : { linkedApplication: appLink(application) }
-    if (!cursor || !range.to) {
+    if (!cursor) {
         return { ...linked, ...paidAtFilter(range) }
     }
 
     const rank = appOperationKinds.indexOf(kind)
     const cursorRank = appOperationKinds.indexOf(cursor.kind)
     if (rank < cursorRank) {
-        return { ...linked, ...paidAtFilterWithUpper(range, LessThan(range.to)) }
+        return { ...linked, ...paidAtFilterWithUpper(range, LessThan(cursor.paidAtUnix)) }
     }
     if (rank > cursorRank) {
-        return { ...linked, ...paidAtFilter(range) }
+        return { ...linked, ...paidAtFilterWithUpper(range, LessThanOrEqual(cursor.paidAtUnix)) }
     }
 
     return [
-        { ...linked, ...paidAtFilterWithUpper(range, LessThan(range.to)) },
-        { ...linked, ...paidAtFilterWithUpper(range, Equal(range.to)), serial_id: LessThan(cursor.serialId) },
+        { ...linked, ...paidAtFilterWithUpper(range, LessThan(cursor.paidAtUnix)) },
+        { ...linked, ...paidAtFilterWithUpper(range, Equal(cursor.paidAtUnix)), serial_id: LessThan(cursor.serialId) },
     ]
 }
 
-function paidAtFilterWithUpper(range: { from?: number }, upper: FindOperator<number>) {
+function paidAtFilterWithUpper(range: { from?: number, to?: number }, upper: FindOperator<number>) {
     const bounds: FindOperator<number>[] = [MoreThan(0), upper]
     if (range.from) bounds.push(MoreThanOrEqual(range.from))
+    if (range.to) bounds.push(LessThanOrEqual(range.to))
     return { paid_at_unix: combineAnd(bounds) }
 }
 

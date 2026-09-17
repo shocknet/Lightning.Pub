@@ -484,7 +484,7 @@ export class DebitManager {
         if (access && !access.authorized) {
             this.fail(1)
         }
-        const { amount_sats, bolt11, frequency } = pointerdata
+        const { amount_sats, bolt11, frequency, k1 } = pointerdata
         if (frequency) {
             const amt = amount_sats || decodedAmount
             if (!amt) {
@@ -507,7 +507,17 @@ export class DebitManager {
         const { payment } = await this.sendDebitPayment(ctx.appId, appUserId, requestorPub, bolt11, {
             requireAuthorizedAccess: false,
             skipAccessIncrement: true,
+            onPaymentAccepted: txId => this.consumeK1(ctx.appId, appUserId, k1, {
+                txId,
+                invoice: bolt11,
+                requestId: ctx.eventId,
+                npub: requestorPub,
+                status: "succeeded",
+            }),
         })
+        if (k1) {
+            await this.succeedK1(ctx.appId, appUserId, ctx.eventId)
+        }
         return { res: 'ok', preimage: payment.preimage }
     }
 

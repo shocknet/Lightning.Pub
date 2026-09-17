@@ -1133,6 +1133,35 @@ const testOwnerPaysWithoutGrant = async (T: TestBase) => {
     T.d("account owner paid via ndebit without a third-party grant")
 }
 
+const testOwnerK1ReplayRejected = async (T: TestBase) => {
+    T.d("starting testOwnerK1ReplayRejected")
+    const ownerPub = "d".repeat(64)
+    const ownerUser = await addFundedOwnerUser(T, ownerPub)
+    const k1 = sessionK1(46)
+    const firstInvoice = await T.externalAccessToOtherLnd.NewInvoice(300, "owner k1 first", defaultInvoiceExpiry, { from: 'system', useProvider: false })
+    const first = await handleDebit(T,
+        mockNostrEvent(T, ownerPub, "owner-k1-first"),
+        {
+            pointer: ownerUser.appUserIdentifier,
+            bolt11: firstInvoice.payRequest,
+            amount_sats: 300,
+            k1,
+        },
+    )
+    expectInvoicePaid(T, first)
+    const secondInvoice = await T.externalAccessToOtherLnd.NewInvoice(300, "owner k1 replay", defaultInvoiceExpiry, { from: 'system', useProvider: false })
+    await expectDebitFail(T, handleDebit(T,
+        mockNostrEvent(T, ownerPub, "owner-k1-replay"),
+        {
+            pointer: ownerUser.appUserIdentifier,
+            bolt11: secondInvoice.payRequest,
+            amount_sats: 300,
+            k1,
+        },
+    ), 6, invalidRequestError(k1AlreadyProcessedReason), gfy6Reason.k1AlreadyProcessed)
+    T.d("account owner cannot reuse k1 for another invoice")
+}
+
 const testNonOwnerStillNeedsGrant = async (T: TestBase) => {
     T.d("starting testNonOwnerStillNeedsGrant")
     const stranger = requestorPub(44)
@@ -1247,6 +1276,7 @@ export default async (T: TestBase) => {
     await testAuthRequiredWithoutNostrKeyLeavesK1Reusable(T)
     await testNdebitRejectsInvalidRequestShape(T)
     await testOwnerPaysWithoutGrant(T)
+    await testOwnerK1ReplayRejected(T)
     await testNonOwnerStillNeedsGrant(T)
     await testOwnerOnlyClinkDeniesStranger(T)
     await testAuthorizeInvoiceRuleFailureKeepsGrant(T)

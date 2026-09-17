@@ -262,8 +262,8 @@ export default class Handler {
         } */
 
     async GetAppsMetrics(req: Types.AppsMetricsRequest): Promise<Types.AppsMetrics> {
-        if (req.operations_before_id && (!req.bounded || !req.to_unix || !req.operations_app_id)) {
-            throw new Error("operations_before_id requires bounded, to_unix, and operations_app_id")
+        if (req.operations_before_id && (!req.bounded || !req.operations_app_id)) {
+            throw new Error("operations_before_id requires bounded and operations_app_id")
         }
         const cached = this.appsMetricsCache.Get(req)
         const now = Date.now()
@@ -573,7 +573,7 @@ function mergeAppOperationsPage(page: AppOperationsPage): Types.UserOperation[] 
             confirmed: true,
             service_fee: i.service_fee,
             network_fee: 0,
-            operationId: `in-inv-${i.serial_id}`,
+            operationId: appOperationId('in-inv-', i.paid_at_unix, i.serial_id),
             tx_hash: "",
             internal: i.internal,
         })),
@@ -585,7 +585,7 @@ function mergeAppOperationsPage(page: AppOperationsPage): Types.UserOperation[] 
             confirmed: tx.confs > 1,
             service_fee: tx.service_fee,
             network_fee: 0,
-            operationId: `in-tx-${tx.serial_id}`,
+            operationId: appOperationId('in-tx-', tx.paid_at_unix, tx.serial_id),
             tx_hash: tx.tx_hash,
             internal: tx.internal,
         })),
@@ -597,7 +597,7 @@ function mergeAppOperationsPage(page: AppOperationsPage): Types.UserOperation[] 
             confirmed: true,
             service_fee: i.service_fees,
             network_fee: i.routing_fees,
-            operationId: `out-inv-${i.serial_id}`,
+            operationId: appOperationId('out-inv-', i.paid_at_unix, i.serial_id),
             tx_hash: "",
             internal: i.internal,
         })),
@@ -609,7 +609,7 @@ function mergeAppOperationsPage(page: AppOperationsPage): Types.UserOperation[] 
             confirmed: tx.confs > 1,
             service_fee: tx.service_fees,
             network_fee: tx.chain_fees,
-            operationId: `out-tx-${tx.serial_id}`,
+            operationId: appOperationId('out-tx-', tx.paid_at_unix, tx.serial_id),
             tx_hash: tx.tx_hash,
             internal: tx.internal,
         })),
@@ -621,7 +621,7 @@ function mergeAppOperationsPage(page: AppOperationsPage): Types.UserOperation[] 
             confirmed: true,
             service_fee: op.service_fees,
             network_fee: 0,
-            operationId: `u2u-${op.serial_id}`,
+            operationId: appOperationId('u2u-', op.paid_at_unix, op.serial_id),
             tx_hash: "",
             internal: true,
         })),
@@ -640,11 +640,19 @@ const appOperationPrefixes: Array<{ prefix: string, kind: AppOperationKind }> = 
 
 function parseAppOperationsCursor(operationId: string): AppOperationsCursor {
     const match = appOperationPrefixes.find(entry => operationId.startsWith(entry.prefix))
-    const serialId = match ? Number(operationId.slice(match.prefix.length)) : 0
-    if (!match || !Number.isSafeInteger(serialId) || serialId <= 0) {
+    const parts = match ? operationId.slice(match.prefix.length).split('-') : []
+    const [paidAtUnix, serialId] = parts.map(Number)
+    if (!match
+        || parts.length !== 2
+        || !Number.isSafeInteger(paidAtUnix) || paidAtUnix <= 0
+        || !Number.isSafeInteger(serialId) || serialId <= 0) {
         throw new Error("invalid operations_before_id")
     }
-    return { kind: match.kind, serialId }
+    return { kind: match.kind, paidAtUnix, serialId }
+}
+
+function appOperationId(prefix: string, paidAtUnix: number, serialId: number) {
+    return `${prefix}${paidAtUnix}-${serialId}`
 }
 
 function compareAppOperations(a: Types.UserOperation, b: Types.UserOperation) {

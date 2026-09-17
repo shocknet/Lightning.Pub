@@ -30,6 +30,7 @@ export default async (T: StorageTestBase) => {
     await testPeriodUsesPaidAt(T, seed)
     await testPageIsCapped(T, seed)
     await testSameSecondPagination(T, seed)
+    await testMetricsPaginationPreservesRange(T, seed)
     await testUserCount(T, seed)
     await testBoundedModeIsExplicit(T, seed)
     await testBalancePeriodBaseline(T)
@@ -207,15 +208,39 @@ const testSameSecondPagination = async (T: StorageTestBase, seed: Seed) => {
     const cursorRow = first.incomingInvoices[19]
     const second = await T.storage.paymentStorage.GetAppOperationsPage(
         seed.app,
-        { to: cursorRow.paid_at_unix },
+        {},
         20,
-        { kind: 'incomingInvoices', serialId: cursorRow.serial_id },
+        { kind: 'incomingInvoices', serialId: cursorRow.serial_id, paidAtUnix: cursorRow.paid_at_unix },
     )
     const firstIds = new Set(first.incomingInvoices.map(row => row.serial_id))
     const secondAtBoundary = second.incomingInvoices.filter(row => row.paid_at_unix === cursorRow.paid_at_unix)
     T.expect(secondAtBoundary).to.have.length(5)
     T.expect(secondAtBoundary.some(row => firstIds.has(row.serial_id))).to.equal(false)
     T.d('Finished testSameSecondPagination')
+}
+
+const testMetricsPaginationPreservesRange = async (T: StorageTestBase, seed: Seed) => {
+    T.d('Starting testMetricsPaginationPreservesRange')
+    const metrics = new MetricsHandler(T.storage, null as never)
+    const request = {
+        bounded: true,
+        include_operations: true,
+        operations_app_id: seed.app.app_id,
+        from_unix: 1_700_000_000,
+        to_unix: 1_800_000_000,
+    }
+    const first = await metrics.GetAppMetrics(request, seed.app)
+    const cursor = first.operations[first.operations.length - 1]
+    const second = await metrics.GetAppMetrics({
+        ...request,
+        operations_before_id: cursor.operationId,
+    }, seed.app)
+    const firstIds = new Set(first.operations.map(op => op.operationId))
+    T.expect(second.operations.some(op => firstIds.has(op.operationId))).to.equal(false)
+    T.expect(second.operation_count).to.equal(first.operation_count)
+    T.expect(second.received).to.equal(first.received)
+    T.expect(second.users.total).to.equal(first.users.total)
+    T.d('Finished testMetricsPaginationPreservesRange')
 }
 
 const testUserCount = async (T: StorageTestBase, seed: Seed) => {
