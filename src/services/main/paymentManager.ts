@@ -30,6 +30,8 @@ import { InvoiceAlreadyFailedError, InvoiceAlreadyPaidError, InvoicePaymentInPro
 
 const canonicalBolt11 = (invoice: string) => invoice.toLowerCase()
 
+export type OutgoingInvoiceFailedCb = (invoice: string, txId: string) => Promise<void>
+
 type PayInvoiceOptionals = {
     swapOperationId?: string
     ack?: (op: Types.UserOperation) => void
@@ -91,6 +93,7 @@ export default class {
     lnd: LND
     addressPaidCb: AddressPaidCb
     newBlockCb: NewBlockCb
+    outgoingInvoiceFailedCb: OutgoingInvoiceFailedCb
     log = getLogger({ component: "PaymentManager" })
     watchDog: Watchdog
     liquidityManager: LiquidityManager
@@ -99,7 +102,7 @@ export default class {
     invoiceLock: InvoiceLock
     metrics: Metrics
     paymentSideEffects: PaymentSideEffects
-    constructor(storage: Storage, metrics: Metrics, lnd: LND, swaps: Swaps, settings: SettingsManager, liquidityManager: LiquidityManager, sideEffects: PaymentSideEffects, utils: Utils, addressPaidCb: AddressPaidCb, newBlockCb: NewBlockCb) {
+    constructor(storage: Storage, metrics: Metrics, lnd: LND, swaps: Swaps, settings: SettingsManager, liquidityManager: LiquidityManager, sideEffects: PaymentSideEffects, utils: Utils, addressPaidCb: AddressPaidCb, newBlockCb: NewBlockCb, outgoingInvoiceFailedCb: OutgoingInvoiceFailedCb) {
         this.storage = storage
         this.metrics = metrics
         this.settings = settings
@@ -111,6 +114,7 @@ export default class {
         this.swaps = swaps
         this.addressPaidCb = addressPaidCb
         this.newBlockCb = newBlockCb
+        this.outgoingInvoiceFailedCb = outgoingInvoiceFailedCb
         this.invoiceLock = new InvoiceLock()
     }
 
@@ -151,7 +155,7 @@ export default class {
             await this.storage.StartTransaction(async tx => {
                 await this.storage.userStorage.IncrementUserBalance(p.user.user_id, fullAmount, "payment_refund:" + p.invoice, tx)
                 await this.storage.paymentStorage.UpdateExternalPayment(p.serial_id, 0, 0, false, undefined, tx)
-                await this.releaseHeldDebitK1(p.invoice, tx)
+                await this.outgoingInvoiceFailedCb(p.invoice, tx)
             }, "refund failed provider payment")
             this.utils.stateBundler.AddTxPointFailed('paidAnInvoice', fullAmount, { used: 'provider', from: 'user' })
             return
@@ -221,7 +225,7 @@ export default class {
                 await this.storage.StartTransaction(async tx => {
                     await this.storage.userStorage.IncrementUserBalance(p.user.user_id, fullAmount, "payment_refund:" + p.invoice, tx)
                     await this.storage.paymentStorage.UpdateExternalPayment(p.serial_id, 0, 0, false, undefined, tx)
-                    await this.releaseHeldDebitK1(p.invoice, tx)
+                    await this.outgoingInvoiceFailedCb(p.invoice, tx)
                 }, "refund failed pending payment")
                 this.utils.stateBundler.AddTxPointFailed('paidAnInvoice', fullAmount, { used: 'lnd', from: 'user' })
                 return
@@ -261,7 +265,7 @@ export default class {
                 await this.storage.StartTransaction(async tx => {
                     await this.storage.userStorage.IncrementUserBalance(p.user.user_id, fullAmount, "payment_refund:" + p.invoice, tx)
                     await this.storage.paymentStorage.UpdateExternalPayment(p.serial_id, 0, 0, false, undefined, tx)
-                    await this.releaseHeldDebitK1(p.invoice, tx)
+                    await this.outgoingInvoiceFailedCb(p.invoice, tx)
                 }, "refund failed pending payment")
                 this.utils.stateBundler.AddTxPointFailed('paidAnInvoice', fullAmount, { used: 'lnd', from: 'user' })
                 return
@@ -618,10 +622,6 @@ export default class {
         }
     }
 
-    releaseHeldDebitK1 = async (invoice: string, txId: string) => {
-        await this.storage.debitStorage.ReleaseDebitK1ForInvoice(canonicalBolt11(invoice), txId)
-    }
-
     async PayExternalInvoice(userId: string, invoice: string, amounts: { payAmount: number, serviceFee: number, amountForLnd: number }, linkedApplication: Application, optionals: PayExternalOptionals = {}) {
 
         if (this.settings.getSettings().serviceSettings.disableExternalPayments) {
@@ -679,7 +679,7 @@ export default class {
                 await this.storage.StartTransaction(async tx => {
                     await this.storage.userStorage.IncrementUserBalance(userId, totalAmountToDecrement, "payment_refund:" +invoice, tx)
                     await this.storage.paymentStorage.UpdateExternalPayment(pendingPayment.serial_id, 0, 0, false, undefined, tx)
-                    await this.releaseHeldDebitK1(invoice, tx)
+                    await this.outgoingInvoiceFailedCb(invoice, tx)
                 }, "refund failed pending payment")
             } else {
                 this.log(ERROR, "payment attempt errored without confirmed failure, leaving pending", pendingPayment.serial_id, err)

@@ -54,14 +54,14 @@ export default (
 
     const nostr = new Nostr(nostrSettings, mainHandler.utils, event => {
         if (CLINK_SUPPORTED_KINDS.includes(event.kind)) {
+            if (event.relayConstraint === 'provider') {
+                log("got clink request on provider only relay, ignoring")
+                return
+            }
             if (!isSupportedClinkEvent(event.tags)) {
                 log("dropping unsupported clink_version", event.kind, event.id)
                 const err = new ClinkError("Invalid Request: unsupported clink_version", 6)
                 nostr.Send({ type: 'app', appId: event.appId }, { type: 'event', event: encodeClinkResponse(event.kind, err.getPayload(), event), encrypt: { toPub: event.pub } })
-                return
-            }
-            if (event.relayConstraint === 'provider') {
-                log("got clink request on provider only relay, ignoring")
                 return
             }
             void clinkTransport(event, reply => {

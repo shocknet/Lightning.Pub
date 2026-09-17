@@ -22,6 +22,7 @@ import { isAccountOwner, denyStrangerLiveAuth } from "./clinkOwner.js";
 import { NotificationsManager } from "../main/notificationsManager.js";
 import { ClinkCtx, ClinkError, encodeClinkResponse } from "./clinkTypes.js";
 import { CLINK_DEBIT_KIND } from "./clinkConstants.js";
+import { CLINK_AUTH_TTL_MS, ClinkRateLimiter, clinkRateKey } from "./clinkRateLimit.js";
 
 class DebitAuthRequired extends Error {
     constructor(public res: AuthRequiredRes) {
@@ -52,6 +53,7 @@ export class DebitManager {
     paymentManager: PaymentManager
     pruneTimer: NodeJS.Timer
     notificationsManager: NotificationsManager
+    authLimiter = new ClinkRateLimiter({ windowMs: CLINK_AUTH_TTL_MS, maxHits: 1 })
     logger = getLogger({ component: 'DebitManager' })
     constructor(storage: Storage, lnd: LND, applicationManager: ApplicationManager, paymentManager: PaymentManager, notificationsManager: NotificationsManager) {
         this.storage = storage
@@ -90,27 +92,33 @@ export class DebitManager {
 
     BanDebit = async (ctx: Types.UserContext, req: Types.DebitOperation): Promise<void> => {
         await this.storage.debitStorage.DenyDebitAccess(ctx.app_user_id, req.npub)
+        this.authLimiter.take(clinkRateKey(ctx.app_user_id, req.npub))
     }
     ResetDebit = async (ctx: Types.UserContext, req: Types.DebitOperation): Promise<void> => {
         await this.storage.debitStorage.RemoveDebitAccess(ctx.app_user_id, req.npub)
+        this.authLimiter.take(clinkRateKey(ctx.app_user_id, req.npub))
     }
 
     RespondToDebit = async (ctx: Types.UserContext, req: Types.DebitResponse): Promise<void> => {
         const event = this.liveEvent(ctx, req.npub, req.request_id)
-        switch (req.response.type) {
-            case Types.DebitResponse_response_type.DENIED:
-                this.logger("🔍 [DEBIT REQUEST] Sending denied response")
-                await this.storage.debitStorage.ReleaseDebitK1ForRequest(ctx.app_id, ctx.app_user_id, req.request_id)
-                this.sendDebitResponse(this.failPayload(1), event)
-                return
-            case Types.DebitResponse_response_type.INVOICE:
-                await this.paySingleInvoice(ctx, { invoice: req.response.invoice, npub: req.npub, request_id: req.request_id })
-                return
-            case Types.DebitResponse_response_type.AUTHORIZE:
-                await this.handleAuthorization(ctx, req.response.authorize, { npub: req.npub, request_id: req.request_id })
-                return
-            default:
-                throw new Error("invalid debit response type")
+        try {
+            switch (req.response.type) {
+                case Types.DebitResponse_response_type.DENIED:
+                    this.logger("🔍 [DEBIT REQUEST] Sending denied response")
+                    await this.storage.debitStorage.ReleaseDebitK1ForRequest(ctx.app_id, ctx.app_user_id, req.request_id)
+                    this.sendDebitResponse(this.failPayload(1), event)
+                    return
+                case Types.DebitResponse_response_type.INVOICE:
+                    await this.paySingleInvoice(ctx, { invoice: req.response.invoice, npub: req.npub, request_id: req.request_id })
+                    return
+                case Types.DebitResponse_response_type.AUTHORIZE:
+                    await this.handleAuthorization(ctx, req.response.authorize, { npub: req.npub, request_id: req.request_id })
+                    return
+                default:
+                    throw new Error("invalid debit response type")
+            }
+        } finally {
+            this.authLimiter.take(clinkRateKey(ctx.app_user_id, req.npub))
         }
     }
 
@@ -218,21 +226,44 @@ export class DebitManager {
 
     handleAuthRequired = async (data: NdebitData, ctx: ClinkCtx, res: AuthRequiredRes) => {
         const { app, appUser, liveDebitReq } = res;
-        if (!appUser.nostr_public_key) {
+        const userPub = appUser.nostr_public_key
+        if (!userPub) {
             this.fail(1)
         }
-        const message: Types.LiveDebitRequest & { requestId: string, status: 'OK' } = { ...liveDebitReq, requestId: "GetLiveDebitRequests", status: 'OK' }
-        this.storage.NostrSender().Send({ type: 'app', appId: ctx.appId }, { type: 'content', content: JSON.stringify(message), pub: appUser.nostr_public_key })
-
-        await this.notificationsManager.SendEncryptedPayload(app, appUser, {
-            data: {
-                type: Types.PushNotificationPayload_data_type.DEBIT_AUTH_REQ,
-                debit_auth_req: liveDebitReq
+        const added = this.authLimiter.tryAdd(clinkRateKey(appUser.identifier, ctx.pub))
+        if (!added.ok) {
+            this.fail(4, { retry_after: added.retryAfterUnix })
+        }
+        try {
+            if (data.bolt11) {
+                try {
+                    await this.paymentManager.withExclusiveInvoiceCheck(data.bolt11, () => this.consumeK1(ctx.appId, appUser.identifier, data.k1, { invoice: data.bolt11, requestId: ctx.eventId, npub: ctx.pub }))
+                } catch (e) {
+                    if (e instanceof NdebitError) {
+                        throw e
+                    }
+                    if (e instanceof InvoicePaymentInProgressError) {
+                        this.invalidRequest(invoicePaymentInProgressReason, gfy6Reason.invoiceInProgress)
+                    }
+                    throw e
+                }
             }
-        }, {
-            title: "Debit request",
-            body: "You have a new debit authorization request"
-        })
+            const message: Types.LiveDebitRequest & { requestId: string, status: 'OK' } = { ...liveDebitReq, requestId: "GetLiveDebitRequests", status: 'OK' }
+            this.storage.NostrSender().Send({ type: 'app', appId: ctx.appId }, { type: 'content', content: JSON.stringify(message), pub: userPub })
+
+            await this.notificationsManager.SendEncryptedPayload(app, appUser, {
+                data: {
+                    type: Types.PushNotificationPayload_data_type.DEBIT_AUTH_REQ,
+                    debit_auth_req: liveDebitReq
+                }
+            }, {
+                title: "Debit request",
+                body: "You have a new debit authorization request"
+            })
+        } catch (e) {
+            this.authLimiter.take(clinkRateKey(appUser.identifier, ctx.pub))
+            throw e
+        }
     }
 
     notifyPaymentSuccess = (debitRes: NdebitSuccess, event: { pub: string, id: string, appId: string }) => {
@@ -275,6 +306,16 @@ export class DebitManager {
             await this.storage.debitStorage.ConsumeDebitK1(appId, pointer, k1, details)
         } catch (e) {
             this.rethrowK1(e)
+        }
+    }
+
+    releaseK1ForFailedInvoice = async (invoice: string, txId?: string) => {
+        const rows = await this.storage.debitStorage.ReleaseDebitK1ForInvoice(invoice, txId)
+        for (const row of rows) {
+            if (!row.pointer || !row.npub) {
+                continue
+            }
+            this.authLimiter.take(clinkRateKey(row.pointer, row.npub))
         }
     }
 
@@ -416,17 +457,6 @@ export class DebitManager {
         if (!authorization) {
             if (!appUser.nostr_public_key) {
                 this.fail(1)
-            }
-            try {
-                await this.paymentManager.withExclusiveInvoiceCheck(bolt11, () => this.consumeK1(appId, appUserId, k1, { invoice: bolt11, requestId: eventId, npub: requestorPub }))
-            } catch (e) {
-                if (e instanceof NdebitError) {
-                    throw e
-                }
-                if (e instanceof InvoicePaymentInProgressError) {
-                    this.invalidRequest(invoicePaymentInProgressReason, gfy6Reason.invoiceInProgress)
-                }
-                throw e
             }
             this.strangerDebitAccess(ctx, pointerdata, app, appUser, {
                 type: Types.LiveDebitRequest_debit_type.INVOICE,

@@ -87,7 +87,7 @@ export default class {
         this.metricsManager = new MetricsManager(this.storage, this.lnd)
         this.notificationsManager = new NotificationsManager(this.settings, this.storage)
         this.paymentSideEffects = new PaymentSideEffects(this.storage, this.utils, this.notificationsManager)
-        this.paymentManager = new PaymentManager(this.storage, this.metricsManager, this.lnd, adminManager.swaps, this.settings, this.liquidityManager, this.paymentSideEffects, this.utils, this.addressPaidCb, /* this.invoicePaidCb, */ this.newBlockCb)
+        this.paymentManager = new PaymentManager(this.storage, this.metricsManager, this.lnd, adminManager.swaps, this.settings, this.liquidityManager, this.paymentSideEffects, this.utils, this.addressPaidCb, /* this.invoicePaidCb, */ this.newBlockCb, this.outgoingInvoiceFailedCb)
         this.productManager = new ProductManager(this.storage, this.paymentManager, this.settings)
         this.applicationManager = new ApplicationManager(this.storage, this.settings, this.paymentManager)
         this.appUserManager = new AppUserManager(this.storage, this.settings, this.applicationManager)
@@ -301,6 +301,10 @@ export default class {
             log(ERROR, "error sending operation to nostr for incoming tx", err.message || "")
         }
         this.utils.stateBundler.AddTxPoint('addressWasPaid', amount, { used, from: 'system', timeDiscount: true }, userAddress.linkedApplication.app_id)
+    }
+
+    outgoingInvoiceFailedCb = async (invoice: string, txId: string) => {
+        await this.debitManager.releaseK1ForFailedInvoice(invoice, txId)
     }
 
     invoicePaidCb: InvoicePaidCb = async (paymentRequest, amount, used) => {

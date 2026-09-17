@@ -189,9 +189,18 @@ export default class {
     async ReleaseDebitK1ForInvoice(invoice: string, txId?: string) {
         const canonical = invoice.toLowerCase()
         const run = async (tx: string) => {
-            const held = await this.dbs.Update<ConsumedDebitK1>('ConsumedDebitK1', { invoice: canonical, status: "held" }, { status: "released" }, tx)
-            const succeeded = await this.dbs.Update<ConsumedDebitK1>('ConsumedDebitK1', { invoice: canonical, status: "succeeded" }, { status: "released" }, tx)
-            return (held || 0) + (succeeded || 0)
+            const rows = await this.dbs.Find<ConsumedDebitK1>('ConsumedDebitK1', {
+                where: [
+                    { invoice: canonical, status: "held" },
+                    { invoice: canonical, status: "succeeded" },
+                ],
+            }, tx)
+            if (rows.length === 0) {
+                return []
+            }
+            await this.dbs.Update<ConsumedDebitK1>('ConsumedDebitK1', { invoice: canonical, status: "held" }, { status: "released" }, tx)
+            await this.dbs.Update<ConsumedDebitK1>('ConsumedDebitK1', { invoice: canonical, status: "succeeded" }, { status: "released" }, tx)
+            return rows
         }
         if (txId) {
             return run(txId)

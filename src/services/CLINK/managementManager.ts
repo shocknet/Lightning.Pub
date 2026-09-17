@@ -13,7 +13,7 @@ import { NotificationsManager } from "../main/notificationsManager.js";
 import { Application } from "../storage/entity/Application.js";
 import { ApplicationUser } from "../storage/entity/ApplicationUser.js";
 import { NmanageError } from "./manageTypes.js";
-import { PendingManage, PendingManageRequests } from "./pendingManageRequests.js";
+import { CLINK_AUTH_TTL_MS, ClinkRateLimiter } from "./clinkRateLimit.js";
 
 class ManageAuthRequired extends Error {
     constructor() {
@@ -21,10 +21,12 @@ class ManageAuthRequired extends Error {
     }
 }
 
+type PendingManage = { request: NmanageRequest, ctx: ClinkCtx }
+
 export class ManagementManager {
     private storage: Storage;
     private settings: SettingsManager;
-    private pendingRequests = new PendingManageRequests()
+    private pendingRequests = new ClinkRateLimiter<PendingManage>({ windowMs: CLINK_AUTH_TTL_MS, maxHits: 1 })
     private logger: PubLogger
     notificationsManager: NotificationsManager
     constructor(storage: Storage, settings: SettingsManager, notificationsManager: NotificationsManager) {

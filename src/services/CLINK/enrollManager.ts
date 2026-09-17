@@ -4,7 +4,7 @@ import SettingsManager from "../main/settingsManager.js"
 import { encodeDefaultClinkPointers } from "./clinkPointers.js"
 import { enrollPowSatisfied } from "../helpers/nip13.js"
 import { ClinkCtx, clinkVersionFromTags } from "./clinkTypes.js"
-import { EnrollRateLimiter, EnrollReplyGate } from "./enrollRateLimit.js"
+import { ClinkRateLimiter } from "./clinkRateLimit.js"
 import { CLINK_VERSION } from "./clinkConstants.js"
 import { Application } from "../storage/entity/Application.js"
 import { ApplicationUser } from "../storage/entity/ApplicationUser.js"
@@ -12,13 +12,13 @@ import { EnrollError, EnrollErrorOpts, EnrollOk } from "./enrollTypes.js"
 
 export class EnrollManager {
     private log = getLogger({ component: "EnrollManager" })
-    private limiter = new EnrollRateLimiter(60, 60_000)
-    private replies = new EnrollReplyGate(60_000)
+    private limiter = new ClinkRateLimiter({ windowMs: 60_000, maxHits: 60, maxKeys: 1 })
+    private replies = new ClinkRateLimiter({ windowMs: 60_000, maxHits: 3 })
 
     constructor(private storage: Storage, private settings: SettingsManager) { }
 
     async HandleClinkEnroll(ctx: ClinkCtx, payload: unknown): Promise<EnrollOk | null> {
-        if (!this.replies.allow(ctx.pub)) {
+        if (!this.replies.tryAdd(ctx.pub).ok) {
             return null
         }
         return this.doEnroll(payload, ctx)
@@ -53,7 +53,7 @@ export class EnrollManager {
         if (!app.allow_user_creation) {
             this.deny(1)
         }
-        const createRate = this.limiter.tryCreate()
+        const createRate = this.limiter.tryAdd("create")
         if (!createRate.ok) {
             this.deny(4, { retry_after: createRate.retryAfterUnix })
         }

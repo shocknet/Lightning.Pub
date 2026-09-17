@@ -5,7 +5,7 @@ import { buildClinkBeaconContent, buildServiceBeaconEvent, operatorPubkeyHex } f
 import { CLINK_BEACON_D_TAG, CLINK_ENROLL_KIND, CLINK_VERSION, LEGACY_BEACON_D_TAG } from "../services/CLINK/clinkConstants.js"
 import { EnrollManager } from "../services/CLINK/enrollManager.js"
 import { EnrollError, EnrollGfy, validateEnrollReq } from "../services/CLINK/enrollTypes.js"
-import { EnrollRateLimiter, EnrollReplyGate } from "../services/CLINK/enrollRateLimit.js"
+import { ClinkRateLimiter } from "../services/CLINK/clinkRateLimit.js"
 import { toClinkCtx } from "../services/CLINK/clinkTypes.js"
 import { newClinkTransport } from "../services/serverMethods/clinkTransport.js"
 import SettingsManager from "../services/main/settingsManager.js"
@@ -109,27 +109,27 @@ const testNip13Helpers = (T: StorageTestBase) => {
 const testEnrollCreateLimiter = (T: StorageTestBase) => {
     T.d("starting testEnrollCreateLimiter")
     let now = 1_000
-    const limiter = new EnrollRateLimiter(2, 1_000, () => now)
-    T.expect(limiter.tryCreate().ok).to.equal(true)
-    T.expect(limiter.tryCreate().ok).to.equal(true)
-    T.expect(limiter.tryCreate().ok).to.equal(false)
+    const limiter = new ClinkRateLimiter({ windowMs: 1_000, maxHits: 2, maxKeys: 1, now: () => now })
+    T.expect(limiter.tryAdd("create").ok).to.equal(true)
+    T.expect(limiter.tryAdd("create").ok).to.equal(true)
+    T.expect(limiter.tryAdd("create").ok).to.equal(false)
     now += 1_001
-    T.expect(limiter.tryCreate().ok).to.equal(true)
+    T.expect(limiter.tryAdd("create").ok).to.equal(true)
     T.d("new account creates are capped per window")
 }
 
 const testEnrollReplyGateCapsPublishes = (T: StorageTestBase) => {
     T.d("starting testEnrollReplyGateCapsPublishes")
     let now = 1_000
-    const gate = new EnrollReplyGate(1_000, 2, () => now)
-    T.expect(gate.allow("aa".repeat(32))).to.equal(true)
-    T.expect(gate.allow("aa".repeat(32))).to.equal(true)
-    T.expect(gate.allow("aa".repeat(32))).to.equal(true)
-    T.expect(gate.allow("aa".repeat(32))).to.equal(false)
-    T.expect(gate.allow("bb".repeat(32))).to.equal(true)
-    T.expect(gate.allow("cc".repeat(32))).to.equal(false)
+    const gate = new ClinkRateLimiter({ windowMs: 1_000, maxHits: 3, maxKeys: 2, now: () => now })
+    T.expect(gate.tryAdd("aa".repeat(32)).ok).to.equal(true)
+    T.expect(gate.tryAdd("aa".repeat(32)).ok).to.equal(true)
+    T.expect(gate.tryAdd("aa".repeat(32)).ok).to.equal(true)
+    T.expect(gate.tryAdd("aa".repeat(32)).ok).to.equal(false)
+    T.expect(gate.tryAdd("bb".repeat(32)).ok).to.equal(true)
+    T.expect(gate.tryAdd("cc".repeat(32)).ok).to.equal(false)
     now += 1_001
-    T.expect(gate.allow("aa".repeat(32))).to.equal(true)
+    T.expect(gate.tryAdd("aa".repeat(32)).ok).to.equal(true)
     T.d("enroll publishes at most three per key per window including ok")
 }
 

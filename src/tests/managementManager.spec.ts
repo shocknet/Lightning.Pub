@@ -8,7 +8,7 @@ import { NmanageError } from "../services/CLINK/manageTypes.js"
 import { newClinkRouter } from "../services/serverMethods/clinkRouter.js"
 import { newClinkTransport } from "../services/serverMethods/clinkTransport.js"
 import { CLINK_MANAGE_KIND, CLINK_VERSION } from "../services/CLINK/clinkConstants.js"
-import { PendingManageRequests } from "../services/CLINK/pendingManageRequests.js"
+import { ClinkRateLimiter } from "../services/CLINK/clinkRateLimit.js"
 import Storage from "../services/storage/index.js"
 
 export const ignore = false
@@ -106,9 +106,9 @@ const authorizeManager = async (T: TestBase, npub: string) => {
 const testPendingManageRequests = (T: TestBase) => {
     T.d("starting testPendingManageRequests")
     let now = 1_000
-    const pending = new PendingManageRequests(1_000, 2, () => now)
     const ctx = { pub: "aa".repeat(32), appId: "app", eventId: "e1" }
     const req = { resource: "offer" as const, action: "list" as const, pointer: "p" }
+    const pending = new ClinkRateLimiter<{ request: typeof req, ctx: typeof ctx }>({ windowMs: 1_000, maxHits: 1, maxKeys: 2, now: () => now })
     T.expect(pending.tryAdd("AA".repeat(32), { request: req, ctx }).ok).to.equal(true)
     T.expect(pending.tryAdd("aa".repeat(32), { request: req, ctx }).ok).to.equal(false)
     const second = pending.tryAdd("bb".repeat(32), { request: req, ctx })

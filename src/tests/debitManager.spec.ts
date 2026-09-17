@@ -6,6 +6,7 @@ import { expectThrowsAsync, runSanityCheck, safelySetUserBalance, TestBase } fro
 import { k1AlreadyProcessedReason, debitErrors, invoiceAlreadyPaidReason, invoiceAlreadyFailedReason, invoicePaymentInProgressReason, gfy6Reason, NdebitError } from "../services/CLINK/debitTypes.js"
 import type { Gfy6Reason } from "../services/CLINK/debitTypes.js"
 import { DebitManager } from "../services/CLINK/debitManager.js"
+import { ClinkRateLimiter, clinkRateKey } from "../services/CLINK/clinkRateLimit.js"
 import { K1_CONSUME_MAX_PER_WINDOW, K1_ATTEMPT_TTL_MS } from "../services/storage/debitStorage.js"
 import { encodeClinkResponse } from "../services/CLINK/clinkTypes.js"
 import { CLINK_DEBIT_KIND, CLINK_ENROLL_KIND, CLINK_MANAGE_KIND, CLINK_OFFER_KIND } from "../services/CLINK/clinkConstants.js"
@@ -89,6 +90,120 @@ const frequencyCapRules = (maxSats: number): Types.DebitRule[] => [{
         },
     },
 }]
+
+const testDebitAuthRateLimiter = (T: TestBase) => {
+    T.d("starting testDebitAuthRateLimiter")
+    let now = 1_000
+    const limiter = new ClinkRateLimiter({ windowMs: 1_000, maxHits: 1, maxKeys: 2, now: () => now })
+    const user = "user-a"
+    const pub = "AA".repeat(32)
+    T.expect(limiter.tryAdd(clinkRateKey(user, pub)).ok).to.equal(true)
+    T.expect(limiter.tryAdd(clinkRateKey(user, "aa".repeat(32))).ok).to.equal(false)
+    T.expect(limiter.tryAdd(clinkRateKey("USER-A", "aa".repeat(32))).ok).to.equal(false)
+    T.expect(limiter.retryAfterIfLimited(clinkRateKey(user, "aa".repeat(32)))).to.be.greaterThan(0)
+    T.expect(limiter.tryAdd(clinkRateKey("user-b", "aa".repeat(32))).ok).to.equal(true)
+    T.expect(limiter.tryAdd(clinkRateKey("user-c", "bb".repeat(32))).ok).to.equal(false)
+    now += 1_001
+    T.expect(limiter.tryAdd(clinkRateKey(user, "aa".repeat(32))).ok).to.equal(true)
+    limiter.take(clinkRateKey("USER-A", "AA".repeat(32)))
+    T.expect(limiter.retryAfterIfLimited(clinkRateKey(user, "aa".repeat(32)))).to.equal(null)
+    T.expect(limiter.tryAdd(clinkRateKey(user, "aa".repeat(32))).ok).to.equal(true)
+    T.d("debit auth limiter is per user+pub, case-insensitive, and expires")
+}
+
+const testPendingDebitAuthRateLimit = async (T: TestBase) => {
+    T.d("starting testPendingDebitAuthRateLimit")
+    const npub = requestorPub(46)
+    const other = requestorPub(47)
+    const invoice = await T.externalAccessToOtherLnd.NewInvoice(100, "debit pending rate 1", defaultInvoiceExpiry, { from: 'system', useProvider: false })
+    T.expect(await handleDebit(T, mockNostrEvent(T, npub, "pending-rate-1"), {
+        pointer: T.user2.appUserIdentifier,
+        bolt11: invoice.payRequest,
+        amount_sats: 100,
+    })).to.equal(null)
+    const spam = await T.externalAccessToOtherLnd.NewInvoice(100, "debit pending rate spam", defaultInvoiceExpiry, { from: 'system', useProvider: false })
+    const payload = await expectDebitFail(T, handleDebit(T, mockNostrEvent(T, npub, "pending-rate-spam"), {
+        pointer: T.user2.appUserIdentifier,
+        bolt11: spam.payRequest,
+        amount_sats: 100,
+    }), 4, debitErrors[4])
+    T.expect(payload.retry_after).to.be.greaterThan(Math.floor(Date.now() / 1000))
+    const otherInvoice = await T.externalAccessToOtherLnd.NewInvoice(100, "debit pending other pub", defaultInvoiceExpiry, { from: 'system', useProvider: false })
+    T.expect(await handleDebit(T, mockNostrEvent(T, other, "pending-rate-other"), {
+        pointer: T.user2.appUserIdentifier,
+        bolt11: otherInvoice.payRequest,
+        amount_sats: 100,
+    })).to.equal(null)
+    await T.main.debitManager.RespondToDebit(userContext(T, T.user2), {
+        npub,
+        request_id: "pending-rate-1",
+        response: { type: Types.DebitResponse_response_type.DENIED, denied: {} },
+    })
+    const retry = await T.externalAccessToOtherLnd.NewInvoice(100, "debit pending after deny", defaultInvoiceExpiry, { from: 'system', useProvider: false })
+    T.expect(await handleDebit(T, mockNostrEvent(T, npub, "pending-rate-retry"), {
+        pointer: T.user2.appUserIdentifier,
+        bolt11: retry.payRequest,
+        amount_sats: 100,
+    })).to.equal(null)
+    T.d("second live debit prompt from the same pub is rate limited until the user responds")
+}
+
+const testPendingDebitAuthDoesNotHoldK1WhenLimited = async (T: TestBase) => {
+    T.d("starting testPendingDebitAuthDoesNotHoldK1WhenLimited")
+    const npub = requestorPub(48)
+    const firstK1 = sessionK1(48)
+    const lostK1 = sessionK1(49)
+    const invoice1 = await T.externalAccessToOtherLnd.NewInvoice(100, "debit pending k1 win", defaultInvoiceExpiry, { from: 'system', useProvider: false })
+    const invoice2 = await T.externalAccessToOtherLnd.NewInvoice(100, "debit pending k1 lose", defaultInvoiceExpiry, { from: 'system', useProvider: false })
+    const results = await Promise.allSettled([
+        handleDebit(T, mockNostrEvent(T, npub, "pending-k1-win"), {
+            pointer: T.user2.appUserIdentifier,
+            bolt11: invoice1.payRequest,
+            amount_sats: 100,
+            k1: firstK1,
+        }),
+        handleDebit(T, mockNostrEvent(T, npub, "pending-k1-lose"), {
+            pointer: T.user2.appUserIdentifier,
+            bolt11: invoice2.payRequest,
+            amount_sats: 100,
+            k1: lostK1,
+        }),
+    ])
+    const prompted = results.filter(r => r.status === "fulfilled" && r.value === null)
+    const limited = results.find((r): r is PromiseRejectedResult => r.status === "rejected")
+    T.expect(prompted).to.have.length(1)
+    T.expect(limited).to.not.equal(undefined)
+    await expectDebitFail(T, Promise.reject(limited!.reason), 4, debitErrors[4])
+    const reusableK1 = results[0].status === "rejected" ? firstK1 : lostK1
+    await T.main.debitManager.consumeK1(T.app.appId, T.user2.appUserIdentifier, reusableK1)
+    T.d("the rate-limited unknown-key debit does not consume its k1")
+}
+
+const testRespondToDebitInvalidTypeClearsRateLimit = async (T: TestBase) => {
+    T.d("starting testRespondToDebitInvalidTypeClearsRateLimit")
+    const npub = requestorPub(50)
+    const invoice = await T.externalAccessToOtherLnd.NewInvoice(100, "debit invalid type clears limit", defaultInvoiceExpiry, { from: 'system', useProvider: false })
+    T.expect(await handleDebit(T, mockNostrEvent(T, npub, "invalid-type-pending"), {
+        pointer: T.user2.appUserIdentifier,
+        bolt11: invoice.payRequest,
+        amount_sats: 100,
+    })).to.equal(null)
+    await expectThrowsAsync(
+        T.main.debitManager.RespondToDebit(userContext(T, T.user2), {
+            npub,
+            request_id: "invalid-type-pending",
+            response: { type: "not-a-real-type" } as unknown as Types.DebitResponse["response"],
+        }),
+        "invalid debit response type",
+    )
+    const retry = await T.externalAccessToOtherLnd.NewInvoice(100, "debit invalid type retry", defaultInvoiceExpiry, { from: 'system', useProvider: false })
+    T.expect(await handleDebit(T, mockNostrEvent(T, npub, "invalid-type-retry"), {
+        pointer: T.user2.appUserIdentifier,
+        bolt11: retry.payRequest,
+        amount_sats: 100,
+    })).to.equal(null)
+    T.d("invalid RespondToDebit type still throws and clears the pending auth rate limit")
+}
 
 const testGetDebitAuthorizationsEmpty = async (T: TestBase) => {
     T.d("starting testGetDebitAuthorizationsEmpty")
@@ -205,6 +320,7 @@ const testPayNdebitInvoiceK1Dedup = async (T: TestBase) => {
     }
     const first = await handleDebit(T,event, pointerdata)
     T.expect(first).to.equal(null)
+    await T.main.debitManager.ResetDebit(userContext(T, T.user2), { npub })
     const secondInvoice = await T.externalAccessToOtherLnd.NewInvoice(500, "debit k1 dedup 2", defaultInvoiceExpiry, { from: 'system', useProvider: false })
     await expectDebitFail(T, handleDebit(T, mockNostrEvent(T, npub, "k1-dedup-event-2"), {
         ...pointerdata,
@@ -910,7 +1026,7 @@ const testConfirmedFailureReleasesK1Hold = async (T: TestBase) => {
         invalidRequestError(k1AlreadyProcessedReason),
     )
     await T.main.storage.StartTransaction(async tx => {
-        await T.main.paymentManager.releaseHeldDebitK1(invoice.payRequest, tx)
+        await T.main.debitManager.releaseK1ForFailedInvoice(invoice.payRequest, tx)
     }, "test release held debit k1")
     const nextInvoice = await T.externalAccessToOtherLnd.NewInvoice(500, "debit k1 after release", defaultInvoiceExpiry, { from: 'system', useProvider: false })
     const retry = await handleDebit(T,
@@ -918,7 +1034,7 @@ const testConfirmedFailureReleasesK1Hold = async (T: TestBase) => {
         { pointer: T.user2.appUserIdentifier, bolt11: nextInvoice.payRequest, amount_sats: 500, k1 },
     )
     T.expect(retry).to.equal(null)
-    T.d("payment-manager release of the held invoice lets the same k1 be consumed again")
+    T.d("debit manager release of the held invoice lets the same k1 be consumed again")
 }
 
 const testPayNdebitInvoiceRetryInProgressLock = async (T: TestBase) => {
@@ -1233,6 +1349,7 @@ const testRespondToDebitInvalidTypeThrows = async (T: TestBase) => {
 }
 
 export default async (T: TestBase) => {
+    testDebitAuthRateLimiter(T)
     await testGetDebitAuthorizationsEmpty(T)
     await testAuthorizeDebitViaRespondToDebit(T)
     await testEditDebitRules(T)
@@ -1281,5 +1398,9 @@ export default async (T: TestBase) => {
     await testOwnerOnlyClinkDeniesStranger(T)
     await testAuthorizeInvoiceRuleFailureKeepsGrant(T)
     await testRespondToDebitInvalidTypeThrows(T)
+    await testRespondToDebitInvalidTypeClearsRateLimit(T)
+    await testPendingDebitAuthRateLimit(T)
+    await testPendingDebitAuthDoesNotHoldK1WhenLimited(T)
     await runSanityCheck(T)
 }
+
