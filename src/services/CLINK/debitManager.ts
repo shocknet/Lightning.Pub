@@ -107,18 +107,22 @@ export class DebitManager {
                     this.logger("🔍 [DEBIT REQUEST] Sending denied response")
                     await this.storage.debitStorage.ReleaseDebitK1ForRequest(ctx.app_id, ctx.app_user_id, req.request_id)
                     this.sendDebitResponse(this.failPayload(1), event)
-                    return
+                    break
                 case Types.DebitResponse_response_type.INVOICE:
                     await this.paySingleInvoice(ctx, { invoice: req.response.invoice, npub: req.npub, request_id: req.request_id })
-                    return
+                    break
                 case Types.DebitResponse_response_type.AUTHORIZE:
                     await this.handleAuthorization(ctx, req.response.authorize, { npub: req.npub, request_id: req.request_id })
-                    return
+                    break
                 default:
                     throw new Error("invalid debit response type")
             }
-        } finally {
+            const resolved = req.response.type === Types.DebitResponse_response_type.INVOICE
+                || req.response.type === Types.DebitResponse_response_type.AUTHORIZE
+            this.authGate.clearPending(ctx.app_user_id, req.npub, resolved ? undefined : req.request_id)
+        } catch (e) {
             this.authGate.clearPending(ctx.app_user_id, req.npub, req.request_id)
+            throw e
         }
     }
 
