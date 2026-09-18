@@ -6,7 +6,7 @@ import { expectThrowsAsync, runSanityCheck, safelySetUserBalance, TestBase } fro
 import { k1AlreadyProcessedReason, debitErrors, invoiceAlreadyPaidReason, invoiceAlreadyFailedReason, invoicePaymentInProgressReason, gfy6Reason, NdebitError } from "../services/CLINK/debitTypes.js"
 import type { Gfy6Reason } from "../services/CLINK/debitTypes.js"
 import { DebitManager } from "../services/CLINK/debitManager.js"
-import { ClinkRateLimiter, clinkRateKey } from "../services/CLINK/clinkRateLimit.js"
+import { DebitAuthGate, CLINK_DEBIT_POINTER_MAX_HITS, CLINK_DEBIT_GLOBAL_WINDOW_MS } from "../services/CLINK/debitAuthGate.js"
 import { K1_CONSUME_MAX_PER_WINDOW, K1_ATTEMPT_TTL_MS } from "../services/storage/debitStorage.js"
 import { encodeClinkResponse } from "../services/CLINK/clinkTypes.js"
 import { CLINK_DEBIT_KIND, CLINK_ENROLL_KIND, CLINK_MANAGE_KIND, CLINK_OFFER_KIND } from "../services/CLINK/clinkConstants.js"
@@ -91,24 +91,94 @@ const frequencyCapRules = (maxSats: number): Types.DebitRule[] => [{
     },
 }]
 
-const testDebitAuthRateLimiter = (T: TestBase) => {
-    T.d("starting testDebitAuthRateLimiter")
+const resetDebitAuthGate = (T: TestBase, opts?: ConstructorParameters<typeof DebitAuthGate>[0]) => {
+    T.main.debitManager.authGate = new DebitAuthGate(opts)
+}
+
+const promptUnknownDebit = (T: TestBase, user: TestBase["user2"], pub: string, requestId: string) =>
+    handleDebit(T, mockNostrEvent(T, pub, requestId), { pointer: user.appUserIdentifier })
+
+const testDebitAuthGate = (T: TestBase) => {
+    T.d("starting testDebitAuthGate")
     let now = 1_000
-    const limiter = new ClinkRateLimiter({ windowMs: 1_000, maxHits: 1, maxKeys: 2, now: () => now })
+    const occupancy = new DebitAuthGate({ occupancyTtlMs: 1_000, pointerMax: 10, globalMax: 10, now: () => now })
     const user = "user-a"
     const pub = "AA".repeat(32)
-    T.expect(limiter.tryAdd(clinkRateKey(user, pub)).ok).to.equal(true)
-    T.expect(limiter.tryAdd(clinkRateKey(user, "aa".repeat(32))).ok).to.equal(false)
-    T.expect(limiter.tryAdd(clinkRateKey("USER-A", "aa".repeat(32))).ok).to.equal(false)
-    T.expect(limiter.retryAfterIfLimited(clinkRateKey(user, "aa".repeat(32)))).to.be.greaterThan(0)
-    T.expect(limiter.tryAdd(clinkRateKey("user-b", "aa".repeat(32))).ok).to.equal(true)
-    T.expect(limiter.tryAdd(clinkRateKey("user-c", "bb".repeat(32))).ok).to.equal(false)
+    T.expect(occupancy.tryReserve(user, pub, "occ-1").ok).to.equal(true)
+    T.expect(occupancy.tryReserve(user, "aa".repeat(32), "occ-2").ok).to.equal(false)
+    T.expect(occupancy.tryReserve("USER-A", "aa".repeat(32), "occ-2").ok).to.equal(false)
+    const occupied = occupancy.tryReserve(user, "aa".repeat(32), "occ-2")
+    T.expect(occupied.ok).to.equal(false)
+    if (!occupied.ok) {
+        T.expect(occupied.retryAfterUnix).to.be.greaterThan(0)
+    }
+    T.expect(occupancy.tryReserve("user-b", "aa".repeat(32), "occ-b").ok).to.equal(true)
+    occupancy.clearPending(user, pub, "stale-req")
+    T.expect(occupancy.tryReserve(user, pub, "occ-2").ok).to.equal(false)
     now += 1_001
-    T.expect(limiter.tryAdd(clinkRateKey(user, "aa".repeat(32))).ok).to.equal(true)
-    limiter.take(clinkRateKey("USER-A", "AA".repeat(32)))
-    T.expect(limiter.retryAfterIfLimited(clinkRateKey(user, "aa".repeat(32)))).to.equal(null)
-    T.expect(limiter.tryAdd(clinkRateKey(user, "aa".repeat(32))).ok).to.equal(true)
-    T.d("debit auth limiter is per user+pub, case-insensitive, and expires")
+    T.expect(occupancy.tryReserve(user, "aa".repeat(32), "occ-2").ok).to.equal(true)
+    occupancy.clearPending("USER-A", "AA".repeat(32), "OCC-2")
+    T.expect(occupancy.tryReserve(user, "aa".repeat(32), "occ-3").ok).to.equal(true)
+    occupancy.clearPending(user, pub)
+    T.expect(occupancy.tryReserve(user, pub, "occ-4").ok).to.equal(true)
+    T.d("debit occupancy is per pointer+pub+request, case-insensitive, and expires")
+
+    now = 1_000
+    const budget = new DebitAuthGate({ pointerWindowMs: 1_000, pointerMax: 3, globalMax: 10, occupancyTtlMs: 10_000, now: () => now })
+    T.expect(budget.tryReserve("user-a", "aa".repeat(32), "b1").ok).to.equal(true)
+    budget.commitNotify("user-a", "aa".repeat(32), "b1")
+    T.expect(budget.tryReserve("USER-A", "bb".repeat(32), "b2").ok).to.equal(true)
+    budget.commitNotify("USER-A", "bb".repeat(32), "b2")
+    T.expect(budget.tryReserve("user-a", "cc".repeat(32), "b3").ok).to.equal(true)
+    budget.commitNotify("user-a", "cc".repeat(32), "b3")
+    T.expect(budget.tryReserve("user-a", "dd".repeat(32), "b4").ok).to.equal(false)
+    T.expect(budget.tryReserve("user-b", "ee".repeat(32), "b5").ok).to.equal(true)
+    budget.clearPending("user-a", "aa".repeat(32), "b1")
+    T.expect(budget.tryReserve("user-a", "ff".repeat(32), "b6").ok).to.equal(false)
+    now += 1_001
+    T.expect(budget.tryReserve("user-a", "ff".repeat(32), "b6").ok).to.equal(true)
+    T.d("pointer budget caps one victim across rotating pubs and is not refunded by clearPending")
+
+    now = 1_000
+    const globalInFlight = new DebitAuthGate({ globalWindowMs: 1_000, globalMax: 2, pointerMax: 10, occupancyTtlMs: 10_000, now: () => now })
+    T.expect(globalInFlight.tryReserve("user-a", "aa".repeat(32), "gi1").ok).to.equal(true)
+    T.expect(globalInFlight.tryReserve("user-b", "bb".repeat(32), "gi2").ok).to.equal(true)
+    const blockedInFlight = globalInFlight.tryReserve("user-c", "cc".repeat(32), "gi3")
+    T.expect(blockedInFlight.ok).to.equal(false)
+    if (!blockedInFlight.ok) {
+        T.expect(blockedInFlight.retryAfterUnix).to.equal(2)
+    }
+    T.d("global retry_after is capped to the global window, not occupancy TTL")
+
+    now = 1_000
+    const global = new DebitAuthGate({ globalWindowMs: 1_000, globalMax: 2, pointerMax: 10, occupancyTtlMs: 10_000, now: () => now })
+    T.expect(global.tryReserve("user-a", "aa".repeat(32), "g1").ok).to.equal(true)
+    global.commitNotify("user-a", "aa".repeat(32), "g1")
+    T.expect(global.tryReserve("user-b", "bb".repeat(32), "g2").ok).to.equal(true)
+    global.commitNotify("user-b", "bb".repeat(32), "g2")
+    T.expect(global.tryReserve("user-c", "cc".repeat(32), "g3").ok).to.equal(false)
+    now += 1_001
+    T.expect(global.tryReserve("user-c", "cc".repeat(32), "g3").ok).to.equal(true)
+    T.d("global debit notify budget is a single shared slot")
+
+    now = 1_000
+    const abort = new DebitAuthGate({ pointerWindowMs: 1_000, pointerMax: 1, globalMax: 1, occupancyTtlMs: 10_000, now: () => now })
+    T.expect(abort.tryReserve("user-a", "aa".repeat(32), "a1").ok).to.equal(true)
+    abort.abortReserve("user-a", "aa".repeat(32), "wrong")
+    T.expect(abort.tryReserve("user-a", "aa".repeat(32), "a2").ok).to.equal(false)
+    abort.abortReserve("user-a", "aa".repeat(32), "a1")
+    T.expect(abort.tryReserve("user-a", "aa".repeat(32), "a2").ok).to.equal(true)
+    abort.commitNotify("user-a", "aa".repeat(32), "a2")
+    T.expect(abort.tryReserve("user-b", "bb".repeat(32), "a3").ok).to.equal(false)
+    T.d("abortReserve drops occupancy without burning notify budget and ignores other request ids")
+
+    now = 1_000
+    const commitWrong = new DebitAuthGate({ pointerWindowMs: 1_000, pointerMax: 1, globalMax: 1, occupancyTtlMs: 10_000, now: () => now })
+    T.expect(commitWrong.tryReserve("user-a", "aa".repeat(32), "c1").ok).to.equal(true)
+    commitWrong.commitNotify("user-a", "aa".repeat(32), "other")
+    commitWrong.abortReserve("user-a", "aa".repeat(32), "c1")
+    T.expect(commitWrong.tryReserve("user-b", "bb".repeat(32), "c2").ok).to.equal(true)
+    T.d("commitNotify with a different request id does not burn notify budget")
 }
 
 const testPendingDebitAuthRateLimit = async (T: TestBase) => {
@@ -179,6 +249,76 @@ const testPendingDebitAuthDoesNotHoldK1WhenLimited = async (T: TestBase) => {
     T.d("the rate-limited unknown-key debit does not consume its k1")
 }
 
+const testPendingDebitAuthPointerCap = async (T: TestBase) => {
+    T.d("starting testPendingDebitAuthPointerCap")
+    for (let i = 0; i < CLINK_DEBIT_POINTER_MAX_HITS; i++) {
+        T.expect(await promptUnknownDebit(T, T.user2, requestorPub(60 + i), `pointer-cap-${i}`)).to.equal(null)
+    }
+    const blocked = await expectDebitFail(T, promptUnknownDebit(T, T.user2, requestorPub(60 + CLINK_DEBIT_POINTER_MAX_HITS), "pointer-cap-over"), 4, debitErrors[4])
+    T.expect(blocked.retry_after).to.be.greaterThan(Math.floor(Date.now() / 1000))
+    T.expect(await promptUnknownDebit(T, T.user1, requestorPub(80), "pointer-cap-other-user")).to.equal(null)
+    await T.main.debitManager.RespondToDebit(userContext(T, T.user2), {
+        npub: requestorPub(60),
+        request_id: "pointer-cap-0",
+        response: { type: Types.DebitResponse_response_type.DENIED, denied: {} },
+    })
+    await expectDebitFail(T, promptUnknownDebit(T, T.user2, requestorPub(70), "pointer-cap-after-deny"), 4, debitErrors[4])
+    await T.main.debitManager.BanDebit(userContext(T, T.user2), { npub: requestorPub(61) })
+    await expectDebitFail(T, promptUnknownDebit(T, T.user2, requestorPub(71), "pointer-cap-after-ban"), 4, debitErrors[4])
+    await T.main.debitManager.ResetDebit(userContext(T, T.user2), { npub: requestorPub(62) })
+    await expectDebitFail(T, promptUnknownDebit(T, T.user2, requestorPub(72), "pointer-cap-after-reset"), 4, debitErrors[4])
+    T.d("rotating pubs against one pointer are capped; another user is not, and deny/ban/reset do not refund the pointer budget")
+}
+
+const testPendingDebitAuthGlobalCap = async (T: TestBase) => {
+    T.d("starting testPendingDebitAuthGlobalCap")
+    resetDebitAuthGate(T, { globalMax: 1 })
+    T.expect(await promptUnknownDebit(T, T.user2, requestorPub(81), "global-cap-first")).to.equal(null)
+    const blocked = await expectDebitFail(T, promptUnknownDebit(T, T.user1, requestorPub(82), "global-cap-second"), 4, debitErrors[4])
+    T.expect(blocked.retry_after).to.be.greaterThan(Math.floor(Date.now() / 1000))
+    T.expect(blocked.retry_after).to.be.at.most(Math.floor(Date.now() / 1000) + Math.ceil(CLINK_DEBIT_GLOBAL_WINDOW_MS / 1000) + 1)
+    T.d("a Pub-wide debit auth ceiling blocks a second victim once the shared slot is full")
+}
+
+const testPendingDebitAuthK1FailureDoesNotBurnBudget = async (T: TestBase) => {
+    T.d("starting testPendingDebitAuthK1FailureDoesNotBurnBudget")
+    resetDebitAuthGate(T, { pointerMax: 1, globalMax: 1 })
+    const npub = requestorPub(90)
+    const invoice = await T.externalAccessToOtherLnd.NewInvoice(100, "debit auth k1 fail", defaultInvoiceExpiry, { from: 'system', useProvider: false })
+    T.main.paymentManager.invoiceLock.lock(invoice.payRequest.toLowerCase())
+    try {
+        await expectDebitFail(T, handleDebit(T, mockNostrEvent(T, npub, "auth-k1-fail"), {
+            pointer: T.user2.appUserIdentifier,
+            bolt11: invoice.payRequest,
+            amount_sats: 100,
+            k1: sessionK1(90),
+        }), 6, invalidRequestError(invoicePaymentInProgressReason), gfy6Reason.invoiceInProgress)
+    } finally {
+        T.main.paymentManager.invoiceLock.unlock(invoice.payRequest.toLowerCase())
+    }
+    T.expect(await promptUnknownDebit(T, T.user2, npub, "auth-k1-fail-retry")).to.equal(null)
+    await expectDebitFail(T, promptUnknownDebit(T, T.user1, requestorPub(91), "auth-k1-fail-other"), 4, debitErrors[4])
+    T.d("k1 failure during live auth does not consume occupancy or notify budget")
+}
+
+const testPendingDebitAuthFailedInvoiceDoesNotRefundBudget = async (T: TestBase) => {
+    T.d("starting testPendingDebitAuthFailedInvoiceDoesNotRefundBudget")
+    resetDebitAuthGate(T, { pointerMax: 1, globalMax: 5 })
+    const npub = requestorPub(92)
+    const invoice = await T.externalAccessToOtherLnd.NewInvoice(100, "debit auth failed invoice budget", defaultInvoiceExpiry, { from: 'system', useProvider: false })
+    T.expect(await handleDebit(T, mockNostrEvent(T, npub, "failed-invoice-budget"), {
+        pointer: T.user2.appUserIdentifier,
+        bolt11: invoice.payRequest,
+        amount_sats: 100,
+        k1: sessionK1(92),
+    })).to.equal(null)
+    await T.main.storage.StartTransaction(async tx => {
+        await T.main.debitManager.releaseK1ForFailedInvoice(invoice.payRequest, tx)
+    }, "test failed invoice occupancy clear")
+    await expectDebitFail(T, promptUnknownDebit(T, T.user2, requestorPub(93), "failed-invoice-budget-next"), 4, debitErrors[4])
+    T.d("failed invoice clears occupancy but does not refund notify budget")
+}
+
 const testRespondToDebitInvalidTypeClearsRateLimit = async (T: TestBase) => {
     T.d("starting testRespondToDebitInvalidTypeClearsRateLimit")
     const npub = requestorPub(50)
@@ -203,6 +343,25 @@ const testRespondToDebitInvalidTypeClearsRateLimit = async (T: TestBase) => {
         amount_sats: 100,
     })).to.equal(null)
     T.d("invalid RespondToDebit type still throws and clears the pending auth rate limit")
+}
+
+const testPendingDebitAuthStaleResponseDoesNotClearOccupancy = async (T: TestBase) => {
+    T.d("starting testPendingDebitAuthStaleResponseDoesNotClearOccupancy")
+    const npub = requestorPub(51)
+    T.expect(await promptUnknownDebit(T, T.user2, npub, "live-req-1")).to.equal(null)
+    await T.main.debitManager.RespondToDebit(userContext(T, T.user2), {
+        npub,
+        request_id: "stale-other-req",
+        response: { type: Types.DebitResponse_response_type.DENIED, denied: {} },
+    })
+    await expectDebitFail(T, promptUnknownDebit(T, T.user2, npub, "live-req-2"), 4, debitErrors[4])
+    await T.main.debitManager.RespondToDebit(userContext(T, T.user2), {
+        npub,
+        request_id: "live-req-1",
+        response: { type: Types.DebitResponse_response_type.DENIED, denied: {} },
+    })
+    T.expect(await promptUnknownDebit(T, T.user2, npub, "live-req-3")).to.equal(null)
+    T.d("a stale RespondToDebit request_id does not clear occupancy for the live prompt")
 }
 
 const testGetDebitAuthorizationsEmpty = async (T: TestBase) => {
@@ -1349,58 +1508,67 @@ const testRespondToDebitInvalidTypeThrows = async (T: TestBase) => {
 }
 
 export default async (T: TestBase) => {
-    testDebitAuthRateLimiter(T)
-    await testGetDebitAuthorizationsEmpty(T)
-    await testAuthorizeDebitViaRespondToDebit(T)
-    await testEditDebitRules(T)
-    await testBanDebit(T)
-    await testResetDebit(T)
-    await testEditDebitThrowsWhenMissing(T)
-    await testPayNdebitInvoiceAuthRequired(T)
-    await testPayNdebitInvoiceK1Dedup(T)
-    await testDeniedK1AllowsCorrectedInvoice(T)
-    await testAuthorizePaysAtmSuppliedInvoice(T)
-    await testReplacementInvoiceFailReleasesK1(T)
-    await testApproveOfFailedInvoiceReleasesK1(T)
-    await testLateApproveAfterRetryConsumesK1(T)
-    await testCompetingApprovalsPayOnce(T)
-    await testInvalidK1DoesNotConsume(T)
-    await testValidationFailureLeavesK1Reusable(T)
-    await testK1RejectedOnNonPayment(T)
-    await testSameK1ValidUnderDifferentPointer(T)
-    await testClinkVersionOnResponses(T)
-    await testPayNdebitInvoiceDeniedWhenBanned(T)
-    await testPayNdebitInvoicePaysWithAuthorization(T)
-    await testPayNdebitDeniedBeatsInvoiceReplay(T)
-    await testPayNdebitInvoiceRetryAlreadyPaid(T)
-    await testAcceptedK1RejectsOtherInvoiceAfterRestart(T)
-    await testConcurrentK1Acceptance(T)
-    await testPayNdebitInvoiceMissingPointer(T)
-    await testPayNdebitInvoiceAmountMismatch(T)
-    await testPayNdebitInvoiceAmountWithoutBolt11(T)
-    await testPayNdebitInvoiceFrequencyWithoutAmount(T)
-    await testPayNdebitInvoiceFrequencyCapExceeded(T)
-    await testPayNdebitInvoiceInsufficientBalance(T)
-    await testK1RolledBackWhenInTxPayFails(T)
-    await testPayNdebitInvoiceRetryAlreadyFailed(T)
-    await testConfirmedFailureReleasesK1Hold(T)
-    await testPayNdebitInvoiceRetryInProgressLock(T)
-    await testPayNdebitInvoiceRetryInProgressPending(T)
-    await testK1ConsumeRateLimitIsDurable(T)
-    await testReleasedK1StillCountsTowardRateLimit(T)
-    await testOldK1AttemptsArePruned(T)
-    await testPayNdebitInvoiceDeniedWhenUserLocked(T)
-    await testAuthRequiredWithoutNostrKeyLeavesK1Reusable(T)
-    await testNdebitRejectsInvalidRequestShape(T)
-    await testOwnerPaysWithoutGrant(T)
-    await testOwnerK1ReplayRejected(T)
-    await testNonOwnerStillNeedsGrant(T)
-    await testOwnerOnlyClinkDeniesStranger(T)
-    await testAuthorizeInvoiceRuleFailureKeepsGrant(T)
-    await testRespondToDebitInvalidTypeThrows(T)
-    await testRespondToDebitInvalidTypeClearsRateLimit(T)
-    await testPendingDebitAuthRateLimit(T)
-    await testPendingDebitAuthDoesNotHoldK1WhenLimited(T)
+    const run = async (fn: (T: TestBase) => void | Promise<void>) => {
+        resetDebitAuthGate(T)
+        await fn(T)
+    }
+    await run(testDebitAuthGate)
+    await run(testGetDebitAuthorizationsEmpty)
+    await run(testAuthorizeDebitViaRespondToDebit)
+    await run(testEditDebitRules)
+    await run(testBanDebit)
+    await run(testResetDebit)
+    await run(testEditDebitThrowsWhenMissing)
+    await run(testPayNdebitInvoiceAuthRequired)
+    await run(testPayNdebitInvoiceK1Dedup)
+    await run(testDeniedK1AllowsCorrectedInvoice)
+    await run(testAuthorizePaysAtmSuppliedInvoice)
+    await run(testReplacementInvoiceFailReleasesK1)
+    await run(testApproveOfFailedInvoiceReleasesK1)
+    await run(testLateApproveAfterRetryConsumesK1)
+    await run(testCompetingApprovalsPayOnce)
+    await run(testInvalidK1DoesNotConsume)
+    await run(testValidationFailureLeavesK1Reusable)
+    await run(testK1RejectedOnNonPayment)
+    await run(testSameK1ValidUnderDifferentPointer)
+    await run(testClinkVersionOnResponses)
+    await run(testPayNdebitInvoiceDeniedWhenBanned)
+    await run(testPayNdebitInvoicePaysWithAuthorization)
+    await run(testPayNdebitDeniedBeatsInvoiceReplay)
+    await run(testPayNdebitInvoiceRetryAlreadyPaid)
+    await run(testAcceptedK1RejectsOtherInvoiceAfterRestart)
+    await run(testConcurrentK1Acceptance)
+    await run(testPayNdebitInvoiceMissingPointer)
+    await run(testPayNdebitInvoiceAmountMismatch)
+    await run(testPayNdebitInvoiceAmountWithoutBolt11)
+    await run(testPayNdebitInvoiceFrequencyWithoutAmount)
+    await run(testPayNdebitInvoiceFrequencyCapExceeded)
+    await run(testPayNdebitInvoiceInsufficientBalance)
+    await run(testK1RolledBackWhenInTxPayFails)
+    await run(testPayNdebitInvoiceRetryAlreadyFailed)
+    await run(testConfirmedFailureReleasesK1Hold)
+    await run(testPayNdebitInvoiceRetryInProgressLock)
+    await run(testPayNdebitInvoiceRetryInProgressPending)
+    await run(testK1ConsumeRateLimitIsDurable)
+    await run(testReleasedK1StillCountsTowardRateLimit)
+    await run(testOldK1AttemptsArePruned)
+    await run(testPayNdebitInvoiceDeniedWhenUserLocked)
+    await run(testAuthRequiredWithoutNostrKeyLeavesK1Reusable)
+    await run(testNdebitRejectsInvalidRequestShape)
+    await run(testOwnerPaysWithoutGrant)
+    await run(testOwnerK1ReplayRejected)
+    await run(testNonOwnerStillNeedsGrant)
+    await run(testOwnerOnlyClinkDeniesStranger)
+    await run(testAuthorizeInvoiceRuleFailureKeepsGrant)
+    await run(testRespondToDebitInvalidTypeThrows)
+    await run(testRespondToDebitInvalidTypeClearsRateLimit)
+    await run(testPendingDebitAuthStaleResponseDoesNotClearOccupancy)
+    await run(testPendingDebitAuthRateLimit)
+    await run(testPendingDebitAuthDoesNotHoldK1WhenLimited)
+    await run(testPendingDebitAuthPointerCap)
+    await run(testPendingDebitAuthGlobalCap)
+    await run(testPendingDebitAuthK1FailureDoesNotBurnBudget)
+    await run(testPendingDebitAuthFailedInvoiceDoesNotRefundBudget)
     await runSanityCheck(T)
 }
 

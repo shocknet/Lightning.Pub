@@ -22,7 +22,7 @@ import { isAccountOwner, denyStrangerLiveAuth } from "./clinkOwner.js";
 import { NotificationsManager } from "../main/notificationsManager.js";
 import { ClinkCtx, ClinkError, encodeClinkResponse } from "./clinkTypes.js";
 import { CLINK_DEBIT_KIND } from "./clinkConstants.js";
-import { CLINK_AUTH_TTL_MS, ClinkRateLimiter, clinkRateKey } from "./clinkRateLimit.js";
+import { DebitAuthGate } from "./debitAuthGate.js";
 
 class DebitAuthRequired extends Error {
     constructor(public res: AuthRequiredRes) {
@@ -53,7 +53,7 @@ export class DebitManager {
     paymentManager: PaymentManager
     pruneTimer: NodeJS.Timer
     notificationsManager: NotificationsManager
-    authLimiter = new ClinkRateLimiter({ windowMs: CLINK_AUTH_TTL_MS, maxHits: 1 })
+    authGate = new DebitAuthGate()
     logger = getLogger({ component: 'DebitManager' })
     constructor(storage: Storage, lnd: LND, applicationManager: ApplicationManager, paymentManager: PaymentManager, notificationsManager: NotificationsManager) {
         this.storage = storage
@@ -92,11 +92,11 @@ export class DebitManager {
 
     BanDebit = async (ctx: Types.UserContext, req: Types.DebitOperation): Promise<void> => {
         await this.storage.debitStorage.DenyDebitAccess(ctx.app_user_id, req.npub)
-        this.authLimiter.take(clinkRateKey(ctx.app_user_id, req.npub))
+        this.authGate.clearPending(ctx.app_user_id, req.npub)
     }
     ResetDebit = async (ctx: Types.UserContext, req: Types.DebitOperation): Promise<void> => {
         await this.storage.debitStorage.RemoveDebitAccess(ctx.app_user_id, req.npub)
-        this.authLimiter.take(clinkRateKey(ctx.app_user_id, req.npub))
+        this.authGate.clearPending(ctx.app_user_id, req.npub)
     }
 
     RespondToDebit = async (ctx: Types.UserContext, req: Types.DebitResponse): Promise<void> => {
@@ -118,7 +118,7 @@ export class DebitManager {
                     throw new Error("invalid debit response type")
             }
         } finally {
-            this.authLimiter.take(clinkRateKey(ctx.app_user_id, req.npub))
+            this.authGate.clearPending(ctx.app_user_id, req.npub, req.request_id)
         }
     }
 
@@ -230,9 +230,9 @@ export class DebitManager {
         if (!userPub) {
             this.fail(1)
         }
-        const added = this.authLimiter.tryAdd(clinkRateKey(appUser.identifier, ctx.pub))
-        if (!added.ok) {
-            this.fail(4, { retry_after: added.retryAfterUnix })
+        const reserved = this.authGate.tryReserve(appUser.identifier, ctx.pub, ctx.eventId)
+        if (!reserved.ok) {
+            this.fail(4, { retry_after: reserved.retryAfterUnix })
         }
         try {
             if (data.bolt11) {
@@ -260,8 +260,9 @@ export class DebitManager {
                 title: "Debit request",
                 body: "You have a new debit authorization request"
             })
+            this.authGate.commitNotify(appUser.identifier, ctx.pub, ctx.eventId)
         } catch (e) {
-            this.authLimiter.take(clinkRateKey(appUser.identifier, ctx.pub))
+            this.authGate.abortReserve(appUser.identifier, ctx.pub, ctx.eventId)
             throw e
         }
     }
@@ -312,10 +313,10 @@ export class DebitManager {
     releaseK1ForFailedInvoice = async (invoice: string, txId?: string) => {
         const rows = await this.storage.debitStorage.ReleaseDebitK1ForInvoice(invoice, txId)
         for (const row of rows) {
-            if (!row.pointer || !row.npub) {
+            if (!row.pointer || !row.npub || !row.request_id) {
                 continue
             }
-            this.authLimiter.take(clinkRateKey(row.pointer, row.npub))
+            this.authGate.clearPending(row.pointer, row.npub, row.request_id)
         }
     }
 
