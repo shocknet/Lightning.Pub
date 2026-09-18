@@ -364,6 +364,26 @@ const testPendingDebitAuthStaleResponseDoesNotClearOccupancy = async (T: TestBas
     T.d("a stale RespondToDebit request_id does not clear occupancy for the live prompt")
 }
 
+const testPendingDebitAuthStaleInvoiceDoesNotClearOccupancy = async (T: TestBase) => {
+    T.d("starting testPendingDebitAuthStaleInvoiceDoesNotClearOccupancy")
+    const npub = requestorPub(52)
+    T.expect(await promptUnknownDebit(T, T.user2, npub, "live-invoice-req-1")).to.equal(null)
+    const invoice = await T.externalAccessToOtherLnd.NewInvoice(100, "stale invoice occupancy", defaultInvoiceExpiry, { from: 'system', useProvider: false })
+    await T.main.debitManager.RespondToDebit(userContext(T, T.user2), {
+        npub,
+        request_id: "stale-invoice-req",
+        response: { type: Types.DebitResponse_response_type.INVOICE, invoice: invoice.payRequest },
+    })
+    await expectDebitFail(T, promptUnknownDebit(T, T.user2, npub, "live-invoice-req-2"), 4, debitErrors[4])
+    await T.main.debitManager.RespondToDebit(userContext(T, T.user2), {
+        npub,
+        request_id: "live-invoice-req-1",
+        response: { type: Types.DebitResponse_response_type.DENIED, denied: {} },
+    })
+    T.expect(await promptUnknownDebit(T, T.user2, npub, "live-invoice-req-3")).to.equal(null)
+    T.d("a stale INVOICE response does not clear occupancy for the live prompt")
+}
+
 const testGetDebitAuthorizationsEmpty = async (T: TestBase) => {
     T.d("starting testGetDebitAuthorizationsEmpty")
     const unknownPub = requestorPub(0)
@@ -1285,16 +1305,13 @@ const testOldK1AttemptsArePruned = async (T: TestBase) => {
     )
     const pruned = await T.main.storage.debitStorage.PruneDebitK1Attempts(Date.now() + K1_ATTEMPT_TTL_MS + 5_000)
     T.expect(pruned).to.be.greaterThan(0)
-    await expectThrowsAsync(
-        T.main.debitManager.consumeK1(appId, pointer, k1),
-        invalidRequestError(k1AlreadyProcessedReason),
-    )
+    await T.main.debitManager.consumeK1(appId, pointer, k1, { invoice: "lnbc1prune-held-again", requestId: "k1-prune-held-2", npub: requestorPub(37) })
     await T.main.debitManager.consumeK1(appId, pointer, releasedK1, { invoice: "lnbc1prune-again", requestId: "k1-prune-req-2", npub: requestorPub(37) })
     await expectThrowsAsync(
         T.main.debitManager.consumeK1(appId, pointer, paidK1),
         invalidRequestError(k1AlreadyProcessedReason),
     )
-    T.d("released k1 history older than the TTL is deleted; held and succeeded k1s are kept")
+    T.d("released and held k1s older than the TTL are deleted; succeeded k1s are kept for replay detection")
 }
 
 const testPayNdebitInvoiceDeniedWhenUserLocked = async (T: TestBase) => {
@@ -1563,6 +1580,7 @@ export default async (T: TestBase) => {
     await run(testRespondToDebitInvalidTypeThrows)
     await run(testRespondToDebitInvalidTypeClearsRateLimit)
     await run(testPendingDebitAuthStaleResponseDoesNotClearOccupancy)
+    await run(testPendingDebitAuthStaleInvoiceDoesNotClearOccupancy)
     await run(testPendingDebitAuthRateLimit)
     await run(testPendingDebitAuthDoesNotHoldK1WhenLimited)
     await run(testPendingDebitAuthPointerCap)

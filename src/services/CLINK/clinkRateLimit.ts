@@ -47,15 +47,6 @@ export class ClinkRateLimiter<T = void> {
         return { ok: true }
     }
 
-    retryAfterIfLimited(key: string): number | null {
-        this.sweep()
-        const slot = this.slots.get(this.id(key))
-        if (!slot || slot.hits.length < this.maxHits) {
-            return null
-        }
-        return this.retryAfter(slot.hits[0])
-    }
-
     take(key: string): T | undefined {
         this.sweep()
         const id = this.id(key)

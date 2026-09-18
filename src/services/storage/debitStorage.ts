@@ -4,7 +4,7 @@ import { StorageInterface } from "./db/storageInterface.js";
 import {
     DebitK1AlreadyProcessedError, DebitRateLimitedError,
 } from "../CLINK/debitTypes.js";
-import { LessThan, MoreThan } from "typeorm";
+import { In, LessThan, MoreThan } from "typeorm";
 
 export const K1_CONSUME_WINDOW_MS = 60_000
 export const K1_CONSUME_MAX_PER_WINDOW = 60
@@ -218,8 +218,11 @@ export default class {
     async PruneDebitK1Attempts(now = Date.now()) {
         const cutoffUnix = Math.floor((now - K1_ATTEMPT_TTL_MS) / 1000)
         const run = async (tx: string) => {
-            const released = await this.dbs.Delete<ConsumedDebitK1>('ConsumedDebitK1', { created_at_unix: LessThan(cutoffUnix), status: "released" }, tx)
-            return released || 0
+            const stale = await this.dbs.Delete<ConsumedDebitK1>('ConsumedDebitK1', {
+                created_at_unix: LessThan(cutoffUnix),
+                status: In(["released", "held"]),
+            }, tx)
+            return stale || 0
         }
         return this.dbs.Tx(tx => run(tx), "prune debit k1 attempts")
     }

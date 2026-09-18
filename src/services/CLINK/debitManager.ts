@@ -111,7 +111,7 @@ export class DebitManager {
                     return
                 case Types.DebitResponse_response_type.INVOICE:
                     await this.paySingleInvoice(ctx, { invoice: req.response.invoice, npub: req.npub, request_id: req.request_id })
-                    this.authGate.clearPair(ctx.app_user_id, req.npub)
+                    this.authGate.clearPending(ctx.app_user_id, req.npub, req.request_id)
                     return
                 case Types.DebitResponse_response_type.AUTHORIZE:
                     await this.handleAuthorization(ctx, req.response.authorize, { npub: req.npub, request_id: req.request_id })
