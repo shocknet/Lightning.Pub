@@ -81,13 +81,15 @@ export class DebitAuthGate {
         this.clearPending(pointer, pub, requestId)
     }
 
-    clearPending(pointer: string, pub: string, requestId?: string): void {
+    clearPair(pointer: string, pub: string): void {
+        this.pending.delete(this.pairKey(pointer, pub))
+    }
+
+    clearPending(pointer: string, pub: string, requestId: string): void {
         const key = this.pairKey(pointer, pub)
-        if (requestId !== undefined) {
-            const slot = this.pending.get(key)
-            if (!slot || slot.requestId !== this.id(requestId)) {
-                return
-            }
+        const slot = this.pending.get(key)
+        if (!slot || slot.requestId !== this.id(requestId)) {
+            return
         }
         this.pending.delete(key)
     }

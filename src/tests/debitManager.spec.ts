@@ -119,7 +119,7 @@ const testDebitAuthGate = (T: TestBase) => {
     T.expect(occupancy.tryReserve(user, "aa".repeat(32), "occ-2").ok).to.equal(true)
     occupancy.clearPending("USER-A", "AA".repeat(32), "OCC-2")
     T.expect(occupancy.tryReserve(user, "aa".repeat(32), "occ-3").ok).to.equal(true)
-    occupancy.clearPending(user, pub)
+    occupancy.clearPair(user, pub)
     T.expect(occupancy.tryReserve(user, pub, "occ-4").ok).to.equal(true)
     T.d("debit occupancy is per pointer+pub+request, case-insensitive, and expires")
 
@@ -485,7 +485,7 @@ const testPayNdebitInvoiceK1Dedup = async (T: TestBase) => {
         ...pointerdata,
         bolt11: secondInvoice.payRequest,
     }), 6, invalidRequestError(k1AlreadyProcessedReason), gfy6Reason.k1AlreadyProcessed)
-    T.d("payNdebitInvoice rejects duplicate k1")
+    T.d("payNdebitInvoice rejects duplicate k1 after ResetDebit drops occupancy")
 }
 
 const testDeniedK1AllowsCorrectedInvoice = async (T: TestBase) => {

@@ -92,11 +92,11 @@ export class DebitManager {
 
     BanDebit = async (ctx: Types.UserContext, req: Types.DebitOperation): Promise<void> => {
         await this.storage.debitStorage.DenyDebitAccess(ctx.app_user_id, req.npub)
-        this.authGate.clearPending(ctx.app_user_id, req.npub)
+        this.authGate.clearPair(ctx.app_user_id, req.npub)
     }
     ResetDebit = async (ctx: Types.UserContext, req: Types.DebitOperation): Promise<void> => {
         await this.storage.debitStorage.RemoveDebitAccess(ctx.app_user_id, req.npub)
-        this.authGate.clearPending(ctx.app_user_id, req.npub)
+        this.authGate.clearPair(ctx.app_user_id, req.npub)
     }
 
     RespondToDebit = async (ctx: Types.UserContext, req: Types.DebitResponse): Promise<void> => {
@@ -107,19 +107,19 @@ export class DebitManager {
                     this.logger("🔍 [DEBIT REQUEST] Sending denied response")
                     await this.storage.debitStorage.ReleaseDebitK1ForRequest(ctx.app_id, ctx.app_user_id, req.request_id)
                     this.sendDebitResponse(this.failPayload(1), event)
-                    break
+                    this.authGate.clearPending(ctx.app_user_id, req.npub, req.request_id)
+                    return
                 case Types.DebitResponse_response_type.INVOICE:
                     await this.paySingleInvoice(ctx, { invoice: req.response.invoice, npub: req.npub, request_id: req.request_id })
-                    break
+                    this.authGate.clearPair(ctx.app_user_id, req.npub)
+                    return
                 case Types.DebitResponse_response_type.AUTHORIZE:
                     await this.handleAuthorization(ctx, req.response.authorize, { npub: req.npub, request_id: req.request_id })
-                    break
+                    this.authGate.clearPair(ctx.app_user_id, req.npub)
+                    return
                 default:
                     throw new Error("invalid debit response type")
             }
-            const resolved = req.response.type === Types.DebitResponse_response_type.INVOICE
-                || req.response.type === Types.DebitResponse_response_type.AUTHORIZE
-            this.authGate.clearPending(ctx.app_user_id, req.npub, resolved ? undefined : req.request_id)
         } catch (e) {
             this.authGate.clearPending(ctx.app_user_id, req.npub, req.request_id)
             throw e
@@ -233,6 +233,9 @@ export class DebitManager {
         const userPub = appUser.nostr_public_key
         if (!userPub) {
             this.fail(1)
+        }
+        if (data.k1 && await this.storage.debitStorage.findActiveK1(ctx.appId, appUser.identifier, data.k1)) {
+            this.invalidRequest(k1AlreadyProcessedReason, gfy6Reason.k1AlreadyProcessed)
         }
         const reserved = this.authGate.tryReserve(appUser.identifier, ctx.pub, ctx.eventId)
         if (!reserved.ok) {
