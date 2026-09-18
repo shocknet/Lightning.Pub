@@ -142,6 +142,19 @@ export default class {
         return this.dbs.Find<ApplicationUser>('ApplicationUser', { where: { application: q, ...time } }, txId)
     }
 
+    async CountApplicationUsers(application: Application | null, range: { from?: number, to?: number }, txId?: string) {
+        const q = application ? { serial_id: application.serial_id } : IsNull()
+        if (!range.from && !range.to) {
+            const [, n] = await this.dbs.FindAndCount<ApplicationUser>('ApplicationUser', {
+                where: { application: q },
+                take: 1,
+            }, txId)
+            return n
+        }
+        const users = await this.dbs.Find<ApplicationUser>('ApplicationUser', { where: { application: q } }, txId)
+        return users.filter(u => createdAtInRange(u.created_at, range)).length
+    }
+
     async GetAppUserFromUser(application: Application, userId: string, txId?: string): Promise<ApplicationUser | null> {
         return this.dbs.FindOne<ApplicationUser>('ApplicationUser', { where: { user: { user_id: userId }, application: { app_id: application.app_id } } }, txId)
     }
@@ -272,6 +285,13 @@ export default class {
     async RemoveAppUserDevices(appUserId: string, txId?: string) {
         return this.dbs.Delete<AppUserDevice>('AppUserDevice', { app_user_id: appUserId }, txId)
     }
+}
+
+function createdAtInRange(createdAt: Date, range: { from?: number, to?: number }) {
+    const ms = new Date(createdAt).getTime()
+    if (range.from != null && ms < range.from * 1000) return false
+    if (range.to != null && ms > range.to * 1000) return false
+    return true
 }
 
 const isNostrPubTaken = (e: unknown) => {

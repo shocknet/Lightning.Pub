@@ -22,11 +22,10 @@ export const initBootstrappedInstance = async (T: TestBase) => {
     }
     const { mainHandler: bootstrapped, localProviderClient } = initialized
     T.main.attachNostrSend(async (_, data, r) => {
-        if (data.type === 'event') {
-            throw new Error("unsupported event type")
-        }
-        if (data.pub !== localProviderClient.publicKey) {
-            throw new Error("invalid pub " + data.pub + " expected " + localProviderClient.publicKey)
+        // T.main also emits live-ops / beacons / receipts to other pubs (e.g. test
+        // user npubs). Only liquidity-provider protocol messages belong here.
+        if (data.type !== 'content' || data.pub !== localProviderClient.publicKey) {
+            return
         }
         const j = JSON.parse(data.content) as { requestId: string }
         console.log("sending new operation to provider")
@@ -34,10 +33,7 @@ export const initBootstrappedInstance = async (T: TestBase) => {
     })
     bootstrapped.attachNostrSend(async (_, data, r) => {
         const res = await handleSend(T, data)
-        if (data.type === 'event') {
-            throw new Error("unsupported event type")
-        }
-        if (!res) {
+        if (data.type !== 'content' || !res) {
             return
         }
         bootstrapped.liquidityProvider.onEvent(res, data.pub)
@@ -70,11 +66,8 @@ type TransportRequest = { requestId: string, authIdentifier: string } & (
     { rpcName: "" }
 )
 const handleSend = async (T: TestBase, data: SendData) => {
-    if (data.type === 'event') {
-        throw new Error("unsupported event type")
-    }
-    if (data.pub !== T.app.publicKey) {
-        throw new Error("invalid pub")
+    if (data.type !== 'content' || data.pub !== T.app.publicKey) {
+        return
     }
     const j = JSON.parse(data.content) as TransportRequest
     const app = await T.main.storage.applicationStorage.GetApplication(T.app.appId)
