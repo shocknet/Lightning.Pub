@@ -121,6 +121,8 @@ const testDebitAuthGate = (T: TestBase) => {
     T.expect(occupancy.tryReserve(user, "aa".repeat(32), "occ-3").ok).to.equal(true)
     occupancy.clearPair(user, pub)
     T.expect(occupancy.tryReserve(user, pub, "occ-4").ok).to.equal(true)
+    T.expect(occupancy.matchesPending(user, pub, "occ-4")).to.equal(true)
+    T.expect(occupancy.matchesPending(user, pub, "stale-req")).to.equal(false)
     T.d("debit occupancy is per pointer+pub+request, case-insensitive, and expires")
 
     now = 1_000

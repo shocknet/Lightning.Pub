@@ -110,7 +110,12 @@ export class DebitManager {
                     this.authGate.clearPending(ctx.app_user_id, req.npub, req.request_id)
                     return
                 case Types.DebitResponse_response_type.INVOICE:
-                    await this.paySingleInvoice(ctx, { invoice: req.response.invoice, npub: req.npub, request_id: req.request_id })
+                    if (this.authGate.matchesPending(ctx.app_user_id, req.npub, req.request_id)) {
+                        await this.paySingleInvoice(ctx, { invoice: req.response.invoice, npub: req.npub, request_id: req.request_id })
+                    } else {
+                        this.logger("🔍 [DEBIT REQUEST] Ignoring stale INVOICE response")
+                        this.sendDebitResponse(this.failPayload(1), event)
+                    }
                     this.authGate.clearPending(ctx.app_user_id, req.npub, req.request_id)
                     return
                 case Types.DebitResponse_response_type.AUTHORIZE:
