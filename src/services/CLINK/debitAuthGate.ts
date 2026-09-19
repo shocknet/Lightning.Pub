@@ -94,6 +94,12 @@ export class DebitAuthGate {
         this.pending.delete(key)
     }
 
+    matchesPending(pointer: string, pub: string, requestId: string): boolean {
+        this.sweep()
+        const slot = this.pending.get(this.pairKey(pointer, pub))
+        return slot !== undefined && slot.requestId === this.id(requestId)
+    }
+
     private pointerRetryAfter(pointerKey: string): number | null {
         const hits = this.liveHits(this.pointerHits.get(pointerKey) || [], this.pointerWindowMs)
         const inFlight = this.inFlightExpires(slot => slot.pointer === pointerKey)
