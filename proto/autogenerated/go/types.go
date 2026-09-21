@@ -133,20 +133,33 @@ type AddProductRequest struct {
 type AdminInvoiceSwapResponse struct {
 	Tx_id string `json:"tx_id"`
 }
+type AdminNodeSettings struct {
+	Automate_liquidity            bool   `json:"automate_liquidity"`
+	Automate_liquidity_env_locked bool   `json:"automate_liquidity_env_locked"`
+	Avatar_url                    string `json:"avatar_url"`
+	Backups_env_locked            bool   `json:"backups_env_locked"`
+	Lsp_channel_threshold         int64  `json:"lsp_channel_threshold"`
+	Lsp_threshold_env_locked      bool   `json:"lsp_threshold_env_locked"`
+	Node_name                     string `json:"node_name"`
+	Node_name_env_locked          bool   `json:"node_name_env_locked"`
+	Push_backups_to_nostr         bool   `json:"push_backups_to_nostr"`
+}
 type AdminTxSwapResponse struct {
 	Network_fee int64  `json:"network_fee"`
 	Tx_id       string `json:"tx_id"`
 }
 type AppMetrics struct {
-	App        *Application    `json:"app"`
-	Available  int64           `json:"available"`
-	Fees       int64           `json:"fees"`
-	Invoices   int64           `json:"invoices"`
-	Operations []UserOperation `json:"operations"`
-	Received   int64           `json:"received"`
-	Spent      int64           `json:"spent"`
-	Total_fees int64           `json:"total_fees"`
-	Users      *UsersInfo      `json:"users"`
+	App                 *Application    `json:"app"`
+	Available           int64           `json:"available"`
+	Fees                int64           `json:"fees"`
+	Invoices            int64           `json:"invoices"`
+	Operation_count     int64           `json:"operation_count"`
+	Operations          []UserOperation `json:"operations"`
+	Operations_has_more bool            `json:"operations_has_more"`
+	Received            int64           `json:"received"`
+	Spent               int64           `json:"spent"`
+	Total_fees          int64           `json:"total_fees"`
+	Users               *UsersInfo      `json:"users"`
 }
 type AppUsageMetrics struct {
 	App_metrics map[string]UsageMetricTlv `json:"app_metrics"`
@@ -172,9 +185,12 @@ type AppsMetrics struct {
 	Apps []AppMetrics `json:"apps"`
 }
 type AppsMetricsRequest struct {
-	From_unix          int64 `json:"from_unix"`
-	Include_operations bool  `json:"include_operations"`
-	To_unix            int64 `json:"to_unix"`
+	Bounded              bool   `json:"bounded"`
+	From_unix            int64  `json:"from_unix"`
+	Include_operations   bool   `json:"include_operations"`
+	Operations_app_id    string `json:"operations_app_id"`
+	Operations_before_id string `json:"operations_before_id"`
+	To_unix              int64  `json:"to_unix"`
 }
 type AssetOperation struct {
 	Amount  int64             `json:"amount"`
@@ -540,6 +556,18 @@ type LndNodeMetrics struct {
 	Pending_channels  int64           `json:"pending_channels"`
 	Root_ops          []RootOperation `json:"root_ops"`
 }
+type LndPeer struct {
+	Address     string `json:"address"`
+	Alias       string `json:"alias"`
+	Has_channel bool   `json:"has_channel"`
+	Inbound     bool   `json:"inbound"`
+	Pubkey      string `json:"pubkey"`
+	Sats_recv   int64  `json:"sats_recv"`
+	Sats_sent   int64  `json:"sats_sent"`
+}
+type LndPeers struct {
+	Peers []LndPeer `json:"peers"`
+}
 type LndProviderFilter struct {
 	Invoice_index_offset int64  `json:"invoice_index_offset"`
 	Limit_invoices       int64  `json:"limit_invoices"`
@@ -552,6 +580,16 @@ type LndProviderFilter struct {
 }
 type LndSeed struct {
 	Seed []string `json:"seed"`
+}
+type LndUtxo struct {
+	Address       string `json:"address"`
+	Amount_sat    int64  `json:"amount_sat"`
+	Confirmations int64  `json:"confirmations"`
+	Output_index  int64  `json:"output_index"`
+	Txid          string `json:"txid"`
+}
+type LndUtxos struct {
+	Utxos []LndUtxo `json:"utxos"`
 }
 type LnurlLinkResponse struct {
 	K1    string `json:"k1"`
@@ -892,6 +930,13 @@ type TxSwapOperation struct {
 }
 type TxSwapsList struct {
 	Swaps []TxSwapOperation `json:"swaps"`
+}
+type UpdateAdminNodeSettingsRequest struct {
+	Automate_liquidity    bool   `json:"automate_liquidity"`
+	Avatar_url            string `json:"avatar_url"`
+	Lsp_channel_threshold int64  `json:"lsp_channel_threshold"`
+	Node_name             string `json:"node_name"`
+	Push_backups_to_nostr bool   `json:"push_backups_to_nostr"`
 }
 type UpdateChannelPolicyRequest struct {
 	Policy *ChannelPolicy                     `json:"policy"`
