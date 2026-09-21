@@ -86,12 +86,19 @@ export class DebitAuthGate {
     }
 
     clearPending(pointer: string, pub: string, requestId: string): void {
+        this.claimPending(pointer, pub, requestId)
+    }
+
+    /** Atomically take the live slot for this request_id, if it is the current occupant. */
+    claimPending(pointer: string, pub: string, requestId: string): boolean {
+        this.sweep()
         const key = this.pairKey(pointer, pub)
         const slot = this.pending.get(key)
         if (!slot || slot.requestId !== this.id(requestId)) {
-            return
+            return false
         }
         this.pending.delete(key)
+        return true
     }
 
     matchesPending(pointer: string, pub: string, requestId: string): boolean {

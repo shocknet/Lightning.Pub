@@ -98,6 +98,15 @@ const resetDebitAuthGate = (T: TestBase, opts?: ConstructorParameters<typeof Deb
 const promptUnknownDebit = (T: TestBase, user: TestBase["user2"], pub: string, requestId: string) =>
     handleDebit(T, mockNostrEvent(T, pub, requestId), { pointer: user.appUserIdentifier })
 
+const debitSendCost = async (T: TestBase, amountSats: number) => {
+    const app = await T.main.storage.applicationStorage.GetApplication(T.app.appId)
+    const isManaged = app.owner.user_id !== T.user2.userId
+    return amountSats + T.main.paymentManager.getSendServiceFee(Types.UserOperationType.OUTGOING_INVOICE, amountSats, isManaged)
+}
+
+const userBalance = async (T: TestBase) =>
+    (await T.main.storage.userStorage.GetUser(T.user2.userId)).balance_sats
+
 const testDebitAuthGate = (T: TestBase) => {
     T.d("starting testDebitAuthGate")
     let now = 1_000
@@ -123,6 +132,10 @@ const testDebitAuthGate = (T: TestBase) => {
     T.expect(occupancy.tryReserve(user, pub, "occ-4").ok).to.equal(true)
     T.expect(occupancy.matchesPending(user, pub, "occ-4")).to.equal(true)
     T.expect(occupancy.matchesPending(user, pub, "stale-req")).to.equal(false)
+    T.expect(occupancy.claimPending(user, pub, "stale-req")).to.equal(false)
+    T.expect(occupancy.claimPending(user, pub, "occ-4")).to.equal(true)
+    T.expect(occupancy.matchesPending(user, pub, "occ-4")).to.equal(false)
+    T.expect(occupancy.tryReserve(user, pub, "occ-5").ok).to.equal(true)
     T.d("debit occupancy is per pointer+pub+request, case-insensitive, and expires")
 
     now = 1_000
@@ -369,6 +382,8 @@ const testPendingDebitAuthStaleResponseDoesNotClearOccupancy = async (T: TestBas
 const testPendingDebitAuthStaleInvoiceDoesNotClearOccupancy = async (T: TestBase) => {
     T.d("starting testPendingDebitAuthStaleInvoiceDoesNotClearOccupancy")
     const npub = requestorPub(52)
+    await safelySetUserBalance(T, T.user2, 10_000)
+    const before = await userBalance(T)
     T.expect(await promptUnknownDebit(T, T.user2, npub, "live-invoice-req-1")).to.equal(null)
     const invoice = await T.externalAccessToOtherLnd.NewInvoice(100, "stale invoice occupancy", defaultInvoiceExpiry, { from: 'system', useProvider: false })
     await T.main.debitManager.RespondToDebit(userContext(T, T.user2), {
@@ -376,6 +391,7 @@ const testPendingDebitAuthStaleInvoiceDoesNotClearOccupancy = async (T: TestBase
         request_id: "stale-invoice-req",
         response: { type: Types.DebitResponse_response_type.INVOICE, invoice: invoice.payRequest },
     })
+    T.expect(await userBalance(T)).to.equal(before)
     await expectDebitFail(T, promptUnknownDebit(T, T.user2, npub, "live-invoice-req-2"), 4, debitErrors[4])
     await T.main.debitManager.RespondToDebit(userContext(T, T.user2), {
         npub,
@@ -384,6 +400,148 @@ const testPendingDebitAuthStaleInvoiceDoesNotClearOccupancy = async (T: TestBase
     })
     T.expect(await promptUnknownDebit(T, T.user2, npub, "live-invoice-req-3")).to.equal(null)
     T.d("a stale INVOICE response does not clear occupancy for the live prompt")
+}
+
+const testFabricatedInvoiceResponseDoesNotDrain = async (T: TestBase) => {
+    T.d("starting testFabricatedInvoiceResponseDoesNotDrain")
+    await safelySetUserBalance(T, T.user2, 10_000)
+    const before = await userBalance(T)
+    const invoice = await T.externalAccessToOtherLnd.NewInvoice(500, "fabricated invoice drain", defaultInvoiceExpiry, { from: 'system', useProvider: false })
+    await T.main.debitManager.RespondToDebit(userContext(T, T.user2), {
+        npub: requestorPub(100),
+        request_id: "never-prompted-req",
+        response: { type: Types.DebitResponse_response_type.INVOICE, invoice: invoice.payRequest },
+    })
+    T.expect(await userBalance(T)).to.equal(before)
+    T.d("INVOICE with no live prompt and no k1 attempt does not drain balance")
+}
+
+const testCrossNpubInvoiceDoesNotDrain = async (T: TestBase) => {
+    T.d("starting testCrossNpubInvoiceDoesNotDrain")
+    await safelySetUserBalance(T, T.user2, 10_000)
+    const before = await userBalance(T)
+    const npubA = requestorPub(101)
+    const npubB = requestorPub(102)
+    const k1 = sessionK1(101)
+    const requestId = "cross-npub-req"
+    const held = await T.externalAccessToOtherLnd.NewInvoice(500, "cross npub held", defaultInvoiceExpiry, { from: 'system', useProvider: false })
+    T.expect(await handleDebit(T, mockNostrEvent(T, npubA, requestId), {
+        pointer: T.user2.appUserIdentifier,
+        bolt11: held.payRequest,
+        amount_sats: 500,
+        k1,
+    })).to.equal(null)
+    const pay = await T.externalAccessToOtherLnd.NewInvoice(500, "cross npub pay", defaultInvoiceExpiry, { from: 'system', useProvider: false })
+    await T.main.debitManager.RespondToDebit(userContext(T, T.user2), {
+        npub: npubB,
+        request_id: requestId,
+        response: { type: Types.DebitResponse_response_type.INVOICE, invoice: pay.payRequest },
+    })
+    T.expect(await userBalance(T)).to.equal(before)
+    await expectDebitFail(T, promptUnknownDebit(T, T.user2, npubA, "cross-npub-still-live"), 4, debitErrors[4])
+    T.d("INVOICE for another npub with the same request_id does not settle or clear the live prompt")
+}
+
+const testStaleAuthorizeInvoiceDoesNotDrainOrGrant = async (T: TestBase) => {
+    T.d("starting testStaleAuthorizeInvoiceDoesNotDrainOrGrant")
+    await safelySetUserBalance(T, T.user2, 10_000)
+    const before = await userBalance(T)
+    const npub = requestorPub(103)
+    T.expect(await promptUnknownDebit(T, T.user2, npub, "auth-live-req")).to.equal(null)
+    const invoice = await T.externalAccessToOtherLnd.NewInvoice(500, "stale authorize invoice", defaultInvoiceExpiry, { from: 'system', useProvider: false })
+    await T.main.debitManager.RespondToDebit(userContext(T, T.user2), {
+        npub,
+        request_id: "auth-stale-req",
+        response: {
+            type: Types.DebitResponse_response_type.AUTHORIZE,
+            authorize: { rules: [], invoice: invoice.payRequest },
+        },
+    })
+    T.expect(await userBalance(T)).to.equal(before)
+    const { debits } = await T.main.debitManager.GetDebitAuthorizations(userContext(T, T.user2))
+    T.expect(debits.find(d => d.npub === npub)).to.equal(undefined)
+    await expectDebitFail(T, promptUnknownDebit(T, T.user2, npub, "auth-still-live"), 4, debitErrors[4])
+    T.d("stale AUTHORIZE+invoice does not pay, grant, or clear live occupancy")
+}
+
+const testAuthorizeInvoiceWithoutSessionDoesNotDrain = async (T: TestBase) => {
+    T.d("starting testAuthorizeInvoiceWithoutSessionDoesNotDrain")
+    await safelySetUserBalance(T, T.user2, 10_000)
+    const before = await userBalance(T)
+    const npub = requestorPub(104)
+    const invoice = await T.externalAccessToOtherLnd.NewInvoice(500, "authorize invoice no session", defaultInvoiceExpiry, { from: 'system', useProvider: false })
+    await T.main.debitManager.RespondToDebit(userContext(T, T.user2), {
+        npub,
+        request_id: "auth-no-session",
+        response: {
+            type: Types.DebitResponse_response_type.AUTHORIZE,
+            authorize: { rules: [], invoice: invoice.payRequest },
+        },
+    })
+    T.expect(await userBalance(T)).to.equal(before)
+    const { debits } = await T.main.debitManager.GetDebitAuthorizations(userContext(T, T.user2))
+    T.expect(debits.find(d => d.npub === npub)).to.equal(undefined)
+    T.d("AUTHORIZE+invoice with no live/k1 session does not pay or grant")
+}
+
+const testConcurrentInvoiceSameLivePaysOnce = async (T: TestBase) => {
+    T.d("starting testConcurrentInvoiceSameLivePaysOnce")
+    await safelySetUserBalance(T, T.user2, 10_000)
+    const npub = requestorPub(105)
+    const requestId = "concurrent-live-invoice"
+    T.expect(await promptUnknownDebit(T, T.user2, npub, requestId)).to.equal(null)
+    const payA = await T.externalAccessToOtherLnd.NewInvoice(500, "concurrent live a", defaultInvoiceExpiry, { from: 'system', useProvider: false })
+    const payB = await T.externalAccessToOtherLnd.NewInvoice(500, "concurrent live b", defaultInvoiceExpiry, { from: 'system', useProvider: false })
+    const before = await userBalance(T)
+    const results = await Promise.allSettled([
+        T.main.debitManager.RespondToDebit(userContext(T, T.user2), {
+            npub,
+            request_id: requestId,
+            response: { type: Types.DebitResponse_response_type.INVOICE, invoice: payA.payRequest },
+        }),
+        T.main.debitManager.RespondToDebit(userContext(T, T.user2), {
+            npub,
+            request_id: requestId,
+            response: { type: Types.DebitResponse_response_type.INVOICE, invoice: payB.payRequest },
+        }),
+    ])
+    T.expect(results.filter(r => r.status === "fulfilled")).to.have.length(2)
+    const after = await userBalance(T)
+    T.expect(before - after).to.equal(await debitSendCost(T, 500))
+    T.d("two concurrent INVOICE yeses on the same live prompt debit once")
+}
+
+const testRepeatInvoiceAfterSuccessDoesNotDrain = async (T: TestBase) => {
+    T.d("starting testRepeatInvoiceAfterSuccessDoesNotDrain")
+    await safelySetUserBalance(T, T.user2, 10_000)
+    const npub = requestorPub(106)
+    const k1 = sessionK1(106)
+    const requestId = "repeat-invoice-success"
+    const held = await T.externalAccessToOtherLnd.NewInvoice(500, "repeat success held", defaultInvoiceExpiry, { from: 'system', useProvider: false })
+    T.expect(await handleDebit(T, mockNostrEvent(T, npub, requestId), {
+        pointer: T.user2.appUserIdentifier,
+        bolt11: held.payRequest,
+        amount_sats: 500,
+        k1,
+    })).to.equal(null)
+    const firstPay = await T.externalAccessToOtherLnd.NewInvoice(500, "repeat success pay 1", defaultInvoiceExpiry, { from: 'system', useProvider: false })
+    await T.main.debitManager.RespondToDebit(userContext(T, T.user2), {
+        npub,
+        request_id: requestId,
+        response: { type: Types.DebitResponse_response_type.INVOICE, invoice: firstPay.payRequest },
+    })
+    const afterFirst = await userBalance(T)
+    const secondPay = await T.externalAccessToOtherLnd.NewInvoice(500, "repeat success pay 2", defaultInvoiceExpiry, { from: 'system', useProvider: false })
+    await expectThrowsAsync(
+        T.main.debitManager.RespondToDebit(userContext(T, T.user2), {
+            npub,
+            request_id: requestId,
+            response: { type: Types.DebitResponse_response_type.INVOICE, invoice: secondPay.payRequest },
+        }),
+        invalidRequestError(k1AlreadyProcessedReason),
+    )
+    T.expect(await userBalance(T)).to.equal(afterFirst)
+    T.d("a second INVOICE after k1 success does not drain again")
 }
 
 const testGetDebitAuthorizationsEmpty = async (T: TestBase) => {
@@ -1495,10 +1653,12 @@ const testAuthorizeInvoiceRuleFailureKeepsGrant = async (T: TestBase) => {
     T.d("starting testAuthorizeInvoiceRuleFailureKeepsGrant")
     const npub = requestorPub(43)
     const ctx = userContext(T, T.user2)
+    const requestId = "auth-over-cap"
+    T.expect(await promptUnknownDebit(T, T.user2, npub, requestId)).to.equal(null)
     const invoice = await T.externalAccessToOtherLnd.NewInvoice(500, "authorize over cap", defaultInvoiceExpiry, { from: 'system', useProvider: false })
     await T.main.debitManager.RespondToDebit(ctx, {
         npub,
-        request_id: "auth-over-cap",
+        request_id: requestId,
         response: {
             type: Types.DebitResponse_response_type.AUTHORIZE,
             authorize: { rules: frequencyCapRules(100), invoice: invoice.payRequest },
@@ -1583,6 +1743,12 @@ export default async (T: TestBase) => {
     await run(testRespondToDebitInvalidTypeClearsRateLimit)
     await run(testPendingDebitAuthStaleResponseDoesNotClearOccupancy)
     await run(testPendingDebitAuthStaleInvoiceDoesNotClearOccupancy)
+    await run(testFabricatedInvoiceResponseDoesNotDrain)
+    await run(testCrossNpubInvoiceDoesNotDrain)
+    await run(testStaleAuthorizeInvoiceDoesNotDrainOrGrant)
+    await run(testAuthorizeInvoiceWithoutSessionDoesNotDrain)
+    await run(testConcurrentInvoiceSameLivePaysOnce)
+    await run(testRepeatInvoiceAfterSuccessDoesNotDrain)
     await run(testPendingDebitAuthRateLimit)
     await run(testPendingDebitAuthDoesNotHoldK1WhenLimited)
     await run(testPendingDebitAuthPointerCap)

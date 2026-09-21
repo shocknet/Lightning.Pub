@@ -110,24 +110,28 @@ export class DebitManager {
                     this.authGate.clearPending(ctx.app_user_id, req.npub, req.request_id)
                     return
                 case Types.DebitResponse_response_type.INVOICE: {
-                    // Live occupancy, or a prior k1 attempt (late ATM yes after retry).
-                    const isLive = this.authGate.matchesPending(ctx.app_user_id, req.npub, req.request_id)
-                    const priorAttempt = !isLive
-                        ? await this.storage.debitStorage.findK1AttemptForRequest(ctx.app_id, ctx.app_user_id, req.request_id)
-                        : null
-                    if (isLive || priorAttempt) {
-                        await this.paySingleInvoice(ctx, { invoice: req.response.invoice, npub: req.npub, request_id: req.request_id })
-                    } else {
+                    if (!(await this.canSettleRespondedPayment(ctx, req.npub, req.request_id))) {
                         this.logger("🔍 [DEBIT REQUEST] Ignoring stale INVOICE response")
                         this.sendDebitResponse(this.failPayload(1), event)
+                        return
                     }
-                    this.authGate.clearPending(ctx.app_user_id, req.npub, req.request_id)
+                    await this.paySingleInvoice(ctx, { invoice: req.response.invoice, npub: req.npub, request_id: req.request_id })
                     return
                 }
-                case Types.DebitResponse_response_type.AUTHORIZE:
+                case Types.DebitResponse_response_type.AUTHORIZE: {
+                    // Bundled invoice is a settle; require live occupancy or a matching k1 attempt.
+                    // Grant-only AUTHORIZE (no invoice) stays allowed without a live session.
+                    if (req.response.authorize.invoice) {
+                        if (!(await this.canSettleRespondedPayment(ctx, req.npub, req.request_id))) {
+                            this.logger("🔍 [DEBIT REQUEST] Ignoring stale AUTHORIZE invoice response")
+                            this.sendDebitResponse(this.failPayload(1), event)
+                            return
+                        }
+                    }
                     await this.handleAuthorization(ctx, req.response.authorize, { npub: req.npub, request_id: req.request_id })
                     this.authGate.clearPair(ctx.app_user_id, req.npub)
                     return
+                }
                 default:
                     throw new Error("invalid debit response type")
             }
@@ -135,6 +139,24 @@ export class DebitManager {
             this.authGate.clearPending(ctx.app_user_id, req.npub, req.request_id)
             throw e
         }
+    }
+
+    /** Live prompt for this npub+request, or a prior k1 row for the same npub (late ATM yes). */
+    private canSettleRespondedPayment = async (ctx: Types.UserContext, npub: string, requestId: string): Promise<boolean> => {
+        // Atomic claim closes the concurrent double-yes window on the same live prompt.
+        if (this.authGate.claimPending(ctx.app_user_id, npub, requestId)) {
+            return true
+        }
+        const prior = await this.storage.debitStorage.findK1AttemptForRequest(ctx.app_id, ctx.app_user_id, requestId)
+        if (!prior) {
+            return false
+        }
+        // request_id is unique per pointer, but still require npub match when stored —
+        // otherwise a mistyped npub could settle another requestor's attempt.
+        if (prior.npub && prior.npub !== npub.toLowerCase()) {
+            return false
+        }
+        return true
     }
 
     paySingleInvoice = async (ctx: Types.UserContext, { invoice, npub, request_id }: { invoice: string, npub: string, request_id: string }) => {
