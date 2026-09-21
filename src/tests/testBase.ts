@@ -151,11 +151,17 @@ export const creditUserBalance = async (T: TestBase, user: TestUserData, creditS
     T.d(`user ${user.appUserIdentifier} balance credited by ${creditSats} to ${current + creditSats}`)
 }
 
-export const ensureUserBalanceAtLeast = async (T: TestBase, user: TestUserData, minimum: number) => {
+/** Credit only when needed so the user's balance equals `exactBalanceSats` (never lowers balance). */
+export const setUserBalanceExact = async (T: TestBase, user: TestUserData, exactBalanceSats: number) => {
     const current = (await T.main.storage.userStorage.GetUser(user.userId)).balance_sats
-    if (current < minimum) {
-        await creditUserBalance(T, user, minimum - current)
+    if (current === exactBalanceSats) {
+        T.d(`user ${user.appUserIdentifier} balance is already ${exactBalanceSats}`)
+        return
     }
+    if (current > exactBalanceSats) {
+        throw new Error(`setUserBalanceExact: balance ${current} exceeds target ${exactBalanceSats}`)
+    }
+    await creditUserBalance(T, user, exactBalanceSats - current)
 }
 
 export const runSanityCheck = async (T: TestBase) => {
