@@ -382,7 +382,6 @@ const testPendingDebitAuthStaleResponseDoesNotClearOccupancy = async (T: TestBas
 const testPendingDebitAuthStaleInvoiceDoesNotClearOccupancy = async (T: TestBase) => {
     T.d("starting testPendingDebitAuthStaleInvoiceDoesNotClearOccupancy")
     const npub = requestorPub(52)
-    await safelySetUserBalance(T, T.user2, 10_000)
     const before = await userBalance(T)
     T.expect(await promptUnknownDebit(T, T.user2, npub, "live-invoice-req-1")).to.equal(null)
     const invoice = await T.externalAccessToOtherLnd.NewInvoice(100, "stale invoice occupancy", defaultInvoiceExpiry, { from: 'system', useProvider: false })
@@ -404,7 +403,6 @@ const testPendingDebitAuthStaleInvoiceDoesNotClearOccupancy = async (T: TestBase
 
 const testFabricatedInvoiceResponseDoesNotDrain = async (T: TestBase) => {
     T.d("starting testFabricatedInvoiceResponseDoesNotDrain")
-    await safelySetUserBalance(T, T.user2, 10_000)
     const before = await userBalance(T)
     const invoice = await T.externalAccessToOtherLnd.NewInvoice(500, "fabricated invoice drain", defaultInvoiceExpiry, { from: 'system', useProvider: false })
     await T.main.debitManager.RespondToDebit(userContext(T, T.user2), {
@@ -418,7 +416,6 @@ const testFabricatedInvoiceResponseDoesNotDrain = async (T: TestBase) => {
 
 const testCrossNpubInvoiceDoesNotDrain = async (T: TestBase) => {
     T.d("starting testCrossNpubInvoiceDoesNotDrain")
-    await safelySetUserBalance(T, T.user2, 10_000)
     const before = await userBalance(T)
     const npubA = requestorPub(101)
     const npubB = requestorPub(102)
@@ -444,7 +441,6 @@ const testCrossNpubInvoiceDoesNotDrain = async (T: TestBase) => {
 
 const testStaleAuthorizeInvoiceDoesNotDrainOrGrant = async (T: TestBase) => {
     T.d("starting testStaleAuthorizeInvoiceDoesNotDrainOrGrant")
-    await safelySetUserBalance(T, T.user2, 10_000)
     const before = await userBalance(T)
     const npub = requestorPub(103)
     T.expect(await promptUnknownDebit(T, T.user2, npub, "auth-live-req")).to.equal(null)
@@ -466,7 +462,6 @@ const testStaleAuthorizeInvoiceDoesNotDrainOrGrant = async (T: TestBase) => {
 
 const testAuthorizeInvoiceWithoutSessionDoesNotDrain = async (T: TestBase) => {
     T.d("starting testAuthorizeInvoiceWithoutSessionDoesNotDrain")
-    await safelySetUserBalance(T, T.user2, 10_000)
     const before = await userBalance(T)
     const npub = requestorPub(104)
     const invoice = await T.externalAccessToOtherLnd.NewInvoice(500, "authorize invoice no session", defaultInvoiceExpiry, { from: 'system', useProvider: false })
@@ -486,7 +481,6 @@ const testAuthorizeInvoiceWithoutSessionDoesNotDrain = async (T: TestBase) => {
 
 const testConcurrentInvoiceSameLivePaysOnce = async (T: TestBase) => {
     T.d("starting testConcurrentInvoiceSameLivePaysOnce")
-    await safelySetUserBalance(T, T.user2, 10_000)
     const npub = requestorPub(105)
     const requestId = "concurrent-live-invoice"
     T.expect(await promptUnknownDebit(T, T.user2, npub, requestId)).to.equal(null)
@@ -513,7 +507,6 @@ const testConcurrentInvoiceSameLivePaysOnce = async (T: TestBase) => {
 
 const testRepeatInvoiceAfterSuccessDoesNotDrain = async (T: TestBase) => {
     T.d("starting testRepeatInvoiceAfterSuccessDoesNotDrain")
-    await safelySetUserBalance(T, T.user2, 10_000)
     const npub = requestorPub(106)
     const k1 = sessionK1(106)
     const requestId = "repeat-invoice-success"
@@ -698,7 +691,6 @@ const testAuthorizePaysAtmSuppliedInvoice = async (T: TestBase) => {
     const npub = requestorPub(38)
     const k1 = sessionK1(38)
     const requestId = "k1-authorize-pay"
-    await safelySetUserBalance(T, T.user2, 10000)
     const heldInvoice = await T.externalAccessToOtherLnd.NewInvoice(500, "debit k1 held", defaultInvoiceExpiry, { from: 'system', useProvider: false })
     const pending = await handleDebit(T,
         mockNostrEvent(T, npub, requestId),
@@ -1691,6 +1683,7 @@ export default async (T: TestBase) => {
         resetDebitAuthGate(T)
         await fn(T)
     }
+    await safelySetUserBalance(T, T.user2, 10_000)
     await run(testDebitAuthGate)
     await run(testGetDebitAuthorizationsEmpty)
     await run(testAuthorizeDebitViaRespondToDebit)
