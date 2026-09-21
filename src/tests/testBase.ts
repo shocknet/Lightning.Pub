@@ -141,6 +141,23 @@ export const safelySetUserBalance = async (T: TestBase, user: TestUserData, amou
     T.d(`user ${user.appUserIdentifier} balance is now ${amount}`)
 }
 
+/** Credit sats on top of the user's current balance (safe after prior test debits). */
+export const creditUserBalance = async (T: TestBase, user: TestUserData, creditSats: number) => {
+    const current = (await T.main.storage.userStorage.GetUser(user.userId)).balance_sats
+    const app = await T.main.storage.applicationStorage.GetApplication(user.appId)
+    const invoice = await T.main.paymentManager.NewInvoice(user.userId, { amountSats: creditSats, memo: "test credit" }, { linkedApplication: app, expiry: defaultInvoiceExpiry })
+    await T.externalAccessToOtherLnd.PayInvoice(invoice.invoice, 0, { routingFeeLimit: 100, serviceFee: 100 }, creditSats, { from: 'system', useProvider: false })
+    await waitForUserBalance(T, user.userId, current + creditSats)
+    T.d(`user ${user.appUserIdentifier} balance credited by ${creditSats} to ${current + creditSats}`)
+}
+
+export const ensureUserBalanceAtLeast = async (T: TestBase, user: TestUserData, minimum: number) => {
+    const current = (await T.main.storage.userStorage.GetUser(user.userId)).balance_sats
+    if (current < minimum) {
+        await creditUserBalance(T, user, minimum - current)
+    }
+}
+
 export const runSanityCheck = async (T: TestBase) => {
     const sanityChecker = new SanityChecker(T.main.storage, T.main.lnd)
     await sanityChecker.VerifyEventsLog()
