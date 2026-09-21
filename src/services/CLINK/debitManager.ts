@@ -109,8 +109,13 @@ export class DebitManager {
                     this.sendDebitResponse(this.failPayload(1), event)
                     this.authGate.clearPending(ctx.app_user_id, req.npub, req.request_id)
                     return
-                case Types.DebitResponse_response_type.INVOICE:
-                    if (this.authGate.matchesPending(ctx.app_user_id, req.npub, req.request_id)) {
+                case Types.DebitResponse_response_type.INVOICE: {
+                    // Live occupancy, or a prior k1 attempt (late ATM yes after retry).
+                    const isLive = this.authGate.matchesPending(ctx.app_user_id, req.npub, req.request_id)
+                    const priorAttempt = !isLive
+                        ? await this.storage.debitStorage.findK1AttemptForRequest(ctx.app_id, ctx.app_user_id, req.request_id)
+                        : null
+                    if (isLive || priorAttempt) {
                         await this.paySingleInvoice(ctx, { invoice: req.response.invoice, npub: req.npub, request_id: req.request_id })
                     } else {
                         this.logger("🔍 [DEBIT REQUEST] Ignoring stale INVOICE response")
@@ -118,6 +123,7 @@ export class DebitManager {
                     }
                     this.authGate.clearPending(ctx.app_user_id, req.npub, req.request_id)
                     return
+                }
                 case Types.DebitResponse_response_type.AUTHORIZE:
                     await this.handleAuthorization(ctx, req.response.authorize, { npub: req.npub, request_id: req.request_id })
                     this.authGate.clearPair(ctx.app_user_id, req.npub)
