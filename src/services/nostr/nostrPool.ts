@@ -1,6 +1,7 @@
 import WebSocket from 'ws'
 Object.assign(global, { WebSocket: WebSocket });
 import crypto from 'crypto'
+import { lookup as dnsLookup } from 'node:dns/promises'
 import { SimplePool, Event, UnsignedEvent, finalizeEvent, nip44, verifyEvent } from 'nostr-tools'
 import { ERROR, getLogger, PubLogger } from '../helpers/logger.js'
 import { nip19 } from 'nostr-tools'
@@ -269,10 +270,6 @@ export class NostrPool {
         await this.publishViaFallbackPool(url, event)
     }
 
-    private relayByUrl(url: string): RelayConnection | undefined {
-        return this.relays[url] || Object.values(this.relays).find(r => r.GetUrl() === url)
-    }
-
     private async publishViaFallbackPool(url: string, event: Event): Promise<void> {
         this.acquireFallbackSlot()
         try {
@@ -311,6 +308,34 @@ export class NostrPool {
 
     private releaseFallbackSlot() {
         this.fallbackInFlight--
+    }
+
+    private relayByUrl(url: string) {
+        return this.relays[url] || Object.values(this.relays).find(r => r.GetUrl() === url)
+    }
+
+    private listenState(url: string) {
+        const listen = this.relayByUrl(url)
+        if (!listen) {
+            return "none"
+        }
+        return listen.IsConnected() ? "up" : "down"
+    }
+
+    private describeListenSockets(relays: string[]) {
+        return relays.map(url => `${url} listen=${this.listenState(url)}`).join(", ")
+    }
+
+    private async logRelayDns(url: string) {
+        try {
+            const host = new URL(url).hostname
+            const started = Date.now()
+            const addrs = await dnsLookup(host, { all: true })
+            const records = addrs.map(a => `${a.address} v${a.family}`).join(", ")
+            this.log("dns for", host, "in", Date.now() - started, "ms:", records || "none")
+        } catch (e: any) {
+            this.log(ERROR, "dns lookup failed:", e.message || e)
+        }
     }
 
     private getRelays(initiator: SendInitiator, requestRelays?: string[]) {

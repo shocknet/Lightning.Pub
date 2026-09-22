@@ -195,6 +195,10 @@ export class RelayConnection {
         })
     }
 
+    IsConnected() {
+        return !!this.relay?.connected
+    }
+
     Send(e: Event) {
         if (!this.relay?.connected) {
             throw new Error("relay not connected")
