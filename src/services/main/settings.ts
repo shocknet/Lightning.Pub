@@ -79,6 +79,11 @@ export type LndSettings = {
     lndLogDir: string
     routingFeeLimitBps: number
     routingFeeFloor: number
+    tier1LimitSats: number
+    tier1Confs: number
+    tier2LimitSats: number
+    tier2Confs: number
+    tier3Confs: number
     mockLnd: boolean
     network: BTCNetwork
 }
@@ -117,6 +122,11 @@ export const LoadLndSettingsFromEnv = (dbEnv: Record<string, string | undefined>
         lndLogDir: chooseEnv('LND_LOG_DIR', dbEnv, resolveHome("/.lnd/logs/bitcoin/mainnet/lnd.log"), addToDb),
         routingFeeLimitBps,
         routingFeeFloor,
+        tier1LimitSats: chooseEnvInt('ONCHAIN_TIER1_LIMIT_SATS', dbEnv, 1_000_000, addToDb),
+        tier1Confs: chooseEnvInt('ONCHAIN_TIER1_CONFS', dbEnv, 1, addToDb),
+        tier2LimitSats: chooseEnvInt('ONCHAIN_TIER2_LIMIT_SATS', dbEnv, 100_000_000, addToDb),
+        tier2Confs: chooseEnvInt('ONCHAIN_TIER2_CONFS', dbEnv, 2, addToDb),
+        tier3Confs: chooseEnvInt('ONCHAIN_TIER3_CONFS', dbEnv, 3, addToDb),
         mockLnd: false,
         network: networks.includes(network) ? network : 'mainnet'
     }

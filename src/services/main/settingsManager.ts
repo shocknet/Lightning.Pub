@@ -52,7 +52,18 @@ export default class SettingsManager {
         }
         // Validate fee configuration: routing fee limit must be <= service fee
         this.validateFeeSettings(this.settings)
+        this.validateOnchainConfTiers(this.settings)
         return this.settings
+    }
+
+    private validateOnchainConfTiers(settings: FullSettings): void {
+        const { tier1LimitSats, tier2LimitSats, tier1Confs, tier2Confs, tier3Confs } = settings.lndSettings
+        if (tier1LimitSats > tier2LimitSats) {
+            throw new Error(`ONCHAIN_TIER1_LIMIT_SATS (${tier1LimitSats}) must be <= ONCHAIN_TIER2_LIMIT_SATS (${tier2LimitSats})`)
+        }
+        if (tier1Confs < 1 || tier1Confs > tier2Confs || tier2Confs > tier3Confs) {
+            throw new Error(`ONCHAIN_TIER*_CONFS must be >= 1 and non-decreasing across tiers (got ${tier1Confs}/${tier2Confs}/${tier3Confs})`)
+        }
     }
 
     private validateFeeSettings(settings: FullSettings): void {
