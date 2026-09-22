@@ -185,7 +185,7 @@ export const waitForUserBalance = async (T: TestBase, userId: string, expectedBa
     return user
 }
 
-export const mineAndWaitForUserBalance = async (T: TestBase, userId: string, expectedBalance: number, blocks = 1) => {
+export const mineAndWaitForUserBalance = async (T: TestBase, userId: string, expectedBalance: number, blocks = 2) => {
     await T.chainTools.mine(blocks)
     return waitForUserBalance(T, userId, expectedBalance)
 }

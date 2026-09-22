@@ -1266,7 +1266,8 @@ export default class {
         try {
             const info = await this.lnd.GetTx(txHash)
             const { numConfirmations: confs, amount: amt } = info
-            if (confs > 2 || (amt <= confInTwo && confs > 1) || (amt <= confInOne && confs > 0)) {
+            const extra = this.settings.getSettings().lndSettings.extraConfRequired
+            if (confs > 2 + extra || (amt <= confInTwo && confs > 1 + extra) || (amt <= confInOne && confs > 0 + extra)) {
                 return confs
             }
         } catch (err: any) {

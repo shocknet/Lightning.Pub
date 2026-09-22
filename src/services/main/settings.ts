@@ -79,6 +79,8 @@ export type LndSettings = {
     lndLogDir: string
     routingFeeLimitBps: number
     routingFeeFloor: number
+    /** Extra confirmations added on top of the amount-tiered on-chain credit thresholds. */
+    extraConfRequired: number
     mockLnd: boolean
     network: BTCNetwork
 }
@@ -113,10 +115,12 @@ export const LoadLndSettingsFromEnv = (dbEnv: Record<string, string | undefined>
     const oldRoutingFeeFloor = chooseEnvInt('OUTBOUND_MAX_FEE_EXTRA_SATS', dbEnv, 5, addToDb)
     const routingFeeFloor = chooseEnvInt('ROUTING_FEE_FLOOR_SATS', dbEnv, oldRoutingFeeFloor, addToDb)
     const routingFeeLimitBps = chooseEnvInt('ROUTING_FEE_LIMIT_BPS', dbEnv, 50, addToDb)
+    const extraConfRequired = Math.max(0, chooseEnvInt('EXTRA_CONF_REQUIRED', dbEnv, 1, addToDb))
     return {
         lndLogDir: chooseEnv('LND_LOG_DIR', dbEnv, resolveHome("/.lnd/logs/bitcoin/mainnet/lnd.log"), addToDb),
         routingFeeLimitBps,
         routingFeeFloor,
+        extraConfRequired,
         mockLnd: false,
         network: networks.includes(network) ? network : 'mainnet'
     }
