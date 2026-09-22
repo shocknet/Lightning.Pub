@@ -57,13 +57,14 @@ const testSuccesfulReceivedExternalChainPayment = async (T: TestBase) => {
     const payment = await T.externalAccessToOtherLnd.PayAddress(user2Address.address, 1000, 3, "test", { from: 'system', useProvider: false })
     expect(payment.txid).to.not.be.undefined
     T.d("paid 1000 sats to user2's external chain address")
-    await mineAndWaitForUserBalance(T, T.user2.userId, 1000)
-    T.d("mined 2 blocks to confirm the payment")
+    const confirmBlocks = 1
+    await mineAndWaitForUserBalance(T, T.user2.userId, 1000, confirmBlocks)
+    T.d(`mined ${confirmBlocks} blocks to confirm the payment`)
     T.d("user2 balance is now 1000")
     const payment2 = await T.externalAccessToOtherLnd.PayAddress(user2Address.address, 1000, 3, "test", { from: 'system', useProvider: false })
     expect(payment2.txid).to.not.be.undefined
     T.d("paid 1000 sats to user2's external chain address again")
-    await mineAndWaitForUserBalance(T, T.user2.userId, 2000)
-    T.d("mined 2 blocks to confirm the payment")
+    await mineAndWaitForUserBalance(T, T.user2.userId, 2000, confirmBlocks)
+    T.d(`mined ${confirmBlocks} blocks to confirm the payment`)
     T.d("user2 balance is now 2000")
 }

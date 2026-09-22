@@ -67,8 +67,6 @@ interface UserOperationInfo {
 export type PendingTx = { type: 'incoming', tx: AddressReceivingTransaction } | { type: 'outgoing', tx: UserTransactionPayment }
 const defaultLnurlPayMetadata = (text: string) => `[["text/plain", "${text}"]]`
 const defaultLnAddressMetadata = (text: string, id: string) => `[["text/plain", "${text}"],["text/identifier", "${id}"]]`
-const confInOne = 1000 * 1000
-const confInTwo = 100 * 1000 * 1000
 
 /** Some clients (e.g. Primal) URL-encode zap request nostr events in offer/LNURL-pay payloads. */
 function normalizeZapEventPayload(raw: string): string {
@@ -1266,8 +1264,9 @@ export default class {
         try {
             const info = await this.lnd.GetTx(txHash)
             const { numConfirmations: confs, amount: amt } = info
-            const extra = this.settings.getSettings().lndSettings.extraConfRequired
-            if (confs > 2 + extra || (amt <= confInTwo && confs > 1 + extra) || (amt <= confInOne && confs > 0 + extra)) {
+            const { tier1LimitSats, tier1Confs, tier2LimitSats, tier2Confs, tier3Confs } = this.settings.getSettings().lndSettings
+            const needed = amt <= tier1LimitSats ? tier1Confs : amt <= tier2LimitSats ? tier2Confs : tier3Confs
+            if (confs >= needed) {
                 return confs
             }
         } catch (err: any) {
