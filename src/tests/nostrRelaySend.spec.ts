@@ -1,5 +1,5 @@
 import { Event } from "nostr-tools"
-import { EventsDeduper, RelayConnection } from "../services/nostr/nostrRelayConnection.js"
+import { EventsDeduper, RelayConnection, isEventTimestampFresh, NOSTR_EVENTS_TTL_MS, NOSTR_EVENT_MAX_FUTURE_SKEW_MS } from "../services/nostr/nostrRelayConnection.js"
 import { MAX_FALLBACK_IN_FLIGHT, NostrPool } from "../services/nostr/nostrPool.js"
 import { StorageTestBase } from "./testBase.js"
 
@@ -8,6 +8,7 @@ export const dev = false
 export const requires = "storage" as const
 
 export default async (T: StorageTestBase) => {
+    testEventTimestampFreshness(T)
     testSendUsesConnectedRelay(T)
     testSendThrowsWhenRelayDown(T)
     await testPoolReusesConnectedRelay(T)
@@ -16,6 +17,20 @@ export default async (T: StorageTestBase) => {
     await testFallbackPoolIsShared(T)
     await testFallbackOverflowFailsClosed(T)
     await testStopDoesNotCreatePoolAfterAcquire(T)
+}
+
+const testEventTimestampFreshness = (T: StorageTestBase) => {
+    T.d("starting testEventTimestampFreshness")
+    const nowMs = 1_700_000_000_000
+    const nowSec = Math.floor(nowMs / 1000)
+    T.expect(isEventTimestampFresh(nowSec, nowMs)).to.equal(true)
+    T.expect(isEventTimestampFresh(nowSec - Math.floor(NOSTR_EVENTS_TTL_MS / 1000) + 1, nowMs)).to.equal(true)
+    T.expect(isEventTimestampFresh(nowSec - Math.floor(NOSTR_EVENTS_TTL_MS / 1000) - 1, nowMs)).to.equal(false)
+    T.expect(isEventTimestampFresh(nowSec + Math.floor(NOSTR_EVENT_MAX_FUTURE_SKEW_MS / 1000), nowMs)).to.equal(true)
+    T.expect(isEventTimestampFresh(nowSec + Math.floor(NOSTR_EVENT_MAX_FUTURE_SKEW_MS / 1000) + 1, nowMs)).to.equal(false)
+    T.expect(isEventTimestampFresh(0, nowMs)).to.equal(false)
+    T.expect(isEventTimestampFresh(Number.NaN, nowMs)).to.equal(false)
+    T.d("rejects stale and far-future event timestamps")
 }
 
 const settings = {

@@ -5,7 +5,7 @@ import { SimplePool, Event, UnsignedEvent, finalizeEvent, nip44, verifyEvent } f
 import { ERROR, getLogger, PubLogger } from '../helpers/logger.js'
 import { nip19 } from 'nostr-tools'
 import { encrypt as encryptV1, decrypt as decryptV1, getSharedSecret as getConversationKeyV1 } from './nip44v1.js'
-import { RelayConnection, RelaySettings, PartialFilter, EventsDeduper } from './nostrRelayConnection.js'
+import { RelayConnection, RelaySettings, PartialFilter, EventsDeduper, isEventTimestampFresh } from './nostrRelayConnection.js'
 import { CLINK_ACTION_KINDS, CLINK_BEACON_KIND, LEGACY_BEACON_D_TAG } from '../CLINK/clinkConstants.js'
 const { nprofileEncode } = nip19
 const { v2 } = nip44
@@ -160,6 +160,10 @@ export class NostrPool {
         }
         const app = this.apps[pubTags[1]]
         if (!app) {
+            return null
+        }
+        if (!isEventTimestampFresh(e.created_at)) {
+            this.log("dropping stale or future-dated event", e.id, e.created_at)
             return null
         }
         if (!verifyEvent(e)) {

@@ -518,29 +518,17 @@ export class AdminManager {
     }
 
     async PayAdminInvoiceSwap(req: Types.PayAdminInvoiceSwapRequest): Promise<Types.AdminInvoiceSwapResponse> {
-        const resolvedTxId = await new Promise<string>(res => {
-            this.swaps.PayInvoiceSwap("admin", req.swap_operation_id, req.sat_per_v_byte, async (addr, amt, satPerVByte) => {
-                const tx = await this.lnd.PayAddress(addr, amt, satPerVByte, "", { useProvider: false, from: 'system' })
-                this.log("paid admin invoice swap", { swapOpId: req.swap_operation_id, txId: tx.txid })
+        const resolvedTxId = await this.swaps.PayInvoiceSwap("admin", req.swap_operation_id, req.sat_per_v_byte, async (addr, amt, satPerVByte) => {
+            const crafted = await this.lnd.CraftAddressPayment(addr, amt, satPerVByte)
+            // Persist before broadcast so a crash cannot leave an unpaid-looking row after coins are sent.
+            await this.storage.paymentStorage.SetInvoiceSwapTxId(req.swap_operation_id, crafted.txId, crafted.feeSats, crafted.txHex)
+            this.log("persisted admin swap lockup", { swapOpId: req.swap_operation_id, txId: crafted.txId })
 
-                // Fetch the full transaction hex for potential refunds, and include miner fees
-                // in the root op so watchdog can fully neutralize the on-chain spend.
-                let lockupTxHex: string | undefined
-                let chainFeeSats = 0
-                try {
-                    const txDetails = await this.lnd.GetTx(tx.txid)
-                    chainFeeSats = Number(txDetails.totalFees)
-                    lockupTxHex = txDetails.rawTxHex
-                } catch (err: any) {
-                    this.log("Warning: Could not fetch transaction hex for refund purposes:", err.message)
-                }
+            await this.lnd.PublishTransaction(crafted.txHex)
+            this.log("published admin swap lockup", { swapOpId: req.swap_operation_id, txId: crafted.txId })
 
-                await this.storage.metricsStorage.AddRootOperation("chain_payment", tx.txid, amt + chainFeeSats, true)
-                await this.storage.paymentStorage.SetInvoiceSwapTxId(req.swap_operation_id, tx.txid, chainFeeSats, lockupTxHex)
-                this.log("saved admin swap txid", { swapOpId: req.swap_operation_id, txId: tx.txid })
-                res(tx.txid)
-                return { txId: tx.txid }
-            })
+            await this.storage.metricsStorage.AddRootOperation("chain_payment", crafted.txId, amt + crafted.feeSats, true)
+            return { txId: crafted.txId }
         })
         return { tx_id: resolvedTxId }
     }

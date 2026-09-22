@@ -23,8 +23,9 @@ import { TxPointSettings } from '../storage/tlv/stateBundler.js';
 import { WalletKitClient } from '../../../proto/lnd/walletkit.client.js';
 import SettingsManager from '../main/settingsManager.js';
 import { LndNodeSettings, LndSettings } from '../main/settings.js';
-import { ListAddressesResponse, PublishResponse } from '../../../proto/lnd/walletkit.js';
+import { ListAddressesResponse, PublishResponse, ChangeAddressType } from '../../../proto/lnd/walletkit.js';
 import { isPaymentNotInitiatedError } from './trackPaymentError.js';
+import { Transaction } from 'bitcoinjs-lib'
 
 const DeadLineMetadata = (deadline = 10 * 1000) => ({ deadline: Date.now() + deadline })
 const GET_PAYMENT_FROM_HASH_TIMEOUT_MS = 10 * 1000
@@ -175,6 +176,57 @@ export default class {
             txHex: Buffer.from(txHex, 'hex'), label: ""
         }, DeadLineMetadata())
         return res.response
+    }
+
+    /**
+     * Build and sign an on-chain payment without broadcasting.
+     * UTXOs are locked by FundPsbt until publish or lease expiry.
+     */
+    async CraftAddressPayment(address: string, amount: number, satPerVByte: number): Promise<{ txId: string, txHex: string, feeSats: number }> {
+        this.log(DEBUG, "Crafting address payment (no broadcast)")
+        if (this.liquidProvider.getSettings().useOnlyLiquidityProvider) {
+            throw new Error("Address payments not supported when USE_ONLY_LIQUIDITY_PROVIDER is enabled")
+        }
+        if (this.outgoingOpsLocked) {
+            this.log(ERROR, "outgoing ops locked, rejecting craft request")
+            throw new Error("lnd node is currently out of sync")
+        }
+        await this.Health()
+        const funded = await this.walletKit.fundPsbt({
+            template: {
+                oneofKind: "raw",
+                raw: {
+                    inputs: [],
+                    outputs: { [address]: BigInt(amount) },
+                },
+            },
+            fees: { oneofKind: "satPerVbyte", satPerVbyte: BigInt(satPerVByte) },
+            account: "",
+            minConfs: 1,
+            spendUnconfirmed: false,
+            changeType: ChangeAddressType.UNSPECIFIED,
+            coinSelectionStrategy: CoinSelectionStrategy.STRATEGY_LARGEST,
+            maxFeeRatio: 0,
+            customLockId: new Uint8Array(0),
+            lockExpirationSeconds: 0n,
+        }, DeadLineMetadata())
+
+        const finalized = await this.walletKit.finalizePsbt({
+            fundedPsbt: funded.response.fundedPsbt,
+            account: "",
+        }, DeadLineMetadata())
+
+        const txHex = Buffer.from(finalized.response.rawFinalTx).toString('hex')
+        const tx = Transaction.fromHex(txHex)
+        const txId = tx.getId()
+        const inputSum = funded.response.lockedUtxos.reduce((sum, u) => sum + Number(u.value), 0)
+        const outputSum = tx.outs.reduce((sum, o) => sum + o.value, 0)
+        const feeSats = inputSum - outputSum
+        if (feeSats < 0) {
+            throw new Error("crafted transaction has negative fee")
+        }
+        this.log(DEBUG, "Crafted address payment", { txId, feeSats, amount })
+        return { txId, txHex, feeSats }
     }
 
     async GetInfo(): Promise<NodeInfo> {
@@ -754,7 +806,7 @@ export default class {
 
     sumInitiatorCommitFees = (channels: { commitFee: bigint | number; initiator: boolean }[]): number =>
         channels.reduce((sum, c) => c.initiator ? sum + Number(c.commitFee) : sum, 0)
-    
+
 
     async GetTotalBalace() {
         this.log(DEBUG, "Getting total balance")
