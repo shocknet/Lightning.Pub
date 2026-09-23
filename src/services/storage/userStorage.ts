@@ -5,7 +5,7 @@ import { getLogger } from '../helpers/logger.js';
 import EventsLogManager from './eventsLog.js';
 import { StorageInterface } from './db/storageInterface.js';
 import { UserAccess } from './entity/UserAccess.js';
-import { LessThan, MoreThan } from 'typeorm';
+import { In, LessThan, MoreThan } from 'typeorm';
 import { InsufficientBalanceError } from '../main/invoicePaymentErrors.js';
 export default class {
     dbs: StorageInterface
@@ -132,6 +132,14 @@ export default class {
     async UpdateUser(userId: string, update: Partial<User>, txId?: string) {
         const user = await this.GetUser(userId, txId)
         await this.dbs.Update<User>('User', user.serial_id, update, txId)
+    }
+
+    async GetLastSeenForUsers(userIds: string[], txId?: string): Promise<Map<string, number>> {
+        const seen = new Map<string, number>()
+        if (userIds.length === 0) return seen
+        const rows = await this.dbs.Find<UserAccess>('UserAccess', { where: { user_id: In(userIds) } }, txId)
+        for (const row of rows) seen.set(row.user_id, row.last_seen_at_unix)
+        return seen
     }
 
     async UpsertUserAccess(userId: string, lastSeenAtUnix: number, txId?: string) {
