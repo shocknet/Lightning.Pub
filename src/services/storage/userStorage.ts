@@ -16,12 +16,9 @@ export default class {
         this.eventsLog = eventsLog
     }
 
-    GetUsers(txId?: string) {
-        return this.dbs.Find<User>('User', {}, txId)
-    }
 
-    async ExportBalances(): Promise<BalanceRow[]> {
-        const users = await this.GetUsers()
+    async ExportBalances(txId?: string): Promise<BalanceRow[]> {
+        const users = await this.dbs.Find<User>('User', {}, txId)
         return users.map(mapBalanceBackupRow)
     }
 
