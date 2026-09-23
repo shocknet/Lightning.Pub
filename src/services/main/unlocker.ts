@@ -25,6 +25,8 @@ const SCB_BACKUP_D_TAG = 'Lightning.Pub/backup/scb'
 const BACKUP_RESUBSCRIBE_SECONDS = 30
 const WALLET_STATE_WAIT_SECONDS = 300
 const WALLET_STATE_QUERY_SECONDS = 10
+const SYNC_PROGRESS_SECONDS = 5
+const SECONDS_PER_BLOCK = 600
 export type AppKeys = { nostr_private_key: string, nostr_public_key: string }
 type AppWithKeys = Application & AppKeys
 
@@ -237,7 +239,7 @@ export class Unlocker {
     }
 
     private waitForNodePub = async (state: StateClient, ln: LightningClient) => {
-        await this.WaitWalletState(state, null, WalletState.SERVER_ACTIVE)
+        await this.waitForServerActive(state, ln)
         await this.WaitRecovery(ln)
         let info;
         for (let i = 0; i < 10; i++) {
@@ -251,6 +253,27 @@ export class Unlocker {
             throw new Error("failed to init lnd wallet " + (info ? info.failure : "unknown error"))
         }
         return info.pub
+    }
+
+    private waitForServerActive = async (state: StateClient, ln: LightningClient) => {
+        const timer = setInterval(() => { void this.logSyncProgress(ln) }, SYNC_PROGRESS_SECONDS * 1000)
+        try {
+            await this.WaitWalletState(state, null, WalletState.SERVER_ACTIVE)
+        } finally {
+            clearInterval(timer)
+        }
+    }
+
+    // The installer parses this line; lnd reports no target height, so the tip is estimated from the header's age.
+    private logSyncProgress = async (ln: LightningClient) => {
+        try {
+            const { blockHeight, bestHeaderTimestamp } = (await ln.getInfo({}, DeadLineMetadata())).response
+            const blocksBehind = Math.max(0, Math.floor((Date.now() / 1000 - Number(bestHeaderTimestamp)) / SECONDS_PER_BLOCK))
+            const target = blockHeight + blocksBehind
+            if (target === 0) return
+            const percent = Math.min(99, Math.floor(blockHeight * 100 / target))
+            this.log(`LND header sync ${percent}% (height=${blockHeight}/~${target})`)
+        } catch { }
     }
 
     GetSeed = async (): Promise<Types.LndSeed> => {
