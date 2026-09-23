@@ -10,6 +10,7 @@ temp/
 build/
 db.sqlite
 metrics.sqlite
+*.instance.lock
 .key/
 logs
 .jwt_secret
