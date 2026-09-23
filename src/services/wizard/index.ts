@@ -37,11 +37,6 @@ export class Wizard {
             GetServiceState: async () => { return this.GetServiceState() },
             WizardRestore: async ({ req }) => { return this.WizardRestore(req) }
         }, { GuestAuthGuard: async () => "", metricsCallback: () => { }, staticFiles: 'static' })
-
-        /*         // BACKUP CHANGE: Register restore endpoint on the wizard Express app.
-                // This route must be registered BEFORE the static file catch-all in Listen.
-                this.registerRestoreRoute(wizardServer.app) */
-
         wizardServer.Listen(settings.getSettings().serviceSettings.servicePort + 1)
     }
 
@@ -244,19 +239,5 @@ export class Wizard {
         })
         if (err != null) throw new Error(err.message)
         return this.restoreManager.RestoreFromSource(req)
-    }
-
-    // Dev helper: Reset wizard in-memory state (doesn't clear DB settings)
-    ResetWizardState = async (): Promise<void> => {
-        this.log("Resetting wizard in-memory state for dev/testing")
-        this.nprofile = ""
-        this.relays = []
-        // Clear any pending config queues
-        this.configQueue.forEach(q => q.res(false))
-        this.configQueue = []
-        this.awaitingNprofile.forEach(q => q.res(""))
-        this.awaitingNprofile = []
-        // Note: To fully reset wizard config, clear AdminSettings DB entries:
-        // DEFAULT_APP_NAME, NOSTR_RELAYS, DISABLE_LIQUIDITY_PROVIDER, PUSH_BACKUPS_TO_NOSTR
     }
 }

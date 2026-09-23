@@ -74,7 +74,6 @@ export type LndNodeSettings = {
     lndAddr: string // cold setting
     lndCertPath: string // cold setting
     lndMacaroonPath: string // cold setting
-    lndLogDir: string // cold setting
 }
 const networks = ['mainnet', 'testnet', 'regtest'] as const
 export type BTCNetwork = (typeof networks)[number]
@@ -110,7 +109,6 @@ const lndDir = () => {
 
 export const LoadLndNodeSettingsFromEnv = (dbEnv: Record<string, string | undefined>, addToDb?: EnvCacher): LndNodeSettings => {
     return {
-        lndLogDir: chooseEnv('LND_LOG_DIR', dbEnv, resolveHome("/.lnd/logs/bitcoin/mainnet/lnd.log"), addToDb),
         lndAddr: chooseEnv('LND_ADDRESS', dbEnv, "127.0.0.1:10009", addToDb),
         lndCertPath: chooseEnv('LND_CERT_PATH', dbEnv, path.join(lndDir(), "tls.cert"), addToDb),
         lndMacaroonPath: chooseEnv('LND_MACAROON_PATH', dbEnv, path.join(lndDir(), "data", "chain", "bitcoin", "mainnet", "admin.macaroon"), addToDb),
@@ -267,7 +265,6 @@ export const LoadBobLndSettingsFromEnv = (): LndNodeSettings => {
         lndAddr: EnvMustBeNonEmptyString("LND_BOB_ADDR"),
         lndCertPath: EnvMustBeNonEmptyString("LND_BOB_CERT_PATH"),
         lndMacaroonPath: EnvMustBeNonEmptyString("LND_BOB_MACAROON_PATH"),
-        lndLogDir: EnvMustBeNonEmptyString("LND_BOB_LOG_DIR")
     }
 }
 
@@ -277,7 +274,6 @@ export const LoadCarolLndSettingsFromEnv = (): LndNodeSettings => {
         lndAddr: EnvMustBeNonEmptyString("LND_CAROL_ADDR"),
         lndCertPath: EnvMustBeNonEmptyString("LND_CAROL_CERT_PATH"),
         lndMacaroonPath: EnvMustBeNonEmptyString("LND_CAROL_MACAROON_PATH"),
-        lndLogDir: EnvMustBeNonEmptyString("LND_CAROL_LOG_DIR")
     }
 }
 
@@ -287,7 +283,6 @@ export const LoadDaveLndSettingsFromEnv = (): LndNodeSettings => {
         lndAddr: EnvMustBeNonEmptyString("LND_DAVE_ADDR"),
         lndCertPath: EnvMustBeNonEmptyString("LND_DAVE_CERT_PATH"),
         lndMacaroonPath: EnvMustBeNonEmptyString("LND_DAVE_MACAROON_PATH"),
-        lndLogDir: EnvMustBeNonEmptyString("LND_DAVE_LOG_DIR")
     }
 }
 
@@ -297,13 +292,11 @@ export const LoadEliotLndSettingsFromEnv = (): [LndNodeSettings, LndNodeSettings
             lndAddr: EnvMustBeNonEmptyString("LND_ELIOT_ADDR"),
             lndCertPath: EnvMustBeNonEmptyString("LND_ELIOT_CERT_PATH"),
             lndMacaroonPath: EnvMustBeNonEmptyString("LND_ELIOT_MACAROON_PATH"),
-            lndLogDir: EnvMustBeNonEmptyString("LND_ELIOT_LOG_DIR")
         },
         {
             lndAddr: EnvMustBeNonEmptyString("LND_ELIOT2_ADDR"),
             lndCertPath: EnvMustBeNonEmptyString("LND_ELIOT2_CERT_PATH"),
             lndMacaroonPath: EnvMustBeNonEmptyString("LND_ELIOT2_MACAROON_PATH"),
-            lndLogDir: EnvMustBeNonEmptyString("LND_ELIOT2_LOG_DIR")
         }
     ]
 }

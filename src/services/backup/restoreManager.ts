@@ -29,52 +29,19 @@ import {
     decodeIndexesRow,
 } from './segments.js'
 import { BACKUP_RESTORE_ORDER, backupTableFilename, type BackupTableId } from './backupTables.js'
-import { nip44, Relay, type Event as NostrEvent } from 'nostr-tools'
-import { GrpcTransport } from '@protobuf-ts/grpc-transport'
-import { credentials, Metadata } from '@grpc/grpc-js'
-import { LightningClient } from '../../../proto/lnd/lightning.client.js'
+import { Relay, type Event as NostrEvent } from 'nostr-tools'
 import SettingsManager from '../main/settingsManager.js'
-import { Application } from '../storage/entity/Application.js'
-import { Unlocker, type AppKeys } from '../main/unlocker.js'
+import { Unlocker } from '../main/unlocker.js'
 import { selectDefaultApp } from '../helpers/defaultAppSelector.js'
 
-// const log = getLogger({ component: 'restore' })
 export const validRestoreSources = ['cloud', 'ftp', 'local'] as const
 export type RestoreSource = typeof validRestoreSources[number]
-
-export type RestoreSourceParams = {
-    type: 'ftp'
-    host: string
-    user: string
-    pass: string
-} | {
-    type: 'local'
-    path: string
-} | {
-    type: 'cloud'
-}
-
-export type RestoreParams = {
-    phrase: string
-    source: RestoreSourceParams
-}
-
-export type RestoreOptions = {
-    phrase: string
-    source: RestoreSource
-    sftpHost?: string
-    sftpUser?: string
-    sftpPass?: string
-    localPath?: string
-    relay?: string
-}
 
 export type RestoreResult = {
     success: boolean
     error?: string
     tablesRestored?: number
 }
-const DeadLineMetadata = (deadline = 20 * 1000) => ({ deadline: Date.now() + deadline })
 const SCB_BACKUP_KIND = 30078
 const SCB_BACKUP_D_TAG = 'Lightning.Pub/backup/scb'
 const relayFetchTimeoutMs = 12_000
@@ -264,10 +231,7 @@ export class RestoreManager {
                 this.log("buffer not found: " + id)
                 return []
             }
-            //this.log("decrypting table: " + id + " length: " + buffer.length)
-            const rows = decryptTableRows(buffer, keys.encKey).map(decodeRow)
-            //this.log("rows found: " + id + " length: " + rows.length)
-            return rows
+            return decryptTableRows(buffer, keys.encKey).map(decodeRow)
         }
 
         const backupData: BackupData = {
@@ -438,19 +402,6 @@ const fetchFile = async (log: PubLogger, keys: DerivedKeys, opts: wizardTypes.Re
             throw new Error(`Unknown restore source: ${opts.source}`)
     }
 }
-
-function failureMessage(source: wizardTypes.RestoreRequest_source_type, shard: BackupTableId): string {
-    const name = backupTableFilename(shard)
-    switch (source) {
-        case wizardTypes.RestoreRequest_source_type.CLOUD:
-            return `No backup found for this seed on the managed service (missing ${name}). Were backups enabled on the original instance? Did this seed ever run Lightning.Pub?`
-        case wizardTypes.RestoreRequest_source_type.FTP_HOST:
-            return `Could not connect or ${name} not found — verify host, credentials, and path.`
-        case wizardTypes.RestoreRequest_source_type.LOCAL_PATH:
-            return `${name} not found or path is not a readable directory — expected a folder of per-table *.enc shards from backup.`
-    }
-}
-
 
 export const parseRestoreFlags = (flags: Record<string, string>): wizardTypes.RestoreRequest => {
     const phrase = flags['phrase']

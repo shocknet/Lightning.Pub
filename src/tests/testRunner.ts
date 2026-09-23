@@ -2,7 +2,6 @@
 import { globby } from 'globby'
 import { ChainTools, setupNetwork } from './networkSetup.js'
 import { Describe, SetupTest, teardown, TestBase, StorageTestBase, setupStorageTest, teardownStorageTest } from './testBase.js'
-import { LndNodeSettings } from '../services/main/settings.js'
 import { SettingOverrideFunction } from '../services/main/settingsManager.js'
 type TestModule = {
     ignore?: boolean

@@ -19,7 +19,7 @@ import type { ManagementGrant } from '../storage/entity/ManagementGrant.js'
 import type { DebitAccess } from '../storage/entity/DebitAccess.js'
 import type { InviteToken } from '../storage/entity/InviteToken.js'
 import type { AppUserDevice } from '../storage/entity/AppUserDevice.js'
-import { encryptPayload, decryptPayload, type BackupPayload } from './encryption.js'
+import { encryptPayload, decryptPayload } from './encryption.js'
 import { encodeTLbV, encodeTLV, integerFromUint8Array, integerToUint8Array, parseTLbV, parseTLV, utf8Decoder, utf8Encoder, type TLV } from '../helpers/tlv.js'
 
 // admin_settings keys to strip — machine-local, wizard re-configures on restore

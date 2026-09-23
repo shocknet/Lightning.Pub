@@ -13,8 +13,7 @@ import { LoadStorageSettingsFromEnv } from "../storage/index.js"
 import { acquirePubInstanceLock } from "../storage/instanceLock.js"
 import { NostrSender } from "../nostr/sender.js"
 import { Swaps } from "../lnd/swaps/swaps.js"
-// BACKUP CHANGE: import restore pipeline for CLI usage
-import { type RestoreOptions, type RestoreSource, validRestoreSources, type RestoreParams, parseRestoreFlags, RestoreManager } from "../backup/restoreManager.js"
+import { parseRestoreFlags, RestoreManager } from "../backup/restoreManager.js"
 import { BackupManager } from "../backup/backupManager.js"
 import { pickDefaultApp } from "./adminNodeSettings.js"
 export type AppData = {
@@ -44,11 +43,7 @@ export const initSettings = async (log: PubLogger, storageSettings: StorageSetti
 export const initMainHandler = async (log: PubLogger, settingsManager: SettingsManager, restore: RestoreManager, unlocker: Unlocker) => {
     const storageManager = settingsManager.storage
     const utils = storageManager.utils
-
-
-
     const swaps = new Swaps(settingsManager, storageManager)
-
     const adminManager = new AdminManager(settingsManager, storageManager, swaps)
     let wizard: Wizard | null = null
     if (settingsManager.getSettings().serviceSettings.wizard) {
@@ -162,11 +157,6 @@ const processPostSettingArgs = async (restore: RestoreManager): Promise<{ keepOn
             return { keepOn: true }
     }
 }
-
-
-
-
-
 
 const parseCliFlags = (args: string[]): Record<string, string> => {
     const flags: Record<string, string> = {}

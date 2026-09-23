@@ -17,15 +17,6 @@ const start = async () => {
     const log = getLogger({})
     //const mainSettings = LoadMainSettingsFromEnv()
     const storageSettings = LoadStorageSettingsFromEnv()
-    /* 
-        // BACKUP CHANGE: Check for CLI restore command before normal startup.
-        // Restore runs against a clean DB and exits — no need for full init.
-        const restored = await handleRestoreCli(log, storageSettings)
-        if (restored) {
-            log("Restore complete, exiting.")
-            process.exit(0)
-        } */
-
     const initOk = await initSettings(log, storageSettings)
     if (!initOk) {
         log("early manual process ended")

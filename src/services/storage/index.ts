@@ -1,5 +1,5 @@
 import fs from 'fs'
-import NewDB, { DbSettings, LoadDbSettingsFromEnv, MainDbEntitiesNames, MainDbNames } from "./db/db.js"
+import NewDB, { DbSettings, LoadDbSettingsFromEnv } from "./db/db.js"
 import ProductStorage from './productStorage.js'
 import ApplicationStorage from './applicationStorage.js'
 import UserStorage from "./userStorage.js";
