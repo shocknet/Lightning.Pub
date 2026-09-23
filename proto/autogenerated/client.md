@@ -103,6 +103,11 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [InvoiceSwapRequest](#InvoiceSwapRequest)
   - output: [InvoiceSwapQuoteList](#InvoiceSwapQuoteList)
 
+- GetAdminNodeSettings
+  - auth type: __Admin__
+  - This methods has an __empty__ __request__ body
+  - output: [AdminNodeSettings](#AdminNodeSettings)
+
 - GetAdminTransactionSwapQuotes
   - auth type: __Admin__
   - input: [TransactionSwapRequest](#TransactionSwapRequest)
@@ -288,10 +293,20 @@ The nostr server will send back a message response, and inside the body there wi
   - This methods has an __empty__ __request__ body
   - output: [LndChannels](#LndChannels)
 
+- ListPeers
+  - auth type: __Admin__
+  - This methods has an __empty__ __request__ body
+  - output: [LndPeers](#LndPeers)
+
 - ListTxSwaps
   - auth type: __User__
   - This methods has an __empty__ __request__ body
   - output: [TxSwapsList](#TxSwapsList)
+
+- ListUtxos
+  - auth type: __Admin__
+  - This methods has an __empty__ __request__ body
+  - output: [LndUtxos](#LndUtxos)
 
 - LndGetInfo
   - auth type: __Admin__
@@ -379,6 +394,11 @@ The nostr server will send back a message response, and inside the body there wi
   - auth type: __Metrics__
   - input: [WebRtcMessage](#WebRtcMessage)
   - output: [WebRtcAnswer](#WebRtcAnswer)
+
+- UpdateAdminNodeSettings
+  - auth type: __Admin__
+  - input: [UpdateAdminNodeSettingsRequest](#UpdateAdminNodeSettingsRequest)
+  - output: [AdminNodeSettings](#AdminNodeSettings)
 
 - UpdateCallbackUrl
   - auth type: __User__
@@ -598,6 +618,13 @@ The nostr server will send back a message response, and inside the body there wi
   - http route: __/api/admin/swap/invoice/quote__
   - input: [InvoiceSwapRequest](#InvoiceSwapRequest)
   - output: [InvoiceSwapQuoteList](#InvoiceSwapQuoteList)
+
+- GetAdminNodeSettings
+  - auth type: __Admin__
+  - http method: __get__
+  - http route: __/api/admin/node/settings__
+  - This methods has an __empty__ __request__ body
+  - output: [AdminNodeSettings](#AdminNodeSettings)
 
 - GetAdminTransactionSwapQuotes
   - auth type: __Admin__
@@ -942,12 +969,26 @@ The nostr server will send back a message response, and inside the body there wi
   - This methods has an __empty__ __request__ body
   - output: [LndChannels](#LndChannels)
 
+- ListPeers
+  - auth type: __Admin__
+  - http method: __get__
+  - http route: __/api/admin/peers__
+  - This methods has an __empty__ __request__ body
+  - output: [LndPeers](#LndPeers)
+
 - ListTxSwaps
   - auth type: __User__
   - http method: __post__
   - http route: __/api/user/swap/transaction/list__
   - This methods has an __empty__ __request__ body
   - output: [TxSwapsList](#TxSwapsList)
+
+- ListUtxos
+  - auth type: __Admin__
+  - http method: __get__
+  - http route: __/api/admin/utxos__
+  - This methods has an __empty__ __request__ body
+  - output: [LndUtxos](#LndUtxos)
 
 - LndGetInfo
   - auth type: __Admin__
@@ -1126,6 +1167,13 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [WebRtcMessage](#WebRtcMessage)
   - output: [WebRtcAnswer](#WebRtcAnswer)
 
+- UpdateAdminNodeSettings
+  - auth type: __Admin__
+  - http method: __post__
+  - http route: __/api/admin/node/settings__
+  - input: [UpdateAdminNodeSettingsRequest](#UpdateAdminNodeSettingsRequest)
+  - output: [AdminNodeSettings](#AdminNodeSettings)
+
 - UpdateCallbackUrl
   - auth type: __User__
   - http method: __post__
@@ -1209,6 +1257,17 @@ The nostr server will send back a message response, and inside the body there wi
 ### AdminInvoiceSwapResponse
   - __tx_id__: _string_
 
+### AdminNodeSettings
+  - __automate_liquidity__: _boolean_
+  - __automate_liquidity_env_locked__: _boolean_
+  - __avatar_url__: _string_
+  - __backups_env_locked__: _boolean_
+  - __lsp_channel_threshold__: _number_
+  - __lsp_threshold_env_locked__: _boolean_
+  - __node_name__: _string_
+  - __node_name_env_locked__: _boolean_
+  - __push_backups_to_nostr__: _boolean_
+
 ### AdminTxSwapResponse
   - __network_fee__: _number_
   - __tx_id__: _string_
@@ -1218,7 +1277,9 @@ The nostr server will send back a message response, and inside the body there wi
   - __available__: _number_
   - __fees__: _number_
   - __invoices__: _number_
+  - __operation_count__: _number_ *this field is optional
   - __operations__: ARRAY of: _[UserOperation](#UserOperation)_
+  - __operations_has_more__: _boolean_ *this field is optional
   - __received__: _number_
   - __spent__: _number_
   - __total_fees__: _number_
@@ -1248,8 +1309,11 @@ The nostr server will send back a message response, and inside the body there wi
   - __apps__: ARRAY of: _[AppMetrics](#AppMetrics)_
 
 ### AppsMetricsRequest
+  - __bounded__: _boolean_ *this field is optional
   - __from_unix__: _number_ *this field is optional
   - __include_operations__: _boolean_ *this field is optional
+  - __operations_app_id__: _string_ *this field is optional
+  - __operations_before_id__: _string_ *this field is optional
   - __to_unix__: _number_ *this field is optional
 
 ### AssetOperation
@@ -1616,6 +1680,18 @@ The nostr server will send back a message response, and inside the body there wi
   - __pending_channels__: _number_
   - __root_ops__: ARRAY of: _[RootOperation](#RootOperation)_
 
+### LndPeer
+  - __address__: _string_
+  - __alias__: _string_
+  - __has_channel__: _boolean_
+  - __inbound__: _boolean_
+  - __pubkey__: _string_
+  - __sats_recv__: _number_
+  - __sats_sent__: _number_
+
+### LndPeers
+  - __peers__: ARRAY of: _[LndPeer](#LndPeer)_
+
 ### LndProviderFilter
   - __invoice_index_offset__: _number_ *this field is optional
   - __limit_invoices__: _number_ *this field is optional
@@ -1628,6 +1704,16 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### LndSeed
   - __seed__: ARRAY of: _string_
+
+### LndUtxo
+  - __address__: _string_
+  - __amount_sat__: _number_
+  - __confirmations__: _number_
+  - __output_index__: _number_
+  - __txid__: _string_
+
+### LndUtxos
+  - __utxos__: ARRAY of: _[LndUtxo](#LndUtxo)_
 
 ### LnurlLinkResponse
   - __k1__: _string_
@@ -1968,6 +2054,13 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### TxSwapsList
   - __swaps__: ARRAY of: _[TxSwapOperation](#TxSwapOperation)_
+
+### UpdateAdminNodeSettingsRequest
+  - __automate_liquidity__: _boolean_
+  - __avatar_url__: _string_
+  - __lsp_channel_threshold__: _number_
+  - __node_name__: _string_
+  - __push_backups_to_nostr__: _boolean_
 
 ### UpdateChannelPolicyRequest
   - __policy__: _[ChannelPolicy](#ChannelPolicy)_

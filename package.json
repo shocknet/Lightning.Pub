@@ -1,6 +1,6 @@
 {
   "name": "lnpub",
-  "version": "0.0.40",
+  "version": "0.0.41",
   "description": "A Nostr based account system and management platform for nodes on Bitcoin's Lightning Network",
   "main": "index.js",
   "scripts": {
@@ -34,7 +34,7 @@
     "@protobuf-ts/grpc-transport": "^2.9.4",
     "@protobuf-ts/plugin": "^2.5.0",
     "@protobuf-ts/runtime": "^2.5.0",
-    "@shocknet/clink-sdk": "^1.5.5",
+    "@shocknet/clink-sdk": "^1.7.3",
     "@stablelib/xchacha20": "^1.0.1",
     "@types/express": "^4.17.21",
     "@types/node": "^17.0.31",

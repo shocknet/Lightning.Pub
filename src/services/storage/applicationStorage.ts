@@ -94,35 +94,43 @@ export default class {
         return { privateKey: privString, publicKey: pub, appId: app.app_id, name: app.name }
     }
 
-    async AddApplicationUser(application: Application, userIdentifier: string, balance: number, nostrPub?: string) {
-        return this.dbs.Tx(async txId => {
+    async AddApplicationUser(application: Application, userIdentifier: string, balance: number, nostrPub?: string, opts?: { ownerOnlyClink?: boolean, txId?: string }) {
+        const create = async (txId: string) => {
             const user = await this.userStorage.AddUser(balance, txId)
             return this.dbs.CreateAndSave<ApplicationUser>('ApplicationUser', {
                 user: user,
                 application,
                 identifier: userIdentifier,
                 nostr_public_key: nostrPub,
-                topic_id: crypto.randomBytes(32).toString('hex')
+                topic_id: crypto.randomBytes(32).toString('hex'),
+                owner_only_clink: opts?.ownerOnlyClink === true,
             }, txId)
-        })
+        }
+        if (opts?.txId) {
+            return create(opts.txId)
+        }
+        return this.dbs.Tx(create)
     }
 
     async GetApplicationUserIfExists(application: Application, userIdentifier: string, txId?: string): Promise<ApplicationUser | null> {
         return this.dbs.FindOne<ApplicationUser>('ApplicationUser', { where: { identifier: userIdentifier, application: { serial_id: application.serial_id } } }, txId)
     }
 
-    async GetOrCreateNostrAppUser(application: Application, nostrPub: string, txId?: string): Promise<ApplicationUser> {
+    async GetOrCreateNostrAppUser(application: Application, nostrPub: string, opts?: { txId?: string, ownerOnlyClink?: boolean }): Promise<ApplicationUser> {
         if (!nostrPub) {
             throw new Error("no nostrPub provided")
         }
-        const user = await this.dbs.FindOne<ApplicationUser>('ApplicationUser', { where: { nostr_public_key: nostrPub } }, txId)
+        const user = await this.dbs.FindOne<ApplicationUser>('ApplicationUser', { where: { nostr_public_key: nostrPub } }, opts?.txId)
         if (user) {
             return user
         }
         if (!application.allow_user_creation) {
             throw new Error("user creation by client is not allowed in this app")
         }
-        return this.AddApplicationUser(application, crypto.randomBytes(32).toString('hex'), 0, nostrPub)
+        return this.AddApplicationUser(application, crypto.randomBytes(32).toString('hex'), 0, nostrPub, {
+            ownerOnlyClink: opts?.ownerOnlyClink === true,
+            txId: opts?.txId,
+        })
     }
 
     async FindNostrAppUser(nostrPub: string, txId?: string) {
@@ -194,6 +202,19 @@ export default class {
         return this.dbs.Find<ApplicationUser>('ApplicationUser', { where: { application: q, ...time } }, txId)
     }
 
+    async CountApplicationUsers(application: Application | null, range: { from?: number, to?: number }, txId?: string) {
+        const q = application ? { serial_id: application.serial_id } : IsNull()
+        if (!range.from && !range.to) {
+            const [, n] = await this.dbs.FindAndCount<ApplicationUser>('ApplicationUser', {
+                where: { application: q },
+                take: 1,
+            }, txId)
+            return n
+        }
+        const users = await this.dbs.Find<ApplicationUser>('ApplicationUser', { where: { application: q } }, txId)
+        return users.filter(u => createdAtInRange(u.created_at, range)).length
+    }
+
     async GetAppUserFromUser(application: Application, userId: string, txId?: string): Promise<ApplicationUser | null> {
         return this.dbs.FindOne<ApplicationUser>('ApplicationUser', { where: { user: { user_id: userId }, application: { app_id: application.app_id } } }, txId)
     }
@@ -216,6 +237,10 @@ export default class {
 
     async AddNPubToApplicationUser(serialId: number, nPub: string, txId?: string) {
         return this.dbs.Update<ApplicationUser>('ApplicationUser', serialId, { nostr_public_key: nPub }, txId)
+    }
+
+    async SetOwnerOnlyClink(serialId: number, ownerOnly: boolean, txId?: string) {
+        return this.dbs.Update<ApplicationUser>('ApplicationUser', serialId, { owner_only_clink: ownerOnly }, txId)
     }
 
     async UpdateUserCallbackUrl(application: Application, userIdentifier: string, callbackUrl: string, txId?: string) {
@@ -250,14 +275,52 @@ export default class {
         })
     }
 
-    async FindInviteToken(token: string) {
-        return this.dbs.FindOne<InviteToken>('InviteToken', { where: { inviteToken: token } })
+    async FindInviteToken(token: string, txId?: string) {
+        return this.dbs.FindOne<InviteToken>('InviteToken', { where: { inviteToken: token } }, txId)
     }
 
+    async ConsumeInviteToken(appId: string, token: string, nostrPub: string) {
+        await this.dbs.Tx(async txId => {
+            const app = await this.GetApplication(appId, txId)
+            const invite = await this.requireInviteForApp(app, token, txId)
+            await this.rejectIfPubLinked(nostrPub, txId)
+            const claimed = await this.claimUnusedInvite(invite.serial_id, txId)
+            if (!claimed) {
+                throw new Error("Invite token not found")
+            }
+            await this.addUserForInvite(app, nostrPub, txId)
+        })
+    }
 
-    async SetInviteTokenAsUsed(inviteToken: InviteToken) {
-        return this.dbs.Update<InviteToken>('InviteToken', inviteToken, { used: true })
+    private async requireInviteForApp(app: Application, token: string, txId: string) {
+        const invite = await this.FindInviteToken(token, txId)
+        if (!invite || invite.used || invite.application.app_id !== app.app_id) {
+            throw new Error("Invite token not found")
+        }
+        return invite
+    }
 
+    private async rejectIfPubLinked(nostrPub: string, txId: string) {
+        const existing = await this.FindNostrAppUser(nostrPub, txId)
+        if (existing) {
+            throw new Error("This key is already linked")
+        }
+    }
+
+    private async claimUnusedInvite(serialId: number, txId: string) {
+        const affected = await this.dbs.Update<InviteToken>('InviteToken', { serial_id: serialId, used: false }, { used: true }, txId)
+        return affected === 1
+    }
+
+    private async addUserForInvite(app: Application, nostrPub: string, txId: string) {
+        try {
+            await this.AddApplicationUser(app, crypto.randomBytes(32).toString('hex'), 0, nostrPub, { txId })
+        } catch (e: any) {
+            if (isNostrPubTaken(e)) {
+                throw new Error("This key is already linked")
+            }
+            throw e
+        }
     }
 
     async GetAllInviteTokens(txId?: string) {
@@ -335,4 +398,16 @@ export default class {
         }
         return restoredDevices;
     }
+}
+
+function createdAtInRange(createdAt: Date, range: { from?: number, to?: number }) {
+    const ms = new Date(createdAt).getTime()
+    if (range.from != null && ms < range.from * 1000) return false
+    if (range.to != null && ms > range.to * 1000) return false
+    return true
+}
+
+const isNostrPubTaken = (e: unknown) => {
+    const msg = e instanceof Error ? e.message : String(e)
+    return msg.includes('UNIQUE constraint failed') && msg.includes('nostr_public_key')
 }

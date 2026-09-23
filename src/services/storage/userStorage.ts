@@ -7,6 +7,7 @@ import { StorageInterface } from './db/storageInterface.js';
 import { UserAccess } from './entity/UserAccess.js';
 import { LessThan, MoreThan } from 'typeorm';
 import { BalanceRow, mapBalanceBackupRow } from '../backup/segments.js';
+import { InsufficientBalanceError } from '../main/invoicePaymentErrors.js';
 export default class {
     dbs: StorageInterface
     eventsLog: EventsLogManager
@@ -145,7 +146,7 @@ export default class {
         const user = await this.GetUser(userId, txId)
         if (!user || user.balance_sats < decrement) {
             getLogger({ userId: userId, component: "balanceUpdates" })("not enough balance to decrement")
-            throw new Error("not enough balance to decrement")
+            throw new InsufficientBalanceError()
         }
         const affected = await this.dbs.Decrement<User>('User', { user_id: userId, balance_sats: user.balance_sats }, "balance_sats", decrement, txId)
         if (!affected) {

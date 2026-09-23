@@ -9,9 +9,7 @@ import LND, { LndHooks } from "../lnd/lnd.js"
 import { AddressPaidCb, ChannelEventCb, HtlcCb, InvoicePaidCb, NewBlockCb } from "../lnd/settings.js"
 import { ERROR, getLogger, PubLogger } from "../helpers/logger.js"
 import AppUserManager from "./appUserManager.js"
-import { Application } from '../storage/entity/Application.js'
 import { UserReceivingInvoice } from '../storage/entity/UserReceivingInvoice.js'
-import { UnsignedEvent } from 'nostr-tools'
 import { NostrSend } from '../nostr/nostrPool.js'
 import MetricsManager from '../metrics/index.js'
 import { LiquidityProvider } from "./liquidityProvider.js"
@@ -21,20 +19,21 @@ import { RugPullTracker } from "./rugPullTracker.js"
 import { AdminManager } from "./adminManager.js"
 import { Unlocker } from "./unlocker.js"
 import { defaultInvoiceExpiry } from "../storage/paymentStorage.js"
-import { DebitManager } from "./debitManager.js"
-import { OfferManager } from "./offerManager.js"
+import { DebitManager } from "../CLINK/debitManager.js"
+import { OfferManager } from "../CLINK/offerManager.js"
 import { parse } from "uri-template"
 import webRTC from "../webRTC/index.js"
-import { ManagementManager } from "./managementManager.js"
+import { ManagementManager } from "../CLINK/managementManager.js"
 import { NotificationsManager } from "./notificationsManager.js"
-import { ApplicationUser } from '../storage/entity/ApplicationUser.js'
 import SettingsManager from './settingsManager.js'
 import { NostrSettings, AppInfo } from '../nostr/nostrPool.js'
 import { ShockPushNotification } from '../ShockPush/index.js'
 import { PaymentSideEffects } from "./paymentSideEffects.js"
 import { AddressReceivingTransaction } from '../storage/entity/AddressReceivingTransaction.js'
 import { BackupManager } from '../backup/backupManager.js'
-import { selectDefaultApp } from '../helpers/defaultAppSelector.js'
+import { EnrollManager } from "../CLINK/enrollManager.js"
+import { BeaconManager } from '../CLINK/beaconManager.js'
+import { pickDefaultApp } from "./adminNodeSettings.js"
 type UserOperationsSub = {
     id: string
     newIncomingInvoice: (operation: Types.UserOperation) => void
@@ -42,7 +41,6 @@ type UserOperationsSub = {
     newIncomingTx: (operation: Types.UserOperation) => void
     newOutgoingTx: (operation: Types.UserOperation) => void
 }
-const appTag = "Lightning.Pub"
 
 export default class {
     storage: Storage
@@ -61,12 +59,14 @@ export default class {
     debitManager: DebitManager
     offerManager: OfferManager
     managementManager: ManagementManager
+    enrollManager: EnrollManager
     utils: Utils
     rugPullTracker: RugPullTracker
     unlocker: Unlocker
     notificationsManager: NotificationsManager
     paymentSideEffects: PaymentSideEffects
     backupManager: BackupManager
+    beaconManager: BeaconManager
     nostrProcessPing: (() => Promise<void>) | null = null
     nostrReset: (settings: NostrSettings) => void = () => { getLogger({})("nostr reset not initialized yet") }
     private newBlockInFlight: Promise<void> = Promise.resolve()
@@ -100,15 +100,20 @@ export default class {
         this.lnd = new LND(lndGetSettings, this.liquidityProvider, this.utils, hooks)
         this.liquidityManager = new LiquidityManager(this.settings, this.storage, this.utils, this.liquidityProvider, this.lnd, this.rugPullTracker)
         this.metricsManager = new MetricsManager(this.storage, this.lnd)
-        this.notificationsManager = new NotificationsManager(this.settings)
+        this.notificationsManager = new NotificationsManager(this.settings, this.storage)
         this.paymentSideEffects = new PaymentSideEffects(this.storage, this.utils, this.notificationsManager)
-        this.paymentManager = new PaymentManager(this.storage, this.metricsManager, this.lnd, adminManager.swaps, this.settings, this.liquidityManager, this.paymentSideEffects, this.utils, this.addressPaidCb, this.newBlockCb, this.backupManager)
+        this.paymentManager = new PaymentManager(this.storage, this.metricsManager, this.lnd, adminManager.swaps, this.settings, this.liquidityManager, this.paymentSideEffects, this.utils, this.addressPaidCb, this.newBlockCb, this.backupManager, this.outgoingInvoiceFailedCb)
         this.productManager = new ProductManager(this.storage, this.paymentManager, this.settings, this.backupManager)
         this.applicationManager = new ApplicationManager(this.storage, this.settings, this.paymentManager, this.backupManager)
         this.appUserManager = new AppUserManager(this.storage, this.settings, this.applicationManager, this.backupManager)
-        this.debitManager = new DebitManager(this.storage, this.lnd, this.applicationManager, this.paymentManager, this.backupManager)
+        this.debitManager = new DebitManager(this.storage, this.lnd, this.applicationManager, this.paymentManager, this.notificationsManager, this.backupManager)
         this.offerManager = new OfferManager(this.storage, this.settings, this.lnd, this.applicationManager, this.productManager, this.liquidityManager, this.backupManager)
-        this.managementManager = new ManagementManager(this.storage, this.settings, this.backupManager)
+        this.managementManager = new ManagementManager(this.storage, this.settings, this.notificationsManager, this.backupManager)
+        this.enrollManager = new EnrollManager(this.storage, this.settings)
+        this.beaconManager = new BeaconManager(this.paymentManager, this.storage, this.utils, this.settings)
+
+        this.adminManager.attachBeaconRefresh(() => this.publishDefaultAppBeacon())
+
         //this.webRTC = new webRTC(this.storage, this.utils)
     }
 
@@ -120,6 +125,7 @@ export default class {
         this.utils.Stop()
         this.storage.Stop()
         this.debitManager.Stop()
+        this.beaconManager.Stop()
     }
 
     /** Async shutdown: flush backups while DB is still open, then sync teardown. */
@@ -129,8 +135,21 @@ export default class {
     }
 
     StartBeacons() {
-        this.applicationManager.StartAppsServiceBeacon((app, fees) => {
-            this.UpdateBeacon(app, { type: 'service', name: app.name, avatarUrl: app.avatar_url, fees })
+        this.beaconManager.StartBeacons()
+    }
+
+    private async publishDefaultAppBeacon() {
+        const apps = await this.storage.applicationStorage.GetApplications()
+        const name = this.settings.getSettings().serviceSettings.defaultAppName
+        const app = pickDefaultApp(apps, name)
+        if (!app) {
+            return
+        }
+        await this.beaconManager.UpdateBeacon(app, {
+            type: 'service',
+            name: app.name,
+            avatarUrl: app.avatar_url,
+            fees: this.paymentManager.GetFees(),
         })
     }
 
@@ -199,10 +218,6 @@ export default class {
         this.storage.paymentStorage.DeleteExpiredInvoiceSwaps(height)
             .catch(err => log(ERROR, "failed to delete expired invoice swaps", err.message || err))
         try {
-            const balanceEvents = await this.paymentManager.GetLndBalance()
-            if (!skipMetrics) {
-                await this.metricsManager.NewBlockCb(height, balanceEvents)
-            }
             confirmed = await this.paymentManager.CheckNewlyConfirmedTxs()
             await this.liquidityManager.onNewBlock()
         } catch (err: any) {
@@ -251,6 +266,18 @@ export default class {
                 }
             }
         }))
+        if (!skipMetrics) {
+            await this.recordNewBlockMetrics(height, log)
+        }
+    }
+
+    recordNewBlockMetrics = async (height: number, log: PubLogger) => {
+        try {
+            const balanceEvents = await this.paymentManager.GetLndBalance()
+            await this.metricsManager.NewBlockCb(height, balanceEvents)
+        } catch (err: any) {
+            log(ERROR, "failed to record metrics after new block", err.message || err)
+        }
     }
 
     addressPaidCb: AddressPaidCb = async (txOutput, address, amount, used, broadcastHeight) => {
@@ -300,6 +327,10 @@ export default class {
         this.utils.stateBundler.AddTxPoint('addressWasPaid', amount, { used, from: 'system', timeDiscount: true }, userAddress.linkedApplication.app_id)
     }
 
+    outgoingInvoiceFailedCb = async (invoice: string, txId: string) => {
+        await this.debitManager.releaseK1ForFailedInvoice(invoice, txId)
+    }
+
     invoicePaidCb: InvoicePaidCb = async (paymentRequest, amount, used) => {
         const log = getLogger({})
         const userInvoice = await this.storage.paymentStorage.GetInvoiceOwner(paymentRequest)
@@ -329,33 +360,15 @@ export default class {
         await this.paymentSideEffects.TriggerPaidInvoiceSideEffects(log, paidInvoice)
     }
 
-    async UpdateBeacon(app: Application, content: Types.BeaconData) {
-        if (!app.nostr_public_key) {
-            getLogger({ appName: app.name })("cannot update beacon, public key not set")
-            return
-        }
-        const tags = [["d", appTag]]
-        const event: UnsignedEvent = {
-            content: JSON.stringify(content),
-            created_at: Math.floor(Date.now() / 1000),
-            kind: 30078,
-            pubkey: app.nostr_public_key,
-            tags,
-        }
-        this.utils.nostrSender.Send({ type: 'app', appId: app.app_id }, { type: 'event', event })
-    }
-
-
-
     async ResetNostr() {
         const apps = await this.storage.applicationStorage.GetApplications()
         const nextRelay = this.settings.getSettings().nostrRelaySettings.relays[0]
         const fees = this.paymentManager.GetFees()
         for (const app of apps) {
-            await this.UpdateBeacon(app, { type: 'service', name: app.name, avatarUrl: app.avatar_url, nextRelay, fees })
+            await this.beaconManager.UpdateBeacon(app, { type: 'service', name: app.name, avatarUrl: app.avatar_url, nextRelay, fees })
         }
 
-        const local = selectDefaultApp(apps, this.settings.getSettings().serviceSettings.defaultAppName)
+        const local = pickDefaultApp(apps, this.settings.getSettings().serviceSettings.defaultAppName)
         if (!local) {
             throw new Error("local app not initialized correctly")
         }

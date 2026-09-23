@@ -23,8 +23,9 @@ import { TxPointSettings } from '../storage/tlv/stateBundler.js';
 import { WalletKitClient } from '../../../proto/lnd/walletkit.client.js';
 import SettingsManager from '../main/settingsManager.js';
 import { LndNodeSettings, LndSettings } from '../main/settings.js';
-import { ListAddressesResponse, PublishResponse } from '../../../proto/lnd/walletkit.js';
+import { ListAddressesResponse, PublishResponse, ChangeAddressType } from '../../../proto/lnd/walletkit.js';
 import { isPaymentNotInitiatedError } from './trackPaymentError.js';
+import { Transaction } from 'bitcoinjs-lib'
 
 const DeadLineMetadata = (deadline = 10 * 1000) => ({ deadline: Date.now() + deadline })
 const GET_PAYMENT_FROM_HASH_TIMEOUT_MS = 10 * 1000
@@ -186,6 +187,57 @@ export default class {
             txHex: Buffer.from(txHex, 'hex'), label: ""
         }, DeadLineMetadata())
         return res.response
+    }
+
+    /**
+     * Build and sign an on-chain payment without broadcasting.
+     * UTXOs are locked by FundPsbt until publish or lease expiry.
+     */
+    async CraftAddressPayment(address: string, amount: number, satPerVByte: number): Promise<{ txId: string, txHex: string, feeSats: number }> {
+        this.log(DEBUG, "Crafting address payment (no broadcast)")
+        if (this.liquidProvider.getSettings().useOnlyLiquidityProvider) {
+            throw new Error("Address payments not supported when USE_ONLY_LIQUIDITY_PROVIDER is enabled")
+        }
+        if (this.outgoingOpsLocked) {
+            this.log(ERROR, "outgoing ops locked, rejecting craft request")
+            throw new Error("lnd node is currently out of sync")
+        }
+        await this.Health()
+        const funded = await this.walletKit.fundPsbt({
+            template: {
+                oneofKind: "raw",
+                raw: {
+                    inputs: [],
+                    outputs: { [address]: BigInt(amount) },
+                },
+            },
+            fees: { oneofKind: "satPerVbyte", satPerVbyte: BigInt(satPerVByte) },
+            account: "",
+            minConfs: 1,
+            spendUnconfirmed: false,
+            changeType: ChangeAddressType.UNSPECIFIED,
+            coinSelectionStrategy: CoinSelectionStrategy.STRATEGY_LARGEST,
+            maxFeeRatio: 0,
+            customLockId: new Uint8Array(0),
+            lockExpirationSeconds: 0n,
+        }, DeadLineMetadata())
+
+        const finalized = await this.walletKit.finalizePsbt({
+            fundedPsbt: funded.response.fundedPsbt,
+            account: "",
+        }, DeadLineMetadata())
+
+        const txHex = Buffer.from(finalized.response.rawFinalTx).toString('hex')
+        const tx = Transaction.fromHex(txHex)
+        const txId = tx.getId()
+        const inputSum = funded.response.lockedUtxos.reduce((sum, u) => sum + Number(u.value), 0)
+        const outputSum = tx.outs.reduce((sum, o) => sum + o.value, 0)
+        const feeSats = inputSum - outputSum
+        if (feeSats < 0) {
+            throw new Error("crafted transaction has negative fee")
+        }
+        this.log(DEBUG, "Crafted address payment", { txId, feeSats, amount })
+        return { txId, txHex, feeSats }
     }
 
     async GetInfo(): Promise<NodeInfo> {
@@ -481,6 +533,15 @@ export default class {
         return { numSatoshis: Number(res.response.numSatoshis), paymentHash: res.response.paymentHash }
     }
 
+    isMalformedBolt11 = (paymentRequest: string): boolean => {
+        try {
+            decodeBolt11(paymentRequest)
+            return false
+        } catch {
+            return true
+        }
+    }
+
     async ChannelBalance(): Promise<{ local: number, remote: number }> {
         this.log(DEBUG, "Getting channel balance")
         if (this.liquidProvider.getSettings().useOnlyLiquidityProvider) {
@@ -762,6 +823,10 @@ export default class {
         return res.response
     }
 
+    sumInitiatorCommitFees = (channels: { commitFee: bigint | number; initiator: boolean }[]): number =>
+        channels.reduce((sum, c) => c.initiator ? sum + Number(c.commitFee) : sum, 0)
+
+
     async GetTotalBalace() {
         this.log(DEBUG, "Getting total balance")
         const walletBalance = await this.GetWalletBalance()
@@ -770,8 +835,11 @@ export default class {
         const channelsBalance = await this.GetChannelBalance()
         const totalLightningBalanceMsats = (channelsBalance.localBalance?.msat || 0n) + (channelsBalance.unsettledLocalBalance?.msat || 0n)
         const totalLightningBalance = Math.ceil(Number(totalLightningBalanceMsats) / 1000)
-        this.utils.stateBundler.AddBalancePoint('channelBalance', totalLightningBalance)
-        const totalLndBalance = confirmedWalletBalance + totalLightningBalance
+        const { channels } = await this.ListChannels()
+        const commitFeeReserve = this.sumInitiatorCommitFees(channels)
+        const channelBalanceWithReserve = totalLightningBalance + commitFeeReserve
+        this.utils.stateBundler.AddBalancePoint('channelBalance', channelBalanceWithReserve)
+        const totalLndBalance = confirmedWalletBalance + channelBalanceWithReserve
         this.utils.stateBundler.AddBalancePoint('totalLndBalance', totalLndBalance)
         const othersFromLnd = { wc: Number(walletBalance.confirmedBalance), wu: Number(walletBalance.unconfirmedBalance), cl: Number(channelsBalance.localBalance?.msat), cul: Number(channelsBalance.unsettledLocalBalance?.msat), cr: Number(channelsBalance.remoteBalance?.msat), cur: Number(channelsBalance.unsettledRemoteBalance?.msat) }
         return { totalLndBalance, othersFromLnd }
@@ -780,7 +848,7 @@ export default class {
     async GetBalance(): Promise<BalanceInfo> { // TODO: remove this
         this.log(DEBUG, "Getting balance")
         if (this.liquidProvider.getSettings().useOnlyLiquidityProvider) {
-            return { confirmedBalance: 0, unconfirmedBalance: 0, totalBalance: 0, channelsBalance: [] }
+            return { confirmedBalance: 0, unconfirmedBalance: 0, totalBalance: 0, channelsBalance: [], totalChannelsBalance: 0 }
         }
         const wRes = await this.lightning.walletBalance({ account: "", minConfs: 1 }, DeadLineMetadata())
         const { confirmedBalance, unconfirmedBalance, totalBalance } = wRes.response
@@ -791,9 +859,14 @@ export default class {
             channelId: c.chanId,
             localBalanceSats: Number(c.localBalance),
             remoteBalanceSats: Number(c.remoteBalance),
+            active: c.active,
+            commitFeeSats: Number(c.commitFee),
+            initiator: c.initiator,
             htlcs: c.pendingHtlcs.map(htlc => ({ incoming: htlc.incoming, amount: Number(htlc.amount), index: Number(htlc.htlcIndex), fwIndex: Number(htlc.forwardingHtlcIndex) }))
         }))
-        return { confirmedBalance: Number(confirmedBalance), unconfirmedBalance: Number(unconfirmedBalance), totalBalance: Number(totalBalance), channelsBalance }
+        const localChannels = channelsBalance.reduce((acc, c) => acc + c.localBalanceSats, 0)
+        const totalChannelsBalance = localChannels + this.sumInitiatorCommitFees(response.channels)
+        return { confirmedBalance: Number(confirmedBalance), unconfirmedBalance: Number(unconfirmedBalance), totalBalance: Number(totalBalance), channelsBalance, totalChannelsBalance }
     }
 
     async GetForwardingHistory(indexOffset: number, startTime = 0, endTime = 0): Promise<ForwardingHistoryResponse> {
@@ -931,6 +1004,17 @@ export default class {
         this.log(DEBUG, "Listing peers")
         const res = await this.lightning.listPeers({ latestError: true }, DeadLineMetadata())
         return res.response
+    }
+
+    async ListUnspent() {
+        this.log(DEBUG, "Listing unspent")
+        const res = await this.walletKit.listUnspent({
+            minConfs: 0,
+            maxConfs: 0,
+            account: "",
+            unconfirmedOnly: false,
+        }, DeadLineMetadata())
+        return res.response.utxos || []
     }
 
     async OpenChannel(destination: string, closeAddress: string, fundingAmount: number, pushSats: number, satsPerVByte: number): Promise<OpenStatusUpdate> {
