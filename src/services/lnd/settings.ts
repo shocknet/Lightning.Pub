@@ -9,6 +9,9 @@ export type ChannelBalance = {
     channelId: string;
     localBalanceSats: number;
     remoteBalanceSats: number;
+    active: boolean;
+    commitFeeSats?: number;
+    initiator?: boolean;
     htlcs: { incoming: boolean, amount: number }[]
 }
 export type BalanceInfo = {
@@ -16,6 +19,8 @@ export type BalanceInfo = {
     unconfirmedBalance: number;
     totalBalance: number;
     channelsBalance: ChannelBalance[];
+    /** Sum of local balances plus initiator commit fees still owned in open channels. */
+    totalChannelsBalance: number;
 }
 
 export type UnlockLndCb = () => Promise<'created' | 'unlocked' | 'noaction'>

@@ -1,7 +1,7 @@
 import WebSocket from 'ws'
 Object.assign(global, { WebSocket: WebSocket });
 import { Event, UnsignedEvent, Relay, Filter } from 'nostr-tools'
-import { ERROR, getLogger, PubLogger } from '../helpers/logger.js'
+import { getLogger, PubLogger } from '../helpers/logger.js'
 import { Subscription } from 'nostr-tools/lib/types/abstract-relay.js';
 
 type RelayCallback = (event: Event, relay: RelayConnection) => void
@@ -14,16 +14,33 @@ const completeFilter = (filter: PartialFilter, sinceMs: number): Filter => {
     }
     return filter.f
 }
-/* nostr events deduper will remove events older than NOSTR_EVENTS_TTL */
-const NOSTR_EVENTS_TTL = 1000 * 60 * 20 // 20 minutes
+/* nostr events deduper will remove events older than NOSTR_EVENTS_TTL_MS */
+export const NOSTR_EVENTS_TTL_MS = 1000 * 60 * 20 // 20 minutes
+/* allow moderate clock skew for senders slightly ahead of this node */
+export const NOSTR_EVENT_MAX_FUTURE_SKEW_MS = 1000 * 60 * 2 // 2 minutes
 /* interval used to trigger the cleanup check, */
-const INTERVAL_MS = NOSTR_EVENTS_TTL / 2 // 10 minutes
-/* Event age must be at least NOSTR_EVENTS_TTL ms old to be deduped (20min)
+const INTERVAL_MS = NOSTR_EVENTS_TTL_MS / 2 // 10 minutes
+/* Event age must be at least NOSTR_EVENTS_TTL_MS ms old to be deduped (20min)
 IF uptime < INTERVAL_MS (10min):
 - since = startedAtMs (events can only be as old as uptime)
 ELSE:
 - since = now - INTERVAL_MS (events can be up to 10min old)
 */
+
+/** Reject signed events whose created_at is too old (replay) or too far in the future (clock skew). */
+export const isEventTimestampFresh = (createdAtSec: number, nowMs = Date.now()): boolean => {
+    if (!Number.isFinite(createdAtSec) || createdAtSec <= 0) {
+        return false
+    }
+    const createdAtMs = createdAtSec * 1000
+    if (createdAtMs > nowMs + NOSTR_EVENT_MAX_FUTURE_SKEW_MS) {
+        return false
+    }
+    if (nowMs - createdAtMs > NOSTR_EVENTS_TTL_MS) {
+        return false
+    }
+    return true
+}
 export class EventsDeduper {
     handledEvents: Map<string, { handledAt: number }> = new Map()
     cleanupInterval: NodeJS.Timeout | undefined
@@ -61,7 +78,7 @@ export class EventsDeduper {
         this.cleanupInterval = setInterval(() => {
             const now = Date.now()
             this.handledEvents.forEach((value, key) => {
-                if (now - value.handledAt > NOSTR_EVENTS_TTL) {
+                if (now - value.handledAt > NOSTR_EVENTS_TTL_MS) {
                     this.handledEvents.delete(key)
                 }
             })
@@ -179,10 +196,14 @@ export class RelayConnection {
     }
 
     Send(e: Event) {
-        if (!this.relay) {
+        if (!this.relay?.connected) {
             throw new Error("relay not connected")
         }
         return this.relay.publish(e)
+    }
+
+    IsConnected() {
+        return !!this.relay?.connected
     }
 }
 
