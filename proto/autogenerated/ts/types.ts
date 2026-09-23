@@ -974,18 +974,16 @@ export const AppUserValidate = (o?: AppUser, opts: AppUserOptions = {}, path: st
 }
 
 export type AppUserAdminInfo = {
-    app_id?: string
     app_name?: string
     app_user_id: string
     has_callback_url: boolean
     has_topic_id: boolean
     npub: string
 }
-export type AppUserAdminInfoOptionalField = 'app_id' | 'app_name'
-export const AppUserAdminInfoOptionalFields: AppUserAdminInfoOptionalField[] = ['app_id', 'app_name']
+export type AppUserAdminInfoOptionalField = 'app_name'
+export const AppUserAdminInfoOptionalFields: AppUserAdminInfoOptionalField[] = ['app_name']
 export type AppUserAdminInfoOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: AppUserAdminInfoOptionalField[]
-    app_id_CustomCheck?: (v?: string) => boolean
     app_name_CustomCheck?: (v?: string) => boolean
     app_user_id_CustomCheck?: (v: string) => boolean
     has_callback_url_CustomCheck?: (v: boolean) => boolean
@@ -995,9 +993,6 @@ export type AppUserAdminInfoOptions = OptionsBaseMessage & {
 export const AppUserAdminInfoValidate = (o?: AppUserAdminInfo, opts: AppUserAdminInfoOptions = {}, path: string = 'AppUserAdminInfo::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
     if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
-
-    if ((o.app_id || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('app_id')) && typeof o.app_id !== 'string') return new Error(`${path}.app_id: is not a string`)
-    if (opts.app_id_CustomCheck && !opts.app_id_CustomCheck(o.app_id)) return new Error(`${path}.app_id: custom check failed`)
 
     if ((o.app_name || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('app_name')) && typeof o.app_name !== 'string') return new Error(`${path}.app_name: is not a string`)
     if (opts.app_name_CustomCheck && !opts.app_name_CustomCheck(o.app_name)) return new Error(`${path}.app_name: custom check failed`)

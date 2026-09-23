@@ -14,16 +14,14 @@ function appUserAdminInfo(appUser: {
     nostr_public_key?: string
     callback_url: string
     topic_id: string
-    application?: { app_id: string, name: string }
+    application?: { name: string }
 }): Types.AppUserAdminInfo {
     return {
         app_user_id: appUser.identifier,
         npub: appUser.nostr_public_key || "",
         has_callback_url: appUser.callback_url !== "",
         has_topic_id: appUser.topic_id !== "",
-        ...(appUser.application
-            ? { app_id: appUser.application.app_id, app_name: appUser.application.name }
-            : {}),
+        ...(appUser.application ? { app_name: appUser.application.name } : {}),
     }
 }
 

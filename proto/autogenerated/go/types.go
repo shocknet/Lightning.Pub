@@ -170,7 +170,6 @@ type AppUser struct {
 	Max_withdrawable int64     `json:"max_withdrawable"`
 }
 type AppUserAdminInfo struct {
-	App_id           string `json:"app_id"`
 	App_name         string `json:"app_name"`
 	App_user_id      string `json:"app_user_id"`
 	Has_callback_url bool   `json:"has_callback_url"`

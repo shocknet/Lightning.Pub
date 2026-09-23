@@ -66,8 +66,7 @@ message AppUserAdminInfo {
     string npub = 2;
     bool has_callback_url = 3;
     bool has_topic_id = 4;
-    optional string app_id = 5;
-    optional string app_name = 6;
+    optional string app_name = 5;
 }
 
 message UserAdminInfo {

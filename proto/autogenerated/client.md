@@ -1294,7 +1294,6 @@ The nostr server will send back a message response, and inside the body there wi
   - __max_withdrawable__: _number_
 
 ### AppUserAdminInfo
-  - __app_id__: _string_ *this field is optional
   - __app_name__: _string_ *this field is optional
   - __app_user_id__: _string_
   - __has_callback_url__: _boolean_
