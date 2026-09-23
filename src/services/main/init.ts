@@ -45,6 +45,11 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
     const utils = storageManager.utils
     const swaps = new Swaps(settingsManager, storageManager)
     const adminManager = new AdminManager(settingsManager, storageManager, swaps)
+    // Only an absent wallet waits for the wizard to unlock, so restore stays possible.
+    const walletExisted = await unlocker.WalletExists()
+    if (walletExisted) {
+        await unlocker.Unlock()
+    }
     let wizard: Wizard | null = null
     if (settingsManager.getSettings().serviceSettings.wizard) {
         wizard = new Wizard(settingsManager, storageManager, adminManager, restore, unlocker)
@@ -64,8 +69,9 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
             await wizard.Configure()
         }
     }
-
-    await unlocker.Unlock()
+    if (!walletExisted) {
+        await unlocker.Unlock()
+    }
 
     const seed = await unlocker.GetSeedIfAvailable()
     const backupManager = new BackupManager(storageManager, settingsManager)

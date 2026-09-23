@@ -23,6 +23,8 @@ type Seed = { plaintextSeed: string[], encryptedSeed: EncryptedData, entropy?: B
 const SCB_BACKUP_KIND = 30078
 const SCB_BACKUP_D_TAG = 'Lightning.Pub/backup/scb'
 const BACKUP_RESUBSCRIBE_SECONDS = 30
+const WALLET_STATE_WAIT_SECONDS = 300
+const WALLET_STATE_QUERY_SECONDS = 10
 export type AppKeys = { nostr_private_key: string, nostr_public_key: string }
 type AppWithKeys = Application & AppKeys
 
@@ -65,9 +67,31 @@ export class Unlocker {
         return { lndCert, macaroon }
     }
 
-    IsInitialized = () => {
-        const { macaroon } = this.getCreds()
-        return macaroon !== ''
+    WalletExists = async (): Promise<boolean> => {
+        if (this.settings.getSettings().liquiditySettings.useOnlyLiquidityProvider) {
+            return false
+        }
+        return (await this.getWalletState(WALLET_STATE_WAIT_SECONDS)) !== WalletState.NON_EXISTING
+    }
+
+    HasSeedForNode = async (): Promise<boolean> => {
+        if (this.settings.getSettings().liquiditySettings.useOnlyLiquidityProvider) {
+            return false
+        }
+        try {
+            if (this.nodePub) {
+                return !!(await this.storage.liquidityStorage.GetNoodeSeed(this.nodePub))
+            }
+            return (await this.getWalletState(WALLET_STATE_QUERY_SECONDS)) === WalletState.NON_EXISTING
+        } catch (err: any) {
+            this.log("failed to check seed for node", err.message || err)
+            return false
+        }
+    }
+
+    private getWalletState = (timeout: number | null) => {
+        const { lndCert } = this.getCreds()
+        return this.WaitWalletState(this.GetStateClient(lndCert), timeout)
     }
 
     Restore = async (seed: string[], recoveryWindow: number) => {
@@ -75,10 +99,7 @@ export class Unlocker {
             this.log("USE_ONLY_LIQUIDITY_PROVIDER enabled, skipping LND restore")
             throw new Error("USE_ONLY_LIQUIDITY_PROVIDER enabled, cannot restore LND")
         }
-        const { lndCert, macaroon } = this.getCreds()
-        if (macaroon !== "") {
-            throw new Error("lnd is already initialized, cannot restore")
-        }
+        const { lndCert } = this.getCreds()
         const state = this.GetStateClient(lndCert)
         const { adminMacaroon } = await this.initFlow(lndCert, state, { seed, recoveryWindow })
         return { adminMacaroon }
@@ -104,55 +125,45 @@ export class Unlocker {
             this.log("USE_ONLY_LIQUIDITY_PROVIDER enabled, skipping LND unlock")
             return 'noaction'
         }
-        const { lndCert, macaroon } = this.getCreds()
+        const { lndCert } = this.getCreds()
         const state = this.GetStateClient(lndCert)
-        if (macaroon === "") {
+        const walletState = await this.WaitWalletState(state, WALLET_STATE_WAIT_SECONDS)
+        if (walletState === WalletState.NON_EXISTING) {
             const { ln, seed, candidatePubs } = await this.initFlow(lndCert, state)
             this.nodePub = await this.confirmNewWalletPub(state, ln, candidatePubs, seed.encryptedSeed)
             this.subscribeToBackups(ln, state, this.nodePub)
             return 'created'
         }
-        const { ln, pub, action } = await this.unlockFlow(lndCert, macaroon)
+        const { ln, pub, action } = await this.unlockFlow(lndCert, state, walletState)
         this.subscribeToBackups(ln, state, pub)
         return action
     }
 
-    private unlockFlow = async (lndCert: Buffer, macaroon: string): Promise<{ ln: LightningClient, pub: string, action: 'unlocked' | 'noaction' }> => {
+    private unlockFlow = async (lndCert: Buffer, state: StateClient, walletState: WalletState): Promise<{ ln: LightningClient, pub: string, action: 'unlocked' | 'noaction' }> => {
+        const action = walletState === WalletState.LOCKED ? 'unlocked' : 'noaction'
+        if (walletState === WalletState.LOCKED) {
+            this.log("wallet is locked, unlocking...")
+            const walletPassword = this.GetWalletPassword()
+            await this.GetUnlockerClient(lndCert).unlockWallet({ walletPassword, recoveryWindow: 0, statelessInit: false, channelBackups: undefined }, DeadLineMetadata())
+        }
+        await this.WaitWalletState(state, null, WalletState.SERVER_ACTIVE)
+        const { macaroon } = this.getCreds()
+        if (macaroon === "") {
+            throw new Error("lnd is running but no macaroon was found, check LND_MACAROON_PATH")
+        }
         const ln = this.GetLightningClient(lndCert, macaroon)
-        const info = await this.GetLndInfo(ln)
-        if (info.ok) {
-            this.log("the wallet is already unlocked with pub:", info.pub)
-            this.nodePub = info.pub
-            return { ln, pub: info.pub, action: 'noaction' }
-        }
-        if (info.failure !== 'locked') {
-            throw new Error("failed to get lnd info for reason: " + info.failure)
-        }
-        this.log("wallet is locked, unlocking...")
-        const unlocker = this.GetUnlockerClient(lndCert)
-        const walletPassword = this.GetWalletPassword()
-        await unlocker.unlockWallet({ walletPassword, recoveryWindow: 0, statelessInit: false, channelBackups: undefined }, DeadLineMetadata())
-        let infoAfter = await this.GetLndInfo(ln)
-        if (!infoAfter.ok) {
-            this.log("failed to unlock lnd wallet, retrying in 5 seconds...")
-            await new Promise(resolve => setTimeout(resolve, 5000))
-            infoAfter = await this.GetLndInfo(ln)
-            if (!infoAfter.ok) {
-                throw new Error("failed to unlock lnd wallet " + infoAfter.failure)
-            }
-        }
-        this.log("unlocked wallet with pub:", infoAfter.pub)
-        this.nodePub = infoAfter.pub
-        return { ln, pub: infoAfter.pub, action: 'unlocked' }
+        const pub = await this.waitForNodePub(state, ln)
+        this.log(action === 'unlocked' ? "unlocked wallet with pub:" : "the wallet is already unlocked with pub:", pub)
+        this.nodePub = pub
+        return { ln, pub, action }
     }
 
 
     private initFlow = async (lndCert: Buffer, state: StateClient, restore?: { seed: string[], recoveryWindow: number }) => {
         this.log("creating wallet...")
-        const stateResult = await this.WaitWalletState(state, 300) // Wait up to 5 minutes
+        const stateResult = await this.WaitWalletState(state, WALLET_STATE_WAIT_SECONDS)
         if (stateResult !== WalletState.NON_EXISTING) {
-            const stateString = WalletState[stateResult]
-            throw new Error("LND is not in the expected state: " + stateString)
+            throw new Error("lnd already has a wallet (state: " + WalletState[stateResult] + "), cannot create one")
         }
         const unlocker = this.GetUnlockerClient(lndCert)
         const seed = await this.getSeed(unlocker, restore)
@@ -262,10 +273,6 @@ export class Unlocker {
             this.log("failed to get seed", err.message)
             return []
         }
-    }
-
-    HasSeed = async (): Promise<boolean> => {
-        return this.storage.liquidityStorage.HasAnySeed()
     }
 
     GetLndInfo = async (ln: LightningClient): Promise<{ ok: false, failure: 'locked' | 'unknown' } | { ok: true, pub: string }> => {
@@ -531,7 +538,9 @@ export class Unlocker {
             stream.responses.onMessage(async (msg) => {
                 this.log("Current LND state: ", msg.state)
                 if (expect === null) {
-                    done(msg.state)
+                    if (msg.state !== WalletState.WAITING_TO_START) {
+                        done(msg.state)
+                    }
                 } else if (msg.state === expect) {
                     done(msg.state)
                 }

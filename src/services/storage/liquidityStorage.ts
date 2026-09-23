@@ -24,11 +24,6 @@ export class LiquidityStorage {
         return node?.seed
     }
 
-    async HasAnySeed() {
-        const nodes = await this.dbs.Find<LndNodeInfo>('LndNodeInfo', {})
-        return nodes.some(n => !!n.seed)
-    }
-
     async SaveNodeSeed(pubkey: string, seed: string) {
         const existing = await this.dbs.FindOne<LndNodeInfo>('LndNodeInfo', { where: { pubkey } })
         if (existing) {

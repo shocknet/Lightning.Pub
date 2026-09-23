@@ -74,7 +74,7 @@ export class Wizard {
                 push_backups_to_nostr: this.settings.getSettings().serviceSettings.pushBackupsToNostr,
                 avatar_url: defaultApp?.avatar_url || '',
                 app_id: defaultApp?.app_id || '',
-                has_seed: await this.unlocker.HasSeed() || !this.unlocker.IsInitialized(),
+                has_seed: await this.unlocker.HasSeedForNode(),
                 is_db_clean: await this.storage.IsDbClean()
             }
         } catch (e) {
@@ -174,7 +174,7 @@ export class Wizard {
         })
         if (err != null) { throw new Error(err.message) }
 
-        const has_seed = await this.unlocker.HasSeed() || !this.unlocker.IsInitialized()
+        const has_seed = await this.unlocker.HasSeedForNode()
         if (!has_seed && req.push_backups_to_nostr) {
             this.log("Ignoring request to push backups to nostr because no seed is available")
             req.push_backups_to_nostr = false
