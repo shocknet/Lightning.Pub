@@ -10,7 +10,7 @@ import { NofferData, OfferPriceType, nofferEncode } from '@shocknet/clink-sdk';
 import { BackupManager } from "../backup/backupManager.js";
 import SettingsManager from "../main/settingsManager.js";
 import { assertCallbackUrlAllowed } from "../helpers/safeOutboundFetch.js";
-import { assertValidOfferPriceSats } from "../helpers/offerValidation.js";
+import { assertValidOfferPriceSats, defaultOfferWebhookRejection, DEFAULT_OFFER_NO_DELETE, isDefaultUserOffer } from "../helpers/offerValidation.js";
 import { NofferError } from "./offerTypes.js";
 import { ClinkCtx } from "./clinkTypes.js";
 
@@ -71,6 +71,9 @@ export class OfferManager {
     }
 
     async DeleteUserOffer(ctx: Types.UserContext, req: Types.OfferId) {
+        if (isDefaultUserOffer(ctx.app_user_id, req.offer_id)) {
+            throw new Error(DEFAULT_OFFER_NO_DELETE)
+        }
         await this.storage.offerStorage.DeleteUserOffer(ctx.app_user_id, req.offer_id)
         this.backupManager.notifyBackupTable('user_offers')
     }
@@ -78,6 +81,12 @@ export class OfferManager {
     async UpdateUserOffer(ctx: Types.UserContext, req: Types.OfferUpdateRequest) {
         assertValidOfferPriceSats(req.price_sats)
         assertCallbackUrlAllowed(req.callback_url)
+        if (isDefaultUserOffer(ctx.app_user_id, req.offer_id)) {
+            const rejection = defaultOfferWebhookRejection(req)
+            if (rejection) {
+                throw new Error(rejection)
+            }
+        }
         await this.storage.offerStorage.UpdateUserOffer(ctx.app_user_id, req.offer_id, {
             payer_data: req.payer_data,
             label: req.label,

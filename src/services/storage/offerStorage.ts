@@ -3,6 +3,7 @@ import { UserOffer } from "./entity/UserOffer.js";
 import { StorageInterface } from "./db/storageInterface.js";
 import { mapUserOfferBackupRow, UserOfferRow } from '../backup/segments.js';
 import { getLogger } from '../helpers/logger.js';
+import { DEFAULT_OFFER_LABEL } from '../helpers/offerValidation.js';
 export default class {
 
 
@@ -48,7 +49,7 @@ export default class {
         return this.dbs.CreateAndSave<UserOffer>('UserOffer', {
             app_user_id: appUserId,
             offer_id: appUserId,
-            label: 'Default CLINK Offer',
+            label: DEFAULT_OFFER_LABEL,
         })
     }
     async AddUserOffer(appUserId: string, req: Partial<UserOffer>): Promise<UserOffer> {

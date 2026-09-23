@@ -5,7 +5,7 @@ import { nofferEncode, OfferPointer, OfferPriceType, NmanageRequest, NmanageSucc
 import { getLogger, PubLogger, ERROR } from "../helpers/logger.js";
 import SettingsManager from "../main/settingsManager.js";
 import { assertCallbackUrlAllowed, SafeOutboundFetchError } from "../helpers/safeOutboundFetch.js";
-import { assertValidOfferPriceSats } from "../helpers/offerValidation.js";
+import { assertValidOfferPriceSats, defaultOfferWebhookRejection, DEFAULT_OFFER_LABEL, DEFAULT_OFFER_NO_DELETE, isDefaultUserOffer } from "../helpers/offerValidation.js";
 import { isAccountOwner, denyStrangerLiveAuth } from "./clinkOwner.js";
 import { ClinkCtx, ClinkError, encodeClinkResponse } from "./clinkTypes.js";
 import { CLINK_MANAGE_KIND } from "./clinkConstants.js";
@@ -307,6 +307,33 @@ export class ManagementManager {
         }
     }
 
+    private offerUpdateFields(offer: UserOffer, fields: OfferFields): Partial<UserOffer> {
+        if (!isDefaultUserOffer(offer.app_user_id, offer.offer_id)) {
+            return {
+                label: fields.label,
+                callback_url: fields.callback_url,
+                price_sats: fields.price_sats,
+                payer_data: fields.payer_data,
+            }
+        }
+        return {
+            label: DEFAULT_OFFER_LABEL,
+            callback_url: fields.callback_url ?? "",
+            price_sats: 0,
+            payer_data: null,
+        }
+    }
+
+    private rejectDefaultOfferEdit(offer: UserOffer, fields: OfferFields) {
+        if (!isDefaultUserOffer(offer.app_user_id, offer.offer_id)) {
+            return
+        }
+        const rejection = defaultOfferWebhookRejection(fields)
+        if (rejection) {
+            throw new NmanageError({ code: 1, message: rejection })
+        }
+    }
+
     private async validateOfferAccess(offerId: string, requestorPub: string, appId: string): Promise<UserOffer> {
         const offer = await this.storage.offerStorage.GetOffer(offerId)
         if (!offer) {
@@ -325,17 +352,17 @@ export class ManagementManager {
     private async updateOffer(nmanageReq: NmanageUpdateOffer, requestorPub: string, appId: string): Promise<UserOffer> {
         const offer = await this.validateOfferAccess(nmanageReq.offer.id, requestorPub, appId)
         this.validateOfferFields(nmanageReq.offer.fields)
+        this.rejectDefaultOfferEdit(offer, nmanageReq.offer.fields)
         for (const data of nmanageReq.offer.fields.payer_data || []) {
             if (typeof data !== 'string') {
                 throw new NmanageError({ code: 5, message: 'Invalid Field/Value', opts: { field: 'payer_data' } })
             }
         }
-        await this.storage.offerStorage.UpdateUserOffer(offer.app_user_id, nmanageReq.offer.id, {
-            label: nmanageReq.offer.fields.label,
-            callback_url: nmanageReq.offer.fields.callback_url,
-            price_sats: nmanageReq.offer.fields.price_sats,
-            payer_data: nmanageReq.offer.fields.payer_data,
-        })
+        await this.storage.offerStorage.UpdateUserOffer(
+            offer.app_user_id,
+            nmanageReq.offer.id,
+            this.offerUpdateFields(offer, nmanageReq.offer.fields),
+        )
         this.backupManager.notifyBackupTable('user_offers')
         const updatedOffer = await this.storage.offerStorage.GetOffer(nmanageReq.offer.id)
         if (!updatedOffer) {
@@ -346,6 +373,9 @@ export class ManagementManager {
 
     private async deleteOffer(nmanageReq: NmanageDeleteOffer, requestorPub: string, appId: string): Promise<void> {
         const offer = await this.validateOfferAccess(nmanageReq.offer.id, requestorPub, appId)
+        if (isDefaultUserOffer(offer.app_user_id, offer.offer_id)) {
+            throw new NmanageError({ code: 1, message: DEFAULT_OFFER_NO_DELETE })
+        }
         await this.storage.offerStorage.DeleteUserOffer(offer.app_user_id, offer.offer_id)
         this.backupManager.notifyBackupTable('user_offers')
     }
