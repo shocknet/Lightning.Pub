@@ -403,6 +403,19 @@ const fetchFile = async (log: PubLogger, keys: DerivedKeys, opts: wizardTypes.Re
     }
 }
 
+function failureMessage(source: wizardTypes.RestoreRequest_source_type, shard: BackupTableId): string {
+    const name = backupTableFilename(shard)
+    switch (source) {
+        case wizardTypes.RestoreRequest_source_type.CLOUD:
+            return `No backup found for this seed on the managed service (missing ${name}). Were backups enabled on the original instance? Did this seed ever run Lightning.Pub?`
+        case wizardTypes.RestoreRequest_source_type.FTP_HOST:
+            return `Could not connect or ${name} not found — verify host, credentials, and path.`
+        case wizardTypes.RestoreRequest_source_type.LOCAL_PATH:
+            return `${name} not found or path is not a readable directory — expected a folder of per-table *.enc shards from backup.`
+    }
+}
+
+
 export const parseRestoreFlags = (flags: Record<string, string>): wizardTypes.RestoreRequest => {
     const phrase = flags['phrase']
     if (!phrase) {
