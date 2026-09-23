@@ -5,7 +5,8 @@ import { getLogger } from '../helpers/logger.js';
 import EventsLogManager from './eventsLog.js';
 import { StorageInterface } from './db/storageInterface.js';
 import { UserAccess } from './entity/UserAccess.js';
-import { LessThan, MoreThan } from 'typeorm';
+import { In, LessThan, MoreThan } from 'typeorm';
+import { InsufficientBalanceError } from '../main/invoicePaymentErrors.js';
 export default class {
     dbs: StorageInterface
     eventsLog: EventsLogManager
@@ -23,6 +24,11 @@ export default class {
             user_id: crypto.randomBytes(32).toString('hex'),
             balance_sats: balance
         }, txId)
+    }
+
+    async GetUsers(filter: { skip?: number, take?: number }): Promise<{ users: User[], total: number }> {
+        const [users, total] = await this.dbs.FindAndCount<User>('User', { skip: filter.skip, take: filter.take || 20, order: { updated_at: 'DESC' } })
+        return { users, total }
     }
 
     /*     async AddBasicUser(name: string, secret: string): Promise<UserBasicAuth> {
@@ -112,7 +118,7 @@ export default class {
         const user = await this.GetUser(userId, txId)
         if (!user || user.balance_sats < decrement) {
             getLogger({ userId: userId, component: "balanceUpdates" })("not enough balance to decrement")
-            throw new Error("not enough balance to decrement")
+            throw new InsufficientBalanceError()
         }
         const affected = await this.dbs.Decrement<User>('User', { user_id: userId, balance_sats: user.balance_sats }, "balance_sats", decrement, txId)
         if (!affected) {
@@ -126,6 +132,14 @@ export default class {
     async UpdateUser(userId: string, update: Partial<User>, txId?: string) {
         const user = await this.GetUser(userId, txId)
         await this.dbs.Update<User>('User', user.serial_id, update, txId)
+    }
+
+    async GetLastSeenForUsers(userIds: string[], txId?: string): Promise<Map<string, number>> {
+        const seen = new Map<string, number>()
+        if (userIds.length === 0) return seen
+        const rows = await this.dbs.Find<UserAccess>('UserAccess', { where: { user_id: In(userIds) } }, txId)
+        for (const row of rows) seen.set(row.user_id, row.last_seen_at_unix)
+        return seen
     }
 
     async UpsertUserAccess(userId: string, lastSeenAtUnix: number, txId?: string) {

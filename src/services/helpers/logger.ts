@@ -14,37 +14,80 @@ if (logLevel !== "DEBUG" && logLevel !== "INFO" && logLevel !== "ERROR") {
     throw new Error("Invalid log level " + logLevel + " must be one of (DEBUG, INFO, ERROR)")
 }
 const z = (n: number) => n < 10 ? `0${n}` : `${n}`
-// Sanitize filename to remove invalid characters for filesystem
 const sanitizeFileName = (fileName: string): string => {
-    // Replace invalid filename characters with underscores
-    // Invalid on most filesystems: / \ : * ? " < > |
     return fileName.replace(/[/\\:*?"<>|]/g, '_')
 }
-const openWriter = (fileName: string): Writer => {
+const todayStamp = () => {
     const now = new Date()
-    const date = `${now.getFullYear()}-${z(now.getMonth() + 1)}-${z(now.getDate())}`
-    const logPath = `${logsDir}/${fileName}_${date}.log`
-    // Ensure parent directory exists
-    const dirPath = logPath.substring(0, logPath.lastIndexOf('/'))
+    return `${now.getFullYear()}-${z(now.getMonth() + 1)}-${z(now.getDate())}`
+}
+const ensureDir = (dirPath: string) => {
     if (!fs.existsSync(dirPath)) {
         fs.mkdirSync(dirPath, { recursive: true })
     }
-    const logStream = fs.createWriteStream(logPath, { flags: 'a' });
-    return (message) => {
-        logStream.write(message + "\n")
+}
+type CachedFile = { date: string, fd: number }
+const filesByName = new Map<string, CachedFile>()
+const writersByFileName = new Map<string, Writer>()
+const ROOT_LOG = "ROOT.log"
+export const MAX_CACHED_LOG_STREAMS = 128
+const closeFile = (fileName: string, cached: CachedFile) => {
+    try {
+        fs.closeSync(cached.fd)
+    } catch {
+    }
+    writersByFileName.delete(fileName)
+}
+const getFd = (fileName: string): number => {
+    const date = todayStamp()
+    const cached = filesByName.get(fileName)
+    if (cached && cached.date === date) {
+        filesByName.delete(fileName)
+        filesByName.set(fileName, cached)
+        return cached.fd
+    }
+    if (cached) {
+        closeFile(fileName, cached)
+        filesByName.delete(fileName)
+    }
+    return openFile(fileName, date)
+}
+const openFile = (fileName: string, date: string): number => {
+    evictOldestIfFull()
+    const logPath = `${logsDir}/${fileName}_${date}.log`
+    ensureDir(logPath.substring(0, logPath.lastIndexOf('/')))
+    const fd = fs.openSync(logPath, 'a')
+    filesByName.set(fileName, { date, fd })
+    return fd
+}
+const evictOldestIfFull = () => {
+    if (filesByName.size < MAX_CACHED_LOG_STREAMS) {
+        return
+    }
+    for (const [key, cached] of filesByName) {
+        if (key === ROOT_LOG) {
+            continue
+        }
+        closeFile(key, cached)
+        filesByName.delete(key)
+        return
     }
 }
-const rootWriter = openWriter("ROOT.log")
-if (!fs.existsSync(`${logsDir}/apps`)) {
-    fs.mkdirSync(`${logsDir}/apps`, { recursive: true });
+const openWriter = (fileName: string): Writer => {
+    const cached = writersByFileName.get(fileName)
+    if (cached) {
+        return cached
+    }
+    getFd(fileName)
+    const writer: Writer = (message) => {
+        fs.writeSync(getFd(fileName), message + "\n")
+    }
+    writersByFileName.set(fileName, writer)
+    return writer
 }
-if (!fs.existsSync(`${logsDir}/users`)) {
-    fs.mkdirSync(`${logsDir}/users`, { recursive: true });
-}
-if (!fs.existsSync(`${logsDir}/components`)) {
-    fs.mkdirSync(`${logsDir}/components`, { recursive: true });
-}
-export const getLogger = (params: LoggerParams): PubLogger => {
+export const cachedLogWriterCount = () => writersByFileName.size
+const rootWriter = openWriter(ROOT_LOG)
+const writersFor = (params: LoggerParams): Writer[] => {
     const writers: Writer[] = []
     if (params.appName) {
         writers.push(openWriter(`apps/${sanitizeFileName(params.appName)}`))
@@ -58,6 +101,19 @@ export const getLogger = (params: LoggerParams): PubLogger => {
     if (writers.length === 0) {
         writers.push(rootWriter)
     }
+    return writers
+}
+if (!fs.existsSync(`${logsDir}/apps`)) {
+    fs.mkdirSync(`${logsDir}/apps`, { recursive: true });
+}
+if (!fs.existsSync(`${logsDir}/users`)) {
+    fs.mkdirSync(`${logsDir}/users`, { recursive: true });
+}
+if (!fs.existsSync(`${logsDir}/components`)) {
+    fs.mkdirSync(`${logsDir}/components`, { recursive: true });
+}
+export const getLogger = (params: LoggerParams): PubLogger => {
+    const writers = writersFor(params)
 
     return (...message) => {
         switch (message[0]) {

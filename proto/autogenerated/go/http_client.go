@@ -76,12 +76,14 @@ type Client struct {
 	EnrollAdminToken              func(req EnrollAdminTokenRequest) error
 	EnrollMessagingToken          func(req MessagingToken) error
 	GetAdminInvoiceSwapQuotes     func(req InvoiceSwapRequest) (*InvoiceSwapQuoteList, error)
+	GetAdminNodeSettings          func() (*AdminNodeSettings, error)
 	GetAdminTransactionSwapQuotes func(req TransactionSwapRequest) (*TransactionSwapQuoteList, error)
 	GetApp                        func() (*Application, error)
 	GetAppUser                    func(req GetAppUserRequest) (*AppUser, error)
 	GetAppUserLNURLInfo           func(req GetAppUserLNURLInfoRequest) (*LnurlPayInfoResponse, error)
 	GetAppsMetrics                func(req AppsMetricsRequest) (*AppsMetrics, error)
 	GetAssetsAndLiabilities       func(req AssetsAndLiabilitiesReq) (*AssetsAndLiabilities, error)
+	GetAssetsAndLiabilitiesV2     func(req AssetsAndLiabilitiesReqV2) (*AssetsAndLiabilitiesV2, error)
 	GetBundleMetrics              func(req LatestBundleMetricReq) (*BundleMetrics, error)
 	GetDebitAuthorizations        func() (*DebitAuthorizations, error)
 	GetErrorStats                 func() (*ErrorStats, error)
@@ -112,6 +114,8 @@ type Client struct {
 	GetUserOfferInvoices          func(req GetUserOfferInvoicesReq) (*OfferInvoices, error)
 	GetUserOffers                 func() (*UserOffers, error)
 	GetUserOperations             func(req GetUserOperationsRequest) (*GetUserOperationsResponse, error)
+	GetUserOperationsFromAdmin    func(req GetUserOperationsRequest) (*GetUserOperationsResponse, error)
+	GetUsersAdminInfo             func(req UsersAdminInfoRequest) (*UsersAdminInfo, error)
 	HandleLnurlAddress            func(routeParams HandleLnurlAddress_RouteParams) (*LnurlPayInfoResponse, error)
 	HandleLnurlPay                func(query HandleLnurlPay_Query) (*HandleLnurlPayResponse, error)
 	HandleLnurlWithdraw           func(query HandleLnurlWithdraw_Query) error
@@ -120,7 +124,9 @@ type Client struct {
 	ListAdminInvoiceSwaps         func() (*InvoiceSwapsList, error)
 	ListAdminTxSwaps              func() (*TxSwapsList, error)
 	ListChannels                  func() (*LndChannels, error)
+	ListPeers                     func() (*LndPeers, error)
 	ListTxSwaps                   func() (*TxSwapsList, error)
+	ListUtxos                     func() (*LndUtxos, error)
 	LndGetInfo                    func(req LndGetInfoRequest) (*LndGetInfoResponse, error)
 	NewAddress                    func(req NewAddressRequest) (*NewAddressResponse, error)
 	NewInvoice                    func(req NewInvoiceRequest) (*NewInvoiceResponse, error)
@@ -146,6 +152,7 @@ type Client struct {
 	SetMockInvoiceAsPaid          func(req SetMockInvoiceAsPaidRequest) error
 	SubToWebRtcCandidates         func() (*WebRtcCandidate, error)
 	SubmitWebRtcMessage           func(req WebRtcMessage) (*WebRtcAnswer, error)
+	UpdateAdminNodeSettings       func(req UpdateAdminNodeSettingsRequest) (*AdminNodeSettings, error)
 	UpdateCallbackUrl             func(req CallbackUrl) (*CallbackUrl, error)
 	UpdateChannelPolicy           func(req UpdateChannelPolicyRequest) error
 	UpdateUserOffer               func(req OfferUpdateRequest) error
@@ -726,6 +733,28 @@ func NewClient(params ClientParams) *Client {
 			}
 			return &res, nil
 		},
+		GetAdminNodeSettings: func() (*AdminNodeSettings, error) {
+			auth, err := params.RetrieveAdminAuth()
+			if err != nil {
+				return nil, err
+			}
+			finalRoute := "/api/admin/node/settings"
+			resBody, err := doGetRequest(params.BaseURL+finalRoute, auth)
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return nil, err
+			}
+			if result.Status == "ERROR" {
+				return nil, fmt.Errorf(result.Reason)
+			}
+			res := AdminNodeSettings{}
+			err = json.Unmarshal(resBody, &res)
+			if err != nil {
+				return nil, err
+			}
+			return &res, nil
+		},
 		GetAdminTransactionSwapQuotes: func(req TransactionSwapRequest) (*TransactionSwapQuoteList, error) {
 			auth, err := params.RetrieveAdminAuth()
 			if err != nil {
@@ -891,6 +920,35 @@ func NewClient(params ClientParams) *Client {
 				return nil, fmt.Errorf(result.Reason)
 			}
 			res := AssetsAndLiabilities{}
+			err = json.Unmarshal(resBody, &res)
+			if err != nil {
+				return nil, err
+			}
+			return &res, nil
+		},
+		GetAssetsAndLiabilitiesV2: func(req AssetsAndLiabilitiesReqV2) (*AssetsAndLiabilitiesV2, error) {
+			auth, err := params.RetrieveAdminAuth()
+			if err != nil {
+				return nil, err
+			}
+			finalRoute := "/api/admin/assets/liabilities/v2"
+			body, err := json.Marshal(req)
+			if err != nil {
+				return nil, err
+			}
+			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
+			if err != nil {
+				return nil, err
+			}
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return nil, err
+			}
+			if result.Status == "ERROR" {
+				return nil, fmt.Errorf(result.Reason)
+			}
+			res := AssetsAndLiabilitiesV2{}
 			err = json.Unmarshal(resBody, &res)
 			if err != nil {
 				return nil, err
@@ -1600,6 +1658,64 @@ func NewClient(params ClientParams) *Client {
 			}
 			return &res, nil
 		},
+		GetUserOperationsFromAdmin: func(req GetUserOperationsRequest) (*GetUserOperationsResponse, error) {
+			auth, err := params.RetrieveAdminAuth()
+			if err != nil {
+				return nil, err
+			}
+			finalRoute := "/api/admin/user/operations"
+			body, err := json.Marshal(req)
+			if err != nil {
+				return nil, err
+			}
+			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
+			if err != nil {
+				return nil, err
+			}
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return nil, err
+			}
+			if result.Status == "ERROR" {
+				return nil, fmt.Errorf(result.Reason)
+			}
+			res := GetUserOperationsResponse{}
+			err = json.Unmarshal(resBody, &res)
+			if err != nil {
+				return nil, err
+			}
+			return &res, nil
+		},
+		GetUsersAdminInfo: func(req UsersAdminInfoRequest) (*UsersAdminInfo, error) {
+			auth, err := params.RetrieveAdminAuth()
+			if err != nil {
+				return nil, err
+			}
+			finalRoute := "/api/admin/users/info"
+			body, err := json.Marshal(req)
+			if err != nil {
+				return nil, err
+			}
+			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
+			if err != nil {
+				return nil, err
+			}
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return nil, err
+			}
+			if result.Status == "ERROR" {
+				return nil, fmt.Errorf(result.Reason)
+			}
+			res := UsersAdminInfo{}
+			err = json.Unmarshal(resBody, &res)
+			if err != nil {
+				return nil, err
+			}
+			return &res, nil
+		},
 		HandleLnurlAddress: func(routeParams HandleLnurlAddress_RouteParams) (*LnurlPayInfoResponse, error) {
 			auth, err := params.RetrieveGuestAuth()
 			if err != nil {
@@ -1805,6 +1921,28 @@ func NewClient(params ClientParams) *Client {
 			}
 			return &res, nil
 		},
+		ListPeers: func() (*LndPeers, error) {
+			auth, err := params.RetrieveAdminAuth()
+			if err != nil {
+				return nil, err
+			}
+			finalRoute := "/api/admin/peers"
+			resBody, err := doGetRequest(params.BaseURL+finalRoute, auth)
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return nil, err
+			}
+			if result.Status == "ERROR" {
+				return nil, fmt.Errorf(result.Reason)
+			}
+			res := LndPeers{}
+			err = json.Unmarshal(resBody, &res)
+			if err != nil {
+				return nil, err
+			}
+			return &res, nil
+		},
 		ListTxSwaps: func() (*TxSwapsList, error) {
 			auth, err := params.RetrieveUserAuth()
 			if err != nil {
@@ -1825,6 +1963,28 @@ func NewClient(params ClientParams) *Client {
 				return nil, fmt.Errorf(result.Reason)
 			}
 			res := TxSwapsList{}
+			err = json.Unmarshal(resBody, &res)
+			if err != nil {
+				return nil, err
+			}
+			return &res, nil
+		},
+		ListUtxos: func() (*LndUtxos, error) {
+			auth, err := params.RetrieveAdminAuth()
+			if err != nil {
+				return nil, err
+			}
+			finalRoute := "/api/admin/utxos"
+			resBody, err := doGetRequest(params.BaseURL+finalRoute, auth)
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return nil, err
+			}
+			if result.Status == "ERROR" {
+				return nil, fmt.Errorf(result.Reason)
+			}
+			res := LndUtxos{}
 			err = json.Unmarshal(resBody, &res)
 			if err != nil {
 				return nil, err
@@ -2467,6 +2627,35 @@ func NewClient(params ClientParams) *Client {
 				return nil, fmt.Errorf(result.Reason)
 			}
 			res := WebRtcAnswer{}
+			err = json.Unmarshal(resBody, &res)
+			if err != nil {
+				return nil, err
+			}
+			return &res, nil
+		},
+		UpdateAdminNodeSettings: func(req UpdateAdminNodeSettingsRequest) (*AdminNodeSettings, error) {
+			auth, err := params.RetrieveAdminAuth()
+			if err != nil {
+				return nil, err
+			}
+			finalRoute := "/api/admin/node/settings"
+			body, err := json.Marshal(req)
+			if err != nil {
+				return nil, err
+			}
+			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
+			if err != nil {
+				return nil, err
+			}
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return nil, err
+			}
+			if result.Status == "ERROR" {
+				return nil, fmt.Errorf(result.Reason)
+			}
+			res := AdminNodeSettings{}
 			err = json.Unmarshal(resBody, &res)
 			if err != nil {
 				return nil, err

@@ -257,6 +257,20 @@ export default (params: NostrClientParams,  send: (to:string, message: NostrRequ
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
+    GetAdminNodeSettings: async (): Promise<ResultError | ({ status: 'OK' }& Types.AdminNodeSettings)> => {
+        const auth = await params.retrieveNostrAdminAuth()
+        if (auth === null) throw new Error('retrieveNostrAdminAuth() returned null')
+        const nostrRequest: NostrRequest = {}
+        const data = await send(params.pubDestination, {rpcName:'GetAdminNodeSettings',authIdentifier:auth, ...nostrRequest }) 
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.AdminNodeSettingsValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
     GetAdminTransactionSwapQuotes: async (request: Types.TransactionSwapRequest): Promise<ResultError | ({ status: 'OK' }& Types.TransactionSwapQuoteList)> => {
         const auth = await params.retrieveNostrAdminAuth()
         if (auth === null) throw new Error('retrieveNostrAdminAuth() returned null')
@@ -298,6 +312,21 @@ export default (params: NostrClientParams,  send: (to:string, message: NostrRequ
             const result = data
             if(!params.checkResult) return { status: 'OK', ...result }
             const error = Types.AssetsAndLiabilitiesValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
+    GetAssetsAndLiabilitiesV2: async (request: Types.AssetsAndLiabilitiesReqV2): Promise<ResultError | ({ status: 'OK' }& Types.AssetsAndLiabilitiesV2)> => {
+        const auth = await params.retrieveNostrAdminAuth()
+        if (auth === null) throw new Error('retrieveNostrAdminAuth() returned null')
+        const nostrRequest: NostrRequest = {}
+        nostrRequest.body = request
+        const data = await send(params.pubDestination, {rpcName:'GetAssetsAndLiabilitiesV2',authIdentifier:auth, ...nostrRequest }) 
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.AssetsAndLiabilitiesV2Validate(result)
             if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
         }
         return { status: 'ERROR', reason: 'invalid response' }
@@ -696,6 +725,36 @@ export default (params: NostrClientParams,  send: (to:string, message: NostrRequ
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
+    GetUserOperationsFromAdmin: async (request: Types.GetUserOperationsRequest): Promise<ResultError | ({ status: 'OK' }& Types.GetUserOperationsResponse)> => {
+        const auth = await params.retrieveNostrAdminAuth()
+        if (auth === null) throw new Error('retrieveNostrAdminAuth() returned null')
+        const nostrRequest: NostrRequest = {}
+        nostrRequest.body = request
+        const data = await send(params.pubDestination, {rpcName:'GetUserOperationsFromAdmin',authIdentifier:auth, ...nostrRequest }) 
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.GetUserOperationsResponseValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
+    GetUsersAdminInfo: async (request: Types.UsersAdminInfoRequest): Promise<ResultError | ({ status: 'OK' }& Types.UsersAdminInfo)> => {
+        const auth = await params.retrieveNostrAdminAuth()
+        if (auth === null) throw new Error('retrieveNostrAdminAuth() returned null')
+        const nostrRequest: NostrRequest = {}
+        nostrRequest.body = request
+        const data = await send(params.pubDestination, {rpcName:'GetUsersAdminInfo',authIdentifier:auth, ...nostrRequest }) 
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.UsersAdminInfoValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
     LinkNPubThroughToken: async (request: Types.LinkNPubThroughTokenRequest): Promise<ResultError | ({ status: 'OK' })> => {
         const auth = await params.retrieveNostrGuestWithPubAuth()
         if (auth === null) throw new Error('retrieveNostrGuestWithPubAuth() returned null')
@@ -750,6 +809,20 @@ export default (params: NostrClientParams,  send: (to:string, message: NostrRequ
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
+    ListPeers: async (): Promise<ResultError | ({ status: 'OK' }& Types.LndPeers)> => {
+        const auth = await params.retrieveNostrAdminAuth()
+        if (auth === null) throw new Error('retrieveNostrAdminAuth() returned null')
+        const nostrRequest: NostrRequest = {}
+        const data = await send(params.pubDestination, {rpcName:'ListPeers',authIdentifier:auth, ...nostrRequest }) 
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.LndPeersValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
     ListTxSwaps: async (): Promise<ResultError | ({ status: 'OK' }& Types.TxSwapsList)> => {
         const auth = await params.retrieveNostrUserAuth()
         if (auth === null) throw new Error('retrieveNostrUserAuth() returned null')
@@ -760,6 +833,20 @@ export default (params: NostrClientParams,  send: (to:string, message: NostrRequ
             const result = data
             if(!params.checkResult) return { status: 'OK', ...result }
             const error = Types.TxSwapsListValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
+    ListUtxos: async (): Promise<ResultError | ({ status: 'OK' }& Types.LndUtxos)> => {
+        const auth = await params.retrieveNostrAdminAuth()
+        if (auth === null) throw new Error('retrieveNostrAdminAuth() returned null')
+        const nostrRequest: NostrRequest = {}
+        const data = await send(params.pubDestination, {rpcName:'ListUtxos',authIdentifier:auth, ...nostrRequest }) 
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.LndUtxosValidate(result)
             if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
         }
         return { status: 'ERROR', reason: 'invalid response' }
@@ -998,6 +1085,21 @@ export default (params: NostrClientParams,  send: (to:string, message: NostrRequ
             const result = data
             if(!params.checkResult) return { status: 'OK', ...result }
             const error = Types.WebRtcAnswerValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
+    UpdateAdminNodeSettings: async (request: Types.UpdateAdminNodeSettingsRequest): Promise<ResultError | ({ status: 'OK' }& Types.AdminNodeSettings)> => {
+        const auth = await params.retrieveNostrAdminAuth()
+        if (auth === null) throw new Error('retrieveNostrAdminAuth() returned null')
+        const nostrRequest: NostrRequest = {}
+        nostrRequest.body = request
+        const data = await send(params.pubDestination, {rpcName:'UpdateAdminNodeSettings',authIdentifier:auth, ...nostrRequest }) 
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.AdminNodeSettingsValidate(result)
             if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
         }
         return { status: 'ERROR', reason: 'invalid response' }

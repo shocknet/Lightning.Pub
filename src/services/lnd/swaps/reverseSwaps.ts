@@ -239,6 +239,22 @@ export class ReverseSwaps {
             this.log(ERROR, 'No swap output found in lockup transaction');
             return { ok: false, error: 'No swap output found in lockup transaction' }
         }
+
+        // Refuse to claim (and reveal the preimage) unless the lockup pays at least
+        // the quoted on-chain amount. Script match alone is not enough.
+        const expectedAmount = createdResponse.onchainAmount
+        if (!Number.isFinite(expectedAmount) || expectedAmount === undefined || expectedAmount <= 0) {
+            this.log(ERROR, 'Missing or invalid quoted onchainAmount for reverse swap');
+            return { ok: false, error: 'Missing or invalid quoted onchainAmount for reverse swap' }
+        }
+        if (swapOutput.value < expectedAmount) {
+            this.log(ERROR, 'Lockup output underfunded', { got: swapOutput.value, want: expectedAmount });
+            return {
+                ok: false,
+                error: `Lockup output underfunded: got ${swapOutput.value}, want at least ${expectedAmount}`,
+            }
+        }
+
         const network = getNetwork(this.network)
         // Create a claim transaction to be signed cooperatively via a key path spend
         const claimTx = constructClaimTransaction(

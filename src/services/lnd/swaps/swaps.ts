@@ -25,12 +25,12 @@ export class Swaps {
         this.revSwappers = {}
         this.subSwappers = {}
         const network = settings.getSettings().lndSettings.network
-        const { boltzHttpUrl, boltzWebSocketUrl, boltsHttpUrlAlt, boltsWebSocketUrlAlt } = settings.getSettings().swapsSettings
-        if (boltzHttpUrl && boltzWebSocketUrl) {
+        const { boltzHttpUrl, boltzWebSocketUrl, boltsHttpUrlAlt, boltsWebSocketUrlAlt, enableSwaps } = settings.getSettings().swapsSettings
+        if (enableSwaps && boltzHttpUrl && boltzWebSocketUrl) {
             this.revSwappers[boltzHttpUrl] = new ReverseSwaps({ httpUrl: boltzHttpUrl, wsUrl: boltzWebSocketUrl, network })
             this.subSwappers[boltzHttpUrl] = new SubmarineSwaps({ httpUrl: boltzHttpUrl, wsUrl: boltzWebSocketUrl, network })
         }
-        if (boltsHttpUrlAlt && boltsWebSocketUrlAlt) {
+        if (enableSwaps && boltsHttpUrlAlt && boltsWebSocketUrlAlt) {
             this.revSwappers[boltsHttpUrlAlt] = new ReverseSwaps({ httpUrl: boltsHttpUrlAlt, wsUrl: boltsWebSocketUrlAlt, network })
             this.subSwappers[boltsHttpUrlAlt] = new SubmarineSwaps({ httpUrl: boltsHttpUrlAlt, wsUrl: boltsWebSocketUrlAlt, network })
         }
@@ -151,7 +151,7 @@ export class Swaps {
 
     }
 
-    PayInvoiceSwap = async (appUserId: string, swapOpId: string,satPerVByteOverride: number|undefined, payAddress: (address: string, amt: number, satPerVByte: number) => Promise<{ txId: string }>): Promise<void> => {
+    PayInvoiceSwap = async (appUserId: string, swapOpId: string,satPerVByteOverride: number|undefined, payAddress: (address: string, amt: number, satPerVByte: number) => Promise<{ txId: string }>): Promise<string> => {
         this.log("paying invoice swap", { appUserId, swapOpId })
         if (!this.settings.getSettings().swapsSettings.enableSwaps) {
             throw new Error("Swaps are not enabled")
@@ -186,18 +186,24 @@ export class Swaps {
             throw new Error("swap already in progress")
         }
         this.waitingSwaps[swapOpId] = true
-        let txId = ""
-        const close = swapper.SubscribeToInvoiceSwap(data, async (result) => {
-            if (result.ok) {
-                await this.storage.paymentStorage.FinalizeInvoiceSwap(swapOpId)
-                this.log("invoice swap completed", { swapOpId, txId })
-            } else {
-                await this.storage.paymentStorage.FailInvoiceSwap(swapOpId, result.error)
-                this.log("invoice swap failed", { swapOpId, error: result.error })
-            }
-        }, () => payAddress(swap.address, swap.transaction_amount, satPerVByte)
-            .then(res => { txId = res.txId })
-            .catch(err => { close(); this.log("error paying address", err.message || err) }))
+        return new Promise<string>((resolve, reject) => {
+            const close = swapper.SubscribeToInvoiceSwap(data, async (result) => {
+                if (result.ok) {
+                    await this.storage.paymentStorage.FinalizeInvoiceSwap(swapOpId)
+                    this.log("invoice swap completed", { swapOpId })
+                } else {
+                    await this.storage.paymentStorage.FailInvoiceSwap(swapOpId, result.error)
+                    this.log("invoice swap failed", { swapOpId, error: result.error })
+                }
+            }, () => payAddress(swap.address, swap.transaction_amount, satPerVByte)
+                .then(res => resolve(res.txId))
+                .catch(err => {
+                    close()
+                    delete this.waitingSwaps[swapOpId]
+                    this.log("error paying address", err.message || err)
+                    reject(err)
+                }))
+        })
     }
 
     ResumeInvoiceSwaps = async () => {
@@ -213,9 +219,7 @@ export class Swaps {
         }
     }
 
-
     private resumeInvoiceSwap = (swap: InvoiceSwap) => {
-        // const swap = await this.storage.paymentStorage.GetInvoiceSwap(swapOpId, appUserId)
         if (!swap || !swap.tx_id || swap.used) {
             throw new Error("swap to resume not found, or does not have a tx id")
         }
@@ -232,7 +236,13 @@ export class Swaps {
                 await this.storage.paymentStorage.FailInvoiceSwap(swap.swap_operation_id, result.error)
                 this.log("invoice swap failed", { swapOpId: swap.swap_operation_id, error: result.error })
             }
-        }, () => { throw new Error("swap tx already paid") })
+        }, async () => {
+            // Re-publish the persisted lockup if we crashed between persist and broadcast.
+            if (!swap.lockup_tx_hex) {
+                throw new Error("swap tx already paid")
+            }
+            await this.lnd.PublishTransaction(swap.lockup_tx_hex)
+        })
     }
 
     private getInvoiceSwapData = (swap: InvoiceSwap) => {

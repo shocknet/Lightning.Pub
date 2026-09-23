@@ -7,10 +7,34 @@ import LND from "../lnd/lnd.js";
 import SettingsManager from "./settingsManager.js";
 import { Swaps } from "../lnd/swaps/swaps.js";
 import { defaultInvoiceExpiry } from "../storage/paymentStorage.js";
+import { AddressReceivingTransaction } from "../storage/entity/AddressReceivingTransaction.js";
+import { RootOperation } from "../storage/entity/RootOperation.js";
+import { UserInvoicePayment } from "../storage/entity/UserInvoicePayment.js";
+import { UserReceivingInvoice } from "../storage/entity/UserReceivingInvoice.js";
+import { UserTransactionPayment } from "../storage/entity/UserTransactionPayment.js";
 import { TrackedProvider } from "../storage/entity/TrackedProvider.js";
+import { Application } from "../storage/entity/Application.js";
 import { NodeInfo } from "../lnd/settings.js";
-import { Invoice, Payment, OutputDetail, Transaction, Payment_PaymentStatus, Invoice_InvoiceState } from "../../../proto/lnd/lightning.js";
+import { Channel, Invoice, Payment, OutputDetail, Transaction, Payment_PaymentStatus, Invoice_InvoiceState } from "../../../proto/lnd/lightning.js";
 import { LiquidityProvider } from "./liquidityProvider.js";
+import { clampPageLimit, DEFAULT_LND_PAGE_SIZE, DEFAULT_PAGE_SIZE, MAX_LIQUIDITY_PAGE_SIZE, MAX_PAGE_SIZE } from "../helpers/pageLimit.js";
+import { aliasByRemotePubkey } from "../helpers/channelAliases.js";
+import {
+    ADMIN_AUTOMATION_ENV,
+    ADMIN_BACKUPS_ENV,
+    ADMIN_LSP_THRESHOLD_ENV,
+    ADMIN_NODE_NAME_ENV,
+    assertAvatarUrl,
+    assertLspThreshold,
+    assertNodeName,
+    automationEnabled,
+    disableLiquidityFromAutomation,
+    isEnvLocked,
+    pickDefaultApp,
+    trimAvatarUrl,
+    trimNodeName,
+} from "./adminNodeSettings.js";
+import { resolveInactiveSince } from "../storage/metricsStorage.js";
 /* type TrackedOperation = {
     ts: number
     amount: number
@@ -46,6 +70,11 @@ type ProviderAssetProvider = {
 } */
 const ROOT_OP = Types.TrackedOperationType.ROOT
 const USER_OP = Types.TrackedOperationType.USER
+
+const untrackedLiquidityAsset = (pubkey: string): Types.LiquidityAssetProviderV2 => ({
+    pubkey,
+    tracked: undefined,
+})
 export class AdminManager {
     settings: SettingsManager
     liquidityProvider: LiquidityProvider | null = null
@@ -63,6 +92,7 @@ export class AdminManager {
     swaps: Swaps
     nostrConnected: boolean = false
     private nostrReset: () => Promise<void> = async () => { this.log("nostr reset not initialized yet") }
+    private refreshDefaultBeacon: () => Promise<void> = async () => { }
     constructor(settings: SettingsManager, storage: Storage, swaps: Swaps) {
         this.settings = settings
         this.storage = storage
@@ -87,6 +117,10 @@ export class AdminManager {
 
     attachNostrReset(f: () => Promise<void>) {
         this.nostrReset = f
+    }
+
+    attachBeaconRefresh(f: () => Promise<void>) {
+        this.refreshDefaultBeacon = f
     }
 
     async ResetNostr() {
@@ -242,35 +276,203 @@ export class AdminManager {
         const { channels } = await this.lnd.ListChannels(true)
         const { identityPubkey } = await this.lnd.GetInfo()
         const activity = await this.storage.metricsStorage.GetChannelsActivity()
-        const openChannels = await Promise.all(channels.map(async c => {
-            const info = await this.lnd.GetChannelInfo(c.chanId)
-            const policies = [{ pub: info.node1Pub, policy: info.node1Policy }, { pub: info.node2Pub, policy: info.node2Policy }]
-            const myPolicy = policies.find(p => p.pub === identityPubkey)?.policy
-            const policy: Types.ChannelPolicy | undefined = myPolicy ? {
-                base_fee_msat: Number(myPolicy.feeBaseMsat),
-                fee_rate_ppm: Number(myPolicy.feeRateMilliMsat),
-                timelock_delta: Number(myPolicy.timeLockDelta),
-                max_htlc_msat: Number(myPolicy.maxHtlcMsat),
-                min_htlc_msat: Number(myPolicy.minHtlc),
+        const openChannels = await Promise.all(
+            channels.map(c => this.toOpenChannel(c, identityPubkey, activity)),
+        )
+        return { open_channels: openChannels }
+    }
 
-            } : undefined
+    private toOpenChannel = async (
+        c: Channel,
+        identityPubkey: string,
+        activity: Record<string, number>,
+    ): Promise<Types.OpenChannel> => ({
+        channel_point: c.channelPoint,
+        active: c.active,
+        capacity: Number(c.capacity),
+        local_balance: Number(c.localBalance),
+        remote_balance: Number(c.remoteBalance),
+        channel_id: c.chanId,
+        label: c.peerAlias || c.remotePubkey,
+        lifetime: Number(c.lifetime),
+        policy: await this.policyForChannel(c.chanId, identityPubkey),
+        inactive_since_unix: resolveInactiveSince(c.active, c.chanId, activity),
+    })
+
+    private policyForChannel = async (chanId: string, identityPubkey: string): Promise<Types.ChannelPolicy | undefined> => {
+        try {
+            const info = await this.lnd.GetChannelInfo(chanId)
+            const mine = info.node1Pub === identityPubkey
+                ? info.node1Policy
+                : info.node2Pub === identityPubkey
+                    ? info.node2Policy
+                    : undefined
+            if (!mine) return undefined
             return {
-                channel_point: c.channelPoint,
-                active: c.active,
-                capacity: Number(c.capacity),
-                local_balance: Number(c.localBalance),
-                remote_balance: Number(c.remoteBalance),
-                channel_id: c.chanId,
-                label: c.peerAlias || c.remotePubkey,
-                lifetime: Number(c.lifetime),
-                policy,
-                inactive_since_unix: activity[c.chanId] || 0
+                base_fee_msat: Number(mine.feeBaseMsat),
+                fee_rate_ppm: Number(mine.feeRateMilliMsat),
+                timelock_delta: Number(mine.timeLockDelta),
+                max_htlc_msat: Number(mine.maxHtlcMsat),
+                min_htlc_msat: Number(mine.minHtlc),
             }
-        }))
-        return {
-            open_channels: openChannels
+        } catch {
+            return undefined
         }
     }
+
+    ListPeers = async (): Promise<Types.LndPeers> => {
+        const [peerRes, chanRes] = await Promise.all([
+            this.lnd.ListPeers(),
+            this.lnd.ListChannels(),
+        ])
+        const channelAlias = aliasByRemotePubkey(chanRes.channels || [])
+        const peers = (peerRes.peers || []).map((peer) => this.toListedPeer(peer, channelAlias))
+        return { peers }
+    }
+
+    ListUtxos = async (): Promise<Types.LndUtxos> => {
+        const utxos = await this.lnd.ListUnspent()
+        return { utxos: utxos.map(toListedUtxo) }
+    }
+
+    GetAdminNodeSettings = async (): Promise<Types.AdminNodeSettings> => {
+        const service = this.settings.getSettings().serviceSettings
+        const liquidity = this.settings.getSettings().liquiditySettings
+        const app = await this.loadDefaultApp()
+        return {
+            node_name: app?.name || service.defaultAppName,
+            avatar_url: app?.avatar_url || "",
+            automate_liquidity: automationEnabled(liquidity.disableLiquidityProvider),
+            push_backups_to_nostr: service.pushBackupsToNostr,
+            node_name_env_locked: isEnvLocked(ADMIN_NODE_NAME_ENV),
+            automate_liquidity_env_locked: isEnvLocked(ADMIN_AUTOMATION_ENV),
+            backups_env_locked: isEnvLocked(ADMIN_BACKUPS_ENV),
+            lsp_channel_threshold: this.settings.getSettings().lspSettings.channelThreshold,
+            lsp_threshold_env_locked: isEnvLocked(ADMIN_LSP_THRESHOLD_ENV),
+        }
+    }
+
+    UpdateAdminNodeSettings = async (req: Types.UpdateAdminNodeSettingsRequest): Promise<Types.AdminNodeSettings> => {
+        assertNodeName(req.node_name)
+        const name = trimNodeName(req.node_name)
+        const avatar = trimAvatarUrl(req.avatar_url)
+        assertAvatarUrl(avatar)
+        assertLspThreshold(req.lsp_channel_threshold)
+        const current = await this.GetAdminNodeSettings()
+        this.assertUnlockedChange(current, name, req)
+
+        const app = await this.loadDefaultApp()
+        let beaconDirty = false
+
+        if (!current.node_name_env_locked) {
+            if (await this.commitDefaultAppName(app, name)) {
+                beaconDirty = true
+            }
+        }
+
+        if (app && (app.avatar_url || "") !== avatar) {
+            await this.storage.applicationStorage.UpdateApplication(app, { avatar_url: avatar })
+            app.avatar_url = avatar
+            beaconDirty = true
+        }
+
+        if (!current.automate_liquidity_env_locked) {
+            await this.settings.updateDisableLiquidityProvider(disableLiquidityFromAutomation(req.automate_liquidity))
+            this.liquidityProvider?.syncAfterSettingsChange()
+        }
+
+        if (!current.lsp_threshold_env_locked) {
+            await this.settings.updateLspChannelThreshold(req.lsp_channel_threshold)
+        }
+
+        if (!current.backups_env_locked) {
+            await this.settings.updatePushBackupsToNostr(req.push_backups_to_nostr)
+        }
+
+        if (beaconDirty) {
+            await this.refreshDefaultBeacon()
+        }
+
+        return this.GetAdminNodeSettings()
+    }
+
+    private assertUnlockedChange = (current: Types.AdminNodeSettings, name: string, req: Types.UpdateAdminNodeSettingsRequest) => {
+        if (current.node_name_env_locked && name !== current.node_name) {
+            throw new Error("node name is set in the environment")
+        }
+        if (current.automate_liquidity_env_locked && req.automate_liquidity !== current.automate_liquidity) {
+            throw new Error("automation is set in the environment")
+        }
+        if (current.lsp_threshold_env_locked && req.lsp_channel_threshold !== current.lsp_channel_threshold) {
+            throw new Error("LSP channel threshold is set in the environment")
+        }
+        if (current.backups_env_locked && req.push_backups_to_nostr !== current.push_backups_to_nostr) {
+            throw new Error("channel backups are set in the environment")
+        }
+    }
+
+    private loadDefaultApp = async () => {
+        const name = this.settings.getSettings().serviceSettings.defaultAppName
+        const apps = await this.storage.applicationStorage.GetApplications()
+        return pickDefaultApp(apps, name)
+    }
+
+    private commitDefaultAppName = async (app: Application | undefined, name: string): Promise<boolean> => {
+        const result = await this.storage.StartTransaction(
+            txId => this.writeDefaultAppName(app, name, txId),
+            "rename-default-app",
+        )
+        this.applyDefaultAppName(app, name, result)
+        return result.didRename
+    }
+
+    private writeDefaultAppName = async (app: Application | undefined, name: string, txId: string) => {
+        const didRename = await this.renameDefaultApp(app, name, txId)
+        const didPersist = await this.settings.updateDefaultAppName(name, txId)
+        return { didRename, didPersist }
+    }
+
+    private applyDefaultAppName = (
+        app: Application | undefined,
+        name: string,
+        result: { didRename: boolean, didPersist: boolean },
+    ) => {
+        if (result.didPersist) {
+            this.settings.getSettings().serviceSettings.defaultAppName = name
+        }
+        if (result.didRename && app) {
+            app.name = name
+        }
+    }
+
+    private renameDefaultApp = async (app: Application | undefined, name: string, txId: string): Promise<boolean> => {
+        if (!app || app.name === name) {
+            return false
+        }
+        await this.assertAppNameAvailable(name, txId)
+        await this.storage.applicationStorage.UpdateApplication(app, { name }, txId)
+        return true
+    }
+
+    private assertAppNameAvailable = async (name: string, txId: string) => {
+        const apps = await this.storage.applicationStorage.GetApplications(txId)
+        if (apps.some(app => app.name === name)) {
+            throw new Error("that name is already in use")
+        }
+    }
+
+    private toListedPeer = (
+        peer: { pubKey: string; address: string; inbound: boolean; satSent: bigint; satRecv: bigint },
+        channelAlias: Map<string, string>,
+    ): Types.LndPeer => ({
+        pubkey: peer.pubKey,
+        address: peer.address,
+        inbound: peer.inbound,
+        sats_sent: Number(peer.satSent),
+        sats_recv: Number(peer.satRecv),
+        alias: channelAlias.get(peer.pubKey) || "",
+        has_channel: channelAlias.has(peer.pubKey),
+    })
 
     async UpdateChannelPolicy(req: Types.UpdateChannelPolicyRequest): Promise<void> {
         const chanPoint = req.update.type === Types.UpdateChannelPolicyRequest_update_type.CHANNEL_POINT ? req.update.channel_point : ""
@@ -316,29 +518,17 @@ export class AdminManager {
     }
 
     async PayAdminInvoiceSwap(req: Types.PayAdminInvoiceSwapRequest): Promise<Types.AdminInvoiceSwapResponse> {
-        const resolvedTxId = await new Promise<string>(res => {
-            this.swaps.PayInvoiceSwap("admin", req.swap_operation_id, req.sat_per_v_byte, async (addr, amt, satPerVByte) => {
-                const tx = await this.lnd.PayAddress(addr, amt, satPerVByte, "", { useProvider: false, from: 'system' })
-                this.log("paid admin invoice swap", { swapOpId: req.swap_operation_id, txId: tx.txid })
+        const resolvedTxId = await this.swaps.PayInvoiceSwap("admin", req.swap_operation_id, req.sat_per_v_byte, async (addr, amt, satPerVByte) => {
+            const crafted = await this.lnd.CraftAddressPayment(addr, amt, satPerVByte)
+            // Persist before broadcast so a crash cannot leave an unpaid-looking row after coins are sent.
+            await this.storage.paymentStorage.SetInvoiceSwapTxId(req.swap_operation_id, crafted.txId, crafted.feeSats, crafted.txHex)
+            this.log("persisted admin swap lockup", { swapOpId: req.swap_operation_id, txId: crafted.txId })
 
-                // Fetch the full transaction hex for potential refunds, and include miner fees
-                // in the root op so watchdog can fully neutralize the on-chain spend.
-                let lockupTxHex: string | undefined
-                let chainFeeSats = 0
-                try {
-                    const txDetails = await this.lnd.GetTx(tx.txid)
-                    chainFeeSats = Number(txDetails.totalFees)
-                    lockupTxHex = txDetails.rawTxHex
-                } catch (err: any) {
-                    this.log("Warning: Could not fetch transaction hex for refund purposes:", err.message)
-                }
+            await this.lnd.PublishTransaction(crafted.txHex)
+            this.log("published admin swap lockup", { swapOpId: req.swap_operation_id, txId: crafted.txId })
 
-                await this.storage.metricsStorage.AddRootOperation("chain_payment", tx.txid, amt + chainFeeSats, true)
-                await this.storage.paymentStorage.SetInvoiceSwapTxId(req.swap_operation_id, tx.txid, chainFeeSats, lockupTxHex)
-                this.log("saved admin swap txid", { swapOpId: req.swap_operation_id, txId: tx.txid })
-                res(tx.txid)
-                return { txId: tx.txid }
-            })
+            await this.storage.metricsStorage.AddRootOperation("chain_payment", crafted.txId, amt + crafted.feeSats, true)
+            return { txId: crafted.txId }
         })
         return { tx_id: resolvedTxId }
     }
@@ -380,10 +570,15 @@ export class AdminManager {
     }
 
     async GetAssetsAndLiabilities(req: Types.AssetsAndLiabilitiesReq): Promise<Types.AssetsAndLiabilities> {
-        const providers = await this.storage.liquidityStorage.GetTrackedProviders()
+        const v2Req = await this.BuildV2ReqFromV1(req)
+        const v2Res = await this.GetAssetsAndLiabilitiesV2(v2Req)
+        return this.V2ToV1Response(v2Res)
+    }
 
-        const lnds: Types.LndAssetProvider[] = []
-        const liquidityProviders: Types.LiquidityAssetProvider[] = []
+    async GetAssetsAndLiabilitiesV2(req: Types.AssetsAndLiabilitiesReqV2): Promise<Types.AssetsAndLiabilitiesV2> {
+        const providers = await this.storage.liquidityStorage.GetTrackedProviders()
+        const lnds: Types.LndAssetProviderV2[] = []
+        const liquidityProviders: Types.LiquidityAssetProviderV2[] = []
         for (const provider of providers) {
             if (provider.provider_type === 'lnd') {
                 const lndEntry = await this.GetLndAssetsAndLiabilities(req, provider)
@@ -401,26 +596,97 @@ export class AdminManager {
         }
     }
 
-    async GetProviderAssetsAndLiabilities(req: Types.AssetsAndLiabilitiesReq, provider: TrackedProvider): Promise<Types.LiquidityAssetProvider> {
-        if (!this.liquidityProvider) {
-            throw new Error("liquidity provider not attached")
+    private async BuildV2ReqFromV1(req: Types.AssetsAndLiabilitiesReq): Promise<Types.AssetsAndLiabilitiesReqV2> {
+        const providers = await this.storage.liquidityStorage.GetTrackedProviders()
+        const limitPayments = req.limit_payments ?? DEFAULT_LND_PAGE_SIZE
+        const limitInvoices = req.limit_invoices ?? 100
+        const limitProviders = req.limit_providers ?? 100
+        return {
+            lnd_providers: providers
+                .filter(p => p.provider_type === 'lnd')
+                .map(p => ({
+                    pubkey: p.provider_pubkey,
+                    limit_payments: limitPayments,
+                    limit_invoices: limitInvoices,
+                    limit_transactions: MAX_PAGE_SIZE,
+                })),
+            liquidity_providers: providers
+                .filter(p => p.provider_type === 'lnPub')
+                .map(p => ({
+                    pubkey: p.provider_pubkey,
+                    limit: limitProviders,
+                })),
         }
-        if (this.liquidityProvider.GetProviderPubkey() !== provider.provider_pubkey) {
-            return { pubkey: provider.provider_pubkey, tracked: undefined }
+    }
+
+    private V2ToV1Response(res: Types.AssetsAndLiabilitiesV2): Types.AssetsAndLiabilities {
+        return {
+            users_balance: res.users_balance,
+            lnds: res.lnds.map(lnd => ({
+                pubkey: lnd.pubkey,
+                tracked: lnd.tracked ? {
+                    confirmed_balance: lnd.tracked.confirmed_balance,
+                    unconfirmed_balance: lnd.tracked.unconfirmed_balance,
+                    channels_balance: lnd.tracked.channels_balance,
+                    payments: lnd.tracked.payments.operations,
+                    invoices: lnd.tracked.invoices.operations,
+                    incoming_tx: lnd.tracked.incoming_tx.operations,
+                    outgoing_tx: lnd.tracked.outgoing_tx.operations,
+                } : undefined,
+            })),
+            liquidity_providers: res.liquidity_providers.map(provider => ({
+                pubkey: provider.pubkey,
+                tracked: provider.tracked ? {
+                    balance: provider.tracked.balance,
+                    payments: provider.tracked.payments.operations,
+                    invoices: provider.tracked.invoices.operations,
+                } : undefined,
+            })),
         }
-        const providerOps = await this.liquidityProvider.GetOperations(req.limit_providers || 100)
-        // we only care about invoices cuz they are the only ops we can generate with a provider
-        const invoices: Types.AssetOperation[] = []
-        const payments: Types.AssetOperation[] = []
-        for (const op of providerOps.latestIncomingInvoiceOperations.operations) {
-            const assetOp = await this.GetProviderInvoiceAssetOperation(op)
-            invoices.push(assetOp)
+    }
+
+    async GetProviderAssetsAndLiabilities(req: Types.AssetsAndLiabilitiesReqV2, provider: TrackedProvider): Promise<Types.LiquidityAssetProviderV2> {
+        const pubkey = provider.provider_pubkey
+        const lp = this.liquidityProvider
+        if (!this.canFetchLiquidityAssets(lp, pubkey)) {
+            return untrackedLiquidityAsset(pubkey)
         }
-        for (const op of providerOps.latestOutgoingInvoiceOperations.operations) {
-            const assetOp = await this.GetProviderPaymentAssetOperation(op)
-            payments.push(assetOp)
+        try {
+            return await this.fetchLiquidityAssets(req, provider, lp)
+        } catch (err: any) {
+            this.log("failed to fetch liquidity provider assets", err?.message || err)
+            return untrackedLiquidityAsset(pubkey)
         }
-        const balance = await this.liquidityProvider.GetUserState()
+    }
+
+    private canFetchLiquidityAssets(lp: LiquidityProvider | null, pubkey: string): lp is LiquidityProvider {
+        return !!lp && lp.IsReady() && lp.GetProviderPubkey() === pubkey
+    }
+
+    private async fetchLiquidityAssets(
+        req: Types.AssetsAndLiabilitiesReqV2,
+        provider: TrackedProvider,
+        lp: LiquidityProvider,
+    ): Promise<Types.LiquidityAssetProviderV2> {
+        const filter = req.liquidity_providers.find(p => p.pubkey === provider.provider_pubkey)
+        const incoming = filter?.latestIncomingInvoice
+        const outgoing = filter?.latestOutgoingInvoice
+        const limit = clampPageLimit(filter?.limit, DEFAULT_PAGE_SIZE, MAX_LIQUIDITY_PAGE_SIZE)
+        const providerOps = await lp.GetOperations(incoming, outgoing, limit)
+        if (providerOps === 'timeout') {
+            return this.timedOutLiquidityAsset(provider.provider_pubkey, lp)
+        }
+        const invoices = await this.BuildLiquidityAssetOperationsPage(
+            providerOps.latestIncomingInvoiceOperations,
+            limit,
+            'receiving_invoice',
+        )
+        const payments = await this.BuildLiquidityAssetOperationsPage(
+            providerOps.latestOutgoingInvoiceOperations,
+            limit,
+            'payment',
+        )
+        const balance = await lp.GetUserState()
         return {
             pubkey: provider.provider_pubkey,
             tracked: {
@@ -431,163 +697,237 @@ export class AdminManager {
         }
     }
 
-    async GetProviderInvoiceAssetOperation(op: Types.UserOperation): Promise<Types.AssetOperation> {
-        const ts = Number(op.paidAtUnix)
-        const amount = Number(op.amount)
-        const invoice = op.identifier
-        const userInvoice = await this.storage.paymentStorage.GetInvoiceOwner(invoice)
-        if (userInvoice) {
-            const tracked: Types.TrackedOperation = { ts: userInvoice.paid_at_unix, amount: userInvoice.paid_amount, type: USER_OP }
-            return { ts, amount, tracked }
+    private async timedOutLiquidityAsset(pubkey: string, lp: LiquidityProvider): Promise<Types.LiquidityAssetProviderV2> {
+        const emptyPage: Types.LiquidityAssetOperationsPage = {
+            operations: [],
+            has_more: false,
+            timeout: true,
         }
-        const rootOp = await this.storage.metricsStorage.GetRootOperation("invoice", invoice)
-        if (rootOp) {
-            const tracked: Types.TrackedOperation = { ts: rootOp.at_unix, amount: rootOp.operation_amount, type: ROOT_OP }
-            return { ts, amount, tracked }
+        const balance = await lp.GetUserState()
+        return {
+            pubkey,
+            tracked: {
+                balance: balance.status === 'OK' ? balance.balance : 0,
+                payments: emptyPage,
+                invoices: emptyPage,
+            }
         }
-        return { ts, amount, tracked: undefined }
     }
 
-    async GetProviderPaymentAssetOperation(op: Types.UserOperation): Promise<Types.AssetOperation> {
-        const ts = Number(op.paidAtUnix)
-        const amount = Number(op.amount)
-        const invoice = op.identifier
-        const userInvoice = await this.storage.paymentStorage.GetPaymentOwner(invoice)
-        if (userInvoice) {
-            const tracked: Types.TrackedOperation = { ts: userInvoice.paid_at_unix, amount: userInvoice.paid_amount, type: USER_OP }
-            return { ts, amount, tracked }
+    private async BuildLiquidityAssetOperationsPage(
+        userOps: Types.UserOperations,
+        limit: number,
+        lookupType: 'payment' | 'receiving_invoice',
+    ): Promise<Types.LiquidityAssetOperationsPage> {
+        const tracker = await this.BuildAssetOperationTracker({
+            paymentInvoices: lookupType === 'payment' ? userOps.operations.map(op => op.identifier) : [],
+            receivingInvoices: lookupType === 'receiving_invoice' ? userOps.operations.map(op => op.identifier) : [],
+            txHashes: [],
+            addressTxKeys: [],
+        })
+        const operations = userOps.operations.map(op => {
+            const ts = Number(op.paidAtUnix)
+            const amount = Number(op.amount)
+            return lookupType === 'payment'
+                ? tracker.fromPayment(op.identifier, ts, amount)
+                : tracker.fromReceivingInvoice(op.identifier, ts, amount)
+        })
+        const hasMore = userOps.operations.length >= limit
+        return {
+            operations,
+            has_more: hasMore,
+            next_cursor: hasMore ? userOps.toIndex : undefined,
+            timeout: false,
         }
-        const rootOp = await this.storage.metricsStorage.GetRootOperation("invoice_payment", invoice)
-        if (rootOp) {
-            const tracked: Types.TrackedOperation = { ts: rootOp.at_unix, amount: rootOp.operation_amount, type: ROOT_OP }
-            return { ts, amount, tracked }
-        }
-        return { ts, amount, tracked: undefined }
     }
 
-    async GetLndAssetsAndLiabilities(req: Types.AssetsAndLiabilitiesReq, provider: TrackedProvider): Promise<Types.LndAssetProvider> {
+    private async BuildAssetOperationTracker(keys: {
+        paymentInvoices: string[]
+        receivingInvoices: string[]
+        txHashes: string[]
+        addressTxKeys: { address: string, txHash: string, outputIndex: number }[]
+    }): Promise<AssetOperationTracker> {
+        const paymentInvoices = [...new Set(keys.paymentInvoices)]
+        const receivingInvoices = [...new Set(keys.receivingInvoices)]
+        const txHashes = [...new Set(keys.txHashes)]
+        const chainIds = keys.addressTxKeys.map(k => `${k.address}:${k.txHash}:${k.outputIndex}`)
+        const [
+            paymentOwners,
+            invoiceOwners,
+            txHashOwners,
+            addressTxs,
+            rootInvoicePayments,
+            rootInvoices,
+            rootChainPayments,
+            rootChainOps,
+        ] = await Promise.all([
+            this.storage.paymentStorage.GetPaymentOwners(paymentInvoices),
+            this.storage.paymentStorage.GetInvoiceOwners(receivingInvoices),
+            this.storage.paymentStorage.GetTxHashPaymentOwners(txHashes),
+            this.storage.paymentStorage.GetAddressReceivingTransactionsByTxHashes(txHashes),
+            this.storage.metricsStorage.GetRootOperationsByIdentifiers('invoice_payment', paymentInvoices),
+            this.storage.metricsStorage.GetRootOperationsByIdentifiers('invoice', receivingInvoices),
+            this.storage.metricsStorage.GetRootOperationsByIdentifiers('chain_payment', txHashes),
+            this.storage.metricsStorage.GetRootOperationsByIdentifiers('chain', chainIds),
+        ])
+        return new AssetOperationTracker(
+            paymentOwners,
+            invoiceOwners,
+            txHashOwners,
+            addressTxs,
+            rootInvoicePayments,
+            rootInvoices,
+            rootChainPayments,
+            rootChainOps,
+        )
+    }
+
+    async GetLndAssetsAndLiabilities(req: Types.AssetsAndLiabilitiesReqV2, provider: TrackedProvider): Promise<Types.LndAssetProviderV2> {
         const info = await this.lnd.GetInfo()
         if (provider.provider_pubkey !== info.identityPubkey) {
             return { pubkey: provider.provider_pubkey, tracked: undefined }
         }
 
-        const latestLndPayments = await this.lnd.GetAllPayments(req.limit_payments || 50)
-        const payments: Types.AssetOperation[] = []
-        for (const payment of latestLndPayments.payments) {
-            if (payment.status !== Payment_PaymentStatus.SUCCEEDED) {
-                continue
-            }
-            const assetOp = await this.GetPaymentAssetOperation(payment)
-            payments.push(assetOp)
-        }
-        const invoices: Types.AssetOperation[] = []
-        const paidInvoices = await this.lnd.GetAllInvoices(req.limit_invoices || 100)
-        for (const invoiceEntry of paidInvoices.invoices) {
-            if (invoiceEntry.state !== Invoice_InvoiceState.SETTLED) {
-                continue
-            }
-            const assetOp = await this.GetInvoiceAssetOperation(invoiceEntry)
-            invoices.push(assetOp)
-        }
-        const latestLndTransactions = await this.lnd.GetTransactions(info.blockHeight)
-        const txOuts: Types.AssetOperation[] = []
-        const txIns: Types.AssetOperation[] = []
-        for (const transaction of latestLndTransactions.transactions) {
-            for (const output of transaction.outputDetails) {
-                if (output.isOurAddress) {
-                    const assetOp = await this.GetTxOutAssetOperation(transaction, output)
-                    txOuts.push(assetOp)
-                }
-            }
-            // we only produce TXs with a single output
-            const input = transaction.previousOutpoints.find(p => p.isOurOutput)
-            if (input) {
-                const assetOp = await this.GetTxInAssetOperation(transaction)
-                txIns.push(assetOp)
-            }
-        }
-        const balance = await this.lnd.GetBalance()
-        const channelsBalance = balance.channelsBalance.reduce((acc, c) => acc + Number(c.localBalanceSats), 0)
+        const filter = req.lnd_providers.find(p => p.pubkey === provider.provider_pubkey)
+        const paymentsLimit = clampPageLimit(filter?.limit_payments, DEFAULT_LND_PAGE_SIZE, MAX_PAGE_SIZE)
+        const paymentsOffset = filter?.payment_index_offset || 0
+        const invoicesLimit = clampPageLimit(filter?.limit_invoices, DEFAULT_LND_PAGE_SIZE, MAX_PAGE_SIZE)
+        const invoicesOffset = filter?.invoice_index_offset || 0
+        const txLimit = clampPageLimit(filter?.limit_transactions, DEFAULT_LND_PAGE_SIZE, MAX_PAGE_SIZE)
+        const txOffset = filter?.tx_index_offset || 0
+        const txStartHeight = filter?.tx_start_height ?? info.blockHeight
+
+        const [payments, invoices, txPages, balance] = await Promise.all([
+            this.FetchLndPaymentPage(paymentsLimit, paymentsOffset),
+            this.FetchLndInvoicePage(invoicesLimit, invoicesOffset),
+            this.FetchLndTransactionPages(txStartHeight, txLimit, txOffset),
+            this.lnd.GetBalance(),
+        ])
         return {
             pubkey: provider.provider_pubkey,
             tracked: {
                 confirmed_balance: Number(balance.confirmedBalance),
                 unconfirmed_balance: Number(balance.unconfirmedBalance),
-                channels_balance: channelsBalance,
+                channels_balance: balance.totalChannelsBalance,
                 payments,
                 invoices,
-                incoming_tx: txOuts, // tx outputs, are incoming sats
-                outgoing_tx: txIns, // tx inputs, are outgoing sats
+                incoming_tx: txPages.incoming_tx,
+                outgoing_tx: txPages.outgoing_tx,
             }
         }
     }
 
-    async GetPaymentAssetOperation(payment: Payment): Promise<Types.AssetOperation> {
-        const invoice = payment.paymentRequest
-        const userInvoice = await this.storage.paymentStorage.GetPaymentOwner(invoice)
-        const ts = Number(payment.creationTimeNs / (BigInt(1000_000_000)))
-        const amount = Number(payment.valueSat)
-        if (userInvoice) {
-            const tracked: Types.TrackedOperation = { ts: userInvoice.paid_at_unix, amount: userInvoice.paid_amount, type: USER_OP }
-            return { ts, amount, tracked }
+    private async BuildLndAssetOperationsPage<T>(
+        limit: number,
+        batch: T[],
+        firstIndexOffset: number | undefined,
+        include: (item: T) => boolean,
+        extractKeys: (items: T[]) => {
+            paymentInvoices: string[]
+            receivingInvoices: string[]
+        },
+        toAssetOp: (item: T, tracker: AssetOperationTracker) => Types.AssetOperation,
+    ): Promise<Types.LndAssetOperationsPage> {
+        const included = batch.filter(include)
+        const keys = extractKeys(included)
+        const tracker = await this.BuildAssetOperationTracker({
+            ...keys,
+            txHashes: [],
+            addressTxKeys: [],
+        })
+        const operations = included.map(item => toAssetOp(item, tracker))
+        const hasMore = batch.length >= limit
+        return {
+            operations,
+            has_more: hasMore,
+            next_index_offset: hasMore ? firstIndexOffset : undefined,
         }
-        const rootOp = await this.storage.metricsStorage.GetRootOperation("invoice_payment", invoice)
-        if (rootOp) {
-            const tracked: Types.TrackedOperation = { ts: rootOp.at_unix, amount: rootOp.operation_amount, type: ROOT_OP }
-            return { ts, amount, tracked }
-        }
-        return { ts, amount, tracked: undefined }
     }
 
-    async GetInvoiceAssetOperation(invoiceEntry: Invoice): Promise<Types.AssetOperation> {
-        const invoice = invoiceEntry.paymentRequest
-        const ts = Number(invoiceEntry.settleDate)
-        const amount = Number(invoiceEntry.amtPaidSat)
-        const userInvoice = await this.storage.paymentStorage.GetInvoiceOwner(invoice)
-        if (userInvoice) {
-            const tracked: Types.TrackedOperation = { ts: userInvoice.paid_at_unix, amount: userInvoice.paid_amount, type: USER_OP }
-            return { ts, amount, tracked }
-        }
-        const rootOp = await this.storage.metricsStorage.GetRootOperation("invoice", invoice)
-        if (rootOp) {
-            const tracked: Types.TrackedOperation = { ts: rootOp.at_unix, amount: rootOp.operation_amount, type: ROOT_OP }
-            return { ts, amount, tracked }
-        }
-        return { ts, amount, tracked: undefined }
+    private async FetchLndPaymentPage(limit: number, indexOffset: number): Promise<Types.LndAssetOperationsPage> {
+        const res = await this.lnd.GetAllPayments(limit, indexOffset)
+        const firstIndexOffset = Number(res.firstIndexOffset)
+        return this.BuildLndAssetOperationsPage(
+            limit,
+            res.payments,
+            firstIndexOffset,
+            payment => payment.status === Payment_PaymentStatus.SUCCEEDED,
+            payments => ({ paymentInvoices: payments.map(p => p.paymentRequest), receivingInvoices: [] }),
+            (payment, tracker) => tracker.fromPayment(
+                payment.paymentRequest,
+                Number(payment.creationTimeNs / (BigInt(1000_000_000))),
+                Number(payment.valueSat),
+            ),
+        )
     }
 
-    async GetTxInAssetOperation(tx: Transaction): Promise<Types.AssetOperation> {
-        const ts = Number(tx.timeStamp)
-        const amount = Number(tx.amount)
-        const userOp = await this.storage.paymentStorage.GetTxHashPaymentOwner(tx.txHash)
-        if (userOp) {
-            // user transaction payments are actually deprecated from lnd, but we keep this for consstency
-            const tracked: Types.TrackedOperation = { ts: userOp.paid_at_unix, amount: userOp.paid_amount, type: USER_OP }
-            return { ts, amount, tracked }
-        }
-        const rootOp = await this.storage.metricsStorage.GetRootOperation("chain_payment", tx.txHash)
-        if (rootOp) {
-            const tracked: Types.TrackedOperation = { ts: rootOp.at_unix, amount: rootOp.operation_amount, type: ROOT_OP }
-            return { ts, amount, tracked }
-        }
-        return { ts, amount, tracked: undefined }
+    private async FetchLndInvoicePage(limit: number, indexOffset: number): Promise<Types.LndAssetOperationsPage> {
+        const res = await this.lnd.GetAllInvoices(limit, indexOffset)
+        const firstIndexOffset = Number(res.firstIndexOffset)
+        return this.BuildLndAssetOperationsPage(
+            limit,
+            res.invoices,
+            firstIndexOffset,
+            invoice => invoice.state === Invoice_InvoiceState.SETTLED,
+            invoices => ({ paymentInvoices: [], receivingInvoices: invoices.map(i => i.paymentRequest) }),
+            (invoice, tracker) => tracker.fromReceivingInvoice(
+                invoice.paymentRequest,
+                Number(invoice.settleDate),
+                Number(invoice.amtPaidSat),
+            ),
+        )
     }
+    
 
-    async GetTxOutAssetOperation(tx: Transaction, output: OutputDetail): Promise<Types.AssetOperation> {
-        const ts = Number(tx.timeStamp)
-        const amount = Number(output.amount)
-        const outputIndex = Number(output.outputIndex)
-        const userOp = await this.storage.paymentStorage.GetAddressReceivingTransactionOwner(output.address, tx.txHash, outputIndex)
-        if (userOp) {
-            const tracked: Types.TrackedOperation = { ts: userOp.paid_at_unix, amount: userOp.paid_amount, type: USER_OP }
-            return { ts, amount, tracked }
+    // incoming_tx and outgoing_tx are split views of one getTransactions page.
+    // They intentionally share has_more / next_index_offset / start_height from limit + indexOffset.
+    private async FetchLndTransactionPages(
+        startHeight: number,
+        limit: number,
+        indexOffset: number
+    ): Promise<{ incoming_tx: Types.LndAssetOperationsPage, outgoing_tx: Types.LndAssetOperationsPage }> {
+        const res = await this.lnd.GetTransactions(startHeight, indexOffset, limit)
+        const incomingItems: { transaction: Transaction, output: OutputDetail }[] = []
+        const outgoingTxs: Transaction[] = []
+        for (const transaction of res.transactions) {
+            for (const output of transaction.outputDetails) {
+                if (output.isOurAddress) {
+                    incomingItems.push({ transaction, output })
+                }
+            }
+            const input = transaction.previousOutpoints.find(p => p.isOurOutput)
+            if (input) {
+                outgoingTxs.push(transaction)
+            }
         }
-        const rootOp = await this.storage.metricsStorage.GetRootAddressTransaction(output.address, tx.txHash, outputIndex)
-        if (rootOp) {
-            const tracked: Types.TrackedOperation = { ts: rootOp.at_unix, amount: rootOp.operation_amount, type: ROOT_OP }
-            return { ts, amount, tracked }
+        const txHashes = [...new Set([
+            ...incomingItems.map(({ transaction }) => transaction.txHash),
+            ...outgoingTxs.map(tx => tx.txHash),
+        ])]
+        const tracker = await this.BuildAssetOperationTracker({
+            paymentInvoices: [],
+            receivingInvoices: [],
+            txHashes,
+            addressTxKeys: incomingItems.map(({ transaction, output }) => ({
+                address: output.address,
+                txHash: transaction.txHash,
+                outputIndex: Number(output.outputIndex),
+            })),
+        })
+        const incoming = incomingItems.map(({ transaction, output }) => tracker.fromTxOut(transaction, output))
+        const outgoing = outgoingTxs.map(tx => tracker.fromTxIn(tx))
+        const hasMore = res.transactions.length >= limit
+        const nextIndexOffset = hasMore && res.transactions.length > 0 ? Number(res.firstIndex) : undefined
+        const toPage = (operations: Types.AssetOperation[]): Types.LndAssetOperationsPage => ({
+            operations,
+            has_more: hasMore,
+            next_index_offset: nextIndexOffset,
+            start_height: startHeight,
+        })
+        return {
+            incoming_tx: toPage(incoming),
+            outgoing_tx: toPage(outgoing),
         }
-        return { ts, amount, tracked: undefined }
     }
 
     async BumpTx(req: Types.BumpTx): Promise<void> {
@@ -596,6 +936,126 @@ export class AdminManager {
 
 }
 
+class AssetOperationTracker {
+    private paymentOwnerMap: Map<string, UserInvoicePayment>
+    private invoiceOwnerMap: Map<string, UserReceivingInvoice>
+    private txHashOwnerMap: Map<string, UserTransactionPayment>
+    private addressTxMap: Map<string, AddressReceivingTransaction>
+    private rootInvoicePaymentMap: Map<string, RootOperation>
+    private rootInvoiceMap: Map<string, RootOperation>
+    private rootChainPaymentMap: Map<string, RootOperation>
+    private rootChainMap: Map<string, RootOperation>
+
+    constructor(
+        paymentOwners: UserInvoicePayment[],
+        invoiceOwners: UserReceivingInvoice[],
+        txHashOwners: UserTransactionPayment[],
+        addressTxs: AddressReceivingTransaction[],
+        rootInvoicePayments: RootOperation[],
+        rootInvoices: RootOperation[],
+        rootChainPayments: RootOperation[],
+        rootChainOps: RootOperation[],
+    ) {
+        this.paymentOwnerMap = new Map(paymentOwners.map(p => [p.invoice, p]))
+        this.invoiceOwnerMap = new Map(invoiceOwners.map(p => [p.invoice, p]))
+        this.txHashOwnerMap = new Map(txHashOwners.map(p => [p.tx_hash, p]))
+        this.addressTxMap = new Map(addressTxs.map(p => [`${p.user_address.address}:${p.tx_hash}:${p.output_index}`, p]))
+        this.rootInvoicePaymentMap = new Map(rootInvoicePayments.map(o => [o.operation_identifier, o]))
+        this.rootInvoiceMap = new Map(rootInvoices.map(o => [o.operation_identifier, o]))
+        this.rootChainPaymentMap = new Map(rootChainPayments.map(o => [o.operation_identifier, o]))
+        this.rootChainMap = new Map(rootChainOps.map(o => [o.operation_identifier, o]))
+    }
+
+    fromPayment(invoice: string, ts: number, amount: number): Types.AssetOperation {
+        const userPayment = this.paymentOwnerMap.get(invoice)
+        if (userPayment) {
+            return {
+                ts, amount, tracked: {
+                    ts: userPayment.paid_at_unix, amount: userPayment.paid_amount,
+                    type: USER_OP, user_id: userPayment.user.user_id,
+                },
+            }
+        }
+        const rootOp = this.rootInvoicePaymentMap.get(invoice)
+        if (rootOp) {
+            return { ts, amount, tracked: { ts: rootOp.at_unix, amount: rootOp.operation_amount, type: ROOT_OP } }
+        }
+        return { ts, amount, tracked: undefined }
+    }
+
+    fromReceivingInvoice(invoice: string, ts: number, amount: number): Types.AssetOperation {
+        const userInvoice = this.invoiceOwnerMap.get(invoice)
+        if (userInvoice) {
+            return {
+                ts, amount, tracked: {
+                    ts: userInvoice.paid_at_unix, amount: userInvoice.paid_amount,
+                    type: USER_OP, user_id: userInvoice.user.user_id,
+                },
+            }
+        }
+        const rootOp = this.rootInvoiceMap.get(invoice)
+        if (rootOp) {
+            return { ts, amount, tracked: { ts: rootOp.at_unix, amount: rootOp.operation_amount, type: ROOT_OP } }
+        }
+        return { ts, amount, tracked: undefined }
+    }
+
+    fromTxIn(tx: Transaction): Types.AssetOperation {
+        const ts = Number(tx.timeStamp)
+        const amount = Number(tx.amount)
+        const userOp = this.txHashOwnerMap.get(tx.txHash)
+        if (userOp) {
+            return {
+                ts, amount, tracked: {
+                    ts: userOp.paid_at_unix, amount: userOp.paid_amount,
+                    type: USER_OP, user_id: userOp.user.user_id,
+                },
+            }
+        }
+        const rootOp = this.rootChainPaymentMap.get(tx.txHash)
+        if (rootOp) {
+            return { ts, amount, tracked: { ts: rootOp.at_unix, amount: rootOp.operation_amount, type: ROOT_OP } }
+        }
+        return { ts, amount, tracked: undefined }
+    }
+
+    fromTxOut(tx: Transaction, output: OutputDetail): Types.AssetOperation {
+        const ts = Number(tx.timeStamp)
+        const amount = Number(output.amount)
+        const outputIndex = Number(output.outputIndex)
+        const opKey = `${output.address}:${tx.txHash}:${outputIndex}`
+        const userOp = this.addressTxMap.get(opKey)
+        if (userOp) {
+            return {
+                ts, amount, tracked: {
+                    ts: userOp.paid_at_unix, amount: userOp.paid_amount,
+                    type: USER_OP, user_id: userOp.user_address.user.user_id,
+                },
+            }
+        }
+        const rootOp = this.rootChainMap.get(opKey)
+        if (rootOp) {
+            return { ts, amount, tracked: { ts: rootOp.at_unix, amount: rootOp.operation_amount, type: ROOT_OP } }
+        }
+        return { ts, amount, tracked: undefined }
+    }
+}
+
 const getDataPath = (dataDir: string, dataPath: string) => {
     return dataDir !== "" ? `${dataDir}/${dataPath}` : dataPath
+}
+
+function toListedUtxo(utxo: {
+    address: string
+    amountSat: bigint
+    confirmations: bigint
+    outpoint?: { txidStr: string; outputIndex: number }
+}): Types.LndUtxo {
+    return {
+        address: utxo.address,
+        amount_sat: Number(utxo.amountSat),
+        txid: utxo.outpoint?.txidStr || "",
+        output_index: utxo.outpoint?.outputIndex ?? 0,
+        confirmations: Number(utxo.confirmations),
+    }
 }

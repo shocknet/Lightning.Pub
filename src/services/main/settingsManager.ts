@@ -52,7 +52,18 @@ export default class SettingsManager {
         }
         // Validate fee configuration: routing fee limit must be <= service fee
         this.validateFeeSettings(this.settings)
+        this.validateOnchainConfTiers(this.settings)
         return this.settings
+    }
+
+    private validateOnchainConfTiers(settings: FullSettings): void {
+        const { tier1LimitSats, tier2LimitSats, tier1Confs, tier2Confs, tier3Confs } = settings.lndSettings
+        if (tier1LimitSats > tier2LimitSats) {
+            throw new Error(`ONCHAIN_TIER1_LIMIT_SATS (${tier1LimitSats}) must be <= ONCHAIN_TIER2_LIMIT_SATS (${tier2LimitSats})`)
+        }
+        if (tier1Confs < 1 || tier1Confs > tier2Confs || tier2Confs > tier3Confs) {
+            throw new Error(`ONCHAIN_TIER*_CONFS must be >= 1 and non-decreasing across tiers (got ${tier1Confs}/${tier2Confs}/${tier3Confs})`)
+        }
     }
 
     private validateFeeSettings(settings: FullSettings): void {
@@ -81,7 +92,7 @@ export default class SettingsManager {
         return this.settings
     }
 
-    async updateDefaultAppName(name: string): Promise<boolean> {
+    async updateDefaultAppName(name: string, txId?: string): Promise<boolean> {
         if (!this.settings) {
             throw new Error("Settings not initialized")
         }
@@ -91,8 +102,10 @@ export default class SettingsManager {
         if (!!process.env.DEFAULT_APP_NAME) {
             return false
         }
-        await this.storage.settingsStorage.setDbEnvIFNeeded("DEFAULT_APP_NAME", name)
-        this.settings.serviceSettings.defaultAppName = name
+        await this.storage.settingsStorage.setDbEnvIFNeeded("DEFAULT_APP_NAME", name, txId)
+        if (!txId) {
+            this.settings.serviceSettings.defaultAppName = name
+        }
         return true
     }
 
@@ -123,6 +136,21 @@ export default class SettingsManager {
         }
         await this.storage.settingsStorage.setDbEnvIFNeeded("DISABLE_LIQUIDITY_PROVIDER", disable ? "true" : "false")
         this.settings.liquiditySettings.disableLiquidityProvider = disable
+        return true
+    }
+
+    async updateLspChannelThreshold(threshold: number): Promise<boolean> {
+        if (!this.settings) {
+            throw new Error("Settings not initialized")
+        }
+        if (threshold === this.settings.lspSettings.channelThreshold) {
+            return false
+        }
+        if (!!process.env.LSP_CHANNEL_THRESHOLD) {
+            return false
+        }
+        await this.storage.settingsStorage.setDbEnvIFNeeded("LSP_CHANNEL_THRESHOLD", String(threshold))
+        this.settings.lspSettings.channelThreshold = threshold
         return true
     }
 

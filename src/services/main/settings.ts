@@ -1,4 +1,5 @@
 import { EnvCacher, EnvMustBeNonEmptyString, EnvMustBeInteger, chooseEnv, chooseEnvBool, chooseEnvInt } from '../helpers/envParser.js'
+import { DEFAULT_ENROLL_POW_BITS, ENROLL_MAX_DELTA_MS } from '../CLINK/clinkConstants.js'
 import os from 'os'
 import path from 'path'
 import { nip19 } from '@shocknet/clink-sdk'
@@ -78,6 +79,11 @@ export type LndSettings = {
     lndLogDir: string
     routingFeeLimitBps: number
     routingFeeFloor: number
+    tier1LimitSats: number
+    tier1Confs: number
+    tier2LimitSats: number
+    tier2Confs: number
+    tier3Confs: number
     mockLnd: boolean
     network: BTCNetwork
 }
@@ -116,6 +122,11 @@ export const LoadLndSettingsFromEnv = (dbEnv: Record<string, string | undefined>
         lndLogDir: chooseEnv('LND_LOG_DIR', dbEnv, resolveHome("/.lnd/logs/bitcoin/mainnet/lnd.log"), addToDb),
         routingFeeLimitBps,
         routingFeeFloor,
+        tier1LimitSats: chooseEnvInt('ONCHAIN_TIER1_LIMIT_SATS', dbEnv, 1_000_000, addToDb),
+        tier1Confs: chooseEnvInt('ONCHAIN_TIER1_CONFS', dbEnv, 1, addToDb),
+        tier2LimitSats: chooseEnvInt('ONCHAIN_TIER2_LIMIT_SATS', dbEnv, 100_000_000, addToDb),
+        tier2Confs: chooseEnvInt('ONCHAIN_TIER2_CONFS', dbEnv, 2, addToDb),
+        tier3Confs: chooseEnvInt('ONCHAIN_TIER3_CONFS', dbEnv, 3, addToDb),
         mockLnd: false,
         network: networks.includes(network) ? network : 'mainnet'
     }
@@ -124,14 +135,26 @@ export const LoadLndSettingsFromEnv = (dbEnv: Record<string, string | undefined>
 export type NostrRelaySettings = {
     relays: string[],
     maxEventContentLength: number
+    enrollPowBits: number
+    enrollMaxDeltaMs: number
+    beaconWebsite: string
+    beaconDescription: string
+    operatorNpub: string
 }
 
 export const LoadNostrRelaySettingsFromEnv = (dbEnv: Record<string, string | undefined>, addToDb?: EnvCacher): NostrRelaySettings => {
     const relaysEnv = chooseEnv("NOSTR_RELAYS", dbEnv, "wss://relay.lightning.pub", addToDb);
     const maxEventContentLength = chooseEnvInt("NOSTR_MAX_EVENT_CONTENT_LENGTH", dbEnv, 40000, addToDb)
+    const enrollPowBits = chooseEnvInt("ENROLL_POW_BITS", dbEnv, DEFAULT_ENROLL_POW_BITS, addToDb)
+    const enrollMaxDeltaMs = chooseEnvInt("ENROLL_MAX_DELTA_MS", dbEnv, ENROLL_MAX_DELTA_MS, addToDb)
     return {
         relays: relaysEnv.split(' '),
-        maxEventContentLength
+        maxEventContentLength,
+        enrollPowBits: Math.min(32, Math.max(0, enrollPowBits)),
+        enrollMaxDeltaMs: Math.min(300_000, Math.max(1_000, enrollMaxDeltaMs)),
+        beaconWebsite: chooseEnv("BEACON_WEBSITE", dbEnv, "", addToDb).trim(),
+        beaconDescription: chooseEnv("BEACON_DESCRIPTION", dbEnv, "", addToDb).trim(),
+        operatorNpub: chooseEnv("OPERATOR_NPUB", dbEnv, "", addToDb).trim(),
     }
 }
 
@@ -207,7 +230,7 @@ export const LoadSwapsSettingsFromEnv = (dbEnv: Record<string, string | undefine
         boltzWebSocketUrl: chooseEnv("BOLTZ_WEBSOCKET_URL", dbEnv, "wss://swaps.zeuslsp.com/api", addToDb),
         boltsHttpUrlAlt: chooseEnv("BOLTZ_HTTP_URL_ALT", dbEnv, "https://api.boltz.exchange/", addToDb),
         boltsWebSocketUrlAlt: chooseEnv("BOLTZ_WEBSOCKET_URL_ALT", dbEnv, "wss://api.boltz.exchange/", addToDb),
-        enableSwaps: chooseEnvBool("ENABLE_SWAPS", dbEnv, false, addToDb)
+        enableSwaps: false, // hard-disabled; Boltz providers are unsafe. ENABLE_SWAPS is ignored.
     }
 }
 

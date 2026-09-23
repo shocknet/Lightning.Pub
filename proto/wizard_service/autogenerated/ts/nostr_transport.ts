@@ -28,7 +28,11 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
         const stats: Types.RequestStats = { startMs, start: startTime, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         switch (req.rpcName) {
-            default: logger.error('unknown rpc call name from nostr event:'+req.rpcName) 
+            default: {
+                const reason = 'unknown rpcName: ' + (req.rpcName || '')
+                logErrorAndReturnResponse(new Error(reason), reason, res, logger, { ...info, ...stats }, opts.metricsCallback)
+                break
+            }
         }
     }
 }

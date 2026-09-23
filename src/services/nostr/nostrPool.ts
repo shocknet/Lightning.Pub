@@ -2,12 +2,12 @@ import WebSocket from 'ws'
 Object.assign(global, { WebSocket: WebSocket });
 import crypto from 'crypto'
 import { lookup as dnsLookup } from 'node:dns/promises'
-import { SimplePool, Event, UnsignedEvent, finalizeEvent, Relay, nip44, Filter, verifyEvent } from 'nostr-tools'
+import { SimplePool, Event, UnsignedEvent, finalizeEvent, nip44, verifyEvent } from 'nostr-tools'
 import { ERROR, getLogger, PubLogger } from '../helpers/logger.js'
 import { nip19 } from 'nostr-tools'
 import { encrypt as encryptV1, decrypt as decryptV1, getSharedSecret as getConversationKeyV1 } from './nip44v1.js'
-import { Subscription } from 'nostr-tools/lib/types/abstract-relay.js';
-import { RelayConnection, RelaySettings, PartialFilter, EventsDeduper } from './nostrRelayConnection.js'
+import { RelayConnection, RelaySettings, PartialFilter, EventsDeduper, isEventTimestampFresh } from './nostrRelayConnection.js'
+import { CLINK_ACTION_KINDS, CLINK_BEACON_KIND, LEGACY_BEACON_D_TAG } from '../CLINK/clinkConstants.js'
 const { nprofileEncode } = nip19
 const { v2 } = nip44
 const { encrypt: encryptV2, decrypt: decryptV2, utils } = v2
@@ -39,6 +39,8 @@ export type NostrEvent = {
     startAtMs: number
     kind: number
     relayConstraint?: 'service' | 'provider'
+    tags?: string[][]
+    created_at?: number
 }
 type RelayEvent = { type: 'event', event: NostrEvent } | { type: 'beacon', content: string, pub: string }
 type RelayEventCallback = (event: RelayEvent) => void
@@ -49,10 +51,12 @@ const splitContent = (content: string, maxLength: number) => {
     }
     return parts
 }
-const actionKinds = [21000, 21001, 21002, 21003]
-const beaconKind = 30078
-const appTag = "Lightning.Pub"
+const actionKinds = CLINK_ACTION_KINDS
+const beaconKind = CLINK_BEACON_KIND
+const appTag = LEGACY_BEACON_D_TAG
 
+
+export const MAX_FALLBACK_IN_FLIGHT = 8
 
 export class NostrPool {
     relays: Record<string, RelayConnection> = {}
@@ -63,13 +67,21 @@ export class NostrPool {
     log = getLogger({ component: "nostrMiddleware" })
     eventsDeduper: EventsDeduper
     providerInfo: (LinkedProviderInfo & { appPub: string }) | undefined = undefined
-    constructor(eventCallback: RelayEventCallback) {
+    private createPool: () => SimplePool
+    private fallbackPool: SimplePool | null = null
+    private fallbackInFlight = 0
+    private stopped = false
+    constructor(eventCallback: RelayEventCallback, createPool: () => SimplePool = () => new SimplePool()) {
         this.eventCallback = eventCallback
         this.eventsDeduper = new EventsDeduper()
+        this.createPool = createPool
     }
 
     Stop = () => {
+        this.stopped = true
         this.eventsDeduper.Stop()
+        this.fallbackPool?.destroy()
+        this.fallbackPool = null
     }
 
     UpdateSettings(settings: NostrSettings) {
@@ -118,7 +130,18 @@ export class NostrPool {
             return
         }
         const relayConstraint = relay.getConstraint()
-        const nostrEvent: NostrEvent = { id: e.id, content, pub: e.pubkey, appId: app.appId, startAtNano, startAtMs, kind: e.kind, relayConstraint }
+        const nostrEvent: NostrEvent = {
+            id: e.id,
+            content,
+            pub: e.pubkey,
+            appId: app.appId,
+            startAtNano,
+            startAtMs,
+            kind: e.kind,
+            relayConstraint,
+            tags: e.tags,
+            created_at: e.created_at,
+        }
         this.eventCallback({ type: 'event', event: nostrEvent })
     }
 
@@ -138,6 +161,10 @@ export class NostrPool {
         }
         const app = this.apps[pubTags[1]]
         if (!app) {
+            return null
+        }
+        if (!isEventTimestampFresh(e.created_at)) {
+            this.log("dropping stale or future-dated event", e.id, e.created_at)
             return null
         }
         if (!verifyEvent(e)) {
@@ -205,33 +232,82 @@ export class NostrPool {
 
     private async sendEvent(event: UnsignedEvent, keys: { name: string, privateKey: string }, relays: string[]) {
         const signed = finalizeEvent(event, Buffer.from(keys.privateKey, 'hex'))
-        let sent = false
         const log = getLogger({ appName: keys.name })
-        const pool = new SimplePool()
-        if (actionKinds.includes(event.kind)) {
-            this.log("publishing kind", event.kind, "via new socket;", this.describeListenSockets(relays))
+        if (relays.length === 0) {
+            this.log(ERROR, `Failed to send Kind ${event.kind} event: no relays`)
+            return
         }
+        const results = await Promise.all(relays.map(url => this.publishToRelay(url, signed, log)))
+        if (!results.some(Boolean)) {
+            this.log(ERROR, `Failed to send Kind ${event.kind} event to any relay`)
+            log("failed to send event")
+        }
+    }
+
+    private async publishToRelay(url: string, event: Event, log: PubLogger): Promise<boolean> {
         try {
-            await Promise.all(pool.publish(relays, signed).map(async (p, i) => {
-                const url = relays[i]
-                const started = Date.now()
-                try {
-                    await p
-                    sent = true
-                } catch (e: any) {
-                    const elapsed = Date.now() - started
-                    this.log(ERROR, `Failed to publish Kind ${event.kind} event to ${url} after ${elapsed}ms listen=${this.listenState(url)}:`, e.message || e)
-                    log(e)
-                    await this.logRelayDns(url)
-                }
-            }))
-            if (!sent) {
-                this.log(ERROR, `Failed to send Kind ${event.kind} event to any relay`)
-                log("failed to send event")
-            }
-        } finally {
-            pool.close(relays)
+            await this.publishEvent(url, event)
+            return true
+        } catch (e: any) {
+            this.log(ERROR, `Failed to publish Kind ${event.kind} event:`, e.message || e)
+            log(e)
+            return false
         }
+    }
+
+    private async publishEvent(url: string, event: Event): Promise<void> {
+        const known = this.relayByUrl(url)
+        if (known?.IsConnected()) {
+            try {
+                await known.Send(event)
+                return
+            } catch (e: any) {
+                if (e?.message !== "relay not connected") {
+                    throw e
+                }
+            }
+        }
+        await this.publishViaFallbackPool(url, event)
+    }
+
+    private async publishViaFallbackPool(url: string, event: Event): Promise<void> {
+        this.acquireFallbackSlot()
+        try {
+            const pool = this.getFallbackPool()
+            const [published] = pool.publish([url], event)
+            await published
+        } finally {
+            this.releaseFallbackSlot()
+        }
+    }
+
+    private getFallbackPool(): SimplePool {
+        if (this.stopped) {
+            throw new Error("nostr pool stopped")
+        }
+        if (!this.fallbackPool) {
+            this.fallbackPool = this.createPool()
+            if (this.stopped) {
+                this.fallbackPool.destroy()
+                this.fallbackPool = null
+                throw new Error("nostr pool stopped")
+            }
+        }
+        return this.fallbackPool
+    }
+
+    private acquireFallbackSlot() {
+        if (this.stopped) {
+            throw new Error("nostr pool stopped")
+        }
+        if (this.fallbackInFlight >= MAX_FALLBACK_IN_FLIGHT) {
+            throw new Error("fallback publish limit reached")
+        }
+        this.fallbackInFlight++
+    }
+
+    private releaseFallbackSlot() {
+        this.fallbackInFlight--
     }
 
     private relayByUrl(url: string) {
