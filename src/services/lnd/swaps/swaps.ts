@@ -25,12 +25,12 @@ export class Swaps {
         this.revSwappers = {}
         this.subSwappers = {}
         const network = settings.getSettings().lndSettings.network
-        const { boltzHttpUrl, boltzWebSocketUrl, boltsHttpUrlAlt, boltsWebSocketUrlAlt } = settings.getSettings().swapsSettings
-        if (boltzHttpUrl && boltzWebSocketUrl) {
+        const { boltzHttpUrl, boltzWebSocketUrl, boltsHttpUrlAlt, boltsWebSocketUrlAlt, enableSwaps } = settings.getSettings().swapsSettings
+        if (enableSwaps && boltzHttpUrl && boltzWebSocketUrl) {
             this.revSwappers[boltzHttpUrl] = new ReverseSwaps({ httpUrl: boltzHttpUrl, wsUrl: boltzWebSocketUrl, network })
             this.subSwappers[boltzHttpUrl] = new SubmarineSwaps({ httpUrl: boltzHttpUrl, wsUrl: boltzWebSocketUrl, network })
         }
-        if (boltsHttpUrlAlt && boltsWebSocketUrlAlt) {
+        if (enableSwaps && boltsHttpUrlAlt && boltsWebSocketUrlAlt) {
             this.revSwappers[boltsHttpUrlAlt] = new ReverseSwaps({ httpUrl: boltsHttpUrlAlt, wsUrl: boltsWebSocketUrlAlt, network })
             this.subSwappers[boltsHttpUrlAlt] = new SubmarineSwaps({ httpUrl: boltsHttpUrlAlt, wsUrl: boltsWebSocketUrlAlt, network })
         }

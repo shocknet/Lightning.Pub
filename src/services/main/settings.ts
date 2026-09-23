@@ -230,7 +230,7 @@ export const LoadSwapsSettingsFromEnv = (dbEnv: Record<string, string | undefine
         boltzWebSocketUrl: chooseEnv("BOLTZ_WEBSOCKET_URL", dbEnv, "wss://swaps.zeuslsp.com/api", addToDb),
         boltsHttpUrlAlt: chooseEnv("BOLTZ_HTTP_URL_ALT", dbEnv, "https://api.boltz.exchange/", addToDb),
         boltsWebSocketUrlAlt: chooseEnv("BOLTZ_WEBSOCKET_URL_ALT", dbEnv, "wss://api.boltz.exchange/", addToDb),
-        enableSwaps: chooseEnvBool("ENABLE_SWAPS", dbEnv, false, addToDb)
+        enableSwaps: false, // hard-disabled; Boltz providers are unsafe. ENABLE_SWAPS is ignored.
     }
 }
 
