@@ -8,6 +8,25 @@ import { getLogger } from '../helpers/logger.js'
 import SettingsManager from './settingsManager.js'
 import { assertCallbackUrlAllowed } from '../helpers/safeOutboundFetch.js'
 import { clampPageLimit, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from '../helpers/pageLimit.js'
+
+function appUserAdminInfo(appUser: {
+    identifier: string
+    nostr_public_key?: string
+    callback_url: string
+    topic_id: string
+    application?: { app_id: string, name: string }
+}): Types.AppUserAdminInfo {
+    return {
+        app_user_id: appUser.identifier,
+        npub: appUser.nostr_public_key || "",
+        has_callback_url: appUser.callback_url !== "",
+        has_topic_id: appUser.topic_id !== "",
+        ...(appUser.application
+            ? { app_id: appUser.application.app_id, app_name: appUser.application.name }
+            : {}),
+    }
+}
+
 export default class {
 
     storage: Storage
@@ -129,7 +148,9 @@ export default class {
         const apps: Record<string, string> = {}
         applications.forEach(a => apps[a.owner.user_id] = a.app_id)
 
-        const appUsers = await this.storage.applicationStorage.GetAppUsersForUsers(users.map(u => u.user_id))
+        const userIds = users.map(u => u.user_id)
+        const appUsers = await this.storage.applicationStorage.GetAppUsersForUsers(userIds)
+        const lastSeen = await this.storage.userStorage.GetLastSeenForUsers(userIds)
         const appUsersByUserId = new Map<string, Types.AppUserAdminInfo[]>()
         for (const a of appUsers) {
             const userId = a.user.user_id
@@ -138,12 +159,7 @@ export default class {
                 appUsersInfo = []
                 appUsersByUserId.set(userId, appUsersInfo)
             }
-            appUsersInfo.push({
-                app_user_id: a.identifier,
-                npub: a.nostr_public_key || "",
-                has_callback_url: a.callback_url !== "",
-                has_topic_id: a.topic_id !== "",
-            })
+            appUsersInfo.push(appUserAdminInfo(a))
         }
 
         const usersInfo: Types.UserAdminInfo[] = users.map(user => ({
@@ -151,7 +167,8 @@ export default class {
             balance: user.balance_sats,
             locked: user.locked,
             app_users: appUsersByUserId.get(user.user_id) ?? [],
-            owner_of_app_id: apps[user.user_id]
+            owner_of_app_id: apps[user.user_id],
+            last_seen_at_unix: lastSeen.get(user.user_id) ?? 0,
         }))
 
         return { users: usersInfo, total }

@@ -978,14 +978,19 @@ export type AppUserAdminInfo = {
     has_callback_url: boolean
     has_topic_id: boolean
     npub: string
+    app_id?: string
+    app_name?: string
 }
-export const AppUserAdminInfoOptionalFields: [] = []
+export type AppUserAdminInfoOptionalField = 'app_id' | 'app_name'
+export const AppUserAdminInfoOptionalFields: AppUserAdminInfoOptionalField[] = ['app_id', 'app_name']
 export type AppUserAdminInfoOptions = OptionsBaseMessage & {
-    checkOptionalsAreSet?: []
+    checkOptionalsAreSet?: AppUserAdminInfoOptionalField[]
     app_user_id_CustomCheck?: (v: string) => boolean
     has_callback_url_CustomCheck?: (v: boolean) => boolean
     has_topic_id_CustomCheck?: (v: boolean) => boolean
     npub_CustomCheck?: (v: string) => boolean
+    app_id_CustomCheck?: (v?: string) => boolean
+    app_name_CustomCheck?: (v?: string) => boolean
 }
 export const AppUserAdminInfoValidate = (o?: AppUserAdminInfo, opts: AppUserAdminInfoOptions = {}, path: string = 'AppUserAdminInfo::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
@@ -1002,6 +1007,12 @@ export const AppUserAdminInfoValidate = (o?: AppUserAdminInfo, opts: AppUserAdmi
 
     if (typeof o.npub !== 'string') return new Error(`${path}.npub: is not a string`)
     if (opts.npub_CustomCheck && !opts.npub_CustomCheck(o.npub)) return new Error(`${path}.npub: custom check failed`)
+
+    if ((o.app_id || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('app_id')) && typeof o.app_id !== 'string') return new Error(`${path}.app_id: is not a string`)
+    if (opts.app_id_CustomCheck && !opts.app_id_CustomCheck(o.app_id)) return new Error(`${path}.app_id: custom check failed`)
+
+    if ((o.app_name || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('app_name')) && typeof o.app_name !== 'string') return new Error(`${path}.app_name: is not a string`)
+    if (opts.app_name_CustomCheck && !opts.app_name_CustomCheck(o.app_name)) return new Error(`${path}.app_name: custom check failed`)
 
     return null
 }
@@ -5799,9 +5810,10 @@ export type UserAdminInfo = {
     locked: boolean
     owner_of_app_id?: string
     user_id: string
+    last_seen_at_unix?: number
 }
-export type UserAdminInfoOptionalField = 'owner_of_app_id'
-export const UserAdminInfoOptionalFields: UserAdminInfoOptionalField[] = ['owner_of_app_id']
+export type UserAdminInfoOptionalField = 'owner_of_app_id' | 'last_seen_at_unix'
+export const UserAdminInfoOptionalFields: UserAdminInfoOptionalField[] = ['owner_of_app_id', 'last_seen_at_unix']
 export type UserAdminInfoOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: UserAdminInfoOptionalField[]
     app_users_ItemOptions?: AppUserAdminInfoOptions
@@ -5810,6 +5822,7 @@ export type UserAdminInfoOptions = OptionsBaseMessage & {
     locked_CustomCheck?: (v: boolean) => boolean
     owner_of_app_id_CustomCheck?: (v?: string) => boolean
     user_id_CustomCheck?: (v: string) => boolean
+    last_seen_at_unix_CustomCheck?: (v?: number) => boolean
 }
 export const UserAdminInfoValidate = (o?: UserAdminInfo, opts: UserAdminInfoOptions = {}, path: string = 'UserAdminInfo::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
@@ -5833,6 +5846,9 @@ export const UserAdminInfoValidate = (o?: UserAdminInfo, opts: UserAdminInfoOpti
 
     if (typeof o.user_id !== 'string') return new Error(`${path}.user_id: is not a string`)
     if (opts.user_id_CustomCheck && !opts.user_id_CustomCheck(o.user_id)) return new Error(`${path}.user_id: custom check failed`)
+
+    if ((o.last_seen_at_unix || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('last_seen_at_unix')) && typeof o.last_seen_at_unix !== 'number') return new Error(`${path}.last_seen_at_unix: is not a number`)
+    if (opts.last_seen_at_unix_CustomCheck && !opts.last_seen_at_unix_CustomCheck(o.last_seen_at_unix)) return new Error(`${path}.last_seen_at_unix: custom check failed`)
 
     return null
 }

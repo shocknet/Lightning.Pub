@@ -66,6 +66,8 @@ message AppUserAdminInfo {
     string npub = 2;
     bool has_callback_url = 3;
     bool has_topic_id = 4;
+    optional string app_id = 5;
+    optional string app_name = 6;
 }
 
 message UserAdminInfo {
@@ -74,6 +76,7 @@ message UserAdminInfo {
     bool locked = 3;
     repeated AppUserAdminInfo app_users = 4;
     optional string owner_of_app_id = 5;
+    optional int64 last_seen_at_unix = 6;
 }
 
 message UsersAdminInfoRequest {
