@@ -170,12 +170,12 @@ type AppUser struct {
 	Max_withdrawable int64     `json:"max_withdrawable"`
 }
 type AppUserAdminInfo struct {
+	App_id           string `json:"app_id"`
+	App_name         string `json:"app_name"`
 	App_user_id      string `json:"app_user_id"`
 	Has_callback_url bool   `json:"has_callback_url"`
 	Has_topic_id     bool   `json:"has_topic_id"`
 	Npub             string `json:"npub"`
-	App_id           string `json:"app_id,omitempty"`
-	App_name         string `json:"app_name,omitempty"`
 }
 type Application struct {
 	Balance int64  `json:"balance"`
@@ -971,10 +971,10 @@ type UseInviteLinkRequest struct {
 type UserAdminInfo struct {
 	App_users         []AppUserAdminInfo `json:"app_users"`
 	Balance           int64              `json:"balance"`
+	Last_seen_at_unix int64              `json:"last_seen_at_unix"`
 	Locked            bool               `json:"locked"`
 	Owner_of_app_id   string             `json:"owner_of_app_id"`
 	User_id           string             `json:"user_id"`
-	Last_seen_at_unix int64              `json:"last_seen_at_unix,omitempty"`
 }
 type UserHealthState struct {
 	Downtime_reason string `json:"downtime_reason"`
