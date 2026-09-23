@@ -2,9 +2,10 @@ import fs from 'fs'
 import crypto from 'crypto'
 import { GrpcTransport } from "@protobuf-ts/grpc-transport";
 import { credentials, Metadata } from '@grpc/grpc-js'
-import { getLogger } from '../helpers/logger.js';
+import { ERROR, getLogger } from '../helpers/logger.js';
 import { WalletUnlockerClient } from '../../../proto/lnd/walletunlocker.client.js';
 import { InitWalletReq } from '../lnd/initWalletReq.js';
+import { candidateNodePubkeys } from '../lnd/nodeKey.js';
 import Storage from '../storage/index.js'
 import { LightningClient } from '../../../proto/lnd/lightning.client.js';
 import { StateClient } from '../../../proto/lnd/stateservice.client.js';
@@ -17,7 +18,7 @@ import { Application } from '../storage/entity/Application.js';
 import { selectDefaultApp } from '../helpers/defaultAppSelector.js';
 const DeadLineMetadata = (deadline = 10 * 1000) => ({ deadline: Date.now() + deadline })
 type EncryptedData = { iv: string, encrypted: string }
-type Seed = { plaintextSeed: string[], encryptedSeed: EncryptedData }
+type Seed = { plaintextSeed: string[], encryptedSeed: EncryptedData, entropy?: Buffer }
 const SCB_BACKUP_KIND = 30078
 const SCB_BACKUP_D_TAG = 'Lightning.Pub/backup/scb'
 export type AppKeys = { nostr_private_key: string, nostr_public_key: string }
@@ -106,8 +107,8 @@ export class Unlocker {
         const { lndCert, macaroon } = this.getCreds()
         const state = this.GetStateClient(lndCert)
         if (macaroon === "") {
-            const { ln, encryptedSeed } = await this.initFlow(lndCert, state)
-            this.nodePub = await this.saveSeed(state, ln, encryptedSeed)
+            const { ln, seed, candidatePubs } = await this.initFlow(lndCert, state)
+            this.nodePub = await this.confirmNewWalletPub(state, ln, candidatePubs, seed.encryptedSeed)
             await this.subscribeToBackups(ln, state, this.nodePub)
             return 'created'
         }
@@ -156,14 +157,24 @@ export class Unlocker {
         }
         // await this.waitForLndSync(300); 
         const unlocker = this.GetUnlockerClient(lndCert)
-        const { plaintextSeed, encryptedSeed } = await this.getSeed(unlocker, restore)
+        const seed = await this.getSeed(unlocker, restore)
         const recoveryWindow = restore ? restore.recoveryWindow : 0
         if (recoveryWindow) {
             this.log("recovering addresses with window: " + recoveryWindow)
         }
-        const { adminMacaroon } = await this.initWallet(unlocker, { plaintextSeed, encryptedSeed }, recoveryWindow)
+        const { adminMacaroon } = await this.initWallet(unlocker, seed, recoveryWindow)
+        const candidatePubs = seed.entropy ? await this.saveSeedUnderCandidatePubs(seed.entropy, seed.encryptedSeed) : []
         const ln = this.GetLightningClient(lndCert, adminMacaroon)
-        return { adminMacaroon, ln, encryptedSeed }
+        return { adminMacaroon, ln, seed, candidatePubs }
+    }
+
+    private saveSeedUnderCandidatePubs = async (entropy: Buffer, encryptedSeed: EncryptedData) => {
+        const candidatePubs = candidateNodePubkeys(entropy)
+        for (const pub of candidatePubs) {
+            await this.storage.liquidityStorage.SaveNodeSeed(pub, JSON.stringify(encryptedSeed))
+        }
+        this.log("seed saved under candidate node keys:", candidatePubs.join(", "))
+        return candidatePubs
     }
 
     private getSeed = async (unlocker: WalletUnlockerClient, restore?: { seed: string[] }): Promise<Seed> => {
@@ -185,7 +196,7 @@ export class Unlocker {
         }, DeadLineMetadata())
         this.log("seed created")
         const { encryptedData } = this.EncryptWalletSeed(seedRes.response.cipherSeedMnemonic)
-        return { plaintextSeed: seedRes.response.cipherSeedMnemonic, encryptedSeed: encryptedData }
+        return { plaintextSeed: seedRes.response.cipherSeedMnemonic, encryptedSeed: encryptedData, entropy }
     }
 
     private initWallet = async (unlocker: WalletUnlockerClient, seed: Seed, recoveryWindow: number = 0) => {
@@ -198,7 +209,26 @@ export class Unlocker {
     }
 
     private saveSeed = async (state: StateClient, ln: LightningClient, encryptedSeed: EncryptedData) => {
-        await this.WaitWalletState(state, 300, WalletState.SERVER_ACTIVE)
+        const pub = await this.waitForNodePub(state, ln)
+        await this.storage.liquidityStorage.SaveNodeSeed(pub, JSON.stringify(encryptedSeed))
+        return pub
+    }
+
+    private confirmNewWalletPub = async (state: StateClient, ln: LightningClient, candidatePubs: string[], encryptedSeed: EncryptedData) => {
+        const pub = await this.waitForNodePub(state, ln)
+        if (!candidatePubs.includes(pub)) {
+            this.log(ERROR, "node key derived from seed entropy does not match lnd, saving seed under lnd's key", pub)
+            await this.storage.liquidityStorage.SaveNodeSeed(pub, JSON.stringify(encryptedSeed))
+        }
+        for (const candidate of candidatePubs.filter(c => c !== pub)) {
+            await this.storage.liquidityStorage.RemoveNodeSeed(candidate)
+        }
+        this.log("created wallet with pub:", pub)
+        return pub
+    }
+
+    private waitForNodePub = async (state: StateClient, ln: LightningClient) => {
+        await this.WaitWalletState(state, null, WalletState.SERVER_ACTIVE)
         await this.WaitRecovery(ln)
         let info;
         for (let i = 0; i < 10; i++) {
@@ -211,7 +241,6 @@ export class Unlocker {
         if (!info || !info.ok) {
             throw new Error("failed to init lnd wallet " + (info ? info.failure : "unknown error"))
         }
-        await this.storage.liquidityStorage.SaveNodeSeed(info.pub, JSON.stringify(encryptedSeed))
         return info.pub
     }
 
@@ -448,9 +477,9 @@ export class Unlocker {
         return client
     }
 
-    WaitWalletState = (client: StateClient, timeout: number, expect: WalletState | null = null): Promise<WalletState> => {
+    WaitWalletState = (client: StateClient, timeout: number | null, expect: WalletState | null = null): Promise<WalletState> => {
         const abortController = new AbortController()
-        this.log("Waiting for LND to be ready for up to " + timeout + " seconds")
+        this.log(timeout === null ? "Waiting for LND to be ready" : "Waiting for LND to be ready for up to " + timeout + " seconds")
         return new Promise((resolve, reject) => {
             let ended = false
             let timeoutId: NodeJS.Timeout | null = null
@@ -469,7 +498,9 @@ export class Unlocker {
                 abortController.abort()
             }
 
-            timeoutId = setTimeout(() => fail(new Error("LND state stream timed out")), timeout * 1000)
+            if (timeout !== null) {
+                timeoutId = setTimeout(() => fail(new Error("LND state stream timed out")), timeout * 1000)
+            }
             const stream = client.subscribeState({}, { abort: abortController.signal })
             stream.responses.onMessage(async (msg) => {
                 this.log("Current LND state: ", msg.state)

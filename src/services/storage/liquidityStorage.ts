@@ -37,6 +37,10 @@ export class LiquidityStorage {
         return this.dbs.CreateAndSave<LndNodeInfo>('LndNodeInfo', { pubkey, seed })
     }
 
+    async RemoveNodeSeed(pubkey: string) {
+        return this.dbs.Delete<LndNodeInfo>('LndNodeInfo', { pubkey })
+    }
+
     async SaveNodeBackup(pubkey: string, backup: string) {
         const existing = await this.dbs.FindOne<LndNodeInfo>('LndNodeInfo', { where: { pubkey } })
         if (existing) {
