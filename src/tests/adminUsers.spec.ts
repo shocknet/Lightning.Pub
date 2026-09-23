@@ -54,11 +54,12 @@ const testGetUsersAdminInfo = async (T: TestBase) => {
     T.expect(user2!.balance).to.equal(USER2_FUNDING_SATS)
     T.expect(user1!.locked).to.equal(false)
 
+    const app = await T.main.storage.applicationStorage.GetApplication(T.app.appId)
     const user1AppUser = user1!.app_users.find(a => a.app_user_id === T.user1.appUserIdentifier)
     T.expect(user1AppUser).to.not.equal(undefined)
     T.expect(user1AppUser!.has_topic_id).to.equal(true)
-
-    const app = await T.main.storage.applicationStorage.GetApplication(T.app.appId)
+    T.expect(user1AppUser!.app_name).to.equal(app.name)
+    T.expect(user1!.last_seen_at_unix).to.be.a("number")
     const owner = res.users.find(u => u.user_id === app.owner.user_id)
     T.expect(owner).to.not.equal(undefined)
     T.expect(owner!.owner_of_app_id).to.equal(T.app.appId)

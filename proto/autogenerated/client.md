@@ -1294,6 +1294,7 @@ The nostr server will send back a message response, and inside the body there wi
   - __max_withdrawable__: _number_
 
 ### AppUserAdminInfo
+  - __app_name__: _string_ *this field is optional
   - __app_user_id__: _string_
   - __has_callback_url__: _boolean_
   - __has_topic_id__: _boolean_
@@ -2093,6 +2094,7 @@ The nostr server will send back a message response, and inside the body there wi
 ### UserAdminInfo
   - __app_users__: ARRAY of: _[AppUserAdminInfo](#AppUserAdminInfo)_
   - __balance__: _number_
+  - __last_seen_at_unix__: _number_ *this field is optional
   - __locked__: _boolean_
   - __owner_of_app_id__: _string_ *this field is optional
   - __user_id__: _string_
