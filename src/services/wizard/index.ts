@@ -228,6 +228,8 @@ export class Wizard {
                     await this.storage.applicationStorage.UpdateApplication(newApp, { avatar_url: avatarUrl })
                 }
             }
+            // First-time configure runs before BackupManager exists; boot flush covers that path.
+            void this.adminManager.backupManager?.notifyBackupTable('applications')
         } catch (e) {
             this.log(`Error updating app info: ${(e as Error).message}`)
         }

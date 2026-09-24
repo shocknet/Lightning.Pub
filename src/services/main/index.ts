@@ -109,7 +109,7 @@ export default class {
         this.debitManager = new DebitManager(this.storage, this.lnd, this.applicationManager, this.paymentManager, this.notificationsManager, this.backupManager)
         this.offerManager = new OfferManager(this.storage, this.settings, this.lnd, this.applicationManager, this.productManager, this.liquidityManager, this.backupManager)
         this.managementManager = new ManagementManager(this.storage, this.settings, this.notificationsManager, this.backupManager)
-        this.enrollManager = new EnrollManager(this.storage, this.settings)
+        this.enrollManager = new EnrollManager(this.storage, this.settings, this.backupManager)
         this.beaconManager = new BeaconManager(this.paymentManager, this.storage, this.utils, this.settings)
 
         this.adminManager.attachBeaconRefresh(() => this.publishDefaultAppBeacon())

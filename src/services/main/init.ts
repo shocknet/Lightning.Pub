@@ -100,6 +100,8 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
         log("no default wallet app found, creating one...")
         const newWalletApp = await mainHandler.storage.applicationStorage.AddApplication(defaultAppName, true)
         appsData.push(newWalletApp)
+        // Runs after the early applications/user_balances notify above — flush the new owner row too.
+        backupManager.notifyBackupTable('applications', 'user_balances')
     }
     const apps: AppData[] = await Promise.all(appsData.map(async app => {
         if (!app.nostr_private_key || !app.nostr_public_key) { // TMP --

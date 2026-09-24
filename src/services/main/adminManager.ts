@@ -25,9 +25,15 @@ import {
     ADMIN_BACKUPS_ENV,
     ADMIN_LSP_THRESHOLD_ENV,
     ADMIN_NODE_NAME_ENV,
+    ADMIN_TIER1_CONFS_ENV,
+    ADMIN_TIER1_LIMIT_ENV,
+    ADMIN_TIER2_CONFS_ENV,
+    ADMIN_TIER2_LIMIT_ENV,
+    ADMIN_TIER3_CONFS_ENV,
     assertAvatarUrl,
     assertLspThreshold,
     assertNodeName,
+    assertOnchainConfSettings,
     automationEnabled,
     disableLiquidityFromAutomation,
     isEnvLocked,
@@ -403,6 +409,38 @@ export class AdminManager {
         return this.GetAdminNodeSettings()
     }
 
+    GetAdminOnchainConfSettings = async (): Promise<Types.AdminOnchainConfSettings> => {
+        const { tier1LimitSats, tier1Confs, tier2LimitSats, tier2Confs, tier3Confs } = this.settings.getSettings().lndSettings
+        return {
+            tier1_limit_sats: tier1LimitSats,
+            tier1_confs: tier1Confs,
+            tier2_limit_sats: tier2LimitSats,
+            tier2_confs: tier2Confs,
+            tier3_confs: tier3Confs,
+            tier1_limit_env_locked: isEnvLocked(ADMIN_TIER1_LIMIT_ENV),
+            tier1_confs_env_locked: isEnvLocked(ADMIN_TIER1_CONFS_ENV),
+            tier2_limit_env_locked: isEnvLocked(ADMIN_TIER2_LIMIT_ENV),
+            tier2_confs_env_locked: isEnvLocked(ADMIN_TIER2_CONFS_ENV),
+            tier3_confs_env_locked: isEnvLocked(ADMIN_TIER3_CONFS_ENV),
+        }
+    }
+
+    UpdateAdminOnchainConfSettings = async (req: Types.UpdateAdminOnchainConfSettingsRequest): Promise<Types.AdminOnchainConfSettings> => {
+        const current = await this.GetAdminOnchainConfSettings()
+        this.assertUnlockedOnchainConfChange(current, req)
+
+        const tiers = {
+            tier1LimitSats: current.tier1_limit_env_locked ? current.tier1_limit_sats : req.tier1_limit_sats,
+            tier1Confs: current.tier1_confs_env_locked ? current.tier1_confs : req.tier1_confs,
+            tier2LimitSats: current.tier2_limit_env_locked ? current.tier2_limit_sats : req.tier2_limit_sats,
+            tier2Confs: current.tier2_confs_env_locked ? current.tier2_confs : req.tier2_confs,
+            tier3Confs: current.tier3_confs_env_locked ? current.tier3_confs : req.tier3_confs,
+        }
+        assertOnchainConfSettings(tiers)
+        await this.settings.updateOnchainConfTiers(tiers)
+        return this.GetAdminOnchainConfSettings()
+    }
+
     private assertUnlockedChange = (current: Types.AdminNodeSettings, name: string, req: Types.UpdateAdminNodeSettingsRequest) => {
         if (current.node_name_env_locked && name !== current.node_name) {
             throw new Error("node name is set in the environment")
@@ -415,6 +453,24 @@ export class AdminManager {
         }
         if (current.backups_env_locked && req.push_backups_to_nostr !== current.push_backups_to_nostr) {
             throw new Error("channel backups are set in the environment")
+        }
+    }
+
+    private assertUnlockedOnchainConfChange = (current: Types.AdminOnchainConfSettings, req: Types.UpdateAdminOnchainConfSettingsRequest) => {
+        if (current.tier1_limit_env_locked && req.tier1_limit_sats !== current.tier1_limit_sats) {
+            throw new Error("onchain tier1 limit is set in the environment")
+        }
+        if (current.tier1_confs_env_locked && req.tier1_confs !== current.tier1_confs) {
+            throw new Error("onchain tier1 confs is set in the environment")
+        }
+        if (current.tier2_limit_env_locked && req.tier2_limit_sats !== current.tier2_limit_sats) {
+            throw new Error("onchain tier2 limit is set in the environment")
+        }
+        if (current.tier2_confs_env_locked && req.tier2_confs !== current.tier2_confs) {
+            throw new Error("onchain tier2 confs is set in the environment")
+        }
+        if (current.tier3_confs_env_locked && req.tier3_confs !== current.tier3_confs) {
+            throw new Error("onchain tier3 confs is set in the environment")
         }
     }
 
@@ -449,6 +505,7 @@ export class AdminManager {
         }
         if (result.didRename && app) {
             app.name = name
+            void this.backupManager?.notifyBackupTable('applications')
         }
     }
 

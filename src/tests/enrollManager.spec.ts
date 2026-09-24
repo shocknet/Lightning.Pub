@@ -9,7 +9,10 @@ import { ClinkRateLimiter } from "../services/CLINK/clinkRateLimit.js"
 import { toClinkCtx } from "../services/CLINK/clinkTypes.js"
 import { newClinkTransport } from "../services/serverMethods/clinkTransport.js"
 import SettingsManager from "../services/main/settingsManager.js"
+import { BackupManager } from "../services/backup/backupManager.js"
 import { StorageTestBase } from "./testBase.js"
+
+const noopBackupManager = { notifyBackupTable: async () => { } } as BackupManager
 
 export const ignore = false
 export const dev = false
@@ -87,7 +90,7 @@ const setupHarness = async (T: StorageTestBase): Promise<Harness> => {
     return {
         T,
         settings,
-        enroll: new EnrollManager(T.storage, settings),
+        enroll: new EnrollManager(T.storage, settings, noopBackupManager),
         appId: keys.appId,
         publicKey: keys.publicKey,
     }
