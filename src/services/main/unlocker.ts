@@ -173,8 +173,8 @@ export class Unlocker {
         if (recoveryWindow) {
             this.log("recovering addresses with window: " + recoveryWindow)
         }
-        const { adminMacaroon } = await this.initWallet(unlocker, seed, recoveryWindow)
         const candidatePubs = seed.entropy ? await this.saveSeedUnderCandidatePubs(seed.entropy, seed.encryptedSeed) : []
+        const { adminMacaroon } = await this.initWallet(unlocker, seed, recoveryWindow)
         const ln = this.GetLightningClient(lndCert, adminMacaroon)
         return { adminMacaroon, ln, seed, candidatePubs }
     }
