@@ -128,6 +128,14 @@ const recoverEliot = async (T: TestBase, seed: string[], scbEvent: UnsignedEvent
     if (info.w.confirmedBalance < 190_000) {
         throw new Error("confirmed balance is less than 190_000 after recovery")
     }
+
+    const apps = await settingsManager.storage.applicationStorage.ExportApplications()
+    const restoredApp = apps.find(a => a.app_id === app.app_id)
+    T.expect(!!restoredApp).to.equal(true)
+    T.expect(restoredApp?.nostr_public_key).to.equal(app.nostr_public_key)
+    const balances = await settingsManager.storage.userStorage.ExportBalances()
+    T.expect(balances.length).to.be.greaterThan(0)
+    T.d("dialtone applications and balances restored alongside LND recovery")
 }
 
 const expectSeedSavedUnderDerivedKey = async (T: TestBase, pubkey: string) => {

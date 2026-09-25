@@ -52,17 +52,14 @@ const testSerializeBalanceData = (T: StorageTestBase) => {
         balances: encoded.balances.map(decodeBalanceRow),
         trackedProviders: encoded.trackedProviders.map(decodeTrackedProviderRow),
     }
-    console.log(backupData)
-    console.log(decoded)
     T.expect(decoded).to.deep.equal(backupData)
     T.d('Finished testSerializeBalanceData')
 }
 
 
 const explode = (base: number) => {
-    return (percent: number, name: string) => {
+    return (percent: number, _name: string) => {
         const n = Math.ceil(base * percent / 100)
-        console.log("generating", n, name)
         return Array.from({ length: n }, (_, i) => i)
     }
 }
