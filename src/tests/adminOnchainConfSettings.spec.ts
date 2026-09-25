@@ -140,14 +140,14 @@ const testRejectsInvalidOrdering = async (h: AdminHarness) => {
             tier2_confs: 2,
             tier3_confs: 3,
         })),
-        "onchain conf tiers",
+        "onchain conf tiers must have non-negative limits with tier1 <= tier2, and confs >= 1 non-decreasing across tiers",
     )
     await expectThrowsAsync(
         h.admin.UpdateAdminOnchainConfSettings(confReq({
             tier1_limit_sats: 200_000_000,
             tier2_limit_sats: 100_000_000,
         })),
-        "onchain conf tiers",
+        "onchain conf tiers must have non-negative limits with tier1 <= tier2, and confs >= 1 non-decreasing across tiers",
     )
     const current = await h.admin.GetAdminOnchainConfSettings()
     h.T.expect(current.tier1_confs).to.equal(h.settings.getSettings().lndSettings.tier1Confs)
