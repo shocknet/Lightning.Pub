@@ -389,7 +389,8 @@ export const mapProductBackupRow = (product: Product): ProductRow => ({
 
 export const encodeProductRow = (row: ProductRow): Uint8Array => {
     const tlv: TLV = {
-        2: [hexToBytes(row.product_id)],
+        // product_id is a TypeORM uuid (hyphenated), not raw hex
+        2: splitChunk(stringToBytes(row.product_id), 255),
         3: [hexToBytes(row.owner_user_id)],
         4: splitChunk(stringToBytes(row.name), 255),
         5: [numberToBytes(row.price_sats)],
@@ -400,7 +401,7 @@ export const encodeProductRow = (row: ProductRow): Uint8Array => {
 export const decodeProductRow = (data: Uint8Array): ProductRow => {
     const tlv = parseTLV(data)
     return {
-        product_id: hexFromBytes(tlv[2][0]),
+        product_id: stringFromBytes(joinChunks(tlv[2])),
         owner_user_id: hexFromBytes(tlv[3][0]),
         name: stringFromBytes(joinChunks(tlv[4])),
         price_sats: numberFromBytes(tlv[5][0]),

@@ -131,7 +131,7 @@ const generateUserOfferRow = (base: number): UserOfferRow => {
 
 const generateProductRow = (base: number): ProductRow => {
     return {
-        product_id: randomHex,
+        product_id: crypto.randomUUID(),
         owner_user_id: randomHex,
         name: `test-product-${base}`,
         price_sats: 1000,
