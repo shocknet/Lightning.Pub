@@ -73,8 +73,8 @@ const testEncryptDecryptTableRows = async (T: StorageTestBase) => {
     T.d('starting testEncryptDecryptTableRows')
     const keys = await deriveBackupKeys(TEST_PHRASE)
     const rows: BalanceRow[] = [
-        { user_id: 'u1', balance_sats: 100, locked: false },
-        { user_id: 'u2', balance_sats: 0, locked: true },
+        { user_id: 'aa'.repeat(16), balance_sats: 100, locked: false },
+        { user_id: 'bb'.repeat(16), balance_sats: 0, locked: true },
     ]
     const enc = encryptTableRows(rows.map(encodeBalanceRow), keys.encKey)
     const decoded = decryptTableRows(enc, keys.encKey).map(decodeBalanceRow)
