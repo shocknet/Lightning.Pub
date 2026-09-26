@@ -34,7 +34,7 @@
     "@protobuf-ts/grpc-transport": "^2.9.4",
     "@protobuf-ts/plugin": "^2.5.0",
     "@protobuf-ts/runtime": "^2.5.0",
-    "@scure/base": "^2.0.0",
+    "@scure/base": "^2.4.0",
     "@scure/bip32": "^2.0.1",
     "@shocknet/clink-sdk": "^1.7.3",
     "@stablelib/xchacha20": "^1.0.1",
@@ -90,7 +90,9 @@
     "ts-node": "10.7.0",
     "typescript": "~6.0.3"
   },
-  "overrides": {},
+  "overrides": {
+    "@scure/base": "$@scure/base"
+  },
   "optionalDependencies": {
     "wrtc": "^0.4.7"
   }
