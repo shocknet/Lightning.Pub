@@ -1,0 +1,1915 @@
+/* 
+   LEGACY STYLE PORT 
+   Merged styles.css and wizard.css to restore original look 
+*/
+
+/* --- from styles.css --- */
+:root {
+    --background-color: #16191c;
+    --color: #ffffff;
+    --color-marked: #ff7700;
+    --color-linked: #2aabe9;
+    --gradient: linear-gradient(60deg, #ff7700 0%, #c740c7 100%);
+    --font-size-h2: 36px;
+    --font-size-p: 16px;
+}
+
+body {
+    font-family: 'Montserrat', sans-serif;
+    background-color: var(--background-color);
+    color: var(--color);
+    text-align: center;
+    overflow-y: scroll;
+    /* Keep legacy scroll behavior */
+    overflow-x: hidden;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 100vh;
+}
+
+@media (min-width: 768px) {
+    body>* {
+        zoom: 1.4;
+    }
+}
+
+@media (min-width: 2000px) {
+    body>* {
+        zoom: 1.6;
+    }
+}
+
+/* Pico Override: responsive so content scales with viewport (doesn't look lost on large screens) */
+main {
+    width: 100%;
+    max-width: min(900px, 92vw);
+    margin-inline: auto;
+    padding: 1rem;
+    margin-bottom: auto;
+    /* Zoom was in legacy, restoring it as requested for identical feel */
+    zoom: 1.3;
+}
+
+@media (max-height: 740px) {
+    main {
+        zoom: unset;
+    }
+}
+
+/* Global Elements */
+* {
+    box-sizing: border-box;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    font-family: 'Inter', sans-serif;
+    /* Legacy used Inter for headers inside wizard */
+    color: #fff;
+}
+
+h2 {
+    font-size: var(--font-size-h2);
+    font-weight: 400;
+}
+
+p {
+    font-size: var(--font-size-p);
+    color: #a3a3a3;
+    /* Default gray from legacy p rules often had specifics */
+}
+
+a {
+    color: var(--color);
+    text-decoration: none;
+}
+
+.marked {
+    color: var(--color-marked);
+}
+
+.text-gray {
+    color: #a3a3a3;
+}
+
+/* Input Fields (Legacy Style) */
+input[type="text"],
+input[type="url"],
+input[type="password"] {
+    background-color: #16191C !important;
+    /* Matches legacy setup-content input-text */
+    padding: 12px !important;
+    border: 1px solid #3C3C3C !important;
+    border-radius: 6px !important;
+    font-size: 16px !important;
+    outline: none !important;
+    color: #fff !important;
+    /* Legacy text is white */
+    box-shadow: none !important;
+    font-family: 'Inter', sans-serif !important;
+    width: 100%;
+    margin-bottom: 0;
+}
+
+input[type="text"]:focus,
+input[type="url"]:focus,
+input[type="password"]:focus {
+    border-bottom-color: #5F5F5F !important;
+    /* Legacy focus style */
+    color: var(--color) !important;
+}
+
+input::placeholder {
+    color: #5F5F5F !important;
+    opacity: 1;
+}
+
+/* Push Button (Global) */
+.push-button {
+    background-color: transparent;
+    padding: 10px 55px;
+    font-size: 20px;
+    color: var(--color);
+    text-align: center;
+    /* box-shadow: 0px 0px 2px rgba(0, 0, 0, 1); */
+    background: linear-gradient(var(--background-color), var(--background-color)) padding-box,
+        var(--gradient) border-box;
+    border-radius: 5px;
+    border: 2px solid transparent;
+}
+
+/* Header */
+header {
+    background-color: var(--background-color);
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 1rem;
+    height: 4rem;
+    padding: 0.5rem 1rem;
+    /* Restore legacy padding */
+    justify-content: flex-start;
+}
+
+/* ... (images unchanged) ... */
+
+/* Welcome Actions - specific sizing */
+.welcome-actions .wizard-cta {
+    margin: 0;
+    flex-shrink: 0;
+    height: 42px;
+}
+
+.welcome-actions .wizard-cta--gradient-border {
+    width: 160px;
+    border-radius: 12px;
+    background-image: linear-gradient(#16191C, #16191C), linear-gradient(135deg, #FF7700 0%, #C740C7 100%);
+    background-origin: padding-box, border-box;
+    background-clip: padding-box, border-box;
+    border: 1px solid transparent;
+    color: #fff;
+}
+
+.welcome-actions .wizard-cta--gradient-border:hover {
+    background-image: linear-gradient(135deg, #FF7700 0%, #EA624A 33%, #DC547C 66%, #C740C7 100%);
+    background-clip: unset;
+    background-origin: unset;
+    border-color: transparent;
+}
+
+.welcome-actions .wizard-cta--ghost {
+    width: auto;
+    min-width: 120px;
+    padding: 0 1rem;
+    background: transparent;
+    border: none;
+    color: #9ca3af;
+}
+
+.welcome-actions .wizard-cta--ghost:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+}
+
+img.logo-symbol {
+    width: 38px;
+    height: auto;
+}
+
+img.logo-text {
+    height: 26px;
+}
+
+
+/* --- from wizard.css --- */
+
+/* Wizard layout: shared content width so progress bar, rules, and cards align */
+main.wizard {
+    text-align: center;
+    width: 100%;
+    max-width: min(900px, 92vw);
+    margin: 0 auto;
+    padding: 1rem;
+    --wizard-content-width: min(100%, clamp(469px, 50vw, 640px));
+}
+
+/* Reset Pico spacing inside wizard so our layout controls alignment/sizing */
+main.wizard section {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    margin-bottom: 0;
+}
+
+main.wizard h1,
+main.wizard h2,
+main.wizard h3,
+main.wizard h4,
+main.wizard h5,
+main.wizard h6 {
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+main.wizard p {
+    margin-top: 0;
+    margin-bottom: 0;
+    color: #D9D9D9;
+}
+
+/* Restore spacing for elements that need it (override reset) */
+main.wizard .welcome-terms {
+    margin: 1.25rem auto 1.75rem;
+}
+
+main.wizard p + p {
+    margin-top: 0.75rem;
+}
+
+main.wizard input:not([type=checkbox],[type=radio]),
+main.wizard select,
+main.wizard textarea {
+    margin-bottom: 0;
+}
+
+main.wizard [type=button],
+main.wizard [type=reset],
+main.wizard [type=submit],
+main.wizard button {
+    margin-bottom: 0;
+}
+
+main.wizard label {
+    margin-bottom: 0;
+}
+
+main.wizard ul {
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+main.wizard li {
+    margin-bottom: 0;
+}
+
+main.wizard .welcome-features .welcome-feature {
+    margin-bottom: 1.25em;
+}
+
+main.wizard .welcome-features .welcome-feature:last-child {
+    margin-bottom: 0;
+}
+
+/* Until Alpine has run (body.wizard-ready), only show welcome to avoid all steps visible at once */
+body:not(.wizard-ready) main.wizard section#page-node,
+body:not(.wizard-ready) main.wizard section#page-relay,
+body:not(.wizard-ready) main.wizard section#page-liquidity,
+body:not(.wizard-ready) main.wizard section#page-backup,
+body:not(.wizard-ready) main.wizard section#page-connect,
+body:not(.wizard-ready) main.wizard section#page-status {
+    display: none;
+}
+
+/* Progress Indicator: same width as welcome rules / step content */
+.progress-indicator {
+    --step-size: 28px;
+    margin: 2rem auto 1.5rem;
+    width: 100%;
+    position: relative;
+    padding: 0;
+    text-align: center;
+    box-sizing: border-box;
+}
+
+main.wizard .progress-indicator {
+    width: var(--wizard-content-width);
+    max-width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.progress-steps {
+    display: flex;
+    justify-content: space-between;
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    padding: 0;
+}
+
+/* Line full width of content so it matches cards/rules below */
+.progress-steps::before {
+    content: '';
+    position: absolute;
+    top: calc(var(--step-size) / 2);
+    left: 0;
+    right: 0;
+    height: 1px;
+    margin-top: -1px;
+    background: linear-gradient(90deg, #FF7700 0%, #EA624A 33%, #DC547C 66%, #C740C7 100%);
+    z-index: 0;
+}
+
+.progress-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 0 0 var(--step-size);
+    position: relative;
+    z-index: 1;
+}
+
+.progress-step:first-child {
+    margin-left: -0.5rem;
+}
+
+.progress-step:last-child {
+    margin-right: -0.5rem;
+}
+
+.progress-step-circle {
+    width: var(--step-size);
+    height: var(--step-size);
+    border-radius: 50%;
+    background-color: #16191C;
+    border: 1px solid #C740C7;
+    color: #CACBCD;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 500;
+    font-family: 'Inter', sans-serif;
+    position: relative;
+    z-index: 1;
+}
+
+.progress-step-circle[data-step="1"] {
+    border-color: #FF7700;
+}
+
+.progress-step-circle[data-step="2"] {
+    border-color: #EA624A;
+}
+
+.progress-step-circle[data-step="3"] {
+    border-color: #DC547C;
+}
+
+.progress-step-circle[data-step="4"] {
+    border-color: #C740C7;
+}
+
+.progress-step-circle.active {
+    background: linear-gradient(135deg, #FF7700 0%, #EA624A 50%, #DC547C 100%);
+    border-color: transparent;
+    color: #16191C;
+    font-weight: 700;
+}
+
+/* Specific active states for gradients */
+.progress-step-circle.active[data-step="2"] {
+    background: linear-gradient(135deg, #EA624A 0%, #DC547C 50%, #C740C7 100%);
+}
+
+.progress-step-circle.active[data-step="3"] {
+    background: linear-gradient(135deg, #DC547C 0%, #C740C7 100%);
+}
+
+.progress-step-circle.active[data-step="4"] {
+    background: #C740C7;
+}
+
+
+.progress-step-circle.completed {
+    background-color: #FF7700;
+    border-color: #FF7700;
+    color: transparent;
+}
+
+.progress-step-circle.completed::after {
+    content: '✓';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #16191C;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+/* Setup Header (Back button + Title) - match wizard.css */
+.setup-header {
+    text-align: center;
+    position: relative;
+    margin-bottom: 0;
+    min-height: 25px;
+}
+
+.setup-header .icon-button.back-button {
+    position: absolute;
+    top: 2px;
+    left: 0;
+    padding: 0;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    z-index: 10;
+}
+
+.setup-header .icon-button.back-button img {
+    width: 24px;
+    height: 24px;
+    display: block;
+}
+
+@media (min-width: 640px) {
+    .setup-header>.back-button {
+        top: 10px;
+        left: -20px;
+    }
+}
+
+.setup-header h2 {
+    font-family: 'Inter', sans-serif;
+    font-size: 21px;
+    font-weight: 400;
+    letter-spacing: -0.025em;
+    line-height: 25px;
+    color: #FFFFFF;
+    text-align: center;
+    margin: 0;
+}
+
+.setup-header:first-of-type h2 {
+    margin-bottom: 1rem;
+}
+
+/* Content Area */
+.setup-description {
+    text-align: left;
+    padding: 0 14px;
+}
+
+.header-title {
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    font-weight: 400;
+    letter-spacing: -0.025em;
+    line-height: 17px;
+    color: #D9D9D9;
+    text-align: left;
+    margin: 1rem 0 0 0;
+}
+
+.setup-description {
+    text-align: left;
+    padding-left: 14px;
+    padding-right: 14px;
+}
+
+.setup-content {
+    margin-top: 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    align-items: stretch;
+    padding: 0 14px;
+    box-sizing: border-box;
+}
+
+/* Step header (back + title) aligned with content column */
+main.wizard .setup-header,
+main.wizard .progress-indicator,
+main.wizard .setup-description,
+main.wizard .setup-content {
+    flex-shrink: 0;
+}
+
+main.wizard .setup-header {
+    width: var(--wizard-content-width);
+    max-width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* All wizard steps: same content width as progress bar and welcome rules */
+main.wizard .setup-description {
+    width: var(--wizard-content-width);
+    max-width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 0;
+    padding-right: 0;
+}
+
+/* Intro paragraph on every step (setup pub, relay, liquidity, etc.): design spec */
+main.wizard .setup-description p,
+main.wizard .setup-description .header-title {
+    font-family: 'Inter', sans-serif;
+    font-weight: 400;
+    font-size: 14px;
+    line-height: 17px;
+    letter-spacing: -0.025em;
+    color: #FFFFFF;
+}
+
+main.wizard .setup-content {
+    width: var(--wizard-content-width);
+    max-width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    padding: 0;
+    margin-top: 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    align-items: stretch;
+    box-sizing: border-box;
+}
+
+/* Flex children must shrink to content column (cards, backup, etc.) */
+main.wizard .setup-content > * {
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+main.wizard section#page-node .setup-content {
+    gap: 10px;
+}
+
+main.wizard section#page-node .input-group {
+    width: 100%;
+    padding: 12px 15px;
+    gap: 6px;
+}
+
+main.wizard section#page-node .input-group h3 {
+    margin: 0 0 2px 0;
+    font-size: 14px;
+    line-height: 17px;
+}
+
+main.wizard section#page-node .input-group .field-hint {
+    margin: 0 0 4px 0;
+    font-size: 14px;
+    line-height: 17px;
+}
+
+main.wizard section#page-node .setup-content .input-group .input-text {
+    height: 42px;
+    min-height: 42px;
+    padding: 11px 0 !important;
+    border: none !important;
+    border-bottom: 1px solid #5F5F5F !important;
+    border-radius: 0 !important;
+    box-sizing: border-box;
+    line-height: 19px;
+}
+
+main.wizard section#page-node .avatar-input-group input {
+    height: 42px;
+    min-height: 42px;
+    padding: 11px 0 !important;
+    border: none !important;
+    border-bottom: 1px solid #5F5F5F !important;
+    border-radius: 0 !important;
+    box-sizing: border-box;
+    line-height: 19px;
+}
+
+main.wizard section#page-node .avatar-input-group img {
+    width: 42px;
+    height: 42px;
+    flex-shrink: 0;
+}
+
+/* Input Groups - match wizard.css */
+.input-group {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+    width: 100%;
+    padding: 1rem;
+    background: #212325;
+    border: 1px solid #3C3C3C;
+    border-radius: 10px;
+    margin-bottom: 0;
+}
+
+.input-group h3 {
+    font-family: 'Inter', sans-serif;
+    font-weight: 700;
+    font-size: 18px;
+    line-height: 1.3;
+    color: #fff;
+    margin: 0 0 0.5rem;
+    text-align: left;
+    letter-spacing: -0.025em;
+}
+
+.input-group .field-hint {
+    font-size: 14px;
+    line-height: 1.5;
+    color: #D9D9D9;
+    margin: 0 0 0.75rem;
+    text-align: left;
+}
+
+.setup-content .input-group .input-text {
+    width: 100%;
+    background-color: #16191C;
+    padding: 12px;
+    border: 1px solid #3C3C3C;
+    border-radius: 6px;
+    color: #fff;
+    font-family: 'Inter', sans-serif;
+    font-size: 16px;
+    letter-spacing: -0.025em;
+}
+
+.setup-content .input-group .input-text:focus {
+    border-bottom-color: #5F5F5F;
+    color: var(--color);
+}
+
+.setup-content .input-group .input-text::placeholder {
+    color: #5F5F5F;
+    opacity: 1;
+}
+
+.field-hint {
+    font-size: 14px;
+    color: #D9D9D9;
+    margin: 0;
+    text-align: left;
+    line-height: 1.5;
+}
+
+/* Avatar Group - match wizard.css */
+.avatar-input-group {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    width: 100%;
+}
+
+.avatar-input-group input {
+    flex: 1;
+    margin: 0;
+    padding-bottom: 12px;
+}
+
+.avatar-input-group img {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    object-fit: contain;
+    flex-shrink: 0;
+    box-sizing: border-box;
+    background-color: #16191C;
+    border: 1px solid #5F5F5F;
+    margin-bottom: 0;
+    padding: 4px;
+}
+
+/* Wizard Buttons */
+.wizard-cta {
+    width: 131px;
+    min-width: 131px;
+    height: 42px;
+    background: #16191C;
+    border-radius: 10px;
+    /* Gradient Border Trick */
+    background: linear-gradient(#16191C, #16191C) padding-box,
+        linear-gradient(to right, #FF7700 0%, #C740C7 100%) border-box;
+    border: 1px solid transparent;
+    color: #fff;
+    font-family: 'Inter', sans-serif;
+    font-size: 16px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.wizard-cta:hover {
+    opacity: 0.9;
+}
+
+.wizard-cta--wide {
+    width: 100%;
+}
+
+.wizard-cta--gradient-fill {
+    /* Some buttons in legacy were filled? wizard.css implies background-image override */
+    background: linear-gradient(to right, #FF7700 0%, #C740C7 100%);
+    color: #fff;
+    border: none;
+}
+
+/* Footer Actions */
+.page-footer-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    padding: 0 14px;
+    box-sizing: border-box;
+    margin-bottom: 1rem;
+}
+
+main.wizard .page-footer-actions {
+    width: var(--wizard-content-width);
+    max-width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 14px;
+    padding-right: 14px;
+}
+
+.page-separator {
+    width: 100%;
+    height: 1px;
+    background: linear-gradient(90deg, #FF7700 0%, #C740C7 100%);
+    margin: 2rem 0 1.5rem;
+}
+
+main.wizard .page-separator {
+    width: var(--wizard-content-width);
+    max-width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+main.wizard .error-message {
+    margin-top: 0.5rem;
+    margin-bottom: 0;
+    min-height: 1.25rem;
+    font-size: 14px;
+    color: #ff6b6b;
+}
+
+/* Welcome Page: typography scales with viewport so spacing stays proportional */
+main.wizard .welcome-page {
+    text-align: center;
+    align-items: center;
+    font-size: clamp(14px, 0.9rem + 0.35vw, 17px);
+}
+
+/* Welcome content: same width as progress bar and step content */
+main.wizard .welcome-page > * {
+    width: var(--wizard-content-width);
+    max-width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    box-sizing: border-box;
+}
+
+main.wizard .welcome-page .welcome-line {
+    width: var(--wizard-content-width);
+    max-width: 100%;
+}
+
+.welcome-header {
+    margin-bottom: 0.5em;
+}
+
+.welcome-title {
+    font-family: 'Inter', sans-serif;
+    font-weight: 400;
+    font-size: 1.3125em;
+    line-height: 1.2;
+    letter-spacing: -0.025em;
+    color: #fff;
+    margin: 0;
+}
+
+.welcome-line {
+    width: 100%;
+    max-width: 469px;
+    height: 1px;
+    margin: 1.25em auto;
+    background: linear-gradient(90deg, #FF7700 0%, #C740C7 100%);
+}
+
+.welcome-page .welcome-line:last-of-type {
+    margin-bottom: 1.75em;
+}
+
+.welcome-page .welcome-terms {
+    margin-top: 1.25em;
+}
+
+.welcome-headline {
+    font-family: 'Inter', sans-serif;
+    font-weight: 700;
+    font-size: 1em;
+    line-height: 1.21;
+    color: #fff;
+    margin: 0 0 0.5em;
+    text-align: center;
+}
+
+.welcome-intro {
+    font-family: 'Inter', sans-serif;
+    font-weight: 400;
+    font-size: 1em;
+    line-height: 1.21;
+    letter-spacing: -0.025em;
+    color: #D9D9D9;
+    margin: 0 auto 0;
+    text-align: center;
+}
+
+.welcome-features {
+    list-style: none;
+    padding: 1.5em 0 0;
+    margin: 0 auto 1.75em;
+    text-align: left;
+}
+
+.welcome-feature {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.625em;
+    font-family: 'Inter', sans-serif;
+    font-weight: 400;
+    font-size: 1em;
+    line-height: 1.21;
+    letter-spacing: -0.025em;
+    color: #D9D9D9;
+}
+
+.welcome-feature > span:not(.welcome-feature-icon) {
+    min-width: 0;
+    flex: 1;
+}
+
+.welcome-feature-icon {
+    flex-shrink: 0;
+    width: 1.5em;
+    height: 1.5em;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    color: #757575;
+    line-height: 1.21;
+    padding-top: 0.12em;
+}
+
+.welcome-feature-icon svg {
+    width: 1.5em;
+    height: 1.5em;
+    display: block;
+}
+
+.welcome-terms {
+    margin: 1.25em auto 1.75em;
+    text-align: center;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.714em;
+    line-height: 1.2;
+    letter-spacing: -0.025em;
+    color: #777777;
+}
+
+.welcome-terms .marked {
+    color: #FF7700;
+    text-decoration: underline;
+}
+
+.welcome-actions {
+    display: inline-flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: 0.25em;
+    align-items: stretch;
+    margin: 0 auto 1em;
+    justify-content: center;
+}
+
+.welcome-actions .wizard-cta {
+    margin: 0;
+    flex-shrink: 0;
+    height: 42px;
+}
+
+.welcome-actions .wizard-cta--gradient-border {
+    width: 160px;
+    border-radius: 12px;
+}
+
+.wizard-cta--ghost {
+    background: transparent;
+    border: none;
+    color: #9ca3af;
+}
+
+.welcome-actions .wizard-cta--ghost {
+    width: auto;
+    min-width: 120px;
+    padding: 0 1rem;
+}
+
+.welcome-need-help {
+    display: inline-block;
+    font-size: 14px;
+}
+
+/* Relay Page: cards same width as progress bar; force content column */
+main.wizard section#page-relay .setup-content {
+    width: var(--wizard-content-width) !important;
+    max-width: 100% !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+}
+
+main.wizard section#page-relay .relay-cards-group,
+main.wizard section#page-relay .backup-section {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+}
+
+main.wizard section#page-relay .relay-card {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+}
+
+main.wizard section#page-relay .custom-relays-container,
+main.wizard section#page-relay .custom-relay-row,
+main.wizard section#page-relay .custom-relay-input-wrap {
+    max-width: 100% !important;
+}
+
+.relay-cards-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+.relay-card {
+    background: #212325;
+    border: 1px solid #3C3C3C;
+    border-radius: 10px;
+    overflow: hidden;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+.relay-card > label.relay-option,
+.relay-option {
+    display: flex !important;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.875rem 1rem !important;
+    cursor: pointer;
+    transition: background 0.2s;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+.relay-option:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.relay-option input[type="radio"] {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    border-radius: 12px;
+    border: 1px solid #CACBCD;
+    background: #16191C;
+    cursor: pointer;
+    margin: 0;
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+.relay-option input[type="radio"]:checked {
+    background: radial-gradient(circle, #FF7700 46%, #16191C 46%);
+    border: 1px solid #CACBCD;
+}
+
+.relay-option-content {
+    flex: 1 1 0px;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.relay-option-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.relay-option-title {
+    font-family: 'Inter', sans-serif;
+    font-weight: 700;
+    font-size: 16px;
+    color: #fff;
+}
+
+.relay-option-price,
+.relay-option-url {
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    color: #D9D9D9;
+    white-space: nowrap;
+    text-align: right;
+}
+
+.relay-option-description {
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    line-height: 16px;
+    color: #D9D9D9;
+    display: block;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    text-align: left;
+    box-sizing: border-box;
+}
+
+.relay-info-icon {
+    position: relative;
+    font-size: 16px;
+    color: #D9D9D9;
+    cursor: default;
+    flex-shrink: 0;
+}
+
+.relay-info-tooltip {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 10px);
+    right: 0;
+    left: auto;
+    width: 193px;
+    background: #2E302F;
+    border: 1px solid #8F9299;
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-family: 'Inter', sans-serif;
+    font-size: 10px;
+    font-weight: 400;
+    line-height: 12px;
+    text-align: left;
+    letter-spacing: -0.025em;
+    color: #FFFFFF;
+    z-index: 1000;
+    pointer-events: none;
+    white-space: normal;
+}
+
+/* Let tooltip escape card and sit above the previous card */
+.relay-card:has(.relay-info-icon) {
+    overflow: visible;
+    position: relative;
+    z-index: 1;
+}
+.relay-card:has(.relay-info-icon:hover) {
+    z-index: 2;
+}
+
+.relay-info-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    right: 8px;
+    transform: translateY(-50%) rotate(135deg);
+    width: 10px;
+    height: 10px;
+    background: #2E302F;
+    border-right: 1px solid #8F9299;
+    border-bottom: 1px solid #8F9299;
+}
+
+.relay-info-icon:hover .relay-info-tooltip {
+    display: block;
+}
+
+/* Custom Relay Inputs - same scale as setup page, stay inside card */
+.custom-relays-container {
+    padding: 0 1rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+.custom-relay-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.25rem;
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.custom-relay-input-wrap {
+    flex: 1;
+    min-width: 0;
+    max-width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #16191C;
+    height: 42px;
+    min-height: 42px;
+    max-height: 42px;
+    padding: 0 10px;
+    border: none;
+    border-bottom: 1px solid #5F5F5F;
+    border-radius: 0;
+    box-sizing: border-box;
+    box-shadow: none;
+    overflow: hidden;
+}
+
+.custom-relay-input-wrap.relay-state--invalid {
+    border-bottom-color: #E84C3D;
+}
+
+.relay-input-error {
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    color: #E84C3D;
+    margin: 0 0 0.5rem 0;
+    padding: 0;
+}
+
+/* Single visible row: wrap has the border; input must not add its own box (override global input[type="text"]) */
+.relay-custom-input,
+main.wizard .custom-relay-input-wrap .relay-custom-input,
+main.wizard input.relay-custom-input {
+    flex: 1;
+    min-width: 0;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    border: none !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    font-family: 'Inter', sans-serif;
+    font-weight: 400;
+    font-size: 14px;
+    line-height: 19px;
+    color: #fff;
+    outline: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+/* Backup Toggle - same content width as cards and progress bar */
+.backup-section {
+    margin-top: 1rem;
+    padding: 1rem;
+    border: 1px solid #3C3C3C;
+    border-radius: 10px;
+    background: #212325;
+}
+
+main.wizard .backup-section {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+.backup-toggle-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.backup-label {
+    font-size: 16px;
+    color: #fff;
+}
+
+/* Toggle Switch */
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 40px;
+    height: 20px;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+    border-radius: 20px;
+}
+
+.toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 2px;
+    bottom: 2px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+input:checked+.toggle-slider {
+    background-color: var(--color-marked);
+}
+
+input:checked+.toggle-slider:before {
+    transform: translateX(20px);
+}
+
+/* Utility */
+/* Utility */
+[x-cloak] {
+    display: none !important;
+}
+
+/* --- Missing Styles Corrected from wizard.css (Lines 801+) --- */
+
+/* Relay Dots */
+.relay-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.relay-dot--idle {
+    background: #5F5F5F;
+}
+
+.relay-dot--validating {
+    background: #9CA3AF;
+}
+
+.relay-dot--valid {
+    background: #22c55e;
+}
+
+.relay-dot--invalid {
+    background: #E84C3D;
+}
+
+
+/* Add/Remove Buttons */
+.relay-action-btn {
+    width: 42px;
+    height: 42px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #16191C;
+    /* Create the gradient border effect for buttons */
+    background: linear-gradient(#16191C, #16191C) padding-box,
+        linear-gradient(135deg, #FF7700 0%, #C740C7 100%) border-box;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    color: #fff;
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+    padding: 0;
+}
+
+.relay-action-btn:hover {
+    opacity: 0.8;
+}
+
+/* Gradient Fill Next Button */
+.wizard-cta--gradient-fill {
+    background-image: linear-gradient(135deg, #FF7700 0%, #EA624A 33%, #DC547C 66%, #C740C7 100%) !important;
+    background-origin: border-box;
+    background-clip: border-box;
+    border-color: transparent;
+    color: #fff;
+    border: none;
+}
+
+.wizard-cta--gradient-fill:hover {
+    opacity: 0.9;
+}
+
+/* Backup Info Box (Purple) */
+.backup-info {
+    background: rgba(199, 64, 199, 0.08);
+    border: 1px solid rgba(199, 64, 199, 0.3);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-top: 1rem;
+    text-align: left;
+}
+
+.backup-info-title {
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    color: #fff;
+    margin: 0 0 0.5rem;
+}
+
+.backup-location {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+/* Backup Warning */
+.backup-warning {
+    background: rgba(80, 50, 30, 0.5);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    margin-top: 1rem;
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.backup-warning .warning-text {
+    flex: 1;
+    margin: 0;
+}
+
+.warning-text {
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    color: #FF7700;
+    line-height: 1.6;
+    text-align: left;
+    margin: 1rem 0;
+}
+
+/* Correct Toggle Switch (Larger) */
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 50px !important;
+    /* Legacy size */
+    height: 28px !important;
+    flex-shrink: 0;
+}
+
+.toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #5F5F5F;
+    /* Legacy dark gray */
+    transition: 0.3s;
+    border-radius: 28px;
+}
+
+.toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 22px;
+    width: 22px;
+    left: 3px;
+    bottom: 3px;
+    background-color: #FFFFFF;
+    transition: 0.3s;
+    border-radius: 50%;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+input:checked+.toggle-slider {
+    background: linear-gradient(90deg, #FF7700 0%, #C740C7 100%);
+}
+
+input:checked+.toggle-slider:before {
+    transform: translateX(22px);
+}
+
+/* --- Liquidity / Backup / Connect / Status (restored pages) --- */
+
+/* Radio options (wizard kit) */
+.radio-option {
+    position: relative;
+    margin: 1.5rem 0;
+    padding-left: 36px;
+    min-height: 24px;
+}
+
+.radio-option input[type="radio"] {
+    position: absolute;
+    left: 0;
+    top: 2px;
+    width: 20px;
+    height: 20px;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+    z-index: 1;
+}
+
+.radio-option label {
+    display: block;
+    font-size: 16px;
+    color: #a3a3a3;
+    text-align: left;
+    cursor: pointer;
+    transition: color 0.3s ease;
+    position: relative;
+    width: 100%;
+    line-height: 1.5;
+}
+
+.radio-option input[type="radio"]:checked + label {
+    color: var(--color);
+}
+
+.radio-option label::before {
+    content: '';
+    position: absolute;
+    left: -36px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 20px;
+    height: 20px;
+    border: 2px solid #a3a3a3;
+    border-radius: 50%;
+    background-color: transparent;
+    transition: all 0.3s ease;
+    box-sizing: border-box;
+    z-index: 0;
+}
+
+.radio-option input[type="radio"]:checked + label::before {
+    border-color: var(--color-marked);
+    background-color: transparent;
+}
+
+.radio-option label::after {
+    content: '';
+    position: absolute;
+    left: -26px;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background-color: transparent;
+    box-sizing: border-box;
+    transition: all 0.3s ease;
+    z-index: 1;
+}
+
+.radio-option input[type="radio"]:checked + label::after {
+    background-color: var(--color-marked);
+}
+
+.radio-option .question-box {
+    cursor: pointer;
+    display: inline-block;
+    position: relative;
+    vertical-align: middle;
+    margin-left: 4px;
+}
+
+.radio-option .automate {
+    position: relative;
+    display: inline;
+}
+
+.automate .question-content {
+    position: absolute;
+    min-width: 280px;
+    background-color: var(--background-color);
+    color: #a3a3a3;
+    padding: 12px;
+    border: 2px solid #c423e0;
+    border-radius: 4px;
+    font-size: 14px;
+    transform: translate(-50%, -50%);
+    padding-top: 28px;
+    z-index: 200;
+    left: 65%;
+}
+
+.question-content .close-button {
+    position: absolute;
+    top: 4px;
+    right: 0;
+}
+
+.question-content .question-more {
+    position: absolute;
+    bottom: 4px;
+    right: 6px;
+    text-decoration: underline;
+}
+
+@media screen and (max-width: 450px) {
+    .automate > .question-content {
+        left: 50%;
+    }
+}
+
+/* Description box */
+.description-box {
+    background-color: rgba(199, 64, 199, 0.1);
+    border: 1px solid rgba(199, 64, 199, 0.3);
+    border-radius: 8px;
+    padding: 1rem;
+    margin: 1rem 0;
+    text-align: left;
+}
+
+.description-box .description {
+    font-size: 14px;
+    color: #a3a3a3;
+    line-height: 1.6;
+    margin: 0.75rem 0;
+}
+
+.description-box .description:first-child {
+    margin-top: 0;
+}
+
+.description-box .description:last-child {
+    margin-bottom: 0;
+}
+
+/* Connect page */
+.connect-instructions {
+    font-size: 14px;
+    color: #a3a3a3;
+    margin: 1rem 0;
+    text-align: center;
+}
+
+.qrcode-container {
+    display: flex;
+    justify-content: center;
+    margin: 2rem 0;
+}
+
+.qrcode-box {
+    position: relative;
+    width: 100%;
+    max-width: 280px;
+    min-height: 280px;
+    padding: 1.5rem;
+    background-color: rgba(199, 64, 199, 0.1);
+    border: 2px solid rgba(199, 64, 199, 0.3);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.qrcode-box.revealed {
+    cursor: default;
+}
+
+.qrcode-header {
+    margin-bottom: 1rem;
+}
+
+.qrcode-warning {
+    font-size: 11px;
+    color: #a3a3a3;
+    text-align: center;
+    margin: 0.25rem 0;
+}
+
+.qrcode-reveal-hint {
+    font-size: 11px;
+    color: #c434e0;
+    text-align: center;
+    margin: 0.25rem 0;
+    font-weight: 600;
+}
+
+.qrcode-viewport {
+    position: relative;
+    width: 100%;
+    height: 175px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    margin: 1rem 0;
+}
+
+.qrcode-viewport #qrcode {
+    position: absolute;
+    width: 157px;
+    height: 157px;
+    filter: blur(7px);
+    transition: filter 0.3s ease;
+}
+
+.qrcode-box.revealed #qrcode {
+    filter: none !important;
+}
+
+.qr-veil {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(7px);
+    -webkit-backdrop-filter: blur(7px);
+    background: rgba(0, 0, 0, 0.25);
+    border-radius: 8px;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.qr-veil span {
+    color: #c434e0;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.qrcode-box.revealed .qr-veil {
+    display: none;
+}
+
+.qrcode-string {
+    color: #a3a3a3;
+    font-size: 11px;
+    word-break: break-all;
+    overflow-wrap: anywhere;
+    max-width: 100%;
+    margin: 0.5rem auto 0;
+    text-align: center;
+    min-height: 40px;
+    -webkit-user-select: text !important;
+    user-select: text !important;
+    pointer-events: auto !important;
+    position: relative;
+    z-index: 10;
+}
+
+.qrcode-box.revealed .qrcode-string {
+    display: block;
+}
+
+/* Status page */
+.status-title {
+    font-family: 'Inter', sans-serif;
+    font-weight: 400;
+    font-size: 21px;
+    line-height: 25px;
+    text-align: center;
+    letter-spacing: -0.025em;
+    color: #FFFFFF;
+    margin: 0;
+    padding: 0 14px;
+}
+
+.status-line {
+    width: 100%;
+    max-width: 469px;
+    height: 1px;
+    margin: 20px auto;
+    background: linear-gradient(90deg, #FF7700 0%, #C740C7 100%);
+}
+
+.status-content {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 0 14px;
+}
+
+.status-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 21px;
+    min-height: 17px;
+}
+
+.status-label {
+    font-family: 'Inter', sans-serif;
+    font-weight: 400;
+    font-size: 14px;
+    line-height: 17px;
+    letter-spacing: -0.025em;
+    color: #FFFFFF;
+    opacity: 0.5;
+    flex: 0 0 auto;
+    min-width: 191px;
+    text-align: left;
+}
+
+.status-value-group {
+    flex: 1;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+}
+
+.status-value-wrapper {
+    position: relative;
+    width: 100%;
+    max-width: 244px;
+}
+
+.status-value-container {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    flex-wrap: nowrap;
+}
+
+.status-value {
+    font-family: 'Inter', sans-serif;
+    font-weight: 400;
+    font-size: 14px;
+    line-height: 17px;
+    text-align: right;
+    letter-spacing: -0.025em;
+    color: #FFFFFF;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+}
+
+.status-link {
+    color: #FFFFFF;
+    text-decoration: none;
+}
+
+.status-link:hover {
+    text-decoration: underline;
+}
+
+.status-icon-button {
+    background: transparent;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+}
+
+.status-icon-button img {
+    width: 14px;
+    height: 14px;
+}
+
+.status-dot {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: inline-block;
+}
+
+.status-dot-green {
+    background: #32A852;
+}
+
+.status-dot-orange {
+    background: #FF7700;
+}
+
+.status-dot-red {
+    background: #ff4444;
+}
+
+.avatar-image {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    object-fit: cover;
+    box-shadow: 0 0 1px rgba(0,0,0,1);
+    margin-left: 4px;
+    flex-shrink: 0;
+    display: none;
+}
+
+.avatar-image.show {
+    display: block;
+}
+
+/* Reset box (status overlay) */
+#reset-box {
+    width: 296px;
+    border: 1px solid #c434e0;
+    border-radius: 5px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: #16191C;
+    z-index: 100;
+}
+
+#reset-box .close-button {
+    position: absolute;
+    top: 4px;
+    right: 0;
+}
+
+.reset-box-content {
+    padding: 28px 10px 5px 10px;
+    color: #a3a3a3;
+    font-size: 10px;
+    text-align: left;
+}
+
+.continue-button-container {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.continue-button {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 100px;
+    width: 134px;
+    height: 30px;
+    margin-top: 10px;
+    padding: 10px;
+    transition: background-color 0.3s;
+}
+
+.continue-button:hover {
+    background-color: #373a3d;
+}

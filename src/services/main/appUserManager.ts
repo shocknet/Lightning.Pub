@@ -6,6 +6,7 @@ import ApplicationManager from './applicationManager.js'
 import { encodeDefaultClinkPointers } from '../CLINK/clinkPointers.js'
 import { getLogger } from '../helpers/logger.js'
 import SettingsManager from './settingsManager.js'
+import { BackupManager } from '../backup/backupManager.js'
 import { assertCallbackUrlAllowed } from '../helpers/safeOutboundFetch.js'
 import { clampPageLimit, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from '../helpers/pageLimit.js'
 
@@ -30,11 +31,13 @@ export default class {
     storage: Storage
     settings: SettingsManager
     applicationManager: ApplicationManager
+    backupManager: BackupManager
     log = getLogger({ component: 'AppUserManager' })
-    constructor(storage: Storage, settings: SettingsManager, applicationManager: ApplicationManager) {
+    constructor(storage: Storage, settings: SettingsManager, applicationManager: ApplicationManager, backupManager: BackupManager) {
         this.storage = storage
         this.settings = settings
         this.applicationManager = applicationManager
+        this.backupManager = backupManager
     }
     SignUserToken(userId: string, appId: string, userIdentifier: string): string {
         return jwt.sign({ user_id: userId, app_id: appId, app_user_id: userIdentifier }, this.settings.getStorageSettings().jwtSecret);
@@ -52,6 +55,7 @@ export default class {
             throw new Error("the provided token is not a valid app user token token")
         }
         this.storage.userStorage.UpsertUserAccess(decoded.user_id, Math.floor(Date.now() / 1000))
+        this.backupManager.notifyBackupTable('user_balances')
         return decoded
     }
 
@@ -67,6 +71,7 @@ export default class {
 
     async BanUser(userId: string): Promise<Types.BanUserResponse> {
         const banned = await this.storage.userStorage.BanUser(userId)
+        this.backupManager.notifyBackupTable('user_balances')
         const appUsers = await this.storage.applicationStorage.GetAllAppUsersFromUser(userId)
         return {
             balance_sats: banned.balance_sats,
@@ -108,6 +113,7 @@ export default class {
         assertCallbackUrlAllowed(req.url)
         const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
         await this.storage.applicationStorage.UpdateUserCallbackUrl(app, ctx.app_user_id, req.url)
+        void this.backupManager.notifyBackupTable('application_users')
         return { url: req.url }
     }
 
@@ -134,6 +140,7 @@ export default class {
         const app = await this.storage.applicationStorage.GetApplication(ctx.app_id);
         const user = await this.storage.applicationStorage.GetApplicationUser(app, ctx.app_user_id);
         await this.storage.applicationStorage.UpdateAppUserMessagingToken(user.identifier, req.device_id, req.firebase_messaging_token);
+        void this.backupManager.notifyBackupTable('app_user_devices')
     }
 
     async GetUsersAdminInfo(req: Types.UsersAdminInfoRequest): Promise<Types.UsersAdminInfo> {
@@ -232,6 +239,7 @@ export default class {
         this.log("Locking", toLock.length, "users")
         for (const userId of toLock) {
             await this.storage.userStorage.BanUser(userId)
+            this.backupManager.notifyBackupTable('user_balances')
         }
         this.log("Locked users")
     }
@@ -273,6 +281,7 @@ export default class {
                 await this.storage.applicationStorage.RemoveAppUsersAndBaseUsers(appUserIds, userId, tx)
             })
         }
+        void this.backupManager.uploadAllTables()
         this.log("Cleaned up inactive users")
     }
 }

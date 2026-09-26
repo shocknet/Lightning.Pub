@@ -15,7 +15,8 @@
     "build_lnd_client_1": "cd proto && protoc -I ./others --plugin=.\\node_modules\\.bin\\protoc-gen-ts_proto.cmd --ts_proto_out=./lnd --ts_proto_opt=esModuleInterop=true others/* ",
     "build_lnd_client": "cd proto && rimraf lnd/*  && npx protoc --ts_out ./lnd --ts_opt long_type_string  --proto_path others others/* ",
     "typeorm": "typeorm-ts-node-commonjs",
-    "test_relay": "npm run clean && tsc && node build/src/tests/testRelay.js"
+    "test_relay": "npm run clean && tsc && node build/src/tests/testRelay.js",
+    "gen:wizard": "cd proto && rimraf wizard_service/* && export PATH=$PATH:~/Lightning.Pub/proto && protoc -I ./wizard --pub_out=./wizard_service wizard/*"
   },
   "repository": {
     "type": "git",
@@ -33,11 +34,15 @@
     "@protobuf-ts/grpc-transport": "^2.9.4",
     "@protobuf-ts/plugin": "^2.5.0",
     "@protobuf-ts/runtime": "^2.5.0",
+    "@scure/base": "^2.4.0",
+    "@scure/bip32": "^2.0.1",
     "@shocknet/clink-sdk": "^1.7.3",
     "@stablelib/xchacha20": "^1.0.1",
     "@types/express": "^4.17.21",
     "@types/node": "^17.0.31",
+    "@types/ssh2": "^1.15.5",
     "@vulpemventures/secp256k1-zkp": "^3.2.1",
+    "argon2": "^0.44.0",
     "axios": "=1.16.0",
     "bech32": "^2.0.0",
     "better-sqlite3": "^12.8.0",
@@ -57,10 +62,11 @@
     "jsonwebtoken": "^9.0.3",
     "light-bolt11-decoder": "^3.2.0",
     "lodash": "^4.18.1",
-    "nostr-tools": "^2.13.0",
+    "nostr-tools": "^2.25.2",
     "qrcode-terminal": "^0.12.0",
     "reflect-metadata": "^0.2.2",
     "rimraf": "^3.0.2",
+    "ssh2": "^1.17.0",
     "tiny-secp256k1": "^2.2.4",
     "ts-node": "^10.7.0",
     "typeorm": "^0.3.28",
@@ -84,7 +90,9 @@
     "ts-node": "10.7.0",
     "typescript": "~6.0.3"
   },
-  "overrides": {},
+  "overrides": {
+    "@scure/base": "$@scure/base"
+  },
   "optionalDependencies": {
     "wrtc": "^0.4.7"
   }

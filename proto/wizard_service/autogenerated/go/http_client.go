@@ -52,6 +52,7 @@ type Client struct {
 	GetAdminConnectInfo func() (*AdminConnectInfoResponse, error)
 	GetServiceState     func() (*ServiceStateResponse, error)
 	WizardConfig        func(req ConfigRequest) error
+	WizardRestore       func(req RestoreRequest) (*RestoreResponse, error)
 	WizardState         func() (*StateResponse, error)
 }
 
@@ -124,6 +125,35 @@ func NewClient(params ClientParams) *Client {
 				return fmt.Errorf(result.Reason)
 			}
 			return nil
+		},
+		WizardRestore: func(req RestoreRequest) (*RestoreResponse, error) {
+			auth, err := params.RetrieveGuestAuth()
+			if err != nil {
+				return nil, err
+			}
+			finalRoute := "/wizard/restore"
+			body, err := json.Marshal(req)
+			if err != nil {
+				return nil, err
+			}
+			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
+			if err != nil {
+				return nil, err
+			}
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return nil, err
+			}
+			if result.Status == "ERROR" {
+				return nil, fmt.Errorf(result.Reason)
+			}
+			res := RestoreResponse{}
+			err = json.Unmarshal(resBody, &res)
+			if err != nil {
+				return nil, err
+			}
+			return &res, nil
 		},
 		WizardState: func() (*StateResponse, error) {
 			auth, err := params.RetrieveGuestAuth()

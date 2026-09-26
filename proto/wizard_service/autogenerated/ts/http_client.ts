@@ -51,6 +51,20 @@ export default (params: ClientParams) => ({
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
+    WizardRestore: async (request: Types.RestoreRequest): Promise<ResultError | ({ status: 'OK' }& Types.RestoreResponse)> => {
+        const auth = await params.retrieveGuestAuth()
+        if (auth === null) throw new Error('retrieveGuestAuth() returned null')
+        let finalRoute = '/wizard/restore'
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.RestoreResponseValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
     WizardState: async (): Promise<ResultError | ({ status: 'OK' }& Types.StateResponse)> => {
         const auth = await params.retrieveGuestAuth()
         if (auth === null) throw new Error('retrieveGuestAuth() returned null')

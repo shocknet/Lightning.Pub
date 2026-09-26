@@ -108,6 +108,11 @@ The nostr server will send back a message response, and inside the body there wi
   - This methods has an __empty__ __request__ body
   - output: [AdminNodeSettings](#AdminNodeSettings)
 
+- GetAdminOnchainConfSettings
+  - auth type: __Admin__
+  - This methods has an __empty__ __request__ body
+  - output: [AdminOnchainConfSettings](#AdminOnchainConfSettings)
+
 - GetAdminTransactionSwapQuotes
   - auth type: __Admin__
   - input: [TransactionSwapRequest](#TransactionSwapRequest)
@@ -400,6 +405,11 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [UpdateAdminNodeSettingsRequest](#UpdateAdminNodeSettingsRequest)
   - output: [AdminNodeSettings](#AdminNodeSettings)
 
+- UpdateAdminOnchainConfSettings
+  - auth type: __Admin__
+  - input: [UpdateAdminOnchainConfSettingsRequest](#UpdateAdminOnchainConfSettingsRequest)
+  - output: [AdminOnchainConfSettings](#AdminOnchainConfSettings)
+
 - UpdateCallbackUrl
   - auth type: __User__
   - input: [CallbackUrl](#CallbackUrl)
@@ -625,6 +635,13 @@ The nostr server will send back a message response, and inside the body there wi
   - http route: __/api/admin/node/settings__
   - This methods has an __empty__ __request__ body
   - output: [AdminNodeSettings](#AdminNodeSettings)
+
+- GetAdminOnchainConfSettings
+  - auth type: __Admin__
+  - http method: __get__
+  - http route: __/api/admin/node/onchain-conf__
+  - This methods has an __empty__ __request__ body
+  - output: [AdminOnchainConfSettings](#AdminOnchainConfSettings)
 
 - GetAdminTransactionSwapQuotes
   - auth type: __Admin__
@@ -1174,6 +1191,13 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [UpdateAdminNodeSettingsRequest](#UpdateAdminNodeSettingsRequest)
   - output: [AdminNodeSettings](#AdminNodeSettings)
 
+- UpdateAdminOnchainConfSettings
+  - auth type: __Admin__
+  - http method: __post__
+  - http route: __/api/admin/node/onchain-conf__
+  - input: [UpdateAdminOnchainConfSettingsRequest](#UpdateAdminOnchainConfSettingsRequest)
+  - output: [AdminOnchainConfSettings](#AdminOnchainConfSettings)
+
 - UpdateCallbackUrl
   - auth type: __User__
   - http method: __post__
@@ -1267,6 +1291,18 @@ The nostr server will send back a message response, and inside the body there wi
   - __node_name__: _string_
   - __node_name_env_locked__: _boolean_
   - __push_backups_to_nostr__: _boolean_
+
+### AdminOnchainConfSettings
+  - __tier1_confs__: _number_
+  - __tier1_confs_env_locked__: _boolean_
+  - __tier1_limit_env_locked__: _boolean_
+  - __tier1_limit_sats__: _number_
+  - __tier2_confs__: _number_
+  - __tier2_confs_env_locked__: _boolean_
+  - __tier2_limit_env_locked__: _boolean_
+  - __tier2_limit_sats__: _number_
+  - __tier3_confs__: _number_
+  - __tier3_confs_env_locked__: _boolean_
 
 ### AdminTxSwapResponse
   - __network_fee__: _number_
@@ -2062,6 +2098,13 @@ The nostr server will send back a message response, and inside the body there wi
   - __lsp_channel_threshold__: _number_
   - __node_name__: _string_
   - __push_backups_to_nostr__: _boolean_
+
+### UpdateAdminOnchainConfSettingsRequest
+  - __tier1_confs__: _number_
+  - __tier1_limit_sats__: _number_
+  - __tier2_confs__: _number_
+  - __tier2_limit_sats__: _number_
+  - __tier3_confs__: _number_
 
 ### UpdateChannelPolicyRequest
   - __policy__: _[ChannelPolicy](#ChannelPolicy)_

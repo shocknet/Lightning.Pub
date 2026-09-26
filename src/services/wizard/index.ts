@@ -6,6 +6,7 @@ import Storage from '../storage/index.js'
 import { Unlocker } from "../main/unlocker.js"
 import { AdminManager } from '../main/adminManager.js';
 import { pickDefaultApp } from '../main/adminNodeSettings.js'
+import { RestoreManager } from '../backup/restoreManager.js'
 export type WizardSettings = {
     sourceName: string
     relayUrl: string
@@ -17,21 +18,24 @@ export class Wizard {
     log = getLogger({ component: "wizard" })
     settings: SettingsManager
     adminManager: AdminManager
+    restoreManager: RestoreManager
     storage: Storage
     configQueue: { res: (reload: boolean) => void }[] = []
     awaitingNprofile: { res: (nprofile: string) => void }[] = []
     nprofile = ""
     relays: string[] = []
-    constructor(settings: SettingsManager, storage: Storage, adminManager: AdminManager) {
+    constructor(settings: SettingsManager, storage: Storage, adminManager: AdminManager, restoreManager: RestoreManager, private unlocker: Unlocker) {
         this.settings = settings
         this.adminManager = adminManager
         this.storage = storage
+        this.restoreManager = restoreManager
         this.log('Starting wizard...')
         const wizardServer = NewWizardServer({
             WizardState: async () => { return this.WizardState() },
             WizardConfig: async ({ req }) => { return this.wizardConfig(req) },
             GetAdminConnectInfo: async () => { return this.GetAdminConnectInfo() },
-            GetServiceState: async () => { return this.GetServiceState() }
+            GetServiceState: async () => { return this.GetServiceState() },
+            WizardRestore: async ({ req }) => { return this.WizardRestore(req) }
         }, { GuestAuthGuard: async () => "", metricsCallback: () => { }, staticFiles: 'static' })
         wizardServer.Listen(settings.getSettings().serviceSettings.servicePort + 1)
     }
@@ -66,10 +70,12 @@ export class Wizard {
                 watchdog_ok: watchdogOk,
                 source_name: defaultApp?.name || this.settings.getSettings().serviceSettings.defaultAppName || appNamesList,
                 relay_url: relayUrl,
-                automate_liquidity: this.settings.getSettings().liquiditySettings.liquidityProviderPub !== 'null',
+                automate_liquidity: !this.settings.getSettings().liquiditySettings.disableLiquidityProvider,
                 push_backups_to_nostr: this.settings.getSettings().serviceSettings.pushBackupsToNostr,
                 avatar_url: defaultApp?.avatar_url || '',
-                app_id: defaultApp?.app_id || ''
+                app_id: defaultApp?.app_id || '',
+                has_seed: await this.unlocker.HasSeedForNode(),
+                is_db_clean: await this.storage.IsDbClean()
             }
         } catch (e) {
             this.log(`Error in GetServiceState: ${(e as Error).message}`)
@@ -88,7 +94,9 @@ export class Wizard {
                 automate_liquidity: false,
                 push_backups_to_nostr: false,
                 avatar_url: '',
-                app_id: ''
+                app_id: '',
+                has_seed: false,
+                is_db_clean: false
             }
         }
     }
@@ -131,10 +139,16 @@ export class Wizard {
         if (this.nprofile !== "") {
             return this.nprofile
         }
-        console.log("waiting for nprofile")
-        return new Promise((res) => {
-            this.awaitingNprofile.push({ res })
-        })
+        this.log("waiting for nprofile")
+        // Add timeout to prevent hanging forever
+        return Promise.race([
+            new Promise<string>((res) => {
+                this.awaitingNprofile.push({ res })
+            }),
+            new Promise<string>((_, reject) => {
+                setTimeout(() => reject(new Error("timeout waiting for nprofile")), 30000)
+            })
+        ])
     }
 
     AddConnectInfo = (nprofile: string, relays: string[]) => {
@@ -159,16 +173,24 @@ export class Wizard {
             relay_url_CustomCheck: relay => relay !== '',
         })
         if (err != null) { throw new Error(err.message) }
+
+        const has_seed = await this.unlocker.HasSeedForNode()
+        if (!has_seed && req.push_backups_to_nostr) {
+            this.log("Ignoring request to push backups to nostr because no seed is available")
+            req.push_backups_to_nostr = false
+        }
+
         const pendingConfig = { sourceName: req.source_name, relayUrl: req.relay_url, automateLiquidity: req.automate_liquidity, pushBackupsToNostr: req.push_backups_to_nostr }
 
         // Persist app name/avatar to DB regardless (idempotent behavior)
-        await this.settings.updateDisableLiquidityProvider(pendingConfig.automateLiquidity)
+        // automateLiquidity=true means enable automation, so disableLiquidityProvider should be false
+        await this.settings.updateDisableLiquidityProvider(!pendingConfig.automateLiquidity)
         await this.settings.updatePushBackupsToNostr(pendingConfig.pushBackupsToNostr)
         const oldAppName = this.settings.getSettings().serviceSettings.defaultAppName
         const nameUpdated = await this.settings.updateDefaultAppName(pendingConfig.sourceName)
-        if (nameUpdated) {
-            await this.updateDefaultApp(oldAppName, req.avatar_url)
-        }
+        // Always try to update the default app info (handles avatar update even if name didn't change)
+        await this.updateDefaultApp(oldAppName, req.avatar_url)
+
         const relayUpdated = await this.settings.updateRelayUrl(pendingConfig.relayUrl)
         if (relayUpdated && this.IsInitialized()) {
             await this.adminManager.ResetNostr()
@@ -194,10 +216,30 @@ export class Wizard {
             const appsList = await this.storage.applicationStorage.GetApplications()
             const existingDefaultApp = pickDefaultApp(appsList, currentName) || appsList[0]
             if (existingDefaultApp) {
-                await this.storage.applicationStorage.UpdateApplication(existingDefaultApp, { name: newName, avatar_url: avatarUrl || existingDefaultApp.avatar_url })
+                await this.storage.applicationStorage.UpdateApplication(existingDefaultApp, {
+                    name: newName,
+                    avatar_url: avatarUrl !== undefined ? avatarUrl : existingDefaultApp.avatar_url
+                    // Note: We don't update ID here to maintain consistency
+                })
+            } else {
+                // If no app exists yet (first run), create it now so settings are preserved
+                const newApp = await this.storage.applicationStorage.AddApplication(newName, true)
+                if (avatarUrl) {
+                    await this.storage.applicationStorage.UpdateApplication(newApp, { avatar_url: avatarUrl })
+                }
             }
+            // First-time configure runs before BackupManager exists; boot flush covers that path.
+            void this.adminManager.backupManager?.notifyBackupTable('applications')
         } catch (e) {
             this.log(`Error updating app info: ${(e as Error).message}`)
         }
+    }
+
+    WizardRestore = async (req: WizardTypes.RestoreRequest): Promise<WizardTypes.RestoreResponse> => {
+        const err = WizardTypes.RestoreRequestValidate(req, {
+            phrase_CustomCheck: phrase => phrase !== '',
+        })
+        if (err != null) throw new Error(err.message)
+        return this.restoreManager.RestoreFromSource(req)
     }
 }

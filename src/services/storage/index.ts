@@ -17,6 +17,7 @@ import { TlvStorageFactory } from './tlv/tlvFilesStorageFactory.js';
 import { Utils } from '../helpers/utilsWrapper.js';
 import SettingsStorage from "./settingsStorage.js";
 import crypto from 'crypto';
+import { DBNames } from './db/storageProcessor.js';
 export type StorageSettings = {
     dbSettings: DbSettings
     eventLogPath: string
@@ -39,14 +40,19 @@ export const LoadStorageSettingsFromEnv = (): StorageSettings => {
         jwtSecret: loadJwtSecret(dataDir)
     }
 }
-export const GetTestStorageSettings = (s: StorageSettings): StorageSettings => {
-    const eventLogPath = `logs/eventLogV3Test${Date.now()}.csv`
+export const GetTestStorageSettings = (s?: StorageSettings): StorageSettings => {
+    const now = Date.now()
+    const eventLogPath = `logs/eventLogV3Test${now}.csv`
     return {
-        ...s,
-        dbSettings: { ...s.dbSettings, databaseFile: ":memory:", metricsDatabaseFile: ":memory:" },
-        eventLogPath, dataDir: "test-data"
+        dbSettings: { databaseFile: ":memory:", metricsDatabaseFile: ":memory:", migrate: false },
+        eventLogPath, dataDir: `test-data-${now}`,
+        allowResetMetricsStorages: true,
+        jwtSecret: `jwt_secret_${now}`,
+        walletSecretPath: `test-data-${now}/.wallet_secret`,
+        walletPasswordPath: `test-data-${now}/.wallet_password`,
     }
 }
+
 export const loadJwtSecret = (dataDir: string): string => {
     const secret = process.env["JWT_SECRET"]
     const log = getLogger({})
@@ -96,7 +102,7 @@ export default class {
         //this.txQueue = new TransactionsQueue("main", this.DB)
         this.settingsStorage = new SettingsStorage(this.dbs)
         this.userStorage = new UserStorage(this.dbs, this.eventsLog)
-        this.productStorage = new ProductStorage(this.dbs)
+        this.productStorage = new ProductStorage(this.dbs, this.userStorage)
         this.applicationStorage = new ApplicationStorage(this.dbs, this.userStorage)
         this.paymentStorage = new PaymentStorage(this.dbs, this.userStorage)
         this.metricsStorage = new MetricsStorage(this.settings, this.utils)
@@ -132,5 +138,13 @@ export default class {
 
     StartTransaction<T>(exec: TX<T>, description?: string) {
         return this.dbs.Tx(tx => exec(tx), description)
+    }
+
+    async IsDbClean(): Promise<boolean> {
+        const names: DBNames[] = ['Application', 'User', 'ApplicationUser', 'LndNodeInfo']
+        const ent = Promise.all(names.map(entity => this.dbs.Find(entity, { take: 1 })))
+        const rows = await ent
+        if (rows.some(row => row.length > 0)) return false
+        return true
     }
 }

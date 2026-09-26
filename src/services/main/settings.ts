@@ -31,6 +31,7 @@ export type ServiceSettings = {
     recordPerformance: boolean
     skipSanityCheck: boolean
     wizard: boolean
+    wizardNonBlocking: boolean
     bridgeUrl: string,
     shockPushBaseUrl: string
 
@@ -53,6 +54,7 @@ export const LoadServiceSettingsFromEnv = (dbEnv: Record<string, string | undefi
         skipSanityCheck: chooseEnvBool("SKIP_SANITY_CHECK", dbEnv, false, addToDb),
         disableExternalPayments: chooseEnvBool("DISABLE_EXTERNAL_PAYMENTS", dbEnv, false, addToDb),
         wizard: chooseEnvBool("WIZARD", dbEnv, false, addToDb),
+        wizardNonBlocking: chooseEnvBool("WIZARD_NON_BLOCKING", dbEnv, false, addToDb),
         defaultAppName: chooseEnv("DEFAULT_APP_NAME", dbEnv, "wallet", addToDb),
         pushBackupsToNostr: chooseEnvBool("PUSH_BACKUPS_TO_NOSTR", dbEnv, false, addToDb),
         lnurlMetaText: chooseEnv("LNURL_META_TEXT", dbEnv, "LNURL via Lightning.pub", addToDb),
@@ -76,7 +78,7 @@ export type LndNodeSettings = {
 const networks = ['mainnet', 'testnet', 'regtest'] as const
 export type BTCNetwork = (typeof networks)[number]
 export type LndSettings = {
-    lndLogDir: string
+
     routingFeeLimitBps: number
     routingFeeFloor: number
     tier1LimitSats: number
@@ -119,7 +121,6 @@ export const LoadLndSettingsFromEnv = (dbEnv: Record<string, string | undefined>
     const routingFeeFloor = chooseEnvInt('ROUTING_FEE_FLOOR_SATS', dbEnv, oldRoutingFeeFloor, addToDb)
     const routingFeeLimitBps = chooseEnvInt('ROUTING_FEE_LIMIT_BPS', dbEnv, 50, addToDb)
     return {
-        lndLogDir: chooseEnv('LND_LOG_DIR', dbEnv, resolveHome("/.lnd/logs/bitcoin/mainnet/lnd.log"), addToDb),
         routingFeeLimitBps,
         routingFeeFloor,
         tier1LimitSats: chooseEnvInt('ONCHAIN_TIER1_LIMIT_SATS', dbEnv, 1_000_000, addToDb),
@@ -234,33 +235,70 @@ export const LoadSwapsSettingsFromEnv = (dbEnv: Record<string, string | undefine
     }
 }
 
+export type BackupSettings = {
+    cloudEnabled: boolean
+    sftpEnabled: boolean
+    sftpHost: string
+    sftpUser: string
+    sftpPass: string
+    sftpPort: number
+    localPath: string
+}
 
-
-
-export const LoadSecondLndSettingsFromEnv = (): LndNodeSettings => {
+export const LoadBackupSettingsFromEnv = (dbEnv: Record<string, string | undefined>, addToDb?: EnvCacher): BackupSettings => {
     return {
-        lndAddr: EnvMustBeNonEmptyString("LND_OTHER_ADDR"),
-        lndCertPath: EnvMustBeNonEmptyString("LND_OTHER_CERT_PATH"),
-        lndMacaroonPath: EnvMustBeNonEmptyString("LND_OTHER_MACAROON_PATH")
+        cloudEnabled: chooseEnvBool("BACKUP_CLOUD_ENABLED", dbEnv, false, addToDb),
+        sftpEnabled: chooseEnvBool("BACKUP_SFTP_ENABLED", dbEnv, false, addToDb),
+        sftpHost: chooseEnv("BACKUP_SFTP_HOST", dbEnv, "backup.lightning.pub", addToDb),
+        sftpUser: chooseEnv("BACKUP_SFTP_USER", dbEnv, "", addToDb),
+        sftpPass: chooseEnv("BACKUP_SFTP_PASS", dbEnv, "", addToDb),
+        sftpPort: chooseEnvInt("BACKUP_SFTP_PORT", dbEnv, 22, addToDb),
+        localPath: chooseEnv("BACKUP_LOCAL_PATH", dbEnv, "", addToDb),
     }
 }
 
-export const LoadThirdLndSettingsFromEnv = (): LndNodeSettings => {
 
+
+
+export const LoadBobLndSettingsFromEnv = (): LndNodeSettings => {
     return {
-        lndAddr: EnvMustBeNonEmptyString("LND_THIRD_ADDR"),
-        lndCertPath: EnvMustBeNonEmptyString("LND_THIRD_CERT_PATH"),
-        lndMacaroonPath: EnvMustBeNonEmptyString("LND_THIRD_MACAROON_PATH")
+        lndAddr: EnvMustBeNonEmptyString("LND_BOB_ADDR"),
+        lndCertPath: EnvMustBeNonEmptyString("LND_BOB_CERT_PATH"),
+        lndMacaroonPath: EnvMustBeNonEmptyString("LND_BOB_MACAROON_PATH"),
     }
 }
 
-export const LoadFourthLndSettingsFromEnv = (): LndNodeSettings => {
+export const LoadCarolLndSettingsFromEnv = (): LndNodeSettings => {
 
     return {
-        lndAddr: EnvMustBeNonEmptyString("LND_FOURTH_ADDR"),
-        lndCertPath: EnvMustBeNonEmptyString("LND_FOURTH_CERT_PATH"),
-        lndMacaroonPath: EnvMustBeNonEmptyString("LND_FOURTH_MACAROON_PATH")
+        lndAddr: EnvMustBeNonEmptyString("LND_CAROL_ADDR"),
+        lndCertPath: EnvMustBeNonEmptyString("LND_CAROL_CERT_PATH"),
+        lndMacaroonPath: EnvMustBeNonEmptyString("LND_CAROL_MACAROON_PATH"),
     }
+}
+
+export const LoadDaveLndSettingsFromEnv = (): LndNodeSettings => {
+
+    return {
+        lndAddr: EnvMustBeNonEmptyString("LND_DAVE_ADDR"),
+        lndCertPath: EnvMustBeNonEmptyString("LND_DAVE_CERT_PATH"),
+        lndMacaroonPath: EnvMustBeNonEmptyString("LND_DAVE_MACAROON_PATH"),
+    }
+}
+
+export const LoadEliotLndSettingsFromEnv = (): [LndNodeSettings, LndNodeSettings] => {
+    return [
+        {
+            lndAddr: EnvMustBeNonEmptyString("LND_ELIOT_ADDR"),
+            lndCertPath: EnvMustBeNonEmptyString("LND_ELIOT_CERT_PATH"),
+            lndMacaroonPath: EnvMustBeNonEmptyString("LND_ELIOT_MACAROON_PATH"),
+        },
+        {
+            lndAddr: EnvMustBeNonEmptyString("LND_ELIOT2_ADDR"),
+            lndCertPath: EnvMustBeNonEmptyString("LND_ELIOT2_CERT_PATH"),
+            lndMacaroonPath: EnvMustBeNonEmptyString("LND_ELIOT2_MACAROON_PATH"),
+        }
+    ]
 }
 
 export const LoadBitcoinCoreSettingsFromEnv = (): BitcoinCoreSettings => {

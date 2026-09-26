@@ -301,6 +301,20 @@ service LightningPub {
         option (nostr) = true;
     }
 
+    rpc GetAdminOnchainConfSettings(structs.Empty) returns (structs.AdminOnchainConfSettings) {
+        option (auth_type) = "Admin";
+        option (http_method) = "get";
+        option (http_route) = "/api/admin/node/onchain-conf";
+        option (nostr) = true;
+    }
+
+    rpc UpdateAdminOnchainConfSettings(structs.UpdateAdminOnchainConfSettingsRequest) returns (structs.AdminOnchainConfSettings) {
+        option (auth_type) = "Admin";
+        option (http_method) = "post";
+        option (http_route) = "/api/admin/node/onchain-conf";
+        option (nostr) = true;
+    }
+
         // </Admin>
         // <Metrics>
 

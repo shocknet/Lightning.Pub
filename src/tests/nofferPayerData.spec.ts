@@ -351,45 +351,51 @@ const testGetUserOfferInvoicesStoresPayerData = async (T: TestBase) => {
     T.d("GetUserOfferInvoices returns payer_data stored on invoice")
 }
 
-const testDefaultOfferPayerDataNotCleared = async (T: TestBase) => {
-    T.d("starting testDefaultOfferPayerDataNotCleared")
+const testDefaultOfferStaysSpontaneous = async (T: TestBase) => {
+    T.d("starting testDefaultOfferStaysSpontaneous")
     const ctx = userContext(T, T.user2)
     const defaultOfferId = T.user2.appUserIdentifier
     await T.main.offerManager.GetUserOffers(ctx)
 
+    await expectThrowsAsync(
+        T.main.offerManager.UpdateUserOffer(ctx, {
+            offer_id: defaultOfferId,
+            ...offerCreate({
+                label: "Default CLINK Offer",
+                price_sats: 0,
+                payer_data: ["order_id"],
+            }),
+        }),
+        "the default offer only accepts a webhook change",
+    )
+    await expectThrowsAsync(
+        T.main.offerManager.DeleteUserOffer(ctx, { offer_id: defaultOfferId }),
+        "the default offer cannot be deleted",
+    )
+
+    const callbackUrl = "https://example.com/hook"
     await T.main.offerManager.UpdateUserOffer(ctx, {
         offer_id: defaultOfferId,
         ...offerCreate({
             label: "Default CLINK Offer",
             price_sats: 0,
-            payer_data: ["order_id"],
+            payer_data: [],
+            callback_url: callbackUrl,
+            token: "hook-token",
         }),
     })
+    const updated = await T.main.offerManager.GetUserOffer(ctx, { offer_id: defaultOfferId })
+    T.expect(updated.payer_data).to.deep.equal([])
+    T.expect(updated.price_sats).to.equal(0)
+    T.expect(updated.callback_url).to.equal(callbackUrl)
+    T.expect(updated.token).to.equal("hook-token")
 
-    await expectNofferFail(
-        T,
-        T.main.offerManager.getNofferInvoice({
-            offer: defaultOfferId,
-            amount_sats: 1000,
-        }, T.app.appId),
-        1,
-        "Missing or invalid payer_data: order_id",
-        { payer_data: ["order_id"] },
-    )
-
-    const afterFail = await T.main.offerManager.GetUserOffer(ctx, { offer_id: defaultOfferId })
-    T.expect(afterFail.payer_data).to.deep.equal(["order_id"])
-
-    const okInvoice = await T.main.offerManager.getNofferInvoice({
+    const invoice = await T.main.offerManager.getNofferInvoice({
         offer: defaultOfferId,
         amount_sats: 1000,
-        payer_data: { order_id: "def-123" },
     }, T.app.appId)
-    T.expect(okInvoice).to.startWith("lnbcrt")
-
-    const afterOk = await T.main.offerManager.GetUserOffer(ctx, { offer_id: defaultOfferId })
-    T.expect(afterOk.payer_data).to.deep.equal(["order_id"])
-    T.d("default offer payer_data survives failed and successful invoice requests")
+    T.expect(invoice).to.startWith("lnbcrt")
+    T.d("default offer stays spontaneous and still accepts a webhook")
 }
 
 const testNegativeOfferPriceRejectedOnCreate = async (T: TestBase) => {
@@ -440,7 +446,7 @@ export default async (T: TestBase) => {
     await testSpontaneousOfferAmountTooLowRejected(T)
     await testInvalidOfferFormatRejected(T)
     await testDescriptionTooLongRejected(T)
-    await testDefaultOfferPayerDataNotCleared(T)
+    await testDefaultOfferStaysSpontaneous(T)
     await testHandleClinkOfferWithPayerData(T)
     await testCreateOfferWithPayerData(T)
     await testGetUserOffersIncludesPayerData(T)

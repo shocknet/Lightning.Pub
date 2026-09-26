@@ -12,9 +12,9 @@ log() {
   echo "$message" | sed 's/\\e\[[0-9;]*m//g' >> "$TMP_LOG_FILE"
 }
 
-SCRIPT_VERSION="0.3.2"
+SCRIPT_VERSION="0.3.3"
 REPO="shocknet/Lightning.Pub"
-BRANCH="master"
+BRANCH="wizard-wip-merge-dash2"
 
 cleanup() {
     log "Cleaning up temporary files..."
