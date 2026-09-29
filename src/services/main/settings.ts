@@ -242,6 +242,7 @@ export type BackupSettings = {
     sftpUser: string
     sftpPass: string
     sftpPort: number
+    sftpHostFingerprint: string
     localPath: string
 }
 
@@ -253,6 +254,7 @@ export const LoadBackupSettingsFromEnv = (dbEnv: Record<string, string | undefin
         sftpUser: chooseEnv("BACKUP_SFTP_USER", dbEnv, "", addToDb),
         sftpPass: chooseEnv("BACKUP_SFTP_PASS", dbEnv, "", addToDb),
         sftpPort: chooseEnvInt("BACKUP_SFTP_PORT", dbEnv, 22, addToDb),
+        sftpHostFingerprint: chooseEnv("BACKUP_SFTP_HOST_FINGERPRINT", dbEnv, "", addToDb),
         localPath: chooseEnv("BACKUP_LOCAL_PATH", dbEnv, "", addToDb),
     }
 }

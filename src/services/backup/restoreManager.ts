@@ -15,7 +15,7 @@
 
 import { getLogger, PubLogger } from '../helpers/logger.js'
 import { deriveBackupKeys, LATEST_DERIVATION_VERSION, type DerivedKeys } from './derivation.js'
-import { sftpDownload, cloudSftpConfig, type SftpConfig, SFTPFile } from './sftpClient.js'
+import { sftpDownload, cloudSftpConfig, customHostFingerprint, SftpAuthError, type SftpConfig, SFTPFile } from './sftpClient.js'
 import fs from 'fs'
 import path from 'path'
 import Storage from '../storage/index.js'
@@ -370,14 +370,14 @@ const fetchFile = async (log: PubLogger, keys: DerivedKeys, opts: wizardTypes.Re
     log("fetching file: " + filename, "source: " + opts.source.type)
     switch (opts.source.type) {
         case wizardTypes.RestoreRequest_source_type.CLOUD:
-            const couldConf = cloudSftpConfig(keys.sftpUser, keys.sftpPass)
-            return sftpDownload(couldConf, filename)
+            return downloadFromCloud(keys, filename)
         case wizardTypes.RestoreRequest_source_type.FTP_HOST:
             if (!opts.source.ftp_host) throw new Error('--ftp-host is required for source=ftp')
             const sftpConf: SftpConfig = {
                 host: opts.source.ftp_host,
                 username: opts.creds_override?.user ?? keys.sftpUser,
                 password: opts.creds_override?.pass ?? keys.sftpPass,
+                hostFingerprint: customHostFingerprint(opts.source.ftp_host, 22, ''),
             }
             return sftpDownload(sftpConf, filename)
 
@@ -400,6 +400,16 @@ const fetchFile = async (log: PubLogger, keys: DerivedKeys, opts: wizardTypes.Re
 
         default:
             throw new Error(`Unknown restore source: ${opts.source}`)
+    }
+}
+
+/** A rejected cloud login means this seed never signed up, i.e. it has no cloud backup. */
+const downloadFromCloud = async (keys: DerivedKeys, filename: string): Promise<SFTPFile> => {
+    try {
+        return await sftpDownload(cloudSftpConfig(keys.sftpUser, keys.sftpPass), filename)
+    } catch (err) {
+        if (err instanceof SftpAuthError) return { found: false }
+        throw err
     }
 }
 

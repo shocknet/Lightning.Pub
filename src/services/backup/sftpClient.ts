@@ -1,9 +1,11 @@
 // BACKUP: SFTP client for uploading/downloading .enc files
 //
-// SFTP (SSH-based) was chosen over FTPS for firewall friendliness.
+// SFTP (SSH-based) was chosen over FTPS because nearly every VPS/NAS already runs an SSH
+// server, so a self-hosted destination is just "create a user".
 // Server is dumb storage — no Lightning.Pub-specific logic.
-// Cloud managed = Shocknet-hosted; self-hosters run any standard SFTP server.
+// Cloud managed = Shocknet-hosted (PubFTPService); self-hosters run any standard SFTP server.
 
+import crypto from 'crypto'
 import { Client, SFTPWrapper } from 'ssh2'
 import { getLogger } from '../helpers/logger.js'
 
@@ -14,11 +16,17 @@ export type SftpConfig = {
     port?: number
     username: string
     password: string
+    /** SHA256 host key fingerprint as printed by `ssh-keygen -lf` (with or without "SHA256:"). */
+    hostFingerprint?: string
 }
 
-// TODO: Cloud managed SFTP host details (Shocknet service URL, provisioning endpoint)
-const CLOUD_SFTP_HOST = 'backup.lightning.pub'
+export const CLOUD_SFTP_HOST = 'backup.lightning.pub'
 const CLOUD_SFTP_PORT = 22
+// Production PubFTPService host key. Rotating it on the server requires a Pub release.
+const CLOUD_SFTP_HOST_FINGERPRINT = 'SHA256:3bEOvUFGn+Ts/kfRtKV5AGd3j4AAoWM2c60w9pSpdM8'
+
+/** The server rejected our login (no account yet, or wrong credentials). */
+export class SftpAuthError extends Error { }
 
 export function cloudSftpConfig(sftpUser: string, sftpPass: string): SftpConfig {
     return {
@@ -26,10 +34,50 @@ export function cloudSftpConfig(sftpUser: string, sftpPass: string): SftpConfig 
         port: CLOUD_SFTP_PORT,
         username: sftpUser,
         password: sftpPass,
+        hostFingerprint: CLOUD_SFTP_HOST_FINGERPRINT,
     }
 }
 
+/** Custom hosts use the operator's fingerprint; pointing a custom host at the cloud still pins. */
+export function customHostFingerprint(host: string, port: number, configured: string): string | undefined {
+    if (configured.trim()) return configured.trim()
+    if (host === CLOUD_SFTP_HOST && port === CLOUD_SFTP_PORT) return CLOUD_SFTP_HOST_FINGERPRINT
+    return undefined
+}
+
+function normalizeFingerprint(fp: string): string {
+    return fp.trim().replace(/^SHA256:/, '').replace(/=+$/, '')
+}
+
+function fingerprintOf(hostKey: Buffer): string {
+    return crypto.createHash('sha256').update(hostKey).digest('base64').replace(/=+$/, '')
+}
+
+const warnedUnpinnedHosts = new Set<string>()
+
+function warnUnpinned(target: string, observed: string) {
+    if (warnedUnpinnedHosts.has(target)) return
+    warnedUnpinnedHosts.add(target)
+    log(`WARNING: SFTP host key for ${target} is not pinned. Set BACKUP_SFTP_HOST_FINGERPRINT=SHA256:${observed} after verifying it on the server with: ssh-keygen -lf <host key>.pub`)
+}
+
 function connectSftp(config: SftpConfig): Promise<{ client: Client, sftp: SFTPWrapper }> {
+    const port = config.port ?? 22
+    const target = `${config.host}:${port}`
+    const expected = config.hostFingerprint ? normalizeFingerprint(config.hostFingerprint) : undefined
+    let mismatchedKey: string | undefined
+
+    const hostVerifier = (hostKey: Buffer): boolean => {
+        const observed = fingerprintOf(hostKey)
+        if (!expected) {
+            warnUnpinned(target, observed)
+            return true
+        }
+        if (observed === expected) return true
+        mismatchedKey = observed
+        return false
+    }
+
     return new Promise((resolve, reject) => {
         const client = new Client()
         client.on('ready', () => {
@@ -41,14 +89,21 @@ function connectSftp(config: SftpConfig): Promise<{ client: Client, sftp: SFTPWr
                 resolve({ client, sftp })
             })
         })
-        client.on('error', (err) => {
+        client.on('error', (err: Error & { level?: string }) => {
+            if (mismatchedKey) {
+                return reject(new Error(`SFTP host key mismatch for ${target}: expected SHA256:${expected}, got SHA256:${mismatchedKey}. Refusing to connect.`))
+            }
+            if (err.level === 'client-authentication') {
+                return reject(new SftpAuthError(`SFTP login rejected by ${target}`))
+            }
             reject(new Error(`SFTP connection error: ${err.message}`))
         })
         client.connect({
             host: config.host,
-            port: config.port ?? 22,
+            port,
             username: config.username,
             password: config.password,
+            hostVerifier,
         })
     })
 }
