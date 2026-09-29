@@ -1,13 +1,14 @@
 // BACKUP: Key derivation from backup phrase
-// Uses versioned derivation profiles so parameters can be tightened
-// in future versions without invalidating existing backups.
+// Each derivation version pins its own parameters, so they can be tightened
+// in a new version without invalidating existing backups.
 
 import crypto from 'crypto'
 import argon2 from 'argon2'
 
-// --- Derivation profile v1 ---
-// A version number fully determines all parameters.
-// Restore dispatches by version; old profiles are kept as named functions indefinitely.
+// --- Derivation v1 ---
+// A version fully determines all outputs, including the SFTP login, so a backup's version
+// cannot be recorded anywhere readable before deriving it. Keep every version forever;
+// once a second exists, restore must try them newest-first until a shard decrypts.
 
 export type DerivedKeys = {
     encKey: Buffer   // 32 bytes — AES-256-GCM key for .enc dialtone files
@@ -15,7 +16,7 @@ export type DerivedKeys = {
     sftpPass: string // hex-encoded 32 bytes
 }
 
-type DerivationProfile = {
+type DerivationParams = {
     version: number
     normalize: (phrase: string) => string
     argon2Salt: Buffer
@@ -26,7 +27,7 @@ type DerivationProfile = {
     ftpLabel: string
 }
 
-const PROFILES: Record<number, DerivationProfile> = {
+const DERIVATION_VERSIONS: Record<number, DerivationParams> = {
     1: {
         version: 1,
         normalize: (phrase: string) => phrase.toLowerCase().trim().replace(/\s+/g, ' '),
@@ -41,22 +42,22 @@ const PROFILES: Record<number, DerivationProfile> = {
 
 export const LATEST_DERIVATION_VERSION = 1
 
-function getProfile(version: number): DerivationProfile {
-    const profile = PROFILES[version]
-    if (!profile) {
-        throw new Error(`Unknown derivation profile version: ${version}`)
+function getDerivationParams(version: number): DerivationParams {
+    const params = DERIVATION_VERSIONS[version]
+    if (!params) {
+        throw new Error(`Unknown derivation version: ${version}`)
     }
-    return profile
+    return params
 }
 
-async function deriveMaster(phrase: string, profile: DerivationProfile): Promise<Buffer> {
-    const normalized = profile.normalize(phrase)
+async function deriveMaster(phrase: string, params: DerivationParams): Promise<Buffer> {
+    const normalized = params.normalize(phrase)
     const hash = await argon2.hash(normalized, {
         type: argon2.argon2id,
-        salt: profile.argon2Salt,
-        memoryCost: profile.argon2MemoryCost,
-        timeCost: profile.argon2TimeCost,
-        parallelism: profile.argon2Parallelism,
+        salt: params.argon2Salt,
+        memoryCost: params.argon2MemoryCost,
+        timeCost: params.argon2TimeCost,
+        parallelism: params.argon2Parallelism,
         raw: true,
         hashLength: 32,
     })
@@ -79,11 +80,11 @@ function hkdfExpand(master: Buffer, info: string, length: number): Promise<Buffe
 // derivation correctness does NOT depend on aezeed validity.
 // Future code must NOT couple this function to any aezeed library.
 export async function deriveBackupKeys(phrase: string, version: number = LATEST_DERIVATION_VERSION): Promise<DerivedKeys> {
-    const profile = getProfile(version)
-    const master = await deriveMaster(phrase, profile)
+    const params = getDerivationParams(version)
+    const master = await deriveMaster(phrase, params)
 
-    const encKey = await hkdfExpand(master, profile.encLabel, 32)
-    const ftpRaw = await hkdfExpand(master, profile.ftpLabel, 64)
+    const encKey = await hkdfExpand(master, params.encLabel, 32)
+    const ftpRaw = await hkdfExpand(master, params.ftpLabel, 64)
 
     return {
         encKey,

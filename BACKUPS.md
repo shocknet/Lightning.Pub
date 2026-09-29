@@ -27,7 +27,8 @@ There is one secret: the LND seed. It unlocks both the dialtone encryption key a
 
 ## Keys and formats
 
-- **Derivation** (`derivation.ts`): Argon2id (64 MiB, t=3, salt `lightning-pub-backup/v1`) → HKDF-SHA256 → `encKey` (32 B), `sftpUser` (32 B hex), `sftpPass` (32 B hex). Versioned by profile number; **never change profile 1**: every existing backup depends on it. Add a profile 2 instead.
+- **Derivation** (`derivation.ts`): Argon2id (64 MiB, t=3, salt `lightning-pub-backup/v1`) → HKDF-SHA256 → `encKey` (32 B), `sftpUser` (32 B hex), `sftpPass` (32 B hex). Each derivation version pins these parameters; **never change derivation v1**: every existing backup depends on it. Add a v2 instead.
+- **Adding a derivation version.** The version decides the SFTP login too, so each version is a separate account and the version cannot be looked up before deriving. Restore must try versions newest-first (derive, log in, decrypt one shard; a wrong key fails the GCM tag) and stop at the first that works. A node that moves to a new version must immediately upload every shard under the new account, so the newest version with files is always complete. Today restore only uses the latest version, which is correct while v1 is the only one.
 - **Envelope** (`encryption.ts`): `[version:1][iv:12][ciphertext][tag:16]`, AES-256-GCM. The tag rejects any tampered or truncated file before anything touches the DB.
 - **Payload** (`segments.ts`): per-table version byte + TLV-encoded rows.
 - **Shards** (`backupTables.ts`): 12 files named `<table>.enc`: `indexes`, `user_balances`, `tracked_providers`, `applications`, `application_users`, `admin_settings`, `app_user_devices`, `user_offers`, `products`, `management_grants`, `debit_accesses`, `invite_tokens`. `BACKUP_RESTORE_ORDER` is also the import order: balances first, so users exist before app links reference them.
@@ -110,7 +111,7 @@ The chroot top level must be root-owned and read-only, so `-d /upload` starts se
 ## Invariants for contributors
 
 - Adding a table to backups means: `backupTables.ts`, an encoder/decoder in `segments.ts`, a case in `BackupManager.uploadTable`, import in `RestoreManager`, **and** the allowlist in PubFTPService `src/allowlist.ts`. Otherwise the cloud rejects the new shard.
-- Never change derivation profile 1 or the envelope version 1 layout.
+- Never change derivation v1 or the envelope version 1 layout.
 - The cloud fingerprint in `sftpClient.ts` must match `/var/lib/pubftp/keys/host.key.pub` on the server.
 
 ## Open issues
