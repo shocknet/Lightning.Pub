@@ -4,6 +4,9 @@
 // (all dialtone tables empty). No upsert/merge — prevents ghost-state mess if
 // someone runs restore against a half-initialized node.
 //
+// If LND has already started (wallet state other than NON_EXISTING), restore
+// returns immediately. It does not fetch shards, import rows, or resume a checkpoint.
+//
 // Local source: a directory of per-table *.enc shards (see backupTables.ts), same as
 // SFTP / cloud layout, decrypted with the backup phrase — not a raw DB file.
 //
@@ -93,6 +96,15 @@ export class RestoreManager {
     async RestoreFromSource(req: wizardTypes.RestoreRequest): Promise<wizardTypes.RestoreResponse> {
         try {
             this.log('RestoreFromSource request received', req.source.type)
+            if (await this.unlocker.WalletExists()) {
+                this.log("LND is already started, restore will not continue")
+                return {
+                    entries_restored: 0,
+                    scb_restored: false,
+                    success: false,
+                    error: 'LND is already started. Restore cannot continue.',
+                }
+            }
             const checkpoint = this.getCheckpoint()
             const skipDb = checkpoint === RestoreCheckpoint.DB_COMMITTED ||
                 checkpoint === RestoreCheckpoint.LND_ACTIVE ||

@@ -60,11 +60,46 @@ const sortBy = <T>(rows: T[], key: (r: T) => string) =>
 export default async (T: StorageTestBase) => {
     await testGateNoDestination(T)
     await testGateNoSeed(T)
+    await testRefusesWhenLndStarted(T)
     await testLocalRoundtrip(T)
     await testHookLspThreshold(T)
     await testHookSiblingSettings(T)
     await testHookDefaultAppRename(T)
     await testHookEnrollCreate(T)
+}
+
+const testRefusesWhenLndStarted = async (T: StorageTestBase) => {
+    T.d('starting testRefusesWhenLndStarted')
+    const dest = await openSecondStorage()
+    const dataDir = dest.getStorageSettings().dataDir
+    try {
+        const settings = new SettingsManager(dest)
+        await settings.InitSettings()
+        let movedOn = false
+        const unlocker = {
+            WalletExists: async () => true,
+            Restore: async () => { movedOn = true; return { adminMacaroon: '' } },
+            PostRestore: async () => { movedOn = true },
+            DecryptScbEvent: async () => { movedOn = true; return Buffer.alloc(0) },
+            ApplyScb: async () => { movedOn = true },
+        } as unknown as Unlocker
+        const restore = new RestoreManager(dest, settings, unlocker)
+        fs.mkdirSync(dataDir, { recursive: true })
+        fs.writeFileSync(restore.getCheckpointPath(), 'LND_ACTIVE')
+        const result = await restore.RestoreFromSource({
+            phrase: TEST_PHRASE,
+            source: { type: WizardTypes.RestoreRequest_source_type.LOCAL_PATH, local_path: path.join(dataDir, 'missing-backup') },
+        })
+        T.expect(result.success).to.equal(false)
+        T.expect(result.error || '').to.contain('already started')
+        T.expect(result.entries_restored).to.equal(0)
+        T.expect(result.scb_restored).to.equal(false)
+        T.expect(movedOn).to.equal(false)
+        T.expect(await dest.IsDbClean()).to.equal(true)
+    } finally {
+        dest.Stop()
+        fs.rmSync(dataDir, { recursive: true, force: true })
+    }
 }
 
 const testGateNoDestination = async (T: StorageTestBase) => {
