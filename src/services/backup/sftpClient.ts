@@ -23,7 +23,7 @@ export type SftpConfig = {
 export const CLOUD_SFTP_HOST = 'backup.lightning.pub'
 const CLOUD_SFTP_PORT = 22
 // Production PubFTPService host key. Rotating it on the server requires a Pub release.
-const CLOUD_SFTP_HOST_FINGERPRINT = 'SHA256:3bEOvUFGn+Ts/kfRtKV5AGd3j4AAoWM2c60w9pSpdM8'
+export const CLOUD_SFTP_HOST_FINGERPRINT = 'SHA256:3bEOvUFGn+Ts/kfRtKV5AGd3j4AAoWM2c60w9pSpdM8'
 
 /** The server rejected our login (no account yet, or wrong credentials). */
 export class SftpAuthError extends Error { }
@@ -45,12 +45,16 @@ export function customHostFingerprint(host: string, port: number, configured: st
     return undefined
 }
 
-function normalizeFingerprint(fp: string): string {
+export function normalizeFingerprint(fp: string): string {
     return fp.trim().replace(/^SHA256:/, '').replace(/=+$/, '')
 }
 
-function fingerprintOf(hostKey: Buffer): string {
+export function fingerprintOf(hostKey: Buffer): string {
     return crypto.createHash('sha256').update(hostKey).digest('base64').replace(/=+$/, '')
+}
+
+export function hostFingerprintMatches(expected: string, hostKey: Buffer): boolean {
+    return normalizeFingerprint(expected) === fingerprintOf(hostKey)
 }
 
 const warnedUnpinnedHosts = new Set<string>()
@@ -73,7 +77,7 @@ function connectSftp(config: SftpConfig): Promise<{ client: Client, sftp: SFTPWr
             warnUnpinned(target, observed)
             return true
         }
-        if (observed === expected) return true
+        if (hostFingerprintMatches(config.hostFingerprint!, hostKey)) return true
         mismatchedKey = observed
         return false
     }

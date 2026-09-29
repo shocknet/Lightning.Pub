@@ -10,7 +10,7 @@ const CLOUD_API_URL = `https://${CLOUD_SFTP_HOST}`
 const REQUEST_TIMEOUT_MS = 15_000
 // Refuse absurd difficulty so a misbehaving server cannot burn the node's CPU.
 // 22 bits averages ~28 s on a slow single core (~150k hashes/s, e.g. Pi-class hardware).
-const MAX_ACCEPTED_POW_BITS = 22
+export const MAX_ACCEPTED_POW_BITS = 22
 // Hash attempts between yields, so solving never blocks payments on the event loop.
 const HASHES_PER_YIELD = 5_000
 
@@ -39,9 +39,7 @@ async function fetchChallenge(): Promise<PowChallenge> {
     if (typeof body.challengeId !== 'string' || typeof body.challenge !== 'string' || typeof body.difficultyBits !== 'number') {
         throw new Error('cloud backup challenge response is malformed')
     }
-    if (body.difficultyBits > MAX_ACCEPTED_POW_BITS) {
-        throw new Error(`cloud backup challenge difficulty ${body.difficultyBits} exceeds limit ${MAX_ACCEPTED_POW_BITS}`)
-    }
+    assertPowDifficulty(body.difficultyBits)
     return body as PowChallenge
 }
 
@@ -54,7 +52,15 @@ async function errorCode(res: Response): Promise<string> {
     }
 }
 
+/** Difficulty must be an integer in 0..MAX_ACCEPTED_POW_BITS. NaN, fractions, and negatives are refused. */
+export function assertPowDifficulty(bits: number): void {
+    if (!Number.isInteger(bits) || bits < 0 || bits > MAX_ACCEPTED_POW_BITS) {
+        throw new Error(`cloud backup challenge difficulty ${bits} is not an integer in 0..${MAX_ACCEPTED_POW_BITS}`)
+    }
+}
+
 export async function solvePow(challenge: string, difficultyBits: number): Promise<string> {
+    assertPowDifficulty(difficultyBits)
     for (let n = 0; ; n++) {
         const nonce = n.toString(16)
         if (hasLeadingZeroBits(`${challenge}:${nonce}`, difficultyBits)) return nonce
@@ -63,6 +69,7 @@ export async function solvePow(challenge: string, difficultyBits: number): Promi
 }
 
 export function hasLeadingZeroBits(payload: string, bits: number): boolean {
+    if (!Number.isInteger(bits) || bits < 0) return false
     const hash = crypto.createHash('sha256').update(payload, 'utf8').digest()
     const fullBytes = Math.floor(bits / 8)
     for (let i = 0; i < fullBytes; i++) {

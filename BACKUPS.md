@@ -59,7 +59,7 @@ At least one destination must be set for dialtone uploads to run. Backups need P
 
 - **Server:** PubFTPService: SFTP on port 22, sign-up API over HTTPS on the same hostname. Ops docs are in that repo (`docs/RUNBOOK.md`).
 - **Host key pinning** (`sftpClient.ts`): the cloud fingerprint `SHA256:3bEOvUFGn+Ts/kfRtKV5AGd3j4AAoWM2c60w9pSpdM8` is compiled in and always enforced. A mismatch refuses to connect. Rotating the server key therefore needs a Pub release. Pointing `BACKUP_SFTP_HOST` at `backup.lightning.pub:22` also gets the pin.
-- **Sign-up** (`cloudProvision.ts`): the server only accepts accounts created with a proof of work. When a cloud login is rejected (`SftpAuthError`), `BackupManager` fetches a challenge, solves it, POSTs `/v1/provision`, and retries the upload. 409 "already exists" counts as success. Concurrent shard uploads share one sign-up. The solver yields to the event loop every 5,000 hashes (stalls under 10 ms). At the server's 18 bits it averages about 1.8 s on a slow single core (~150k hashes/s) and 0.35 s on a fast desktop; 1 in 100 solves takes about 4.6 times the average. Challenges above 22 bits (~28 s average on a slow core) are refused.
+- **Sign-up** (`cloudProvision.ts`): the server only accepts accounts created with a proof of work. When a cloud login is rejected (`SftpAuthError`), `BackupManager` fetches a challenge, solves it, POSTs `/v1/provision`, and retries the upload. 409 "already exists" counts as success. Concurrent shard uploads share one sign-up. The solver yields to the event loop every 5,000 hashes (stalls under 10 ms). At the server's 18 bits it averages about 1.8 s on a slow single core (~150k hashes/s) and 0.35 s on a fast desktop; 1 in 100 solves takes about 4.6 times the average. Difficulty must be an integer from 0 through 22; anything else (including fractions, negatives, and `NaN`) is refused.
 - **Server-side limits Pub may see:** 429 (per-IP rate limit, retried on the next upload), 507 (server disk full), 10 MiB quota per node.
 
 ## Restore
@@ -74,14 +74,14 @@ node build/src/index.js restore --phrase "<24 words>" --source cloud|ftp|local \
 Flow (`RestoreManager.RestoreFromSource`):
 
 1. Refuse unless the DB is clean (no apps, users, app users, or node info), except when resuming from a checkpoint (below).
-2. Derive keys from the phrase, fetch each shard from the chosen source. **Missing shards are logged and skipped**; only a missing or empty `applications` shard stops the restore. `failureMessage()` exists for per-shard errors but is not wired in yet.
+2. Derive keys from the phrase, fetch each shard from the chosen source. **Missing shards are logged and skipped**; only a missing or empty `applications` shard stops the restore. A missing `applications` shard uses `failureMessage()` (the login succeeded and the file is not there). A rejected cloud login throws `CloudLoginRejectedError` and stops the restore; it is not reported as a missing shard. Host-key mismatch and other connection errors keep their own messages.
 3. Decrypt, pick the default app, fetch the latest SCB from the relay using that app's Nostr key.
 4. In one DB transaction: import all tables, then initialize LND from the seed (recovery window scales with the backed-up address count).
 5. Wait for LND, save the seed, restore the SCB (best effort).
 
 Progress is recorded in `.restore_checkpoint` in the data dir (`STARTED` → `LND_RECOVERED` → `DB_COMMITTED` → `LND_ACTIVE` → `COMPLETED`) so a crash can resume. `LND_RECOVERED` is a broken state that needs manual cleanup. Checkpoint and resume behaviour is being reworked; see open issues.
 
-Sources: **cloud** (seed-derived login, pinned; a rejected login is reported as "no backup for this seed"), **ftp** (your host; pinned only if it is `backup.lightning.pub`, since the request has no fingerprint field yet), **local** (a folder of the same `*.enc` files).
+Sources: **cloud** (seed-derived login, pinned; a rejected login is a login error, and a reachable account with no `applications` shard is reported as no backup for this seed), **ftp** (your host; pinned only if it is `backup.lightning.pub`, since the request has no fingerprint field yet), **local** (a folder of the same `*.enc` files).
 
 ## Your own SFTP server
 

@@ -133,6 +133,9 @@ export class RestoreManager {
             const keys = await deriveBackupKeys(req.phrase, LATEST_DERIVATION_VERSION)
 
             const buffers = await this.fetchSegmentsData(req, keys)
+            if (!buffers.has('applications')) {
+                throw new Error(failureMessage(req.source.type, 'applications'))
+            }
 
             const { backupData } = this.decodeSegmentsData(buffers, keys)
             const addressesCount = backupData.indexes.find(i => i.addressesCount !== 0)?.addressesCount ?? 0
@@ -403,25 +406,45 @@ const fetchFile = async (log: PubLogger, keys: DerivedKeys, opts: wizardTypes.Re
     }
 }
 
-/** A rejected cloud login means this seed never signed up, i.e. it has no cloud backup. */
+/**
+ * Login rejected while restoring from the managed cloud.
+ * Distinct from a missing shard: the server refused the seed's account.
+ */
+export class CloudLoginRejectedError extends Error {
+    constructor(loginError: string) {
+        super(`Cloud backup login rejected: ${loginError}. This seed has no cloud account, or the server refused the password.`)
+        this.name = 'CloudLoginRejectedError'
+    }
+}
+
+/** Map a cloud download failure onto a restore error. Auth rejection is not a missing file. */
+export function cloudDownloadError(err: unknown): Error {
+    if (err instanceof SftpAuthError) return new CloudLoginRejectedError(err.message)
+    if (err instanceof Error) return err
+    return new Error(`Cloud backup download failed: ${String(err)}`)
+}
+
 const downloadFromCloud = async (keys: DerivedKeys, filename: string): Promise<SFTPFile> => {
     try {
         return await sftpDownload(cloudSftpConfig(keys.sftpUser, keys.sftpPass), filename)
     } catch (err) {
-        if (err instanceof SftpAuthError) return { found: false }
-        throw err
+        throw cloudDownloadError(err)
     }
 }
 
-function failureMessage(source: wizardTypes.RestoreRequest_source_type, shard: BackupTableId): string {
+export function failureMessage(source: wizardTypes.RestoreRequest_source_type, shard: BackupTableId): string {
     const name = backupTableFilename(shard)
     switch (source) {
         case wizardTypes.RestoreRequest_source_type.CLOUD:
-            return `No backup found for this seed on the managed service (missing ${name}). Were backups enabled on the original instance? Did this seed ever run Lightning.Pub?`
+            return `No backup found for this seed on the managed service (missing ${name}). The login succeeded; this shard is not there.`
         case wizardTypes.RestoreRequest_source_type.FTP_HOST:
-            return `Could not connect or ${name} not found — verify host, credentials, and path.`
+            return `No backup file ${name} on the SFTP server. The connection succeeded; verify this account has a backup.`
         case wizardTypes.RestoreRequest_source_type.LOCAL_PATH:
             return `${name} not found or path is not a readable directory — expected a folder of per-table *.enc shards from backup.`
+        default: {
+            const _exhaustive: never = source
+            throw new Error(`Unknown restore source: ${_exhaustive}`)
+        }
     }
 }
 

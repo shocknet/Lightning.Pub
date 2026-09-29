@@ -40,7 +40,6 @@ const TABLE_DEBOUNCE_MS = 30_000
 const TABLE_DEBOUNCE_MAX_MS = 5 * 60_000
 const WAIT_IN_FLIGHT_MS = 10_000
 
-
 export class BackupManager {
     log = getLogger({ component: 'backupManager' })
     storage: Storage
@@ -301,7 +300,7 @@ export class BackupManager {
         if (!this.cloudSignUp) {
             this.log("no cloud backup account for this seed yet, signing up")
             this.cloudSignUp = provisionCloudAccount(this.keys.sftpUser, this.keys.sftpPass)
-                .then(() => this.log("cloud backup account ready"))
+                .then(() => { this.log("cloud backup account ready") })
                 .finally(() => { this.cloudSignUp = null })
         }
         return this.cloudSignUp
