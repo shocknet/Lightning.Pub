@@ -16,12 +16,23 @@ import { NostrSender } from '../nostr/sender.js';
 import { nip44, UnsignedEvent } from 'nostr-tools';
 import { WalletState } from '../../../proto/lnd/stateservice.js';
 import { Application } from '../storage/entity/Application.js';
-import { selectDefaultApp } from '../helpers/defaultAppSelector.js';
+import { pickDefaultApp } from './adminNodeSettings.js';
 const DeadLineMetadata = (deadline = 10 * 1000) => ({ deadline: Date.now() + deadline })
 type EncryptedData = { iv: string, encrypted: string }
 type Seed = { plaintextSeed: string[], encryptedSeed: EncryptedData, entropy?: Buffer }
 const SCB_BACKUP_KIND = 30078
 const SCB_BACKUP_D_TAG = 'Lightning.Pub/backup/scb'
+
+/**
+ * Next replaceable-event timestamp. created_at is the wall clock.
+ * A second snapshot in the same second waits until the clock moves, and the newest one is published then.
+ */
+export const nextScbCreatedAt = (now: number, last: number): { createdAt: number, waitMs: number } => {
+    if (last >= now) {
+        return { createdAt: 0, waitMs: Math.max(0, (last + 1 - now) * 1000) }
+    }
+    return { createdAt: now, waitMs: 0 }
+}
 const BACKUP_RESUBSCRIBE_SECONDS = 30
 const WALLET_STATE_WAIT_SECONDS = 300
 const WALLET_STATE_QUERY_SECONDS = 10
@@ -39,6 +50,10 @@ export class Unlocker {
     nodePub: string | null = null
     log = getLogger({ component: "unlocker" })
     nostrSender: NostrSender
+    /** Serializes SCB publishes. A burst keeps only the newest snapshot. */
+    private scbPublish: Promise<void> = Promise.resolve()
+    private lastScbCreatedAt = 0
+    private latestScb: Buffer | null = null
     constructor(settings: SettingsManager, storage: Storage, nostrSender: NostrSender) {
         this.settings = settings
         this.storage = storage
@@ -451,30 +466,59 @@ export class Unlocker {
 
     GetAppWithNostrKeys = async (): Promise<AppWithKeys> => {
         const apps = await this.storage.applicationStorage.GetApplications()
-        const local = selectDefaultApp(apps, this.settings.getSettings().serviceSettings.defaultAppName)
+        const local = pickDefaultApp(apps, this.settings.getSettings().serviceSettings.defaultAppName)
         if (!local || !local.nostr_private_key || !local.nostr_public_key) {
             throw new Error("local app nostr keys unavailable")
         }
         return { ...local, nostr_private_key: local.nostr_private_key!, nostr_public_key: local.nostr_public_key! }
     }
 
-    private publishScbToNostr = async (scb: Buffer) => {
+    private publishScbToNostr = (scb: Buffer): Promise<void> => {
+        this.latestScb = scb
+        const run = this.scbPublish.then(() => this.publishQueuedScb())
+        this.scbPublish = run.then(() => undefined, () => undefined)
+        return run
+    }
+
+    private publishQueuedScb = async () => {
+        const scb = this.latestScb
+        if (!scb) return
+        this.latestScb = null
+        await this.publishOneScb(scb)
+    }
+
+    private publishOneScb = async (scb: Buffer) => {
         if (!this.settings.getSettings().serviceSettings.pushBackupsToNostr) {
             return
         }
         const local = await this.GetAppWithNostrKeys()
+        if (this.latestScb) return
 
+        let plan = nextScbCreatedAt(Math.floor(Date.now() / 1000), this.lastScbCreatedAt)
+        while (plan.waitMs > 0) {
+            await this.wait(plan.waitMs)
+            if (this.latestScb) return
+            plan = nextScbCreatedAt(Math.floor(Date.now() / 1000), this.lastScbCreatedAt)
+        }
+        if (this.latestScb) return
+
+        this.lastScbCreatedAt = plan.createdAt
         const ck = nip44.getConversationKey(Buffer.from(local.nostr_private_key, 'hex'), local.nostr_public_key)
         const content = nip44.encrypt(scb.toString('base64'), ck)
         const event: UnsignedEvent = {
             content,
-            created_at: Math.floor(Date.now() / 1000),
+            created_at: plan.createdAt,
             kind: SCB_BACKUP_KIND,
             pubkey: local.nostr_public_key,
             tags: [['d', SCB_BACKUP_D_TAG]],
         }
         this.nostrSender.Send({ type: 'app', appId: local.app_id }, { type: 'event', event })
     }
+
+    private wait = (ms: number) => new Promise<void>(resolve => {
+        const timer = setTimeout(resolve, ms)
+        timer.unref()
+    })
 
     DecryptScbEvent = async (encryptedScb: string, local: AppKeys) => {
         const ck = nip44.getConversationKey(Buffer.from(local.nostr_private_key, 'hex'), local.nostr_public_key)

@@ -11,6 +11,9 @@
 // SFTP / cloud layout, decrypted with the backup phrase — not a raw DB file.
 //
 // Import order matches BACKUP_RESTORE_ORDER in backupTables.ts (balances overlay, then FK order).
+// Every shard file in that list is required. A file that decrypts to zero rows is an empty
+// table and is imported, except indexes, which must be exactly one address-count row.
+// A missing file fails the restore.
 //
 // ECONOMIC INVARIANT: Pending UserInvoicePayment rows (paid_at_unix = 0) are NOT
 // restored. Restore favors non-inflation over exact replay. This must be stated
@@ -35,7 +38,7 @@ import { BACKUP_RESTORE_ORDER, backupTableFilename, type BackupTableId } from '.
 import { Relay, type Event as NostrEvent } from 'nostr-tools'
 import SettingsManager from '../main/settingsManager.js'
 import { Unlocker } from '../main/unlocker.js'
-import { selectDefaultApp } from '../helpers/defaultAppSelector.js'
+import { pickBackedUpDefaultApp } from '../main/adminNodeSettings.js'
 
 export const validRestoreSources = ['cloud', 'ftp', 'local'] as const
 export type RestoreSource = typeof validRestoreSources[number]
@@ -145,12 +148,11 @@ export class RestoreManager {
             const keys = await deriveBackupKeys(req.phrase, LATEST_DERIVATION_VERSION)
 
             const buffers = await this.fetchSegmentsData(req, keys)
-            if (!buffers.has('applications')) {
-                throw new Error(failureMessage(req.source.type, 'applications'))
-            }
-
             const { backupData } = this.decodeSegmentsData(buffers, keys)
-            const addressesCount = backupData.indexes.find(i => i.addressesCount !== 0)?.addressesCount ?? 0
+            if (backupData.indexes.length !== 1) {
+                throw new Error('indexes shard must contain one address count')
+            }
+            const addressesCount = backupData.indexes[0].addressesCount
             this.log("addresses count: " + addressesCount)
             const recoveryWindow = Math.max(1000, addressesCount * 10)
 
@@ -158,7 +160,7 @@ export class RestoreManager {
             if (apps.length === 0) {
                 throw new Error('No applications found in backup, cannot restore')
             }
-            const existingWalletApp = selectDefaultApp(apps, this.settings.getSettings().serviceSettings.defaultAppName)
+            const existingWalletApp = pickBackedUpDefaultApp(apps, backupData.adminSettings)
             if (!existingWalletApp) {
                 throw new Error('No default wallet app found in backup, cannot restore')
             }
@@ -168,9 +170,9 @@ export class RestoreManager {
                 throw new Error('Default wallet app has no nostr keys, cannot restore')
             }
 
-            const scbData = await this.retrieveSCB(req, pubkey)
-            const decryptedScb = await this.unlocker.DecryptScbEvent(scbData, { nostr_private_key: privateKey, nostr_public_key: pubkey })
-            if (!decryptedScb) {
+            const scbEvent = await this.retrieveSCB(req, pubkey)
+            const decryptedScb = await this.unlocker.DecryptScbEvent(scbEvent.content, { nostr_private_key: privateKey, nostr_public_key: pubkey })
+            if (!decryptedScb.length) {
                 throw new Error('Failed to decrypt SCB data')
             }
 
@@ -226,14 +228,19 @@ export class RestoreManager {
     async fetchSegmentsData(req: wizardTypes.RestoreRequest, keys: DerivedKeys) {
         this.log("fetching segments data")
         const buffers = new Map<BackupTableId, Buffer>()
+        const missing: BackupTableId[] = []
         for (const id of BACKUP_RESTORE_ORDER) {
             const name = backupTableFilename(id)
             const chunk = await fetchFile(this.log, keys, req, name)
             if (!chunk.found) {
                 this.log("buffer not found: " + name)
+                missing.push(id)
                 continue
             }
             buffers.set(id, chunk.data)
+        }
+        if (missing.length > 0) {
+            throw new Error(missing.map(id => failureMessage(req.source.type, id)).join('\n'))
         }
         return buffers
     }
@@ -243,8 +250,7 @@ export class RestoreManager {
         const readRows = <T>(id: BackupTableId, decodeRow: (u: Uint8Array) => T): T[] => {
             const buffer = buffers.get(id)
             if (!buffer) {
-                this.log("buffer not found: " + id)
-                return []
+                throw new Error(`missing backup shard ${id}`)
             }
             return decryptTableRows(buffer, keys.encKey).map(decodeRow)
         }
@@ -324,11 +330,11 @@ export class RestoreManager {
         if (!relay) {
             throw new Error('SCB restore skipped: no relay configured')
         }
-        const scbData = await this._fetchScbDataFromRelay(relay, pubkey)
-        if (!scbData) {
+        const scbEvent = await this._fetchScbDataFromRelay(relay, pubkey)
+        if (!scbEvent) {
             throw new Error('SCB restore skipped: no SCB backup event found on relay')
         }
-        return scbData
+        return scbEvent
     }
 
     private restoreScb = async (scb: Buffer) => {
@@ -349,7 +355,7 @@ export class RestoreManager {
         return relays[0] || null
     }
 
-    _fetchScbDataFromRelay = async (relayUrl: string, pubkey: string): Promise<string | null> => {
+    _fetchScbDataFromRelay = async (relayUrl: string, pubkey: string): Promise<{ content: string, created_at: number } | null> => {
         const relay = await Relay.connect(relayUrl)
         try {
             const events: NostrEvent[] = []
@@ -374,7 +380,7 @@ export class RestoreManager {
                 return null
             }
             const latest = events.sort((a, b) => (b.created_at || 0) - (a.created_at || 0))[0]
-            return latest.content
+            return { content: latest.content, created_at: latest.created_at || 0 }
         } finally {
             relay.close()
         }
