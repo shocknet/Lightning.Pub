@@ -79,7 +79,7 @@ Flow (`RestoreManager.RestoreFromSource`):
 4. In one DB transaction: import all tables, then initialize LND from the seed (recovery window scales with the backed-up address count).
 5. Wait for LND, save the seed, restore the SCB (best effort).
 
-Progress is recorded in `.restore_checkpoint` in the data dir (`STARTED` → `LND_RECOVERED` → `DB_COMMITTED` → `LND_ACTIVE` → `COMPLETED`) so a crash can resume. `LND_RECOVERED` is a broken state that needs manual cleanup. Checkpoint and resume behaviour is being reworked; see open issues.
+Progress is recorded in `.restore_checkpoint` in the data dir (`STARTED` → `LND_RECOVERED` → `DB_COMMITTED` → `LND_ACTIVE` → `COMPLETED`) so a crash can resume. A SHA-256 of the normalized restore phrase is stored in `.restore_phrase_hash` and checked on resume, so a later call cannot finish with a different seed. After `DB_COMMITTED` or `LND_ACTIVE`, restore is allowed even though LND already has a wallet (that wallet was created on the first leg); a fresh restore (`STARTED`) still refuses if a wallet exists. `LND_RECOVERED` is a broken state that needs manual cleanup.
 
 Sources: **cloud** (seed-derived login, pinned; a rejected login is a login error, and a reachable account missing any shard is reported with `failureMessage()` for each missing file), **ftp** (your host; pinned only if it is `backup.lightning.pub`, since the request has no fingerprint field yet), **local** (a folder of the same `*.enc` files).
 
@@ -116,7 +116,7 @@ The chroot top level must be root-owned and read-only, so `-d /upload` starts se
 
 ## Open issues
 
-- Restore hardening (security review): bind a resumed restore to the original phrase; refuse `WizardRestore` once the node is set up; retry from `LND_ACTIVE` fails because the seed is already saved.
+- Restore hardening (security review): refuse `WizardRestore` once the node is set up (outside an in-progress restore checkpoint).
 - Wizard `ftp` restores cannot pin a host key (no field in `RestoreRequest`).
 - Custom hosts are not trust-on-first-use; pinning is manual.
 - Longer term: log in to SFTP with a seed-derived SSH key instead of a password, so a captured login cannot be replayed.

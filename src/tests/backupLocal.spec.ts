@@ -4,7 +4,7 @@ import path from 'path'
 import crypto from 'crypto'
 import SettingsManager from '../services/main/settingsManager.js'
 import { BackupManager } from '../services/backup/backupManager.js'
-import { failureMessage, RestoreManager } from '../services/backup/restoreManager.js'
+import { failureMessage, hashRestorePhrase, RestoreManager } from '../services/backup/restoreManager.js'
 import { decodeIndexesRow, decryptTableRows, encryptTableRows } from '../services/backup/segments.js'
 import { nextScbCreatedAt } from '../services/main/unlocker.js'
 import { Unlocker } from '../services/main/unlocker.js'
@@ -63,6 +63,8 @@ export default async (T: StorageTestBase) => {
     await testGateNoDestination(T)
     await testGateNoSeed(T)
     await testRefusesWhenLndStarted(T)
+    await testResumeAfterDbCommitted(T)
+    await testResumePhraseMismatch(T)
     await testLocalRoundtrip(T)
     await testMissingShardFailsClosed(T)
     await testEmptyProductsShardImports(T)
@@ -94,7 +96,8 @@ const testRefusesWhenLndStarted = async (T: StorageTestBase) => {
         } as unknown as Unlocker
         const restore = new RestoreManager(dest, settings, unlocker)
         fs.mkdirSync(dataDir, { recursive: true })
-        fs.writeFileSync(restore.getCheckpointPath(), 'LND_ACTIVE')
+        // Fresh restore (STARTED) must refuse when LND already has a wallet.
+        fs.writeFileSync(restore.getCheckpointPath(), 'STARTED')
         const result = await restore.RestoreFromSource({
             phrase: TEST_PHRASE,
             source: { type: WizardTypes.RestoreRequest_source_type.LOCAL_PATH, local_path: path.join(dataDir, 'missing-backup') },
@@ -105,6 +108,83 @@ const testRefusesWhenLndStarted = async (T: StorageTestBase) => {
         T.expect(result.scb_restored).to.equal(false)
         T.expect(movedOn).to.equal(false)
         T.expect(await dest.IsDbClean()).to.equal(true)
+    } finally {
+        dest.Stop()
+        fs.rmSync(dataDir, { recursive: true, force: true })
+    }
+}
+
+const testResumeAfterDbCommitted = async (T: StorageTestBase) => {
+    T.d('starting testResumeAfterDbCommitted')
+    const dir = tempBackupDir()
+    const dest = await openSecondStorage()
+    const dataDir = dest.getStorageSettings().dataDir
+    try {
+        const sourceSettings = new SettingsManager(T.storage)
+        await sourceSettings.InitSettings()
+        await seedDialtone(T, sourceSettings)
+        await writeLocalBackup(T, dir, 4)
+        const settings = new SettingsManager(dest)
+        await settings.InitSettings()
+        let postRestoreCalls = 0
+        let restoreCalls = 0
+        const unlocker = {
+            WalletExists: async () => true,
+            Restore: async () => { restoreCalls++; return { adminMacaroon: 'mac' } },
+            PostRestore: async () => { postRestoreCalls++ },
+            DecryptScbEvent: async () => Buffer.from('scb'),
+            ApplyScb: async () => { },
+        } as unknown as Unlocker
+        const restore = new RestoreManager(dest, settings, unlocker)
+            // Skip relay fetch: inject decrypted SCB path by stubbing retrieve via private override
+            ; (restore as any).retrieveSCB = async () => ({ content: 'enc', created_at: 1 })
+        fs.mkdirSync(dataDir, { recursive: true })
+        fs.writeFileSync(restore.getCheckpointPath(), 'DB_COMMITTED')
+        fs.writeFileSync(restore.getPhraseHashPath(), hashRestorePhrase(TEST_PHRASE))
+        const result = await restore.RestoreFromSource({
+            phrase: TEST_PHRASE,
+            source: { type: WizardTypes.RestoreRequest_source_type.LOCAL_PATH, local_path: dir },
+        })
+        T.expect(result.success).to.equal(true)
+        T.expect(result.error || '').to.equal('')
+        T.expect(restoreCalls).to.equal(0)
+        T.expect(postRestoreCalls).to.equal(1)
+        T.expect(result.scb_restored).to.equal(true)
+        T.expect(fs.readFileSync(restore.getCheckpointPath(), 'utf8')).to.equal('COMPLETED')
+        T.expect(fs.existsSync(restore.getPhraseHashPath())).to.equal(false)
+    } finally {
+        dest.Stop()
+        fs.rmSync(dataDir, { recursive: true, force: true })
+        fs.rmSync(dir, { recursive: true, force: true })
+    }
+}
+
+const testResumePhraseMismatch = async (T: StorageTestBase) => {
+    T.d('starting testResumePhraseMismatch')
+    const dest = await openSecondStorage()
+    const dataDir = dest.getStorageSettings().dataDir
+    try {
+        const settings = new SettingsManager(dest)
+        await settings.InitSettings()
+        let movedOn = false
+        const unlocker = {
+            WalletExists: async () => true,
+            Restore: async () => { movedOn = true; return { adminMacaroon: '' } },
+            PostRestore: async () => { movedOn = true },
+            DecryptScbEvent: async () => { movedOn = true; return Buffer.alloc(0) },
+            ApplyScb: async () => { movedOn = true },
+        } as unknown as Unlocker
+        const restore = new RestoreManager(dest, settings, unlocker)
+        fs.mkdirSync(dataDir, { recursive: true })
+        fs.writeFileSync(restore.getCheckpointPath(), 'DB_COMMITTED')
+        fs.writeFileSync(restore.getPhraseHashPath(), hashRestorePhrase(TEST_PHRASE))
+        const result = await restore.RestoreFromSource({
+            phrase: 'legal winner thank year wave sausage worth useful legal winner thank yellow',
+            source: { type: WizardTypes.RestoreRequest_source_type.LOCAL_PATH, local_path: path.join(dataDir, 'missing-backup') },
+        })
+        T.expect(result.success).to.equal(false)
+        T.expect(result.error || '').to.contain('does not match')
+        T.expect(movedOn).to.equal(false)
     } finally {
         dest.Stop()
         fs.rmSync(dataDir, { recursive: true, force: true })

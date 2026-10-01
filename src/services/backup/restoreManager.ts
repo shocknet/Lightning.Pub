@@ -4,8 +4,9 @@
 // (all dialtone tables empty). No upsert/merge — prevents ghost-state mess if
 // someone runs restore against a half-initialized node.
 //
-// If LND has already started (wallet state other than NON_EXISTING), restore
-// returns immediately. It does not fetch shards, import rows, or resume a checkpoint.
+// If LND already has a wallet and there is no resumable checkpoint (DB_COMMITTED /
+// LND_ACTIVE), restore returns immediately. Resume after those checkpoints is
+// allowed — that wallet was created on the first leg of this restore.
 //
 // Local source: a directory of per-table *.enc shards (see backupTables.ts), same as
 // SFTP / cloud layout, decrypted with the backup phrase — not a raw DB file.
@@ -22,6 +23,7 @@
 import { getLogger, PubLogger } from '../helpers/logger.js'
 import { deriveBackupKeys, LATEST_DERIVATION_VERSION, type DerivedKeys } from './derivation.js'
 import { sftpDownload, cloudSftpConfig, customHostFingerprint, SftpAuthError, type SftpConfig, SFTPFile } from './sftpClient.js'
+import crypto from 'crypto'
 import fs from 'fs'
 import path from 'path'
 import Storage from '../storage/index.js'
@@ -52,6 +54,7 @@ const SCB_BACKUP_KIND = 30078
 const SCB_BACKUP_D_TAG = 'Lightning.Pub/backup/scb'
 const relayFetchTimeoutMs = 12_000
 const CHECKPOINT_FILE = ".restore_checkpoint"
+const PHRASE_HASH_FILE = ".restore_phrase_hash"
 enum RestoreCheckpoint {
     STARTED = 'STARTED', // just fetched data, can be retried anytime
     LND_RECOVERED = 'LND_RECOVERED', // lnd was recovered, but DB not commit, cannot continue recovery from this state
@@ -59,6 +62,13 @@ enum RestoreCheckpoint {
     LND_ACTIVE = 'LND_ACTIVE', // LND active, SCB can be restored, or retried
     COMPLETED = 'COMPLETED', // SCB restored, restore completed
 }
+
+const normalizeRestorePhrase = (phrase: string) =>
+    phrase.toLowerCase().trim().replace(/\s+/g, ' ')
+
+export const hashRestorePhrase = (phrase: string) =>
+    crypto.createHash('sha256').update(normalizeRestorePhrase(phrase), 'utf8').digest('hex')
+
 export class RestoreManager {
     storage: Storage
     settings: SettingsManager
@@ -73,6 +83,11 @@ export class RestoreManager {
     getCheckpointPath = () => {
         const dataDir = this.settings.getStorageSettings().dataDir
         return dataDir ? path.join(dataDir, CHECKPOINT_FILE) : CHECKPOINT_FILE
+    }
+
+    getPhraseHashPath = () => {
+        const dataDir = this.settings.getStorageSettings().dataDir
+        return dataDir ? path.join(dataDir, PHRASE_HASH_FILE) : PHRASE_HASH_FILE
     }
 
     updateCheckpoint = (current: RestoreCheckpoint) => {
@@ -96,22 +111,39 @@ export class RestoreManager {
 
     }
 
+    bindRestorePhrase = (phrase: string) => {
+        fs.writeFileSync(this.getPhraseHashPath(), hashRestorePhrase(phrase))
+    }
+
+    assertRestorePhraseMatches = (phrase: string) => {
+        const hashPath = this.getPhraseHashPath()
+        if (!fs.existsSync(hashPath)) {
+            throw new Error('Restore checkpoint is missing a phrase binding. Delete .restore_checkpoint and retry from a clean LND/DB, or re-run restore with the original phrase after resetting state.')
+        }
+        const stored = fs.readFileSync(hashPath, 'utf8').trim()
+        if (stored !== hashRestorePhrase(phrase)) {
+            throw new Error('Restore phrase does not match the phrase used to start this restore.')
+        }
+    }
+
+    clearPhraseBinding = () => {
+        const hashPath = this.getPhraseHashPath()
+        try {
+            fs.unlinkSync(hashPath)
+        } catch (err: any) {
+            if (err.code !== 'ENOENT') throw err
+        }
+    }
+
     async RestoreFromSource(req: wizardTypes.RestoreRequest): Promise<wizardTypes.RestoreResponse> {
         try {
             this.log('RestoreFromSource request received', req.source.type)
-            if (await this.unlocker.WalletExists()) {
-                this.log("LND is already started, restore will not continue")
-                return {
-                    entries_restored: 0,
-                    scb_restored: false,
-                    success: false,
-                    error: 'LND is already started. Restore cannot continue.',
-                }
-            }
             const checkpoint = this.getCheckpoint()
             const skipDb = checkpoint === RestoreCheckpoint.DB_COMMITTED ||
                 checkpoint === RestoreCheckpoint.LND_ACTIVE ||
                 checkpoint === RestoreCheckpoint.COMPLETED
+            const resumable = checkpoint === RestoreCheckpoint.DB_COMMITTED ||
+                checkpoint === RestoreCheckpoint.LND_ACTIVE
 
             if (checkpoint === RestoreCheckpoint.COMPLETED) {
                 this.log("Restore already completed, returning success")
@@ -125,6 +157,17 @@ export class RestoreManager {
             if (checkpoint === RestoreCheckpoint.LND_RECOVERED) {
                 throw new Error(`Restore currently in broken state, lnd was recovered, but DB was not committed, 
                     Delete .restore_checkpoint, reset LND, and try again`)
+            }
+            // Fresh restore must not run against an existing wallet. Resume after DB_COMMITTED /
+            // LND_ACTIVE is allowed: the wallet was created on the first leg.
+            if (await this.unlocker.WalletExists() && !resumable) {
+                this.log("LND is already started, restore will not continue")
+                return {
+                    entries_restored: 0,
+                    scb_restored: false,
+                    success: false,
+                    error: 'LND is already started. Restore cannot continue.',
+                }
             }
             const clean = await this.storage.IsDbClean()
             if (!clean && !skipDb) {
@@ -143,7 +186,13 @@ export class RestoreManager {
                     error: 'No phrase provided to restore',
                 }
             }
-            const seed = req.phrase.trim().split(' ')
+            if (resumable) {
+                this.assertRestorePhraseMatches(req.phrase)
+            } else {
+                this.bindRestorePhrase(req.phrase)
+                this.updateCheckpoint(RestoreCheckpoint.STARTED)
+            }
+            const seed = normalizeRestorePhrase(req.phrase).split(' ')
             this.log("deriving backup keys")
             const keys = await deriveBackupKeys(req.phrase, LATEST_DERIVATION_VERSION)
 
@@ -203,6 +252,7 @@ export class RestoreManager {
             try {
                 await this.restoreScb(decryptedScb)
                 this.updateCheckpoint(RestoreCheckpoint.COMPLETED)
+                this.clearPhraseBinding()
                 scbRestored = true
             } catch (err: any) {
                 this.log("Skipping SCB restore: " + err.message || err)

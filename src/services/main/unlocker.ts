@@ -127,9 +127,24 @@ export class Unlocker {
             this.log("USE_ONLY_LIQUIDITY_PROVIDER enabled, skipping LND restore")
             return 'noaction'
         }
-        const { lndCert, macaroon } = this.getCreds()
-        const m = initMacaroon || macaroon
+        const { lndCert } = this.getCreds()
         const state = this.GetStateClient(lndCert)
+        const walletState = await this.WaitWalletState(state, WALLET_STATE_WAIT_SECONDS)
+        if (walletState === WalletState.LOCKED) {
+            this.log("wallet is locked after restore, unlocking...")
+            const walletPassword = this.GetWalletPassword()
+            await this.GetUnlockerClient(lndCert).unlockWallet({
+                walletPassword,
+                recoveryWindow: 0,
+                statelessInit: false,
+                channelBackups: undefined,
+            }, DeadLineMetadata())
+        }
+        const { macaroon } = this.getCreds()
+        const m = initMacaroon || macaroon
+        if (!m) {
+            throw new Error("lnd is running but no macaroon was found, check LND_MACAROON_PATH")
+        }
         const ln = this.GetLightningClient(lndCert, m)
         const encryptedSeed = this.EncryptWalletSeed(seed)
         this.nodePub = await this.saveSeed(state, ln, encryptedSeed.encryptedData)
@@ -236,6 +251,11 @@ export class Unlocker {
 
     private saveSeed = async (state: StateClient, ln: LightningClient, encryptedSeed: EncryptedData) => {
         const pub = await this.waitForNodePub(state, ln)
+        const existing = await this.storage.liquidityStorage.GetNoodeSeed(pub)
+        if (existing) {
+            this.log("seed already saved for node, skipping")
+            return pub
+        }
         await this.storage.liquidityStorage.SaveNodeSeed(pub, JSON.stringify(encryptedSeed))
         return pub
     }
