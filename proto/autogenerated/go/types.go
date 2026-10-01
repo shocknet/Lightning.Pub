@@ -144,6 +144,18 @@ type AdminNodeSettings struct {
 	Node_name_env_locked          bool   `json:"node_name_env_locked"`
 	Push_backups_to_nostr         bool   `json:"push_backups_to_nostr"`
 }
+type AdminOnchainConfSettings struct {
+	Tier1_confs            int64 `json:"tier1_confs"`
+	Tier1_confs_env_locked bool  `json:"tier1_confs_env_locked"`
+	Tier1_limit_env_locked bool  `json:"tier1_limit_env_locked"`
+	Tier1_limit_sats       int64 `json:"tier1_limit_sats"`
+	Tier2_confs            int64 `json:"tier2_confs"`
+	Tier2_confs_env_locked bool  `json:"tier2_confs_env_locked"`
+	Tier2_limit_env_locked bool  `json:"tier2_limit_env_locked"`
+	Tier2_limit_sats       int64 `json:"tier2_limit_sats"`
+	Tier3_confs            int64 `json:"tier3_confs"`
+	Tier3_confs_env_locked bool  `json:"tier3_confs_env_locked"`
+}
 type AdminTxSwapResponse struct {
 	Network_fee int64  `json:"network_fee"`
 	Tx_id       string `json:"tx_id"`
@@ -938,6 +950,13 @@ type UpdateAdminNodeSettingsRequest struct {
 	Lsp_channel_threshold int64  `json:"lsp_channel_threshold"`
 	Node_name             string `json:"node_name"`
 	Push_backups_to_nostr bool   `json:"push_backups_to_nostr"`
+}
+type UpdateAdminOnchainConfSettingsRequest struct {
+	Tier1_confs      int64 `json:"tier1_confs"`
+	Tier1_limit_sats int64 `json:"tier1_limit_sats"`
+	Tier2_confs      int64 `json:"tier2_confs"`
+	Tier2_limit_sats int64 `json:"tier2_limit_sats"`
+	Tier3_confs      int64 `json:"tier3_confs"`
 }
 type UpdateChannelPolicyRequest struct {
 	Policy *ChannelPolicy                     `json:"policy"`

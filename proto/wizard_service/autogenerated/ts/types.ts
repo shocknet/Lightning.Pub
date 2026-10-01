@@ -6,8 +6,8 @@ export type RequestStats = { startMs:number, start:bigint, parse: bigint, guard:
 export type RequestMetric = AuthContext & RequestInfo & RequestStats & { error?: string }
 export type GuestContext = {
 }
-export type GuestMethodInputs = GetAdminConnectInfo_Input | GetServiceState_Input | WizardConfig_Input | WizardState_Input
-export type GuestMethodOutputs = GetAdminConnectInfo_Output | GetServiceState_Output | WizardConfig_Output | WizardState_Output
+export type GuestMethodInputs = GetAdminConnectInfo_Input | GetServiceState_Input | WizardConfig_Input | WizardRestore_Input | WizardState_Input
+export type GuestMethodOutputs = GetAdminConnectInfo_Output | GetServiceState_Output | WizardConfig_Output | WizardRestore_Output | WizardState_Output
 export type AuthContext = GuestContext
 
 export type GetAdminConnectInfo_Input = {rpcName:'GetAdminConnectInfo'}
@@ -19,6 +19,9 @@ export type GetServiceState_Output = ResultError | ({ status: 'OK' } & ServiceSt
 export type WizardConfig_Input = {rpcName:'WizardConfig', req: ConfigRequest}
 export type WizardConfig_Output = ResultError | { status: 'OK' }
 
+export type WizardRestore_Input = {rpcName:'WizardRestore', req: RestoreRequest}
+export type WizardRestore_Output = ResultError | ({ status: 'OK' } & RestoreResponse)
+
 export type WizardState_Input = {rpcName:'WizardState'}
 export type WizardState_Output = ResultError | ({ status: 'OK' } & StateResponse)
 
@@ -26,6 +29,7 @@ export type ServerMethods = {
     GetAdminConnectInfo?: (req: GetAdminConnectInfo_Input & {ctx: GuestContext }) => Promise<AdminConnectInfoResponse>
     GetServiceState?: (req: GetServiceState_Input & {ctx: GuestContext }) => Promise<ServiceStateResponse>
     WizardConfig?: (req: WizardConfig_Input & {ctx: GuestContext }) => Promise<void>
+    WizardRestore?: (req: WizardRestore_Input & {ctx: GuestContext }) => Promise<RestoreResponse>
     WizardState?: (req: WizardState_Input & {ctx: GuestContext }) => Promise<StateResponse>
 }
 
@@ -118,12 +122,108 @@ export const EmptyValidate = (o?: Empty, opts: EmptyOptions = {}, path: string =
     return null
 }
 
+export type FtpCreds = {
+    pass: string
+    user: string
+}
+export const FtpCredsOptionalFields: [] = []
+export type FtpCredsOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    pass_CustomCheck?: (v: string) => boolean
+    user_CustomCheck?: (v: string) => boolean
+}
+export const FtpCredsValidate = (o?: FtpCreds, opts: FtpCredsOptions = {}, path: string = 'FtpCreds::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.pass !== 'string') return new Error(`${path}.pass: is not a string`)
+    if (opts.pass_CustomCheck && !opts.pass_CustomCheck(o.pass)) return new Error(`${path}.pass: custom check failed`)
+
+    if (typeof o.user !== 'string') return new Error(`${path}.user: is not a string`)
+    if (opts.user_CustomCheck && !opts.user_CustomCheck(o.user)) return new Error(`${path}.user: custom check failed`)
+
+    return null
+}
+
+export type RestoreRequest = {
+    creds_override?: FtpCreds
+    phrase: string
+    relay?: string
+    source: RestoreRequest_source
+}
+export type RestoreRequestOptionalField = 'creds_override' | 'relay'
+export const RestoreRequestOptionalFields: RestoreRequestOptionalField[] = ['creds_override', 'relay']
+export type RestoreRequestOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: RestoreRequestOptionalField[]
+    creds_override_Options?: FtpCredsOptions
+    phrase_CustomCheck?: (v: string) => boolean
+    relay_CustomCheck?: (v?: string) => boolean
+    source_Options?: RestoreRequest_sourceOptions
+}
+export const RestoreRequestValidate = (o?: RestoreRequest, opts: RestoreRequestOptions = {}, path: string = 'RestoreRequest::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.creds_override === 'object' || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('creds_override')) {
+        const creds_overrideErr = FtpCredsValidate(o.creds_override, opts.creds_override_Options, `${path}.creds_override`)
+        if (creds_overrideErr !== null) return creds_overrideErr
+    }
+    
+
+    if (typeof o.phrase !== 'string') return new Error(`${path}.phrase: is not a string`)
+    if (opts.phrase_CustomCheck && !opts.phrase_CustomCheck(o.phrase)) return new Error(`${path}.phrase: custom check failed`)
+
+    if ((o.relay || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('relay')) && typeof o.relay !== 'string') return new Error(`${path}.relay: is not a string`)
+    if (opts.relay_CustomCheck && !opts.relay_CustomCheck(o.relay)) return new Error(`${path}.relay: custom check failed`)
+
+    const sourceErr = RestoreRequest_sourceValidate(o.source, opts.source_Options, `${path}.source`)
+    if (sourceErr !== null) return sourceErr
+    
+
+    return null
+}
+
+export type RestoreResponse = {
+    entries_restored: number
+    error: string
+    scb_restored: boolean
+    success: boolean
+}
+export const RestoreResponseOptionalFields: [] = []
+export type RestoreResponseOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    entries_restored_CustomCheck?: (v: number) => boolean
+    error_CustomCheck?: (v: string) => boolean
+    scb_restored_CustomCheck?: (v: boolean) => boolean
+    success_CustomCheck?: (v: boolean) => boolean
+}
+export const RestoreResponseValidate = (o?: RestoreResponse, opts: RestoreResponseOptions = {}, path: string = 'RestoreResponse::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.entries_restored !== 'number') return new Error(`${path}.entries_restored: is not a number`)
+    if (opts.entries_restored_CustomCheck && !opts.entries_restored_CustomCheck(o.entries_restored)) return new Error(`${path}.entries_restored: custom check failed`)
+
+    if (typeof o.error !== 'string') return new Error(`${path}.error: is not a string`)
+    if (opts.error_CustomCheck && !opts.error_CustomCheck(o.error)) return new Error(`${path}.error: custom check failed`)
+
+    if (typeof o.scb_restored !== 'boolean') return new Error(`${path}.scb_restored: is not a boolean`)
+    if (opts.scb_restored_CustomCheck && !opts.scb_restored_CustomCheck(o.scb_restored)) return new Error(`${path}.scb_restored: custom check failed`)
+
+    if (typeof o.success !== 'boolean') return new Error(`${path}.success: is not a boolean`)
+    if (opts.success_CustomCheck && !opts.success_CustomCheck(o.success)) return new Error(`${path}.success: custom check failed`)
+
+    return null
+}
+
 export type ServiceStateResponse = {
     admin_npub: string
     app_id: string
     automate_liquidity: boolean
     avatar_url: string
+    has_seed: boolean
     http_url: string
+    is_db_clean: boolean
     lnd_state: LndState
     nprofile: string
     provider_name: string
@@ -141,7 +241,9 @@ export type ServiceStateResponseOptions = OptionsBaseMessage & {
     app_id_CustomCheck?: (v: string) => boolean
     automate_liquidity_CustomCheck?: (v: boolean) => boolean
     avatar_url_CustomCheck?: (v: string) => boolean
+    has_seed_CustomCheck?: (v: boolean) => boolean
     http_url_CustomCheck?: (v: string) => boolean
+    is_db_clean_CustomCheck?: (v: boolean) => boolean
     lnd_state_CustomCheck?: (v: LndState) => boolean
     nprofile_CustomCheck?: (v: string) => boolean
     provider_name_CustomCheck?: (v: string) => boolean
@@ -168,8 +270,14 @@ export const ServiceStateResponseValidate = (o?: ServiceStateResponse, opts: Ser
     if (typeof o.avatar_url !== 'string') return new Error(`${path}.avatar_url: is not a string`)
     if (opts.avatar_url_CustomCheck && !opts.avatar_url_CustomCheck(o.avatar_url)) return new Error(`${path}.avatar_url: custom check failed`)
 
+    if (typeof o.has_seed !== 'boolean') return new Error(`${path}.has_seed: is not a boolean`)
+    if (opts.has_seed_CustomCheck && !opts.has_seed_CustomCheck(o.has_seed)) return new Error(`${path}.has_seed: custom check failed`)
+
     if (typeof o.http_url !== 'string') return new Error(`${path}.http_url: is not a string`)
     if (opts.http_url_CustomCheck && !opts.http_url_CustomCheck(o.http_url)) return new Error(`${path}.http_url: custom check failed`)
+
+    if (typeof o.is_db_clean !== 'boolean') return new Error(`${path}.is_db_clean: is not a boolean`)
+    if (opts.is_db_clean_CustomCheck && !opts.is_db_clean_CustomCheck(o.is_db_clean)) return new Error(`${path}.is_db_clean: custom check failed`)
 
     if (!enumCheckLndState(o.lnd_state)) return new Error(`${path}.lnd_state: is not a valid LndState`)
     if (opts.lnd_state_CustomCheck && !opts.lnd_state_CustomCheck(o.lnd_state)) return new Error(`${path}.lnd_state: custom check failed`)
@@ -255,6 +363,50 @@ export const AdminConnectInfoResponse_connect_infoValidate = (o?: AdminConnectIn
         case AdminConnectInfoResponse_connect_info_type.ENROLLED_NPUB:
         if (typeof o.enrolled_npub !== 'string') return new Error(`${path}.enrolled_npub: is not a string`)
         if (opts.enrolled_npub_CustomCheck && !opts.enrolled_npub_CustomCheck(o.enrolled_npub)) return new Error(`${path}.enrolled_npub: custom check failed`)
+
+        break
+        default:
+            return new Error(path + ': unknown type '+ stringType)
+    }
+    return null
+}
+export enum RestoreRequest_source_type {
+    CLOUD = 'cloud',
+    FTP_HOST = 'ftp_host',
+    LOCAL_PATH = 'local_path',
+}
+export const enumCheckRestoreRequest_source_type = (e?: RestoreRequest_source_type): boolean => {
+    for (const v in RestoreRequest_source_type) if (e === v) return true
+    return false
+}
+export type RestoreRequest_source = 
+    {type:RestoreRequest_source_type.CLOUD, cloud:Empty}|
+    {type:RestoreRequest_source_type.FTP_HOST, ftp_host:string}|
+    {type:RestoreRequest_source_type.LOCAL_PATH, local_path:string}
+
+export type RestoreRequest_sourceOptions = {
+    cloud_Options?: EmptyOptions
+    ftp_host_CustomCheck?: (v: string) => boolean
+    local_path_CustomCheck?: (v: string) => boolean
+}
+export const RestoreRequest_sourceValidate = (o?: RestoreRequest_source, opts:RestoreRequest_sourceOptions = {}, path: string = 'RestoreRequest_source::root.'): Error | null => {
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+    const stringType: string = o.type
+    switch (o.type) {
+        case RestoreRequest_source_type.CLOUD:
+        const cloudErr = EmptyValidate(o.cloud, opts.cloud_Options, `${path}.cloud`)
+        if (cloudErr !== null) return cloudErr
+        
+
+        break
+        case RestoreRequest_source_type.FTP_HOST:
+        if (typeof o.ftp_host !== 'string') return new Error(`${path}.ftp_host: is not a string`)
+        if (opts.ftp_host_CustomCheck && !opts.ftp_host_CustomCheck(o.ftp_host)) return new Error(`${path}.ftp_host: custom check failed`)
+
+        break
+        case RestoreRequest_source_type.LOCAL_PATH:
+        if (typeof o.local_path !== 'string') return new Error(`${path}.local_path: is not a string`)
+        if (opts.local_path_CustomCheck && !opts.local_path_CustomCheck(o.local_path)) return new Error(`${path}.local_path: custom check failed`)
 
         break
         default:

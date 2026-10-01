@@ -23,8 +23,8 @@ export type RequestContext = {
 export type AdminContext = {
     admin_id: string
 }
-export type AdminMethodInputs = AddApp_Input | AddPeer_Input | AuthApp_Input | BanUser_Input | BumpTx_Input | CloseChannel_Input | CreateOneTimeInviteLink_Input | GetAdminInvoiceSwapQuotes_Input | GetAdminNodeSettings_Input | GetAdminTransactionSwapQuotes_Input | GetAssetsAndLiabilities_Input | GetAssetsAndLiabilitiesV2_Input | GetInviteLinkState_Input | GetSeed_Input | GetUserOperationsFromAdmin_Input | GetUsersAdminInfo_Input | ListAdminInvoiceSwaps_Input | ListAdminTxSwaps_Input | ListChannels_Input | ListPeers_Input | ListUtxos_Input | LndGetInfo_Input | OpenChannel_Input | PayAdminInvoiceSwap_Input | PayAdminTransactionSwap_Input | RefundAdminInvoiceSwap_Input | UpdateAdminNodeSettings_Input | UpdateChannelPolicy_Input
-export type AdminMethodOutputs = AddApp_Output | AddPeer_Output | AuthApp_Output | BanUser_Output | BumpTx_Output | CloseChannel_Output | CreateOneTimeInviteLink_Output | GetAdminInvoiceSwapQuotes_Output | GetAdminNodeSettings_Output | GetAdminTransactionSwapQuotes_Output | GetAssetsAndLiabilities_Output | GetAssetsAndLiabilitiesV2_Output | GetInviteLinkState_Output | GetSeed_Output | GetUserOperationsFromAdmin_Output | GetUsersAdminInfo_Output | ListAdminInvoiceSwaps_Output | ListAdminTxSwaps_Output | ListChannels_Output | ListPeers_Output | ListUtxos_Output | LndGetInfo_Output | OpenChannel_Output | PayAdminInvoiceSwap_Output | PayAdminTransactionSwap_Output | RefundAdminInvoiceSwap_Output | UpdateAdminNodeSettings_Output | UpdateChannelPolicy_Output
+export type AdminMethodInputs = AddApp_Input | AddPeer_Input | AuthApp_Input | BanUser_Input | BumpTx_Input | CloseChannel_Input | CreateOneTimeInviteLink_Input | GetAdminInvoiceSwapQuotes_Input | GetAdminNodeSettings_Input | GetAdminOnchainConfSettings_Input | GetAdminTransactionSwapQuotes_Input | GetAssetsAndLiabilities_Input | GetAssetsAndLiabilitiesV2_Input | GetInviteLinkState_Input | GetSeed_Input | GetUserOperationsFromAdmin_Input | GetUsersAdminInfo_Input | ListAdminInvoiceSwaps_Input | ListAdminTxSwaps_Input | ListChannels_Input | ListPeers_Input | ListUtxos_Input | LndGetInfo_Input | OpenChannel_Input | PayAdminInvoiceSwap_Input | PayAdminTransactionSwap_Input | RefundAdminInvoiceSwap_Input | UpdateAdminNodeSettings_Input | UpdateAdminOnchainConfSettings_Input | UpdateChannelPolicy_Input
+export type AdminMethodOutputs = AddApp_Output | AddPeer_Output | AuthApp_Output | BanUser_Output | BumpTx_Output | CloseChannel_Output | CreateOneTimeInviteLink_Output | GetAdminInvoiceSwapQuotes_Output | GetAdminNodeSettings_Output | GetAdminOnchainConfSettings_Output | GetAdminTransactionSwapQuotes_Output | GetAssetsAndLiabilities_Output | GetAssetsAndLiabilitiesV2_Output | GetInviteLinkState_Output | GetSeed_Output | GetUserOperationsFromAdmin_Output | GetUsersAdminInfo_Output | ListAdminInvoiceSwaps_Output | ListAdminTxSwaps_Output | ListChannels_Output | ListPeers_Output | ListUtxos_Output | LndGetInfo_Output | OpenChannel_Output | PayAdminInvoiceSwap_Output | PayAdminTransactionSwap_Output | RefundAdminInvoiceSwap_Output | UpdateAdminNodeSettings_Output | UpdateAdminOnchainConfSettings_Output | UpdateChannelPolicy_Output
 export type AppContext = {
     app_id: string
 }
@@ -123,6 +123,9 @@ export type GetAdminInvoiceSwapQuotes_Output = ResultError | ({ status: 'OK' } &
 
 export type GetAdminNodeSettings_Input = {rpcName:'GetAdminNodeSettings'}
 export type GetAdminNodeSettings_Output = ResultError | ({ status: 'OK' } & AdminNodeSettings)
+
+export type GetAdminOnchainConfSettings_Input = {rpcName:'GetAdminOnchainConfSettings'}
+export type GetAdminOnchainConfSettings_Output = ResultError | ({ status: 'OK' } & AdminOnchainConfSettings)
 
 export type GetAdminTransactionSwapQuotes_Input = {rpcName:'GetAdminTransactionSwapQuotes', req: TransactionSwapRequest}
 export type GetAdminTransactionSwapQuotes_Output = ResultError | ({ status: 'OK' } & TransactionSwapQuoteList)
@@ -374,6 +377,9 @@ export type SubmitWebRtcMessage_Output = ResultError | ({ status: 'OK' } & WebRt
 export type UpdateAdminNodeSettings_Input = {rpcName:'UpdateAdminNodeSettings', req: UpdateAdminNodeSettingsRequest}
 export type UpdateAdminNodeSettings_Output = ResultError | ({ status: 'OK' } & AdminNodeSettings)
 
+export type UpdateAdminOnchainConfSettings_Input = {rpcName:'UpdateAdminOnchainConfSettings', req: UpdateAdminOnchainConfSettingsRequest}
+export type UpdateAdminOnchainConfSettings_Output = ResultError | ({ status: 'OK' } & AdminOnchainConfSettings)
+
 export type UpdateCallbackUrl_Input = {rpcName:'UpdateCallbackUrl', req: CallbackUrl}
 export type UpdateCallbackUrl_Output = ResultError | ({ status: 'OK' } & CallbackUrl)
 
@@ -415,6 +421,7 @@ export type ServerMethods = {
     EnrollMessagingToken?: (req: EnrollMessagingToken_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<void>
     GetAdminInvoiceSwapQuotes?: (req: GetAdminInvoiceSwapQuotes_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<InvoiceSwapQuoteList>
     GetAdminNodeSettings?: (req: GetAdminNodeSettings_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<AdminNodeSettings>
+    GetAdminOnchainConfSettings?: (req: GetAdminOnchainConfSettings_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<AdminOnchainConfSettings>
     GetAdminTransactionSwapQuotes?: (req: GetAdminTransactionSwapQuotes_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<TransactionSwapQuoteList>
     GetApp?: (req: GetApp_Input & {ctx: AppContext, requestContext?: RequestContext }) => Promise<Application>
     GetAppUser?: (req: GetAppUser_Input & {ctx: AppContext, requestContext?: RequestContext }) => Promise<AppUser>
@@ -491,6 +498,7 @@ export type ServerMethods = {
     SubToWebRtcCandidates?: (req: SubToWebRtcCandidates_Input & {ctx: MetricsContext, requestContext?: RequestContext }) => Promise<void>
     SubmitWebRtcMessage?: (req: SubmitWebRtcMessage_Input & {ctx: MetricsContext, requestContext?: RequestContext }) => Promise<WebRtcAnswer>
     UpdateAdminNodeSettings?: (req: UpdateAdminNodeSettings_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<AdminNodeSettings>
+    UpdateAdminOnchainConfSettings?: (req: UpdateAdminOnchainConfSettings_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<AdminOnchainConfSettings>
     UpdateCallbackUrl?: (req: UpdateCallbackUrl_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<CallbackUrl>
     UpdateChannelPolicy?: (req: UpdateChannelPolicy_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<void>
     UpdateUserOffer?: (req: UpdateUserOffer_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<void>
@@ -819,6 +827,69 @@ export const AdminNodeSettingsValidate = (o?: AdminNodeSettings, opts: AdminNode
 
     if (typeof o.push_backups_to_nostr !== 'boolean') return new Error(`${path}.push_backups_to_nostr: is not a boolean`)
     if (opts.push_backups_to_nostr_CustomCheck && !opts.push_backups_to_nostr_CustomCheck(o.push_backups_to_nostr)) return new Error(`${path}.push_backups_to_nostr: custom check failed`)
+
+    return null
+}
+
+export type AdminOnchainConfSettings = {
+    tier1_confs: number
+    tier1_confs_env_locked: boolean
+    tier1_limit_env_locked: boolean
+    tier1_limit_sats: number
+    tier2_confs: number
+    tier2_confs_env_locked: boolean
+    tier2_limit_env_locked: boolean
+    tier2_limit_sats: number
+    tier3_confs: number
+    tier3_confs_env_locked: boolean
+}
+export const AdminOnchainConfSettingsOptionalFields: [] = []
+export type AdminOnchainConfSettingsOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    tier1_confs_CustomCheck?: (v: number) => boolean
+    tier1_confs_env_locked_CustomCheck?: (v: boolean) => boolean
+    tier1_limit_env_locked_CustomCheck?: (v: boolean) => boolean
+    tier1_limit_sats_CustomCheck?: (v: number) => boolean
+    tier2_confs_CustomCheck?: (v: number) => boolean
+    tier2_confs_env_locked_CustomCheck?: (v: boolean) => boolean
+    tier2_limit_env_locked_CustomCheck?: (v: boolean) => boolean
+    tier2_limit_sats_CustomCheck?: (v: number) => boolean
+    tier3_confs_CustomCheck?: (v: number) => boolean
+    tier3_confs_env_locked_CustomCheck?: (v: boolean) => boolean
+}
+export const AdminOnchainConfSettingsValidate = (o?: AdminOnchainConfSettings, opts: AdminOnchainConfSettingsOptions = {}, path: string = 'AdminOnchainConfSettings::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.tier1_confs !== 'number') return new Error(`${path}.tier1_confs: is not a number`)
+    if (opts.tier1_confs_CustomCheck && !opts.tier1_confs_CustomCheck(o.tier1_confs)) return new Error(`${path}.tier1_confs: custom check failed`)
+
+    if (typeof o.tier1_confs_env_locked !== 'boolean') return new Error(`${path}.tier1_confs_env_locked: is not a boolean`)
+    if (opts.tier1_confs_env_locked_CustomCheck && !opts.tier1_confs_env_locked_CustomCheck(o.tier1_confs_env_locked)) return new Error(`${path}.tier1_confs_env_locked: custom check failed`)
+
+    if (typeof o.tier1_limit_env_locked !== 'boolean') return new Error(`${path}.tier1_limit_env_locked: is not a boolean`)
+    if (opts.tier1_limit_env_locked_CustomCheck && !opts.tier1_limit_env_locked_CustomCheck(o.tier1_limit_env_locked)) return new Error(`${path}.tier1_limit_env_locked: custom check failed`)
+
+    if (typeof o.tier1_limit_sats !== 'number') return new Error(`${path}.tier1_limit_sats: is not a number`)
+    if (opts.tier1_limit_sats_CustomCheck && !opts.tier1_limit_sats_CustomCheck(o.tier1_limit_sats)) return new Error(`${path}.tier1_limit_sats: custom check failed`)
+
+    if (typeof o.tier2_confs !== 'number') return new Error(`${path}.tier2_confs: is not a number`)
+    if (opts.tier2_confs_CustomCheck && !opts.tier2_confs_CustomCheck(o.tier2_confs)) return new Error(`${path}.tier2_confs: custom check failed`)
+
+    if (typeof o.tier2_confs_env_locked !== 'boolean') return new Error(`${path}.tier2_confs_env_locked: is not a boolean`)
+    if (opts.tier2_confs_env_locked_CustomCheck && !opts.tier2_confs_env_locked_CustomCheck(o.tier2_confs_env_locked)) return new Error(`${path}.tier2_confs_env_locked: custom check failed`)
+
+    if (typeof o.tier2_limit_env_locked !== 'boolean') return new Error(`${path}.tier2_limit_env_locked: is not a boolean`)
+    if (opts.tier2_limit_env_locked_CustomCheck && !opts.tier2_limit_env_locked_CustomCheck(o.tier2_limit_env_locked)) return new Error(`${path}.tier2_limit_env_locked: custom check failed`)
+
+    if (typeof o.tier2_limit_sats !== 'number') return new Error(`${path}.tier2_limit_sats: is not a number`)
+    if (opts.tier2_limit_sats_CustomCheck && !opts.tier2_limit_sats_CustomCheck(o.tier2_limit_sats)) return new Error(`${path}.tier2_limit_sats: custom check failed`)
+
+    if (typeof o.tier3_confs !== 'number') return new Error(`${path}.tier3_confs: is not a number`)
+    if (opts.tier3_confs_CustomCheck && !opts.tier3_confs_CustomCheck(o.tier3_confs)) return new Error(`${path}.tier3_confs: custom check failed`)
+
+    if (typeof o.tier3_confs_env_locked !== 'boolean') return new Error(`${path}.tier3_confs_env_locked: is not a boolean`)
+    if (opts.tier3_confs_env_locked_CustomCheck && !opts.tier3_confs_env_locked_CustomCheck(o.tier3_confs_env_locked)) return new Error(`${path}.tier3_confs_env_locked: custom check failed`)
 
     return null
 }
@@ -5627,6 +5698,44 @@ export const UpdateAdminNodeSettingsRequestValidate = (o?: UpdateAdminNodeSettin
 
     if (typeof o.push_backups_to_nostr !== 'boolean') return new Error(`${path}.push_backups_to_nostr: is not a boolean`)
     if (opts.push_backups_to_nostr_CustomCheck && !opts.push_backups_to_nostr_CustomCheck(o.push_backups_to_nostr)) return new Error(`${path}.push_backups_to_nostr: custom check failed`)
+
+    return null
+}
+
+export type UpdateAdminOnchainConfSettingsRequest = {
+    tier1_confs: number
+    tier1_limit_sats: number
+    tier2_confs: number
+    tier2_limit_sats: number
+    tier3_confs: number
+}
+export const UpdateAdminOnchainConfSettingsRequestOptionalFields: [] = []
+export type UpdateAdminOnchainConfSettingsRequestOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    tier1_confs_CustomCheck?: (v: number) => boolean
+    tier1_limit_sats_CustomCheck?: (v: number) => boolean
+    tier2_confs_CustomCheck?: (v: number) => boolean
+    tier2_limit_sats_CustomCheck?: (v: number) => boolean
+    tier3_confs_CustomCheck?: (v: number) => boolean
+}
+export const UpdateAdminOnchainConfSettingsRequestValidate = (o?: UpdateAdminOnchainConfSettingsRequest, opts: UpdateAdminOnchainConfSettingsRequestOptions = {}, path: string = 'UpdateAdminOnchainConfSettingsRequest::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.tier1_confs !== 'number') return new Error(`${path}.tier1_confs: is not a number`)
+    if (opts.tier1_confs_CustomCheck && !opts.tier1_confs_CustomCheck(o.tier1_confs)) return new Error(`${path}.tier1_confs: custom check failed`)
+
+    if (typeof o.tier1_limit_sats !== 'number') return new Error(`${path}.tier1_limit_sats: is not a number`)
+    if (opts.tier1_limit_sats_CustomCheck && !opts.tier1_limit_sats_CustomCheck(o.tier1_limit_sats)) return new Error(`${path}.tier1_limit_sats: custom check failed`)
+
+    if (typeof o.tier2_confs !== 'number') return new Error(`${path}.tier2_confs: is not a number`)
+    if (opts.tier2_confs_CustomCheck && !opts.tier2_confs_CustomCheck(o.tier2_confs)) return new Error(`${path}.tier2_confs: custom check failed`)
+
+    if (typeof o.tier2_limit_sats !== 'number') return new Error(`${path}.tier2_limit_sats: is not a number`)
+    if (opts.tier2_limit_sats_CustomCheck && !opts.tier2_limit_sats_CustomCheck(o.tier2_limit_sats)) return new Error(`${path}.tier2_limit_sats: custom check failed`)
+
+    if (typeof o.tier3_confs !== 'number') return new Error(`${path}.tier3_confs: is not a number`)
+    if (opts.tier3_confs_CustomCheck && !opts.tier3_confs_CustomCheck(o.tier3_confs)) return new Error(`${path}.tier3_confs: custom check failed`)
 
     return null
 }

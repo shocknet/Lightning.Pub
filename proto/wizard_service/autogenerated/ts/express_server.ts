@@ -89,6 +89,28 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
+    if (!opts.allowNotImplementedMethods && !methods.WizardRestore) throw new Error('method: WizardRestore is not implemented')
+    app.post('/wizard/restore', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'WizardRestore', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.WizardRestore) throw new Error('method: WizardRestore is not implemented')
+            const authContext = await opts.GuestAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            const request = req.body
+            const error = Types.RestoreRequestValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            const query = req.query
+            const params = req.params
+            const response =  await methods.WizardRestore({rpcName:'WizardRestore', ctx:authContext , req: request})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
     if (!opts.allowNotImplementedMethods && !methods.WizardState) throw new Error('method: WizardState is not implemented')
     app.get('/wizard/state', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'WizardState', batch: false, nostr: false, batchSize: 0}

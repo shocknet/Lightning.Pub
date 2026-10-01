@@ -45,6 +45,13 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [ConfigRequest](#ConfigRequest)
   - This methods has an __empty__ __response__ body
 
+- WizardRestore
+  - auth type: __Guest__
+  - http method: __post__
+  - http route: __/wizard/restore__
+  - input: [RestoreRequest](#RestoreRequest)
+  - output: [RestoreResponse](#RestoreResponse)
+
 - WizardState
   - auth type: __Guest__
   - http method: __get__
@@ -70,12 +77,30 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### Empty
 
+### FtpCreds
+  - __pass__: _string_
+  - __user__: _string_
+
+### RestoreRequest
+  - __creds_override__: _[FtpCreds](#FtpCreds)_ *this field is optional
+  - __phrase__: _string_
+  - __relay__: _string_ *this field is optional
+  - __source__: _[RestoreRequest_source](#RestoreRequest_source)_
+
+### RestoreResponse
+  - __entries_restored__: _number_
+  - __error__: _string_
+  - __scb_restored__: _boolean_
+  - __success__: _boolean_
+
 ### ServiceStateResponse
   - __admin_npub__: _string_
   - __app_id__: _string_
   - __automate_liquidity__: _boolean_
   - __avatar_url__: _string_
+  - __has_seed__: _boolean_
   - __http_url__: _string_
+  - __is_db_clean__: _boolean_
   - __lnd_state__: _[LndState](#LndState)_
   - __nprofile__: _string_
   - __provider_name__: _string_

@@ -1205,6 +1205,27 @@ message UpdateAdminNodeSettingsRequest {
     int64 lsp_channel_threshold = 5;
 }
 
+message AdminOnchainConfSettings {
+    int64 tier1_limit_sats = 1;
+    int64 tier1_confs = 2;
+    int64 tier2_limit_sats = 3;
+    int64 tier2_confs = 4;
+    int64 tier3_confs = 5;
+    bool tier1_limit_env_locked = 6;
+    bool tier1_confs_env_locked = 7;
+    bool tier2_limit_env_locked = 8;
+    bool tier2_confs_env_locked = 9;
+    bool tier3_confs_env_locked = 10;
+}
+
+message UpdateAdminOnchainConfSettingsRequest {
+    int64 tier1_limit_sats = 1;
+    int64 tier1_confs = 2;
+    int64 tier2_limit_sats = 3;
+    int64 tier2_confs = 4;
+    int64 tier3_confs = 5;
+}
+
 
 message PushNotificationEnvelope {
   string topic_id = 1;

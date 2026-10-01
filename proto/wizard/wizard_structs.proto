@@ -44,4 +44,28 @@ message ServiceStateResponse {
     bool push_backups_to_nostr = 12;
     string avatar_url = 13;
     string app_id = 14;
+    bool has_seed = 15;
+    bool is_db_clean = 16;
+}
+
+message FtpCreds {
+    string user = 1;
+    string pass = 2;
+}
+message RestoreRequest {
+    string phrase = 1;
+    oneof source {
+        Empty cloud = 2;
+        string ftp_host = 3;
+        string local_path = 4;
+    }
+    optional FtpCreds creds_override = 5;
+    optional string relay = 6; 
+}
+
+message RestoreResponse {
+    bool success = 1;
+    string error = 2;
+    int64 entries_restored = 3;
+    bool scb_restored = 4;
 }
