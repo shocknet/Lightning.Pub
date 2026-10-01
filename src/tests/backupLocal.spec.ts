@@ -261,7 +261,7 @@ const seedDialtone = async (T: StorageTestBase, settings: SettingsManager) => {
     })
     await T.storage.managementStorage.addGrant(user.identifier, 'c'.repeat(64), false, 0)
     await T.storage.applicationStorage.AddInviteToken(app, 100)
-    await T.storage.liquidityStorage.CreateTrackedProvider('lnPub', 'd'.repeat(64), 42)
+    await T.storage.liquidityStorage.CreateTrackedProvider('lnPub', crypto.randomBytes(32).toString('hex'), 42)
     await settings.updateLspChannelThreshold(1_500_000)
 
     return { app, user }
