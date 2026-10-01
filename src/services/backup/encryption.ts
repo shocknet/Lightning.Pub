@@ -1,11 +1,11 @@
 // BACKUP: AES-256-GCM envelope encryption/decryption for .enc files
 //
-// Three independent version axes (see plan):
-//   - Derivation profile version: determines how enc_key is derived
+// Three independent version axes (see BACKUPS.md):
+//   - Derivation version: determines how enc_key is derived
 //   - Envelope version: determines file framing (this file)
-//   - Payload version: determines row schema (inside the msgpack object)
+//   - Payload version: determines row schema (TLbV field 2 inside the plaintext, see segments.ts)
 //
-// Restore dispatches by envelope version byte first, then by payload.v inside.
+// Restore dispatches by envelope version byte first, then by the payload version inside.
 
 import crypto from 'crypto'
 

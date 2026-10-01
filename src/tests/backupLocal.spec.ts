@@ -4,7 +4,9 @@ import path from 'path'
 import crypto from 'crypto'
 import SettingsManager from '../services/main/settingsManager.js'
 import { BackupManager } from '../services/backup/backupManager.js'
-import { RestoreManager } from '../services/backup/restoreManager.js'
+import { failureMessage, RestoreManager } from '../services/backup/restoreManager.js'
+import { decodeIndexesRow, decryptTableRows, encryptTableRows } from '../services/backup/segments.js'
+import { nextScbCreatedAt } from '../services/main/unlocker.js'
 import { Unlocker } from '../services/main/unlocker.js'
 import { BACKUP_TABLE_IDS, backupTableFilename, type BackupTableId } from '../services/backup/backupTables.js'
 import { deriveBackupKeys } from '../services/backup/derivation.js'
@@ -60,11 +62,53 @@ const sortBy = <T>(rows: T[], key: (r: T) => string) =>
 export default async (T: StorageTestBase) => {
     await testGateNoDestination(T)
     await testGateNoSeed(T)
+    await testRefusesWhenLndStarted(T)
     await testLocalRoundtrip(T)
+    await testMissingShardFailsClosed(T)
+    await testEmptyProductsShardImports(T)
+    await testIndexesWithoutAddressUpdate(T)
+    await testIndexesZeroSnapshot(T)
+    await testEmptyIndexesShardFails(T)
+    await testIndexesUnknownDoesNotClobber(T)
+    testScbCreatedAtStaysNearNow(T)
     await testHookLspThreshold(T)
     await testHookSiblingSettings(T)
     await testHookDefaultAppRename(T)
     await testHookEnrollCreate(T)
+}
+
+const testRefusesWhenLndStarted = async (T: StorageTestBase) => {
+    T.d('starting testRefusesWhenLndStarted')
+    const dest = await openSecondStorage()
+    const dataDir = dest.getStorageSettings().dataDir
+    try {
+        const settings = new SettingsManager(dest)
+        await settings.InitSettings()
+        let movedOn = false
+        const unlocker = {
+            WalletExists: async () => true,
+            Restore: async () => { movedOn = true; return { adminMacaroon: '' } },
+            PostRestore: async () => { movedOn = true },
+            DecryptScbEvent: async () => { movedOn = true; return Buffer.alloc(0) },
+            ApplyScb: async () => { movedOn = true },
+        } as unknown as Unlocker
+        const restore = new RestoreManager(dest, settings, unlocker)
+        fs.mkdirSync(dataDir, { recursive: true })
+        fs.writeFileSync(restore.getCheckpointPath(), 'LND_ACTIVE')
+        const result = await restore.RestoreFromSource({
+            phrase: TEST_PHRASE,
+            source: { type: WizardTypes.RestoreRequest_source_type.LOCAL_PATH, local_path: path.join(dataDir, 'missing-backup') },
+        })
+        T.expect(result.success).to.equal(false)
+        T.expect(result.error || '').to.contain('already started')
+        T.expect(result.entries_restored).to.equal(0)
+        T.expect(result.scb_restored).to.equal(false)
+        T.expect(movedOn).to.equal(false)
+        T.expect(await dest.IsDbClean()).to.equal(true)
+    } finally {
+        dest.Stop()
+        fs.rmSync(dataDir, { recursive: true, force: true })
+    }
 }
 
 const testGateNoDestination = async (T: StorageTestBase) => {
@@ -235,6 +279,194 @@ const testLocalRoundtrip = async (T: StorageTestBase) => {
     dest.Stop()
     fs.rmSync(dir, { recursive: true, force: true })
     T.d('local backup shards restore dialtone state')
+}
+
+const writeLocalBackup = async (T: StorageTestBase, dir: string, addressCount?: number) => {
+    const settings = new SettingsManager(T.storage)
+    await settings.InitSettings()
+    settings.OverrideTestSettings(s => {
+        s.backupSettings.localPath = dir
+        s.backupSettings.cloudEnabled = false
+        s.backupSettings.sftpEnabled = false
+        return s
+    })
+    const backup = new BackupManager(T.storage, settings)
+    await backup.InitKeys(TEST_SEED)
+    if (addressCount !== undefined) {
+        await backup.AddressUpdate(addressCount)
+    }
+    await backup.shutdown()
+}
+
+const testMissingShardFailsClosed = async (T: StorageTestBase) => {
+    T.d('starting testMissingShardFailsClosed')
+    const dir = tempBackupDir()
+    try {
+        await writeLocalBackup(T, dir, 3)
+        fs.rmSync(path.join(dir, backupTableFilename('user_balances')))
+        const settings = new SettingsManager(T.storage)
+        await settings.InitSettings()
+        const restore = new RestoreManager(T.storage, settings, {} as Unlocker)
+        const keys = await deriveBackupKeys(TEST_PHRASE)
+        const req: WizardTypes.RestoreRequest = {
+            phrase: TEST_PHRASE,
+            source: { type: WizardTypes.RestoreRequest_source_type.LOCAL_PATH, local_path: dir },
+        }
+        let message = ''
+        try {
+            await restore.fetchSegmentsData(req, keys)
+        } catch (err: any) {
+            message = err.message
+        }
+        T.expect(message).to.equal(failureMessage(WizardTypes.RestoreRequest_source_type.LOCAL_PATH, 'user_balances'))
+        let decodeThrew = false
+        try {
+            restore.decodeSegmentsData(new Map(), keys)
+        } catch (err: any) {
+            decodeThrew = true
+            T.expect(err.message).to.include('missing backup shard')
+        }
+        T.expect(decodeThrew).to.equal(true)
+    } finally {
+        fs.rmSync(dir, { recursive: true, force: true })
+    }
+    T.d('a missing shard file fails the restore before import')
+}
+
+const testEmptyProductsShardImports = async (T: StorageTestBase) => {
+    T.d('starting testEmptyProductsShardImports')
+    const dir = tempBackupDir()
+    const dest = await openSecondStorage()
+    const dataDir = dest.getStorageSettings().dataDir
+    try {
+        await writeLocalBackup(T, dir, 4)
+        const keys = await deriveBackupKeys(TEST_PHRASE)
+        fs.writeFileSync(path.join(dir, backupTableFilename('products')), encryptTableRows([], keys.encKey))
+        const destSettings = new SettingsManager(dest)
+        await destSettings.InitSettings()
+        const restore = new RestoreManager(dest, destSettings, {} as Unlocker)
+        const req: WizardTypes.RestoreRequest = {
+            phrase: TEST_PHRASE,
+            source: { type: WizardTypes.RestoreRequest_source_type.LOCAL_PATH, local_path: dir },
+        }
+        const buffers = await restore.fetchSegmentsData(req, keys)
+        const { backupData } = restore.decodeSegmentsData(buffers, keys)
+        T.expect(backupData.products).to.deep.equal([])
+        await dest.StartTransaction(async tx => {
+            await restore.importDialtone(backupData, tx)
+        }, 'backup-empty-products')
+        T.expect(await dest.productStorage.ExportProducts()).to.deep.equal([])
+        T.expect((await dest.userStorage.ExportBalances()).length).to.be.greaterThan(0)
+    } finally {
+        dest.Stop()
+        fs.rmSync(dataDir, { recursive: true, force: true })
+        fs.rmSync(dir, { recursive: true, force: true })
+    }
+    T.d('an empty products shard imports and leaves the other tables in place')
+}
+
+const readAddressCount = async (dir: string) => {
+    const file = path.join(dir, backupTableFilename('indexes'))
+    if (!fs.existsSync(file)) return undefined
+    const keys = await deriveBackupKeys(TEST_PHRASE)
+    const rows = decryptTableRows(fs.readFileSync(file), keys.encKey).map(decodeIndexesRow)
+    return rows[0]?.addressesCount
+}
+
+const testIndexesWithoutAddressUpdate = async (T: StorageTestBase) => {
+    T.d('starting testIndexesWithoutAddressUpdate')
+    const dir = tempBackupDir()
+    try {
+        await writeLocalBackup(T, dir)
+        const expectedFiles = BACKUP_TABLE_IDS.filter(id => id !== 'indexes').map(backupTableFilename).sort()
+        T.expect(listEncFiles(dir)).to.deep.equal(expectedFiles)
+        const settings = new SettingsManager(T.storage)
+        await settings.InitSettings()
+        const restore = new RestoreManager(T.storage, settings, {} as Unlocker)
+        const keys = await deriveBackupKeys(TEST_PHRASE)
+        const req: WizardTypes.RestoreRequest = {
+            phrase: TEST_PHRASE,
+            source: { type: WizardTypes.RestoreRequest_source_type.LOCAL_PATH, local_path: dir },
+        }
+        let message = ''
+        try {
+            await restore.fetchSegmentsData(req, keys)
+        } catch (err: any) {
+            message = err.message
+        }
+        T.expect(message).to.equal(failureMessage(WizardTypes.RestoreRequest_source_type.LOCAL_PATH, 'indexes'))
+    } finally {
+        fs.rmSync(dir, { recursive: true, force: true })
+    }
+    T.d('a backup with no address snapshot omits indexes.enc and restore refuses it')
+}
+
+const testIndexesZeroSnapshot = async (T: StorageTestBase) => {
+    T.d('starting testIndexesZeroSnapshot')
+    const dir = tempBackupDir()
+    try {
+        await writeLocalBackup(T, dir, 0)
+        T.expect(await readAddressCount(dir)).to.equal(0)
+    } finally {
+        fs.rmSync(dir, { recursive: true, force: true })
+    }
+    T.d('a snapshot of zero addresses is written')
+}
+
+const testEmptyIndexesShardFails = async (T: StorageTestBase) => {
+    T.d('starting testEmptyIndexesShardFails')
+    const dir = tempBackupDir()
+    const dest = await openSecondStorage()
+    const dataDir = dest.getStorageSettings().dataDir
+    try {
+        await writeLocalBackup(T, dir, 4)
+        const keys = await deriveBackupKeys(TEST_PHRASE)
+        fs.writeFileSync(path.join(dir, backupTableFilename('indexes')), encryptTableRows([], keys.encKey))
+        const destSettings = new SettingsManager(dest)
+        await destSettings.InitSettings()
+        let movedOn = false
+        const unlocker = {
+            WalletExists: async () => false,
+            Restore: async () => { movedOn = true; return { adminMacaroon: '' } },
+            DecryptScbEvent: async () => { movedOn = true; return Buffer.alloc(1) },
+        } as unknown as Unlocker
+        const restore = new RestoreManager(dest, destSettings, unlocker)
+        const result = await restore.RestoreFromSource({
+            phrase: TEST_PHRASE,
+            source: { type: WizardTypes.RestoreRequest_source_type.LOCAL_PATH, local_path: dir },
+        })
+        T.expect(result.success).to.equal(false)
+        T.expect(result.error || '').to.contain('one address count')
+        T.expect(movedOn).to.equal(false)
+    } finally {
+        dest.Stop()
+        fs.rmSync(dataDir, { recursive: true, force: true })
+        fs.rmSync(dir, { recursive: true, force: true })
+    }
+    T.d('an indexes shard with no row fails restore before LND or channel backup')
+}
+
+const testIndexesUnknownDoesNotClobber = async (T: StorageTestBase) => {
+    T.d('starting testIndexesUnknownDoesNotClobber')
+    const dir = tempBackupDir()
+    try {
+        await writeLocalBackup(T, dir, 17)
+        await writeLocalBackup(T, dir)
+        T.expect(await readAddressCount(dir)).to.equal(17)
+    } finally {
+        fs.rmSync(dir, { recursive: true, force: true })
+    }
+    T.d('shutdown without a snapshot leaves the stored address count in place')
+}
+
+const testScbCreatedAtStaysNearNow = (T: StorageTestBase) => {
+    T.d('starting testScbCreatedAtStaysNearNow')
+    const now = 1_700_000_000
+    T.expect(nextScbCreatedAt(now, 0)).to.deep.equal({ createdAt: now, waitMs: 0 })
+    T.expect(nextScbCreatedAt(now, now - 5)).to.deep.equal({ createdAt: now, waitMs: 0 })
+    T.expect(nextScbCreatedAt(now, now)).to.deep.equal({ createdAt: 0, waitMs: 1000 })
+    T.expect(nextScbCreatedAt(now, now + 3)).to.deep.equal({ createdAt: 0, waitMs: 4000 })
+    T.d('channel backup timestamps use the wall clock and wait out the current second')
 }
 
 const testHookLspThreshold = async (T: StorageTestBase) => {

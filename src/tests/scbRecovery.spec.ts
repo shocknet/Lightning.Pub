@@ -107,7 +107,7 @@ const recoverEliot = async (T: TestBase, seed: string[], scbEvent: UnsignedEvent
     })
     T.d("overriding fetch SCB data from relay")
     restore._fetchScbDataFromRelay = async (_, __) => {
-        return scbEvent.content
+        return { content: scbEvent.content, created_at: scbEvent.created_at }
     }
     T.d("restoring segments data")
     await restore.RestoreFromSource({

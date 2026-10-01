@@ -10,7 +10,8 @@ import fs from 'fs'
 import path from 'path'
 import { getLogger } from '../helpers/logger.js'
 import { deriveBackupKeys, LATEST_DERIVATION_VERSION, type DerivedKeys } from './derivation.js'
-import { sftpUpload, cloudSftpConfig } from './sftpClient.js'
+import { sftpUpload, cloudSftpConfig, customHostFingerprint, SftpAuthError } from './sftpClient.js'
+import { provisionCloudAccount } from './cloudProvision.js'
 import Storage from '../storage/index.js'
 import {
     encodeApplicationRow,
@@ -39,7 +40,6 @@ const TABLE_DEBOUNCE_MS = 30_000
 const TABLE_DEBOUNCE_MAX_MS = 5 * 60_000
 const WAIT_IN_FLIGHT_MS = 10_000
 
-
 export class BackupManager {
     log = getLogger({ component: 'backupManager' })
     storage: Storage
@@ -49,6 +49,8 @@ export class BackupManager {
     /** Start of the current coalescing window for max-wait (first notify since last flush). */
     private debounceWindowStart = new Map<BackupTableId, number>()
     private debouncedUploadInProgress = new Set<BackupTableId>()
+    /** In-flight cloud sign-up, shared by shard uploads that hit a rejected login together. */
+    private cloudSignUp: Promise<void> | null = null
     shuttingDown = false
     indexesBackup: IndexesRow | null = null
     constructor(storage: Storage, settings: SettingsManager) {
@@ -151,11 +153,14 @@ export class BackupManager {
         let encrypted: Buffer
         switch (id) {
             case 'indexes': {
+                // Null means the snapshot never ran (startup failed, or liquidity-provider-only).
+                // Skip the upload so a previous count is not replaced with 0.
+                // AddressUpdate(0) is a real snapshot of an empty wallet and is uploaded.
                 if (!this.indexesBackup) {
+                    this.log("address count has not been snapshotted, leaving indexes.enc unchanged")
                     return
                 }
-                const enc = [encodeIndexesRow(this.indexesBackup)]
-                encrypted = encryptTableRows(enc, encKey)
+                encrypted = encryptTableRows([encodeIndexesRow(this.indexesBackup)], encKey)
                 break
             }
             case 'applications': {
@@ -240,7 +245,7 @@ export class BackupManager {
 
         if (bs.cloudEnabled) {
             try {
-                await sftpUpload(cloudSftpConfig(this.keys.sftpUser, this.keys.sftpPass), filename, encrypted)
+                await this.uploadToCloud(filename, encrypted)
                 this.log(`${filename} uploaded to cloud (${encrypted.length} bytes)`)
                 anyOk = true
             } catch (err: any) {
@@ -255,6 +260,7 @@ export class BackupManager {
                     port: bs.sftpPort,
                     username: bs.sftpUser || this.keys.sftpUser,
                     password: bs.sftpPass || this.keys.sftpPass,
+                    hostFingerprint: customHostFingerprint(bs.sftpHost, bs.sftpPort, bs.sftpHostFingerprint),
                 }, filename, encrypted)
                 this.log(`${filename} uploaded to SFTP ${bs.sftpHost}:${bs.sftpPort} (${encrypted.length} bytes)`)
                 anyOk = true
@@ -279,6 +285,28 @@ export class BackupManager {
         if (!anyOk && failures.length > 0) {
             throw new Error(failures.join('; '))
         }
+    }
+
+    /** A rejected login means this seed has no cloud account yet: sign up once, then retry. */
+    private async uploadToCloud(filename: string, encrypted: Buffer) {
+        const config = cloudSftpConfig(this.keys.sftpUser, this.keys.sftpPass)
+        try {
+            await sftpUpload(config, filename, encrypted)
+        } catch (err) {
+            if (!(err instanceof SftpAuthError)) throw err
+            await this.signUpForCloud()
+            await sftpUpload(config, filename, encrypted)
+        }
+    }
+
+    private signUpForCloud(): Promise<void> {
+        if (!this.cloudSignUp) {
+            this.log("no cloud backup account for this seed yet, signing up")
+            this.cloudSignUp = provisionCloudAccount(this.keys.sftpUser, this.keys.sftpPass)
+                .then(() => { this.log("cloud backup account ready") })
+                .finally(() => { this.cloudSignUp = null })
+        }
+        return this.cloudSignUp
     }
 
     private async waitUntilUploadsIdle(timeoutMs: number): Promise<void> {

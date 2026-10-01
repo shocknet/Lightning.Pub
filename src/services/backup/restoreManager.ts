@@ -4,10 +4,16 @@
 // (all dialtone tables empty). No upsert/merge — prevents ghost-state mess if
 // someone runs restore against a half-initialized node.
 //
+// If LND has already started (wallet state other than NON_EXISTING), restore
+// returns immediately. It does not fetch shards, import rows, or resume a checkpoint.
+//
 // Local source: a directory of per-table *.enc shards (see backupTables.ts), same as
 // SFTP / cloud layout, decrypted with the backup phrase — not a raw DB file.
 //
 // Import order matches BACKUP_RESTORE_ORDER in backupTables.ts (balances overlay, then FK order).
+// Every shard file in that list is required. A file that decrypts to zero rows is an empty
+// table and is imported, except indexes, which must be exactly one address-count row.
+// A missing file fails the restore.
 //
 // ECONOMIC INVARIANT: Pending UserInvoicePayment rows (paid_at_unix = 0) are NOT
 // restored. Restore favors non-inflation over exact replay. This must be stated
@@ -15,7 +21,7 @@
 
 import { getLogger, PubLogger } from '../helpers/logger.js'
 import { deriveBackupKeys, LATEST_DERIVATION_VERSION, type DerivedKeys } from './derivation.js'
-import { sftpDownload, cloudSftpConfig, type SftpConfig, SFTPFile } from './sftpClient.js'
+import { sftpDownload, cloudSftpConfig, customHostFingerprint, SftpAuthError, type SftpConfig, SFTPFile } from './sftpClient.js'
 import fs from 'fs'
 import path from 'path'
 import Storage from '../storage/index.js'
@@ -32,7 +38,7 @@ import { BACKUP_RESTORE_ORDER, backupTableFilename, type BackupTableId } from '.
 import { Relay, type Event as NostrEvent } from 'nostr-tools'
 import SettingsManager from '../main/settingsManager.js'
 import { Unlocker } from '../main/unlocker.js'
-import { selectDefaultApp } from '../helpers/defaultAppSelector.js'
+import { pickBackedUpDefaultApp } from '../main/adminNodeSettings.js'
 
 export const validRestoreSources = ['cloud', 'ftp', 'local'] as const
 export type RestoreSource = typeof validRestoreSources[number]
@@ -93,6 +99,15 @@ export class RestoreManager {
     async RestoreFromSource(req: wizardTypes.RestoreRequest): Promise<wizardTypes.RestoreResponse> {
         try {
             this.log('RestoreFromSource request received', req.source.type)
+            if (await this.unlocker.WalletExists()) {
+                this.log("LND is already started, restore will not continue")
+                return {
+                    entries_restored: 0,
+                    scb_restored: false,
+                    success: false,
+                    error: 'LND is already started. Restore cannot continue.',
+                }
+            }
             const checkpoint = this.getCheckpoint()
             const skipDb = checkpoint === RestoreCheckpoint.DB_COMMITTED ||
                 checkpoint === RestoreCheckpoint.LND_ACTIVE ||
@@ -133,9 +148,11 @@ export class RestoreManager {
             const keys = await deriveBackupKeys(req.phrase, LATEST_DERIVATION_VERSION)
 
             const buffers = await this.fetchSegmentsData(req, keys)
-
             const { backupData } = this.decodeSegmentsData(buffers, keys)
-            const addressesCount = backupData.indexes.find(i => i.addressesCount !== 0)?.addressesCount ?? 0
+            if (backupData.indexes.length !== 1) {
+                throw new Error('indexes shard must contain one address count')
+            }
+            const addressesCount = backupData.indexes[0].addressesCount
             this.log("addresses count: " + addressesCount)
             const recoveryWindow = Math.max(1000, addressesCount * 10)
 
@@ -143,7 +160,7 @@ export class RestoreManager {
             if (apps.length === 0) {
                 throw new Error('No applications found in backup, cannot restore')
             }
-            const existingWalletApp = selectDefaultApp(apps, this.settings.getSettings().serviceSettings.defaultAppName)
+            const existingWalletApp = pickBackedUpDefaultApp(apps, backupData.adminSettings)
             if (!existingWalletApp) {
                 throw new Error('No default wallet app found in backup, cannot restore')
             }
@@ -153,9 +170,9 @@ export class RestoreManager {
                 throw new Error('Default wallet app has no nostr keys, cannot restore')
             }
 
-            const scbData = await this.retrieveSCB(req, pubkey)
-            const decryptedScb = await this.unlocker.DecryptScbEvent(scbData, { nostr_private_key: privateKey, nostr_public_key: pubkey })
-            if (!decryptedScb) {
+            const scbEvent = await this.retrieveSCB(req, pubkey)
+            const decryptedScb = await this.unlocker.DecryptScbEvent(scbEvent.content, { nostr_private_key: privateKey, nostr_public_key: pubkey })
+            if (!decryptedScb.length) {
                 throw new Error('Failed to decrypt SCB data')
             }
 
@@ -211,14 +228,19 @@ export class RestoreManager {
     async fetchSegmentsData(req: wizardTypes.RestoreRequest, keys: DerivedKeys) {
         this.log("fetching segments data")
         const buffers = new Map<BackupTableId, Buffer>()
+        const missing: BackupTableId[] = []
         for (const id of BACKUP_RESTORE_ORDER) {
             const name = backupTableFilename(id)
             const chunk = await fetchFile(this.log, keys, req, name)
             if (!chunk.found) {
                 this.log("buffer not found: " + name)
+                missing.push(id)
                 continue
             }
             buffers.set(id, chunk.data)
+        }
+        if (missing.length > 0) {
+            throw new Error(missing.map(id => failureMessage(req.source.type, id)).join('\n'))
         }
         return buffers
     }
@@ -228,8 +250,7 @@ export class RestoreManager {
         const readRows = <T>(id: BackupTableId, decodeRow: (u: Uint8Array) => T): T[] => {
             const buffer = buffers.get(id)
             if (!buffer) {
-                this.log("buffer not found: " + id)
-                return []
+                throw new Error(`missing backup shard ${id}`)
             }
             return decryptTableRows(buffer, keys.encKey).map(decodeRow)
         }
@@ -309,11 +330,11 @@ export class RestoreManager {
         if (!relay) {
             throw new Error('SCB restore skipped: no relay configured')
         }
-        const scbData = await this._fetchScbDataFromRelay(relay, pubkey)
-        if (!scbData) {
+        const scbEvent = await this._fetchScbDataFromRelay(relay, pubkey)
+        if (!scbEvent) {
             throw new Error('SCB restore skipped: no SCB backup event found on relay')
         }
-        return scbData
+        return scbEvent
     }
 
     private restoreScb = async (scb: Buffer) => {
@@ -334,7 +355,7 @@ export class RestoreManager {
         return relays[0] || null
     }
 
-    _fetchScbDataFromRelay = async (relayUrl: string, pubkey: string): Promise<string | null> => {
+    _fetchScbDataFromRelay = async (relayUrl: string, pubkey: string): Promise<{ content: string, created_at: number } | null> => {
         const relay = await Relay.connect(relayUrl)
         try {
             const events: NostrEvent[] = []
@@ -359,7 +380,7 @@ export class RestoreManager {
                 return null
             }
             const latest = events.sort((a, b) => (b.created_at || 0) - (a.created_at || 0))[0]
-            return latest.content
+            return { content: latest.content, created_at: latest.created_at || 0 }
         } finally {
             relay.close()
         }
@@ -370,14 +391,14 @@ const fetchFile = async (log: PubLogger, keys: DerivedKeys, opts: wizardTypes.Re
     log("fetching file: " + filename, "source: " + opts.source.type)
     switch (opts.source.type) {
         case wizardTypes.RestoreRequest_source_type.CLOUD:
-            const couldConf = cloudSftpConfig(keys.sftpUser, keys.sftpPass)
-            return sftpDownload(couldConf, filename)
+            return downloadFromCloud(keys, filename)
         case wizardTypes.RestoreRequest_source_type.FTP_HOST:
             if (!opts.source.ftp_host) throw new Error('--ftp-host is required for source=ftp')
             const sftpConf: SftpConfig = {
                 host: opts.source.ftp_host,
                 username: opts.creds_override?.user ?? keys.sftpUser,
                 password: opts.creds_override?.pass ?? keys.sftpPass,
+                hostFingerprint: customHostFingerprint(opts.source.ftp_host, 22, ''),
             }
             return sftpDownload(sftpConf, filename)
 
@@ -403,15 +424,45 @@ const fetchFile = async (log: PubLogger, keys: DerivedKeys, opts: wizardTypes.Re
     }
 }
 
-function failureMessage(source: wizardTypes.RestoreRequest_source_type, shard: BackupTableId): string {
+/**
+ * Login rejected while restoring from the managed cloud.
+ * Distinct from a missing shard: the server refused the seed's account.
+ */
+export class CloudLoginRejectedError extends Error {
+    constructor(loginError: string) {
+        super(`Cloud backup login rejected: ${loginError}. This seed has no cloud account, or the server refused the password.`)
+        this.name = 'CloudLoginRejectedError'
+    }
+}
+
+/** Map a cloud download failure onto a restore error. Auth rejection is not a missing file. */
+export function cloudDownloadError(err: unknown): Error {
+    if (err instanceof SftpAuthError) return new CloudLoginRejectedError(err.message)
+    if (err instanceof Error) return err
+    return new Error(`Cloud backup download failed: ${String(err)}`)
+}
+
+const downloadFromCloud = async (keys: DerivedKeys, filename: string): Promise<SFTPFile> => {
+    try {
+        return await sftpDownload(cloudSftpConfig(keys.sftpUser, keys.sftpPass), filename)
+    } catch (err) {
+        throw cloudDownloadError(err)
+    }
+}
+
+export function failureMessage(source: wizardTypes.RestoreRequest_source_type, shard: BackupTableId): string {
     const name = backupTableFilename(shard)
     switch (source) {
         case wizardTypes.RestoreRequest_source_type.CLOUD:
-            return `No backup found for this seed on the managed service (missing ${name}). Were backups enabled on the original instance? Did this seed ever run Lightning.Pub?`
+            return `No backup found for this seed on the managed service (missing ${name}). The login succeeded; this shard is not there.`
         case wizardTypes.RestoreRequest_source_type.FTP_HOST:
-            return `Could not connect or ${name} not found — verify host, credentials, and path.`
+            return `No backup file ${name} on the SFTP server. The connection succeeded; verify this account has a backup.`
         case wizardTypes.RestoreRequest_source_type.LOCAL_PATH:
             return `${name} not found or path is not a readable directory — expected a folder of per-table *.enc shards from backup.`
+        default: {
+            const _exhaustive: never = source
+            throw new Error(`Unknown restore source: ${_exhaustive}`)
+        }
     }
 }
 
