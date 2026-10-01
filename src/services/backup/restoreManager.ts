@@ -19,6 +19,10 @@
 // ECONOMIC INVARIANT: Pending UserInvoicePayment rows (paid_at_unix = 0) are NOT
 // restored. Restore favors non-inflation over exact replay. This must be stated
 // in code comments and restore-facing documentation.
+//
+// SCB is mandatory: restore fails unless ApplyScb succeeds. A failed SCB leaves
+// checkpoint at LND_ACTIVE so the same phrase can retry. Normal startup must not
+// proceed while HasOngoingRecovery() is true (any non-COMPLETED checkpoint file).
 
 import { getLogger, PubLogger } from '../helpers/logger.js'
 import { deriveBackupKeys, LATEST_DERIVATION_VERSION, type DerivedKeys } from './derivation.js'
@@ -74,6 +78,8 @@ export class RestoreManager {
     settings: SettingsManager
     log = getLogger({ component: 'restoreManager' })
     unlocker: Unlocker
+    private restoreInFlight = false
+    private recoveryWaiters: Array<() => void> = []
     constructor(storage: Storage, settings: SettingsManager, unlocker: Unlocker) {
         this.storage = storage
         this.settings = settings
@@ -93,6 +99,9 @@ export class RestoreManager {
     updateCheckpoint = (current: RestoreCheckpoint) => {
         const checkpointPath = this.getCheckpointPath()
         fs.writeFileSync(checkpointPath, current)
+        if (current === RestoreCheckpoint.COMPLETED) {
+            this.notifyRecoveryComplete()
+        }
     }
     getCheckpoint = (): RestoreCheckpoint => {
         const checkpointPath = this.getCheckpointPath()
@@ -109,6 +118,44 @@ export class RestoreManager {
             return RestoreCheckpoint.STARTED
         }
 
+    }
+
+    /** True when a checkpoint file exists and restore has not reached COMPLETED. Includes STARTED. */
+    HasOngoingRecovery = (): boolean => {
+        const checkpointPath = this.getCheckpointPath()
+        if (!fs.existsSync(checkpointPath)) {
+            return false
+        }
+        try {
+            const s = fs.readFileSync(checkpointPath, 'utf8').trim()
+            if (!s) {
+                return true
+            }
+            return s !== RestoreCheckpoint.COMPLETED
+        } catch {
+            return true
+        }
+    }
+
+    IsRecoveryActive = (): boolean => this.restoreInFlight || this.HasOngoingRecovery()
+
+    WaitForRecoveryCompletion = (): Promise<void> => {
+        if (!this.IsRecoveryActive()) {
+            return Promise.resolve()
+        }
+        return new Promise(resolve => {
+            this.recoveryWaiters.push(resolve)
+            // COMPLETED may have landed between the check above and registering.
+            if (!this.IsRecoveryActive()) {
+                this.notifyRecoveryComplete()
+            }
+        })
+    }
+
+    private notifyRecoveryComplete = () => {
+        const waiters = this.recoveryWaiters
+        this.recoveryWaiters = []
+        waiters.forEach(w => w())
     }
 
     bindRestorePhrase = (phrase: string) => {
@@ -136,6 +183,15 @@ export class RestoreManager {
     }
 
     async RestoreFromSource(req: wizardTypes.RestoreRequest): Promise<wizardTypes.RestoreResponse> {
+        if (this.restoreInFlight) {
+            return {
+                entries_restored: 0,
+                scb_restored: false,
+                success: false,
+                error: 'Restore already in progress',
+            }
+        }
+        this.restoreInFlight = true
         try {
             this.log('RestoreFromSource request received', req.source.type)
             const checkpoint = this.getCheckpoint()
@@ -147,9 +203,10 @@ export class RestoreManager {
 
             if (checkpoint === RestoreCheckpoint.COMPLETED) {
                 this.log("Restore already completed, returning success")
+                this.notifyRecoveryComplete()
                 return {
                     entries_restored: 0,
-                    scb_restored: false,
+                    scb_restored: true,
                     success: true,
                     error: '',
                 }
@@ -248,19 +305,13 @@ export class RestoreManager {
             this.log("waiting LND and restoring SCB")
             await this.unlocker.PostRestore(seed, macaroon)
             this.updateCheckpoint(RestoreCheckpoint.LND_ACTIVE)
-            let scbRestored = false
-            try {
-                await this.restoreScb(decryptedScb)
-                this.updateCheckpoint(RestoreCheckpoint.COMPLETED)
-                this.clearPhraseBinding()
-                scbRestored = true
-            } catch (err: any) {
-                this.log("Skipping SCB restore: " + err.message || err)
-            }
+            await this.restoreScb(decryptedScb)
+            this.updateCheckpoint(RestoreCheckpoint.COMPLETED)
+            this.clearPhraseBinding()
             this.log("RestoreFromSource completed")
             return {
                 entries_restored: restoredEntries,
-                scb_restored: scbRestored,
+                scb_restored: true,
                 success: true,
                 error: '',
             }
@@ -272,6 +323,8 @@ export class RestoreManager {
                 success: false,
                 error: err.message || 'restore failed',
             }
+        } finally {
+            this.restoreInFlight = false
         }
     }
 
@@ -378,11 +431,11 @@ export class RestoreManager {
     private retrieveSCB = async (req: wizardTypes.RestoreRequest, pubkey: string) => {
         const relay = this.getRestoreRelay(req)
         if (!relay) {
-            throw new Error('SCB restore skipped: no relay configured')
+            throw new Error('SCB backup required: no relay configured')
         }
         const scbEvent = await this._fetchScbDataFromRelay(relay, pubkey)
         if (!scbEvent) {
-            throw new Error('SCB restore skipped: no SCB backup event found on relay')
+            throw new Error('SCB backup required: no SCB backup event found on relay')
         }
         return scbEvent
     }
@@ -392,7 +445,7 @@ export class RestoreManager {
         try {
             await this.unlocker.ApplyScb(scb)
         } catch (err: any) {
-            this.log("Failed to restore SCB will retry once: " + err.message || err)
+            this.log("Failed to restore SCB will retry once: " + (err.message || err))
             await this.unlocker.ApplyScb(scb)
         }
     }

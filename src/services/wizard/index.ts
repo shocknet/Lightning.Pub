@@ -168,6 +168,9 @@ export class Wizard {
     }
 
     wizardConfig = async (req: WizardTypes.ConfigRequest): Promise<void> => {
+        if (this.restoreManager.IsRecoveryActive()) {
+            throw new Error('Recovery in progress. Finish or abandon the restore before configuring the node.')
+        }
         const err = WizardTypes.ConfigRequestValidate(req, {
             source_name_CustomCheck: source => source !== '',
             relay_url_CustomCheck: relay => relay !== '',

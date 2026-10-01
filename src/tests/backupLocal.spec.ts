@@ -65,6 +65,10 @@ export default async (T: StorageTestBase) => {
     await testRefusesWhenLndStarted(T)
     await testResumeAfterDbCommitted(T)
     await testResumePhraseMismatch(T)
+    await testScbFailureKeepsCheckpoint(T)
+    await testScbRetryCompletes(T)
+    await testHasOngoingRecovery(T)
+    await testConcurrentRestoreRejected(T)
     await testLocalRoundtrip(T)
     await testMissingShardFailsClosed(T)
     await testEmptyProductsShardImports(T)
@@ -188,6 +192,180 @@ const testResumePhraseMismatch = async (T: StorageTestBase) => {
     } finally {
         dest.Stop()
         fs.rmSync(dataDir, { recursive: true, force: true })
+    }
+}
+
+const testScbFailureKeepsCheckpoint = async (T: StorageTestBase) => {
+    T.d('starting testScbFailureKeepsCheckpoint')
+    const dir = tempBackupDir()
+    const dest = await openSecondStorage()
+    const dataDir = dest.getStorageSettings().dataDir
+    try {
+        const sourceSettings = new SettingsManager(T.storage)
+        await sourceSettings.InitSettings()
+        await seedDialtone(T, sourceSettings)
+        await writeLocalBackup(T, dir, 4)
+        const settings = new SettingsManager(dest)
+        await settings.InitSettings()
+        const unlocker = {
+            WalletExists: async () => true,
+            Restore: async () => { throw new Error('should not Restore on resume') },
+            PostRestore: async () => { },
+            DecryptScbEvent: async () => Buffer.from('scb'),
+            ApplyScb: async () => { throw new Error('ApplyScb failed') },
+        } as unknown as Unlocker
+        const restore = new RestoreManager(dest, settings, unlocker)
+            ; (restore as any).retrieveSCB = async () => ({ content: 'enc', created_at: 1 })
+        fs.mkdirSync(dataDir, { recursive: true })
+        fs.writeFileSync(restore.getCheckpointPath(), 'DB_COMMITTED')
+        fs.writeFileSync(restore.getPhraseHashPath(), hashRestorePhrase(TEST_PHRASE))
+        const result = await restore.RestoreFromSource({
+            phrase: TEST_PHRASE,
+            source: { type: WizardTypes.RestoreRequest_source_type.LOCAL_PATH, local_path: dir },
+        })
+        T.expect(result.success).to.equal(false)
+        T.expect(result.scb_restored).to.equal(false)
+        T.expect(result.error || '').to.contain('ApplyScb failed')
+        T.expect(fs.readFileSync(restore.getCheckpointPath(), 'utf8')).to.equal('LND_ACTIVE')
+        T.expect(fs.existsSync(restore.getPhraseHashPath())).to.equal(true)
+        T.expect(restore.HasOngoingRecovery()).to.equal(true)
+    } finally {
+        dest.Stop()
+        fs.rmSync(dataDir, { recursive: true, force: true })
+        fs.rmSync(dir, { recursive: true, force: true })
+    }
+}
+
+const testScbRetryCompletes = async (T: StorageTestBase) => {
+    T.d('starting testScbRetryCompletes')
+    const dir = tempBackupDir()
+    const dest = await openSecondStorage()
+    const dataDir = dest.getStorageSettings().dataDir
+    try {
+        const sourceSettings = new SettingsManager(T.storage)
+        await sourceSettings.InitSettings()
+        await seedDialtone(T, sourceSettings)
+        await writeLocalBackup(T, dir, 4)
+        const settings = new SettingsManager(dest)
+        await settings.InitSettings()
+        let applyCalls = 0
+        const unlocker = {
+            WalletExists: async () => true,
+            Restore: async () => { throw new Error('should not Restore on resume') },
+            PostRestore: async () => { },
+            DecryptScbEvent: async () => Buffer.from('scb'),
+            ApplyScb: async () => {
+                applyCalls++
+                if (applyCalls <= 2) {
+                    // First RestoreFromSource: restoreScb tries twice and fails both times.
+                    throw new Error('ApplyScb failed')
+                }
+            },
+        } as unknown as Unlocker
+        const restore = new RestoreManager(dest, settings, unlocker)
+            ; (restore as any).retrieveSCB = async () => ({ content: 'enc', created_at: 1 })
+        fs.mkdirSync(dataDir, { recursive: true })
+        fs.writeFileSync(restore.getCheckpointPath(), 'DB_COMMITTED')
+        fs.writeFileSync(restore.getPhraseHashPath(), hashRestorePhrase(TEST_PHRASE))
+        const failed = await restore.RestoreFromSource({
+            phrase: TEST_PHRASE,
+            source: { type: WizardTypes.RestoreRequest_source_type.LOCAL_PATH, local_path: dir },
+        })
+        T.expect(failed.success).to.equal(false)
+        T.expect(fs.readFileSync(restore.getCheckpointPath(), 'utf8')).to.equal('LND_ACTIVE')
+
+        const waitDone = restore.WaitForRecoveryCompletion()
+        const ok = await restore.RestoreFromSource({
+            phrase: TEST_PHRASE,
+            source: { type: WizardTypes.RestoreRequest_source_type.LOCAL_PATH, local_path: dir },
+        })
+        await waitDone
+        T.expect(ok.success).to.equal(true)
+        T.expect(ok.scb_restored).to.equal(true)
+        T.expect(fs.readFileSync(restore.getCheckpointPath(), 'utf8')).to.equal('COMPLETED')
+        T.expect(fs.existsSync(restore.getPhraseHashPath())).to.equal(false)
+        T.expect(restore.HasOngoingRecovery()).to.equal(false)
+        T.expect(restore.IsRecoveryActive()).to.equal(false)
+    } finally {
+        dest.Stop()
+        fs.rmSync(dataDir, { recursive: true, force: true })
+        fs.rmSync(dir, { recursive: true, force: true })
+    }
+}
+
+const testHasOngoingRecovery = async (T: StorageTestBase) => {
+    T.d('starting testHasOngoingRecovery')
+    const dest = await openSecondStorage()
+    const dataDir = dest.getStorageSettings().dataDir
+    try {
+        const settings = new SettingsManager(dest)
+        await settings.InitSettings()
+        const restore = new RestoreManager(dest, settings, {} as Unlocker)
+        fs.mkdirSync(dataDir, { recursive: true })
+        T.expect(restore.HasOngoingRecovery()).to.equal(false)
+
+        fs.writeFileSync(restore.getCheckpointPath(), 'STARTED')
+        T.expect(restore.HasOngoingRecovery()).to.equal(true)
+
+        fs.writeFileSync(restore.getCheckpointPath(), 'DB_COMMITTED')
+        T.expect(restore.HasOngoingRecovery()).to.equal(true)
+
+        fs.writeFileSync(restore.getCheckpointPath(), 'COMPLETED')
+        T.expect(restore.HasOngoingRecovery()).to.equal(false)
+    } finally {
+        dest.Stop()
+        fs.rmSync(dataDir, { recursive: true, force: true })
+    }
+}
+
+const testConcurrentRestoreRejected = async (T: StorageTestBase) => {
+    T.d('starting testConcurrentRestoreRejected')
+    const dir = tempBackupDir()
+    const dest = await openSecondStorage()
+    const dataDir = dest.getStorageSettings().dataDir
+    try {
+        const sourceSettings = new SettingsManager(T.storage)
+        await sourceSettings.InitSettings()
+        await seedDialtone(T, sourceSettings)
+        await writeLocalBackup(T, dir, 4)
+        const settings = new SettingsManager(dest)
+        await settings.InitSettings()
+        let releasePostRestore: () => void = () => { }
+        const postRestoreGate = new Promise<void>(resolve => { releasePostRestore = resolve })
+        let enteredPostRestore: () => void = () => { }
+        const inPostRestore = new Promise<void>(resolve => { enteredPostRestore = resolve })
+        const unlocker = {
+            WalletExists: async () => true,
+            Restore: async () => ({ adminMacaroon: 'mac' }),
+            PostRestore: async () => {
+                enteredPostRestore()
+                await postRestoreGate
+            },
+            DecryptScbEvent: async () => Buffer.from('scb'),
+            ApplyScb: async () => { },
+        } as unknown as Unlocker
+        const restore = new RestoreManager(dest, settings, unlocker)
+            ; (restore as any).retrieveSCB = async () => ({ content: 'enc', created_at: 1 })
+        fs.mkdirSync(dataDir, { recursive: true })
+        fs.writeFileSync(restore.getCheckpointPath(), 'DB_COMMITTED')
+        fs.writeFileSync(restore.getPhraseHashPath(), hashRestorePhrase(TEST_PHRASE))
+        const req: WizardTypes.RestoreRequest = {
+            phrase: TEST_PHRASE,
+            source: { type: WizardTypes.RestoreRequest_source_type.LOCAL_PATH, local_path: dir },
+        }
+        const first = restore.RestoreFromSource(req)
+        await inPostRestore
+        const second = await restore.RestoreFromSource(req)
+        T.expect(second.success).to.equal(false)
+        T.expect(second.error || '').to.contain('already in progress')
+        releasePostRestore()
+        const firstResult = await first
+        T.expect(firstResult.success).to.equal(true)
+        T.expect(firstResult.scb_restored).to.equal(true)
+    } finally {
+        dest.Stop()
+        fs.rmSync(dataDir, { recursive: true, force: true })
+        fs.rmSync(dir, { recursive: true, force: true })
     }
 }
 
