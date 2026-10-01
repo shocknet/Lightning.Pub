@@ -38,7 +38,7 @@ There is one secret: the LND seed. It unlocks both the dialtone encryption key a
 ## When uploads happen
 
 - Managers call `notifyBackupTable(<table>)` after writes. Each table is debounced: upload 30 s after the last change, but never deferred more than 5 min under continuous writes.
-- On graceful shutdown (SIGINT/SIGTERM), pending timers are cancelled, in-flight uploads finish, then **every** table is uploaded once while the DB is still open.
+- On graceful shutdown (SIGINT/SIGTERM), pending timers are cancelled, in-flight uploads finish, then **every** table is uploaded once while the DB is still open. `indexes.enc` is uploaded only after an address-count snapshot, and that file is one row. Startup takes that snapshot from LND, including a count of 0. If the snapshot has not run, or it failed, the upload leaves any existing `indexes.enc` in place so a known count is not replaced with 0.
 - Each destination is tried independently; an upload counts as done if any destination succeeds.
 
 ## Destinations and settings
@@ -74,14 +74,14 @@ node build/src/index.js restore --phrase "<24 words>" --source cloud|ftp|local \
 Flow (`RestoreManager.RestoreFromSource`):
 
 1. Refuse unless the DB is clean (no apps, users, app users, or node info), except when resuming from a checkpoint (below).
-2. Derive keys from the phrase, fetch each shard from the chosen source. **Missing shards are logged and skipped**; only a missing or empty `applications` shard stops the restore. A missing `applications` shard uses `failureMessage()` (the login succeeded and the file is not there). A rejected cloud login throws `CloudLoginRejectedError` and stops the restore; it is not reported as a missing shard. Host-key mismatch and other connection errors keep their own messages.
-3. Decrypt, pick the default app, fetch the latest SCB from the relay using that app's Nostr key.
+2. Derive keys from the phrase, fetch each shard from the chosen source. **Every shard in `BACKUP_RESTORE_ORDER` must be present.** A missing file stops the restore with `failureMessage()` for each missing shard (the login succeeded and that file is not there). A file that decrypts to zero rows is an empty table and is imported, except `indexes`, which must be exactly one address-count row (a count of 0 is valid). An empty `applications` table still stops the restore, because there is no default app. A rejected cloud login throws `CloudLoginRejectedError` and stops the restore; it is not reported as a missing shard. Host-key mismatch and other connection errors keep their own messages.
+3. Decrypt, pick the default app from the backed-up `DEFAULT_APP_NAME` (exact name). If that row was never stored, use `wallet`, then `wallet-test`. Fetch the latest SCB from the relay using that app's Nostr key.
 4. In one DB transaction: import all tables, then initialize LND from the seed (recovery window scales with the backed-up address count).
 5. Wait for LND, save the seed, restore the SCB (best effort).
 
 Progress is recorded in `.restore_checkpoint` in the data dir (`STARTED` → `LND_RECOVERED` → `DB_COMMITTED` → `LND_ACTIVE` → `COMPLETED`) so a crash can resume. `LND_RECOVERED` is a broken state that needs manual cleanup. Checkpoint and resume behaviour is being reworked; see open issues.
 
-Sources: **cloud** (seed-derived login, pinned; a rejected login is a login error, and a reachable account with no `applications` shard is reported as no backup for this seed), **ftp** (your host; pinned only if it is `backup.lightning.pub`, since the request has no fingerprint field yet), **local** (a folder of the same `*.enc` files).
+Sources: **cloud** (seed-derived login, pinned; a rejected login is a login error, and a reachable account missing any shard is reported with `failureMessage()` for each missing file), **ftp** (your host; pinned only if it is `backup.lightning.pub`, since the request has no fingerprint field yet), **local** (a folder of the same `*.enc` files).
 
 ## Your own SFTP server
 
@@ -117,7 +117,6 @@ The chroot top level must be root-owned and read-only, so `-d /upload` starts se
 ## Open issues
 
 - Restore hardening (security review): bind a resumed restore to the original phrase; refuse `WizardRestore` once the node is set up; retry from `LND_ACTIVE` fails because the seed is already saved.
-- Restore does not require every shard, and per-shard failure messages are unused.
 - Wizard `ftp` restores cannot pin a host key (no field in `RestoreRequest`).
 - Custom hosts are not trust-on-first-use; pinning is manual.
 - Longer term: log in to SFTP with a seed-derived SSH key instead of a password, so a captured login cannot be replayed.

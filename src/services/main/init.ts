@@ -85,6 +85,13 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
     await mainHandler.lnd.Warmup()
     if (!settingsManager.getSettings().liquiditySettings.useOnlyLiquidityProvider) {
         try {
+            const addressCount = await mainHandler.lnd.CountAddresses()
+            await backupManager.AddressUpdate(addressCount)
+        } catch (err: any) {
+            // indexesBackup stays unset, so a later upload does not replace a stored count with 0.
+            log("failed to snapshot address count for backup", err.message || err)
+        }
+        try {
             await mainHandler.metricsManager.StampActiveChannels()
         } catch (err: any) {
             log("failed to stamp active channels", err.message || err)

@@ -153,11 +153,14 @@ export class BackupManager {
         let encrypted: Buffer
         switch (id) {
             case 'indexes': {
+                // Null means the snapshot never ran (startup failed, or liquidity-provider-only).
+                // Skip the upload so a previous count is not replaced with 0.
+                // AddressUpdate(0) is a real snapshot of an empty wallet and is uploaded.
                 if (!this.indexesBackup) {
+                    this.log("address count has not been snapshotted, leaving indexes.enc unchanged")
                     return
                 }
-                const enc = [encodeIndexesRow(this.indexesBackup)]
-                encrypted = encryptTableRows(enc, encKey)
+                encrypted = encryptTableRows([encodeIndexesRow(this.indexesBackup)], encKey)
                 break
             }
             case 'applications': {
