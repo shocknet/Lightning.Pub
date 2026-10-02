@@ -36,7 +36,6 @@ type FtpCreds struct {
 type RestoreRequest struct {
 	Creds_override *FtpCreds              `json:"creds_override"`
 	Phrase         string                 `json:"phrase"`
-	Relay          string                 `json:"relay"`
 	Source         *RestoreRequest_source `json:"source"`
 }
 type RestoreResponse struct {
