@@ -78,24 +78,6 @@ export const pickDefaultApp = <T extends { name: string }>(apps: T[], defaultApp
     }
 }
 
-/** Name used when a backup never stored DEFAULT_APP_NAME. */
-export const BUILTIN_DEFAULT_APP_NAME = "wallet"
-
-/**
- * App whose Nostr key published channel backups.
- * A stored DEFAULT_APP_NAME must match exactly. When that row was never written, use the built-in names.
- */
-export const pickBackedUpDefaultApp = <T extends { name: string }>(
-    apps: T[],
-    adminSettings: { env_name: string, env_value: string }[],
-): T | undefined => {
-    const stored = adminSettings.find(row => row.env_name === ADMIN_NODE_NAME_ENV)?.env_value.trim()
-    if (stored) {
-        return apps.find(app => app.name === stored)
-    }
-    return pickDefaultApp(apps, BUILTIN_DEFAULT_APP_NAME)
-}
-
 export { assertAvatarUrl, isHttpsAvatarUrl, trimAvatarUrl } from "../helpers/httpsAvatarUrl.js"
 
 export const trimNodeName = (name: string) => name.trim()

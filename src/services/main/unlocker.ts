@@ -22,11 +22,16 @@ type Seed = { plaintextSeed: string[], encryptedSeed: EncryptedData, entropy?: B
 /** Receives the latest LND channel backup. null means the node has no channels. */
 export type ChannelBackupSink = (scb: Uint8Array | null) => void
 
-/** The multi-channel backup in a snapshot: null when it covers no channels, undefined when absent. */
+/**
+ * The multi-channel backup in a snapshot: null when it covers no channels, undefined when absent
+ * or when it lists channels without backup bytes. Reading that as "no channels" would let a
+ * restore skip the SCB and lose the channel funds.
+ */
 export const scbFromSnapshot = (snapshot: ChanBackupSnapshot): Uint8Array | null | undefined => {
     const multi = snapshot.multiChanBackup
     if (!multi) return undefined
-    if (multi.chanPoints.length === 0 || multi.multiChanBackup.length === 0) return null
+    if (multi.chanPoints.length === 0) return null
+    if (multi.multiChanBackup.length === 0) return undefined
     return multi.multiChanBackup
 }
 const BACKUP_RESUBSCRIBE_SECONDS = 30

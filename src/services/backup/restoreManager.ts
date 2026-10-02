@@ -57,7 +57,7 @@ export type RestoreResult = {
 const CHECKPOINT_FILE = ".restore_checkpoint"
 const PHRASE_HASH_FILE = ".restore_phrase_hash"
 enum RestoreCheckpoint {
-    STARTED = 'STARTED', // restore begun; phrase hash is bound only after fetch succeeds
+    STARTED = 'STARTED', // backup fetched and decrypted, phrase bound, about to import DB and init LND
     LND_RECOVERED = 'LND_RECOVERED', // lnd was recovered, but DB not commit, cannot continue recovery from this state
     DB_COMMITTED = 'DB_COMMITTED', // DB committed, any retry will start from after this checkpoint
     LND_ACTIVE = 'LND_ACTIVE', // LND active, SCB can be restored, or retried
@@ -69,6 +69,13 @@ const normalizeRestorePhrase = (phrase: string) =>
 
 export const hashRestorePhrase = (phrase: string) =>
     crypto.createHash('sha256').update(normalizeRestorePhrase(phrase), 'utf8').digest('hex')
+
+const failedRestore = (error: string): wizardTypes.RestoreResponse => ({
+    entries_restored: 0,
+    scb_restored: false,
+    success: false,
+    error,
+})
 
 export class RestoreManager {
     storage: Storage
@@ -116,8 +123,6 @@ export class RestoreManager {
         }
 
     }
-
-    hasPhraseBinding = (): boolean => fs.existsSync(this.getPhraseHashPath())
 
     /** True when a checkpoint file exists and restore has not reached COMPLETED. Includes STARTED. */
     HasOngoingRecovery = (): boolean => {
@@ -183,141 +188,122 @@ export class RestoreManager {
 
     async RestoreFromSource(req: wizardTypes.RestoreRequest): Promise<wizardTypes.RestoreResponse> {
         if (this.restoreInFlight) {
-            return {
-                entries_restored: 0,
-                scb_restored: false,
-                success: false,
-                error: 'Restore already in progress',
-            }
+            return failedRestore('Restore already in progress')
         }
         this.restoreInFlight = true
         try {
             this.log('RestoreFromSource request received', req.source.type)
-            const checkpoint = this.getCheckpoint()
-            const skipDb = checkpoint === RestoreCheckpoint.DB_COMMITTED ||
-                checkpoint === RestoreCheckpoint.LND_ACTIVE ||
-                checkpoint === RestoreCheckpoint.COMPLETED
-            const resumable = checkpoint === RestoreCheckpoint.DB_COMMITTED ||
-                checkpoint === RestoreCheckpoint.LND_ACTIVE
-
-            if (checkpoint === RestoreCheckpoint.COMPLETED) {
-                this.log("Restore already completed, returning success")
-                this.notifyRecoveryComplete()
-                return {
-                    entries_restored: 0,
-                    scb_restored: true,
-                    success: true,
-                    error: '',
-                }
-            }
-            if (checkpoint === RestoreCheckpoint.LND_RECOVERED) {
-                throw new Error(`Restore currently in broken state, lnd was recovered, but DB was not committed, 
-                    Delete .restore_checkpoint, reset LND, and try again`)
-            }
-            // Fresh restore must not run against an existing wallet. Resume after DB_COMMITTED /
-            // LND_ACTIVE is allowed: the wallet was created on the first leg.
-            if (await this.unlocker.WalletExists() && !resumable) {
-                this.log("LND is already started, restore will not continue")
-                return {
-                    entries_restored: 0,
-                    scb_restored: false,
-                    success: false,
-                    error: 'LND is already started. Restore cannot continue.',
-                }
-            }
-            const clean = await this.storage.IsDbClean()
-            if (!clean && !skipDb) {
-                return {
-                    entries_restored: 0,
-                    scb_restored: false,
-                    success: false,
-                    error: 'Database is not empty. Restore can only run against a freshly initialized database.',
-                }
-            }
-            if (!req.phrase || req.phrase.trim() === '') {
-                return {
-                    entries_restored: 0,
-                    scb_restored: false,
-                    success: false,
-                    error: 'No phrase provided to restore',
-                }
-            }
-            // STARTED marks that recovery is in progress. Phrase is bound only after
-            // fetch succeeds, so a wrong seed does not pin the operator to a bad hash.
-            if (resumable || this.hasPhraseBinding()) {
-                this.assertRestorePhraseMatches(req.phrase)
-            } else {
-                this.updateCheckpoint(RestoreCheckpoint.STARTED)
-            }
-            const seed = normalizeRestorePhrase(req.phrase).split(' ')
-            this.log("deriving backup keys")
-            const keys = await deriveBackupKeys(req.phrase, LATEST_DERIVATION_VERSION)
-
-            const buffers = await this.fetchSegmentsData(req, keys)
-            if (!resumable) {
-                this.bindRestorePhrase(req.phrase)
-            }
-            const { backupData } = this.decodeSegmentsData(buffers, keys)
-            if (backupData.indexes.length !== 1) {
-                throw new Error('indexes shard must contain one address count')
-            }
-            const { addressesCount, scb } = backupData.indexes[0]
-            this.log("addresses count: " + addressesCount)
-            const recoveryWindow = Math.max(1000, addressesCount * 10)
-
-            const apps = backupData.applications
-            if (apps.length === 0) {
-                throw new Error('No applications found in backup, cannot restore')
-            }
-
-            this.log("All data needed for restore is available, starting restore process")
-            let restoredEntries = 0
-            let macaroon: string | undefined
-            if (!skipDb) {
-                const { entriesRestored, adminMacaroon } = await this.storage.StartTransaction(async tx => {
-                    this.log("importing dialtone")
-                    const entriesRestored = await this.importDialtone(backupData, tx)
-                    this.log("restoring LND wallet")
-                    const { adminMacaroon } = await this.unlocker.Restore(seed, recoveryWindow)
-                    this.updateCheckpoint(RestoreCheckpoint.LND_RECOVERED)
-                    return { entriesRestored, adminMacaroon }
-                })
-                this.updateCheckpoint(RestoreCheckpoint.DB_COMMITTED)
-                macaroon = adminMacaroon
-                restoredEntries = entriesRestored
-            } else {
-                this.log("LND already recovered and DB already committed, skipping to SCB restore")
-            }
-
-
-            this.log("waiting LND" + (scb ? " and restoring SCB" : ", backup has no channels"))
-            await this.unlocker.PostRestore(seed, macaroon)
-            this.updateCheckpoint(RestoreCheckpoint.LND_ACTIVE)
-            if (scb) {
-                await this.restoreScb(Buffer.from(scb))
-            } else {
-                this.log("backup has no channels, skipping SCB restore")
-            }
-            this.updateCheckpoint(RestoreCheckpoint.COMPLETED)
-            this.clearPhraseBinding()
-            this.log("RestoreFromSource completed")
-            return {
-                entries_restored: restoredEntries,
-                scb_restored: !!scb,
-                success: true,
-                error: '',
-            }
+            return await this.runRestore(req)
         } catch (err: any) {
             this.log('RestoreFromSource failed', err.message || err)
-            return {
-                entries_restored: 0,
-                scb_restored: false,
-                success: false,
-                error: err.message || 'restore failed',
-            }
+            return failedRestore(err.message || 'restore failed')
         } finally {
             this.restoreInFlight = false
         }
+    }
+
+    private runRestore = async (req: wizardTypes.RestoreRequest): Promise<wizardTypes.RestoreResponse> => {
+        const checkpoint = this.getCheckpoint()
+        if (checkpoint === RestoreCheckpoint.COMPLETED) {
+            this.log("Restore already completed, returning success")
+            this.notifyRecoveryComplete()
+            return { entries_restored: 0, scb_restored: true, success: true, error: '' }
+        }
+        const resumable = checkpoint === RestoreCheckpoint.DB_COMMITTED ||
+            checkpoint === RestoreCheckpoint.LND_ACTIVE
+        const refusal = await this.refusalReason(req, checkpoint, resumable)
+        if (refusal) {
+            return failedRestore(refusal)
+        }
+        if (resumable) {
+            this.assertRestorePhraseMatches(req.phrase)
+        }
+        const seed = normalizeRestorePhrase(req.phrase).split(' ')
+        const backupData = await this.loadBackup(req)
+        const { addressesCount, scb } = backupData.indexes[0]
+        this.log("addresses count: " + addressesCount)
+        let restoredEntries = 0
+        let macaroon: string | undefined
+        if (resumable) {
+            this.log("LND already recovered and DB already committed, skipping to SCB restore")
+        } else {
+            const recoveryWindow = Math.max(1000, addressesCount * 10)
+            const imported = await this.importAndRecoverLnd(req.phrase, backupData, seed, recoveryWindow)
+            restoredEntries = imported.entriesRestored
+            macaroon = imported.adminMacaroon
+        }
+        await this.finishRestore(seed, macaroon, scb)
+        return { entries_restored: restoredEntries, scb_restored: !!scb, success: true, error: '' }
+    }
+
+    private refusalReason = async (req: wizardTypes.RestoreRequest, checkpoint: RestoreCheckpoint, resumable: boolean): Promise<string | null> => {
+        if (checkpoint === RestoreCheckpoint.LND_RECOVERED) {
+            return `Restore currently in broken state, lnd was recovered, but DB was not committed, 
+                    Delete .restore_checkpoint, reset LND, and try again`
+        }
+        // A resume needs the wallet created on the first leg; a fresh restore must not find one.
+        const walletExists = await this.unlocker.WalletExists()
+        if (resumable && !walletExists) {
+            return 'The database was already restored, but LND has no wallet. Delete .restore_checkpoint and .restore_phrase_hash, reset LND and the database, then restart Pub.'
+        }
+        if (!resumable && walletExists) {
+            this.log("LND is already started, restore will not continue")
+            return 'LND is already started. Restore cannot continue.'
+        }
+        if (!resumable && !(await this.storage.IsDbClean())) {
+            return 'Database is not empty. Restore can only run against a freshly initialized database.'
+        }
+        if (!req.phrase || req.phrase.trim() === '') {
+            return 'No phrase provided to restore'
+        }
+        return null
+    }
+
+    private loadBackup = async (req: wizardTypes.RestoreRequest): Promise<BackupData> => {
+        this.log("deriving backup keys")
+        const keys = await deriveBackupKeys(req.phrase, LATEST_DERIVATION_VERSION)
+        const buffers = await this.fetchSegmentsData(req, keys)
+        const { backupData } = this.decodeSegmentsData(buffers, keys)
+        if (backupData.indexes.length !== 1) {
+            throw new Error('indexes shard must contain one address count')
+        }
+        if (backupData.applications.length === 0) {
+            throw new Error('No applications found in backup, cannot restore')
+        }
+        return backupData
+    }
+
+    private importAndRecoverLnd = async (phrase: string, backupData: BackupData, seed: string[], recoveryWindow: number) => {
+        this.log("All data needed for restore is available, starting restore process")
+        // Bind only now: every earlier failure leaves no checkpoint, so the operator can try another
+        // phrase or set the node up fresh. A local folder or FTP login does not prove the phrase,
+        // only decryption does.
+        this.bindRestorePhrase(phrase)
+        this.updateCheckpoint(RestoreCheckpoint.STARTED)
+        const imported = await this.storage.StartTransaction(async tx => {
+            this.log("importing dialtone")
+            const entriesRestored = await this.importDialtone(backupData, tx)
+            this.log("restoring LND wallet")
+            const { adminMacaroon } = await this.unlocker.Restore(seed, recoveryWindow)
+            this.updateCheckpoint(RestoreCheckpoint.LND_RECOVERED)
+            return { entriesRestored, adminMacaroon }
+        })
+        this.updateCheckpoint(RestoreCheckpoint.DB_COMMITTED)
+        return imported
+    }
+
+    private finishRestore = async (seed: string[], macaroon: string | undefined, scb: Uint8Array | null) => {
+        this.log("waiting LND" + (scb ? " and restoring SCB" : ", backup has no channels"))
+        await this.unlocker.PostRestore(seed, macaroon)
+        this.updateCheckpoint(RestoreCheckpoint.LND_ACTIVE)
+        if (scb) {
+            await this.restoreScb(Buffer.from(scb))
+        } else {
+            this.log("backup has no channels, skipping SCB restore")
+        }
+        this.updateCheckpoint(RestoreCheckpoint.COMPLETED)
+        this.clearPhraseBinding()
+        this.log("RestoreFromSource completed")
     }
 
     async fetchSegmentsData(req: wizardTypes.RestoreRequest, keys: DerivedKeys) {
