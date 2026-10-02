@@ -78,21 +78,41 @@ export type BackupData = {
 }
 
 
+/**
+ * Marker stored in place of the SCB when the node has no channels. A real LND multi-channel
+ * backup is far longer than one byte, so the two cannot be confused. The field itself is
+ * always present, so a shard that lacks it is an older format, not an empty wallet.
+ */
+export const NO_CHANNELS_SCB = new Uint8Array([0])
+
+const isNoChannelsMarker = (data: Uint8Array) => data.length === 1 && data[0] === 0
+
 export type IndexesRow = {
     addressesCount: number
+    /** LND multi-channel backup, or null when the node has no channels. */
+    scb: Uint8Array | null
 }
 
 export const encodeIndexesRow = (indexes: IndexesRow): Uint8Array => {
+    if (indexes.scb && indexes.scb.length === 0) {
+        throw new Error('empty SCB, use null for a node without channels')
+    }
     const tlv: TLV = {
         2: [numberToBytes(indexes.addressesCount)],
+        3: splitChunk(indexes.scb ?? NO_CHANNELS_SCB, 255),
     }
     return encodeTLV(tlv)
 }
 
 export const decodeIndexesRow = (data: Uint8Array): IndexesRow => {
     const tlv = parseTLV(data)
+    if (!tlv[3] || tlv[3].length === 0) {
+        throw new Error('indexes shard has no channel backup field, it was written by an older version')
+    }
+    const scb = joinChunks(tlv[3])
     return {
         addressesCount: numberFromBytes(tlv[2][0]),
+        scb: isNoChannelsMarker(scb) ? null : scb,
     }
 }
 

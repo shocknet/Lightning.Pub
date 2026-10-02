@@ -4,23 +4,23 @@ How Pub backs up its accounting database and LND channel state, where it goes, a
 
 ## What goes where
 
-| | Dialtone (accounting) | SCB (channel backup) |
-|---|---|---|
-| **What** | Users, balances, apps and their Nostr keys, settings, offers, grants… one encrypted file per table | LND static channel backup |
-| **Where** | Managed cloud SFTP, your own SFTP server, and/or a local folder | Your Nostr relay, kind `30078`, `d=Lightning.Pub/backup/scb` |
-| **Encrypted with** | Key derived from the LND seed | NIP-44 to the default app's own Nostr key |
-| **Written by** | `backupManager.ts` | `unlocker.ts` (when `PUSH_BACKUPS_TO_NOSTR` is on) |
-| **Read by** | `restoreManager.ts` | `restoreManager.ts` |
+| | Dialtone shards (`*.enc`) |
+|---|---|
+| **What** | Users, balances, apps and their Nostr keys, settings, offers, grants… plus address count and LND multi-channel backup in `indexes.enc` |
+| **Where** | Managed cloud SFTP, your own SFTP server, and/or a local folder |
+| **Encrypted with** | Key derived from the LND seed |
+| **Written by** | `backupManager.ts` (SCB via `unlocker` → channel-backup sink) |
+| **Read by** | `restoreManager.ts` |
 
 ```mermaid
 flowchart LR
   Seed[LND seed] -->|Argon2id + HKDF| Keys[enc key + SFTP login]
   DB[(Pub DB)] -->|one shard per table, TLV + AES-GCM| Shards[*.enc]
+  LND[LND channel backups] -->|SCB in indexes.enc| Shards
   Keys --> Shards
   Shards --> Cloud[backup.lightning.pub]
   Shards --> Own[your SFTP host]
   Shards --> Local[BACKUP_LOCAL_PATH]
-  LND[LND channel backups] -->|NIP-44, kind 30078| Relay[Nostr relay]
 ```
 
 There is one secret: the LND seed. It unlocks both the dialtone encryption key and the SFTP login, so an operator never manages a separate backup password.
@@ -32,13 +32,15 @@ There is one secret: the LND seed. It unlocks both the dialtone encryption key a
 - **Envelope** (`encryption.ts`): `[version:1][iv:12][ciphertext][tag:16]`, AES-256-GCM. The tag rejects any tampered or truncated file before anything touches the DB.
 - **Payload** (`segments.ts`): per-table version byte + TLV-encoded rows.
 - **Shards** (`backupTables.ts`): 12 files named `<table>.enc`: `indexes`, `user_balances`, `tracked_providers`, `applications`, `application_users`, `admin_settings`, `app_user_devices`, `user_offers`, `products`, `management_grants`, `debit_accesses`, `invite_tokens`. `BACKUP_RESTORE_ORDER` is also the import order: balances first, so users exist before app links reference them.
+- **`indexes.enc`:** one row with the address count (TLV tag 2) and the multi-channel backup (TLV tag 3, chunked). A one-byte marker means the node had no channels; a missing tag 3 is refused as an older format. The row is written only once both the address count and the channel state are known, so a half-known snapshot cannot overwrite a good one.
 - **Not backed up on purpose:** pending (unpaid) invoice payments. A restore may under-count in-flight money but never inflates balances.
 - Machine-local admin settings are filtered out of the `admin_settings` shard (`mapAdminSettingBackupRow`).
 
 ## When uploads happen
 
 - Managers call `notifyBackupTable(<table>)` after writes. Each table is debounced: upload 30 s after the last change, but never deferred more than 5 min under continuous writes.
-- On graceful shutdown (SIGINT/SIGTERM), pending timers are cancelled, in-flight uploads finish, then **every** table is uploaded once while the DB is still open. `indexes.enc` is uploaded only after an address-count snapshot, and that file is one row. Startup takes that snapshot from LND, including a count of 0. If the snapshot has not run, or it failed, the upload leaves any existing `indexes.enc` in place so a known count is not replaced with 0.
+- On graceful shutdown (SIGINT/SIGTERM), pending timers are cancelled, in-flight uploads finish, then **every** table is uploaded once while the DB is still open. `indexes.enc` is uploaded only after both an address-count snapshot and a channel-backup snapshot. Startup takes those from LND (including address count 0 and the no-channels marker). If either half has not run, or it failed, the upload leaves any existing `indexes.enc` in place.
+- Live channel changes update the sink through LND's backup subscription; startup also runs an explicit export so a quiet node still gets a first SCB into `indexes.enc`.
 - Each destination is tried independently; an upload counts as done if any destination succeeds.
 
 ## Destinations and settings
@@ -51,7 +53,6 @@ There is one secret: the LND seed. It unlocks both the dialtone encryption key a
 | `BACKUP_SFTP_USER` / `BACKUP_SFTP_PASS` | Optional explicit login; unset = seed-derived login |
 | `BACKUP_SFTP_HOST_FINGERPRINT` | Your server's host key (`SHA256:…`). Unset = connect anyway and log the observed fingerprint so you can pin it |
 | `BACKUP_LOCAL_PATH` | Also write the same `*.enc` files to this folder |
-| `PUSH_BACKUPS_TO_NOSTR` | Publish the SCB to the relay |
 
 At least one destination must be set for dialtone uploads to run. Backups need Pub to hold the node's seed (it does when Pub created or restored the wallet).
 
@@ -68,16 +69,16 @@ Entry points: the wizard's `WizardRestore` RPC and the CLI:
 
 ```bash
 node build/src/index.js restore --phrase "<24 words>" --source cloud|ftp|local \
-  [--ftp-host host] [--ftp-user u --ftp-pass p] [--local-path dir] [--relay wss://…]
+  [--ftp-host host] [--ftp-user u --ftp-pass p] [--local-path dir]
 ```
 
 Flow (`RestoreManager.RestoreFromSource`):
 
 1. Refuse unless the DB is clean (no apps, users, app users, or node info), except when resuming from a checkpoint (below).
-2. Derive keys from the phrase, fetch each shard from the chosen source. **Every shard in `BACKUP_RESTORE_ORDER` must be present.** A missing file stops the restore with `failureMessage()` for each missing shard (the login succeeded and that file is not there). A file that decrypts to zero rows is an empty table and is imported, except `indexes`, which must be exactly one address-count row (a count of 0 is valid). An empty `applications` table still stops the restore, because there is no default app. A rejected cloud login throws `CloudLoginRejectedError` and stops the restore; it is not reported as a missing shard. Host-key mismatch and other connection errors keep their own messages.
-3. Decrypt, pick the default app from the backed-up `DEFAULT_APP_NAME` (exact name). If that row was never stored, use `wallet`, then `wallet-test`. Fetch the latest SCB from the relay using that app's Nostr key. SCB is required: no relay, no event, or decrypt failure aborts before any DB/LND change.
-4. In one DB transaction: import all tables, then initialize LND from the seed (recovery window scales with the backed-up address count).
-5. Wait for LND, save the seed, restore the SCB (`ApplyScb`). SCB apply is mandatory; failure leaves the checkpoint at `LND_ACTIVE` so the same phrase can retry. Restore only reports success after SCB is applied and the checkpoint is `COMPLETED`.
+2. Derive keys from the phrase, fetch each shard from the chosen source. **Every shard in `BACKUP_RESTORE_ORDER` must be present.** A missing file stops the restore with `failureMessage()` for each missing shard (the login succeeded and that file is not there). A file that decrypts to zero rows is an empty table and is imported, except `indexes`, which must be exactly one row with address count and SCB (or the no-channels marker). A count of 0 is valid. An empty `applications` table still stops the restore. A rejected cloud login throws `CloudLoginRejectedError` and stops the restore; it is not reported as a missing shard. Host-key mismatch and other connection errors keep their own messages.
+3. Decrypt the shards. The SCB travels in `indexes.enc`; there is no separate relay fetch.
+4. In one DB transaction: import all dialtone tables, then initialize LND from the seed (recovery window scales with the backed-up address count).
+5. Wait for LND, save the seed. If the backup has channels, restore the SCB (`ApplyScb`); if it marks no channels, skip apply. A failed SCB apply leaves the checkpoint at `LND_ACTIVE` so the same phrase can retry. Restore only reports success after this step and the checkpoint is `COMPLETED`.
 
 Progress is recorded in `.restore_checkpoint` in the data dir (`STARTED` → `LND_RECOVERED` → `DB_COMMITTED` → `LND_ACTIVE` → `COMPLETED`) so a crash can resume. A SHA-256 of the normalized restore phrase is stored in `.restore_phrase_hash` and checked on resume, so a later call cannot finish with a different seed. After `DB_COMMITTED` or `LND_ACTIVE`, restore is allowed even though LND already has a wallet (that wallet was created on the first leg); a fresh restore (`STARTED`) still refuses if a wallet exists. `LND_RECOVERED` is a broken state that needs manual cleanup.
 

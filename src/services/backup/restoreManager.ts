@@ -13,16 +13,18 @@
 //
 // Import order matches BACKUP_RESTORE_ORDER in backupTables.ts (balances overlay, then FK order).
 // Every shard file in that list is required. A file that decrypts to zero rows is an empty
-// table and is imported, except indexes, which must be exactly one address-count row.
-// A missing file fails the restore.
+// table and is imported, except indexes, which must be exactly one row holding the address
+// count and the SCB (or the no-channels marker). A missing file fails the restore.
 //
 // ECONOMIC INVARIANT: Pending UserInvoicePayment rows (paid_at_unix = 0) are NOT
 // restored. Restore favors non-inflation over exact replay. This must be stated
 // in code comments and restore-facing documentation.
 //
-// SCB is mandatory: restore fails unless ApplyScb succeeds. A failed SCB leaves
-// checkpoint at LND_ACTIVE so the same phrase can retry. Normal startup must not
-// proceed while HasOngoingRecovery() is true (any non-COMPLETED checkpoint file).
+// The SCB travels in the indexes shard, so there is no separate fetch. A shard that marks
+// the node as having no channels skips ApplyScb. Otherwise restore fails unless ApplyScb
+// succeeds, and a failed SCB leaves the checkpoint at LND_ACTIVE so the same phrase can
+// retry. Normal startup must not proceed while HasOngoingRecovery() is true (any
+// non-COMPLETED checkpoint file).
 
 import { getLogger, PubLogger } from '../helpers/logger.js'
 import { deriveBackupKeys, LATEST_DERIVATION_VERSION, type DerivedKeys } from './derivation.js'
@@ -41,10 +43,8 @@ import {
     decodeIndexesRow,
 } from './segments.js'
 import { BACKUP_RESTORE_ORDER, backupTableFilename, type BackupTableId } from './backupTables.js'
-import { Relay, type Event as NostrEvent } from 'nostr-tools'
 import SettingsManager from '../main/settingsManager.js'
 import { Unlocker } from '../main/unlocker.js'
-import { pickBackedUpDefaultApp } from '../main/adminNodeSettings.js'
 
 export const validRestoreSources = ['cloud', 'ftp', 'local'] as const
 export type RestoreSource = typeof validRestoreSources[number]
@@ -54,9 +54,6 @@ export type RestoreResult = {
     error?: string
     tablesRestored?: number
 }
-const SCB_BACKUP_KIND = 30078
-const SCB_BACKUP_D_TAG = 'Lightning.Pub/backup/scb'
-const relayFetchTimeoutMs = 12_000
 const CHECKPOINT_FILE = ".restore_checkpoint"
 const PHRASE_HASH_FILE = ".restore_phrase_hash"
 enum RestoreCheckpoint {
@@ -64,7 +61,7 @@ enum RestoreCheckpoint {
     LND_RECOVERED = 'LND_RECOVERED', // lnd was recovered, but DB not commit, cannot continue recovery from this state
     DB_COMMITTED = 'DB_COMMITTED', // DB committed, any retry will start from after this checkpoint
     LND_ACTIVE = 'LND_ACTIVE', // LND active, SCB can be restored, or retried
-    COMPLETED = 'COMPLETED', // SCB restored, restore completed
+    COMPLETED = 'COMPLETED', // SCB restored (or the backup has no channels), restore completed
 }
 
 const normalizeRestorePhrase = (phrase: string) =>
@@ -258,28 +255,13 @@ export class RestoreManager {
             if (backupData.indexes.length !== 1) {
                 throw new Error('indexes shard must contain one address count')
             }
-            const addressesCount = backupData.indexes[0].addressesCount
+            const { addressesCount, scb } = backupData.indexes[0]
             this.log("addresses count: " + addressesCount)
             const recoveryWindow = Math.max(1000, addressesCount * 10)
 
             const apps = backupData.applications
             if (apps.length === 0) {
                 throw new Error('No applications found in backup, cannot restore')
-            }
-            const existingWalletApp = pickBackedUpDefaultApp(apps, backupData.adminSettings)
-            if (!existingWalletApp) {
-                throw new Error('No default wallet app found in backup, cannot restore')
-            }
-            const pubkey = existingWalletApp.nostr_public_key
-            const privateKey = existingWalletApp.nostr_private_key
-            if (!pubkey || !privateKey) {
-                throw new Error('Default wallet app has no nostr keys, cannot restore')
-            }
-
-            const scbEvent = await this.retrieveSCB(req, pubkey)
-            const decryptedScb = await this.unlocker.DecryptScbEvent(scbEvent.content, { nostr_private_key: privateKey, nostr_public_key: pubkey })
-            if (!decryptedScb.length) {
-                throw new Error('Failed to decrypt SCB data')
             }
 
             this.log("All data needed for restore is available, starting restore process")
@@ -302,16 +284,20 @@ export class RestoreManager {
             }
 
 
-            this.log("waiting LND and restoring SCB")
+            this.log("waiting LND" + (scb ? " and restoring SCB" : ", backup has no channels"))
             await this.unlocker.PostRestore(seed, macaroon)
             this.updateCheckpoint(RestoreCheckpoint.LND_ACTIVE)
-            await this.restoreScb(decryptedScb)
+            if (scb) {
+                await this.restoreScb(Buffer.from(scb))
+            } else {
+                this.log("backup has no channels, skipping SCB restore")
+            }
             this.updateCheckpoint(RestoreCheckpoint.COMPLETED)
             this.clearPhraseBinding()
             this.log("RestoreFromSource completed")
             return {
                 entries_restored: restoredEntries,
-                scb_restored: true,
+                scb_restored: !!scb,
                 success: true,
                 error: '',
             }
@@ -428,18 +414,6 @@ export class RestoreManager {
         if (!allowPartial && r !== length) throw new Error("failed to restore all " + name)
     }
 
-    private retrieveSCB = async (req: wizardTypes.RestoreRequest, pubkey: string) => {
-        const relay = this.getRestoreRelay(req)
-        if (!relay) {
-            throw new Error('SCB backup required: no relay configured')
-        }
-        const scbEvent = await this._fetchScbDataFromRelay(relay, pubkey)
-        if (!scbEvent) {
-            throw new Error('SCB backup required: no SCB backup event found on relay')
-        }
-        return scbEvent
-    }
-
     private restoreScb = async (scb: Buffer) => {
         this.log("restoring SCB")
         try {
@@ -450,44 +424,6 @@ export class RestoreManager {
         }
     }
 
-    private getRestoreRelay = (req: wizardTypes.RestoreRequest): string | null => {
-        if (req.relay && req.relay.trim()) {
-            return req.relay.trim()
-        }
-        const relays = this.settings.getSettings().nostrRelaySettings.relays
-        return relays[0] || null
-    }
-
-    _fetchScbDataFromRelay = async (relayUrl: string, pubkey: string): Promise<{ content: string, created_at: number } | null> => {
-        const relay = await Relay.connect(relayUrl)
-        try {
-            const events: NostrEvent[] = []
-            await new Promise<void>((resolve) => {
-                const sub = relay.subscribe([{
-                    kinds: [SCB_BACKUP_KIND],
-                    authors: [pubkey],
-                    '#d': [SCB_BACKUP_D_TAG],
-                }], {
-                    onevent: (e) => events.push(e),
-                    oneose: () => {
-                        sub.close()
-                        resolve()
-                    }
-                })
-                setTimeout(() => {
-                    sub.close()
-                    resolve()
-                }, relayFetchTimeoutMs)
-            })
-            if (events.length === 0) {
-                return null
-            }
-            const latest = events.sort((a, b) => (b.created_at || 0) - (a.created_at || 0))[0]
-            return { content: latest.content, created_at: latest.created_at || 0 }
-        } finally {
-            relay.close()
-        }
-    }
 }
 
 const fetchFile = async (log: PubLogger, keys: DerivedKeys, opts: wizardTypes.RestoreRequest, filename: string): Promise<SFTPFile> => {
@@ -588,7 +524,6 @@ export const parseRestoreFlags = (flags: Record<string, string>): wizardTypes.Re
         user: flags['ftp-user'],
         pass: flags['ftp-pass'],
     } : undefined
-    const relay = flags['relay'] ? flags['relay'] : undefined
 
     if (source === 'ftp') {
         const sftpHost = flags['ftp-host']
@@ -599,7 +534,7 @@ export const parseRestoreFlags = (flags: Record<string, string>): wizardTypes.Re
             phrase, source: {
                 type: wizardTypes.RestoreRequest_source_type.FTP_HOST,
                 ftp_host: sftpHost,
-            }, creds_override: creds, relay,
+            }, creds_override: creds,
         }
     } else if (source === 'local') {
         const localPath = flags['local-path']
@@ -610,14 +545,14 @@ export const parseRestoreFlags = (flags: Record<string, string>): wizardTypes.Re
             phrase, source: {
                 type: wizardTypes.RestoreRequest_source_type.LOCAL_PATH,
                 local_path: localPath,
-            }, creds_override: creds, relay,
+            }, creds_override: creds,
         }
     } else {
         return {
             phrase, source: {
                 type: wizardTypes.RestoreRequest_source_type.CLOUD,
                 cloud: {}
-            }, creds_override: creds, relay,
+            }, creds_override: creds,
         }
     }
 }

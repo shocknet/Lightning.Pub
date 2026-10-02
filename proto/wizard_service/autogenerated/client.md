@@ -10,18 +10,18 @@ A nostr request will take the same parameter and give the same response as an ht
 
 The nostr server will send back a message response, and inside the body there will also be a __requestId__ to identify the request this response is answering
 
-## NOSTR Methods
+## Wizard NOSTR Methods
 ### These are the nostr methods the client implements to communicate with the API via nostr
 
-# HTTP API DEFINITION
+# Wizard HTTP API DEFINITION
 
-## Supported HTTP Auths
+## Wizard Supported HTTP Auths
 ### These are the supported http auth types, to give different type of access to the API users
 
 - __Guest__:
   - expected context content
 
-## HTTP Methods
+## Wizard HTTP Methods
 ### These are the http methods the client implements to communicate with the API
 
 - GetAdminConnectInfo
@@ -84,7 +84,6 @@ The nostr server will send back a message response, and inside the body there wi
 ### RestoreRequest
   - __creds_override__: _[FtpCreds](#FtpCreds)_ *this field is optional
   - __phrase__: _string_
-  - __relay__: _string_ *this field is optional
   - __source__: _[RestoreRequest_source](#RestoreRequest_source)_
 
 ### RestoreResponse

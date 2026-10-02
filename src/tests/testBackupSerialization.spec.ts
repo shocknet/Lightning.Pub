@@ -68,7 +68,7 @@ const explode = (base: number) => {
 const generateBackupData = (base: number): BackupData => {
     const ex = explode(base)
     return {
-        indexes: [{ addressesCount: 20 }],
+        indexes: [{ addressesCount: 20, scb: new Uint8Array([1, 2, 3, 4]) }],
         applications: ex(1, "applications").map(generateApplicationRow),
         applicationUsers: ex(100, "applicationUsers").map(generateApplicationUserRow),
         adminSettings: ex(10, "adminSettings").map(generateAdminSettingRow),

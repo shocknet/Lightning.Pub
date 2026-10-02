@@ -95,6 +95,7 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
     await backupManager.InitKeys(seed)
     settingsManager.setBackupManager(backupManager)
     adminManager.setBackupManager(backupManager)
+    unlocker.SetChannelBackupSink(scb => backupManager.ChannelBackupUpdate(scb))
     backupManager.notifyBackupTable('admin_settings', 'applications', 'user_balances')
 
     const mainHandler = new Main(settingsManager, storageManager, adminManager, utils, unlocker, backupManager)
@@ -105,8 +106,14 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
             const addressCount = await mainHandler.lnd.CountAddresses()
             await backupManager.AddressUpdate(addressCount)
         } catch (err: any) {
-            // indexesBackup stays unset, so a later upload does not replace a stored count with 0.
+            // The address count stays unset, so a later upload does not replace a stored count with 0.
             log("failed to snapshot address count for backup", err.message || err)
+        }
+        try {
+            await unlocker.SyncChannelBackup()
+        } catch (err: any) {
+            // The channel state stays unknown, so indexes.enc is not replaced until a snapshot arrives.
+            log("failed to snapshot channel backup", err.message || err)
         }
         try {
             await mainHandler.metricsManager.StampActiveChannels()

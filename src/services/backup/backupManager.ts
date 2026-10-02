@@ -49,10 +49,21 @@ export class BackupManager {
     /** Start of the current coalescing window for max-wait (first notify since last flush). */
     private debounceWindowStart = new Map<BackupTableId, number>()
     private debouncedUploadInProgress = new Set<BackupTableId>()
+    /**
+     * Tables that got another notify while their upload was still running. Without this, the
+     * timer that fires mid-upload returns early and the newer state is never pushed.
+     */
+    private pendingAfterInFlight = new Set<BackupTableId>()
     /** In-flight cloud sign-up, shared by shard uploads that hit a rejected login together. */
     private cloudSignUp: Promise<void> | null = null
     shuttingDown = false
-    indexesBackup: IndexesRow | null = null
+    /** Null until the address count has been snapshotted from LND. */
+    private addressesCount: number | null = null
+    /**
+     * undefined: channel state not reported yet. null: the node has no channels.
+     * Otherwise the LND multi-channel backup.
+     */
+    private scb: Uint8Array | null | undefined = undefined
     constructor(storage: Storage, settings: SettingsManager) {
         this.storage = storage
         this.settings = settings
@@ -90,10 +101,22 @@ export class BackupManager {
     }
 
     async AddressUpdate(count: number) {
-        this.indexesBackup = {
-            addressesCount: count,
-        }
+        this.addressesCount = count
         this.notifyBackupTableDebounced('indexes')
+    }
+
+    /** Latest LND channel backup, or null when the node has no channels. Stored in the indexes shard. */
+    ChannelBackupUpdate(scb: Uint8Array | null) {
+        this.scb = scb
+        this.notifyBackupTableDebounced('indexes')
+    }
+
+    /** The indexes row, only once both halves are known. A half-known row would overwrite a good one. */
+    private indexesRow(): IndexesRow | null {
+        if (this.addressesCount === null || this.scb === undefined) {
+            return null
+        }
+        return { addressesCount: this.addressesCount, scb: this.scb }
     }
 
     /** Immediately upload one or more table shards (shares one key derivation per call). */
@@ -113,6 +136,9 @@ export class BackupManager {
         const isBackupConfigured = this.isBackupConfigured()
         this.log("notifying backup table debounced: " + id + " isBackupConfigured: " + isBackupConfigured)
         if (!isBackupConfigured) return
+        if (this.debouncedUploadInProgress.has(id)) {
+            this.pendingAfterInFlight.add(id)
+        }
         const existing = this.debounceTimers.get(id)
         if (existing) clearTimeout(existing)
 
@@ -137,11 +163,18 @@ export class BackupManager {
     }
 
     private async flushDebouncedTable(id: BackupTableId) {
-        if (this.debouncedUploadInProgress.has(id)) return
+        if (this.debouncedUploadInProgress.has(id)) {
+            this.pendingAfterInFlight.add(id)
+            return
+        }
         this.debounceWindowStart.delete(id)
         this.debouncedUploadInProgress.add(id)
         try {
-            await this.uploadTable(id)
+            // Drain notifies that arrive during an upload so the latest snapshot is not dropped.
+            do {
+                this.pendingAfterInFlight.delete(id)
+                await this.uploadTable(id)
+            } while (this.pendingAfterInFlight.has(id) && !this.shuttingDown)
         } finally {
             this.debouncedUploadInProgress.delete(id)
         }
@@ -153,14 +186,16 @@ export class BackupManager {
         let encrypted: Buffer
         switch (id) {
             case 'indexes': {
-                // Null means the snapshot never ran (startup failed, or liquidity-provider-only).
-                // Skip the upload so a previous count is not replaced with 0.
-                // AddressUpdate(0) is a real snapshot of an empty wallet and is uploaded.
-                if (!this.indexesBackup) {
-                    this.log("address count has not been snapshotted, leaving indexes.enc unchanged")
+                // Null means a snapshot never ran (startup failed, or liquidity-provider-only).
+                // Skip the upload so a previous count or channel backup is not replaced with
+                // an empty one. AddressUpdate(0) and ChannelBackupUpdate(null) are real
+                // snapshots of an empty wallet and are uploaded.
+                const row = this.indexesRow()
+                if (!row) {
+                    this.log("address count or channel backup not snapshotted yet, leaving indexes.enc unchanged")
                     return
                 }
-                encrypted = encryptTableRows([encodeIndexesRow(this.indexesBackup)], encKey)
+                encrypted = encryptTableRows([encodeIndexesRow(row)], encKey)
                 break
             }
             case 'applications': {
@@ -330,6 +365,7 @@ export class BackupManager {
         }
         this.debounceTimers.clear()
         this.debounceWindowStart.clear()
+        this.pendingAfterInFlight.clear()
         await this.waitUntilUploadsIdle(WAIT_IN_FLIGHT_MS)
         if (!this.isBackupConfigured()) {
             return
