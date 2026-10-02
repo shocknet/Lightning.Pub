@@ -46,26 +46,36 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
     const swaps = new Swaps(settingsManager, storageManager)
     const adminManager = new AdminManager(settingsManager, storageManager, swaps)
 
+    // The wizard is the only retry path for a failed restore, so it comes up before the recovery
+    // gate and keeps serving while recovery is unfinished: the gate holds back the main server,
+    // not the wizard. An ongoing recovery brings it up even when the wizard is disabled.
+    const wizardEnabled = settingsManager.getSettings().serviceSettings.wizard
     let wizard: Wizard | null = null
-    if (restore.HasOngoingRecovery()) {
-        log("Ongoing restore detected; recovery-only mode until restore completes (wizard or CLI). Normal server will not start.")
+    if (wizardEnabled || restore.HasOngoingRecovery()) {
         wizard = new Wizard(settingsManager, storageManager, adminManager, restore, unlocker)
-        await restore.WaitForRecoveryCompletion()
-        if (restore.IsRecoveryActive()) {
-            throw new Error('Restore did not complete. Normal startup is blocked while recovery is unfinished. Retry restore via the wizard or `restore` CLI, or delete .restore_checkpoint and .restore_phrase_hash to abandon.')
+    }
+
+    // A failed retry leaves recovery active, so keep waiting instead of exiting: the operator
+    // needs this process (and its wizard) alive to try again.
+    const awaitRecovery = async (reason: string) => {
+        if (!restore.IsRecoveryActive()) {
+            return
+        }
+        log(reason, "Delete .restore_checkpoint and .restore_phrase_hash to abandon the restore.")
+        while (restore.IsRecoveryActive()) {
+            await restore.WaitForRecoveryCompletion()
         }
         log("Restore completed; continuing normal startup")
     }
+
+    await awaitRecovery("Ongoing restore detected; recovery-only mode until restore completes (wizard or `restore` CLI). Normal server will not start, the wizard stays reachable to retry.")
 
     // Only an absent wallet waits for the wizard to unlock, so restore stays possible.
     const walletExisted = await unlocker.WalletExists()
     if (walletExisted) {
         await unlocker.Unlock()
     }
-    if (settingsManager.getSettings().serviceSettings.wizard) {
-        if (!wizard) {
-            wizard = new Wizard(settingsManager, storageManager, adminManager, restore, unlocker)
-        }
+    if (wizardEnabled && wizard) {
         const wizardNonBlocking = settingsManager.getSettings().serviceSettings.wizardNonBlocking
         if (wizardNonBlocking) {
             // In dev mode, don't block on wizard - timeout after 1 second
@@ -82,12 +92,11 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
             await wizard.Configure()
         }
     }
+    // A restore launched from the wizard can still be running here. Unlock() would create a
+    // fresh wallet on a node that has none, which would destroy the restore, so wait it out.
+    await awaitRecovery("Restore is still unfinished after the wizard; normal startup stays blocked and the wizard stays reachable to retry.")
     if (!walletExisted) {
         await unlocker.Unlock()
-    }
-
-    if (restore.IsRecoveryActive()) {
-        throw new Error('Restore is still unfinished. Normal startup is blocked. Retry restore via the wizard or `restore` CLI, or delete .restore_checkpoint and .restore_phrase_hash to abandon.')
     }
 
     const seed = await unlocker.GetSeedIfAvailable()

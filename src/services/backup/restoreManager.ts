@@ -57,7 +57,7 @@ export type RestoreResult = {
 const CHECKPOINT_FILE = ".restore_checkpoint"
 const PHRASE_HASH_FILE = ".restore_phrase_hash"
 enum RestoreCheckpoint {
-    STARTED = 'STARTED', // just fetched data, can be retried anytime
+    STARTED = 'STARTED', // restore begun; phrase hash is bound only after fetch succeeds
     LND_RECOVERED = 'LND_RECOVERED', // lnd was recovered, but DB not commit, cannot continue recovery from this state
     DB_COMMITTED = 'DB_COMMITTED', // DB committed, any retry will start from after this checkpoint
     LND_ACTIVE = 'LND_ACTIVE', // LND active, SCB can be restored, or retried
@@ -116,6 +116,8 @@ export class RestoreManager {
         }
 
     }
+
+    hasPhraseBinding = (): boolean => fs.existsSync(this.getPhraseHashPath())
 
     /** True when a checkpoint file exists and restore has not reached COMPLETED. Includes STARTED. */
     HasOngoingRecovery = (): boolean => {
@@ -240,10 +242,11 @@ export class RestoreManager {
                     error: 'No phrase provided to restore',
                 }
             }
-            if (resumable) {
+            // STARTED marks that recovery is in progress. Phrase is bound only after
+            // fetch succeeds, so a wrong seed does not pin the operator to a bad hash.
+            if (resumable || this.hasPhraseBinding()) {
                 this.assertRestorePhraseMatches(req.phrase)
             } else {
-                this.bindRestorePhrase(req.phrase)
                 this.updateCheckpoint(RestoreCheckpoint.STARTED)
             }
             const seed = normalizeRestorePhrase(req.phrase).split(' ')
@@ -251,6 +254,9 @@ export class RestoreManager {
             const keys = await deriveBackupKeys(req.phrase, LATEST_DERIVATION_VERSION)
 
             const buffers = await this.fetchSegmentsData(req, keys)
+            if (!resumable) {
+                this.bindRestorePhrase(req.phrase)
+            }
             const { backupData } = this.decodeSegmentsData(buffers, keys)
             if (backupData.indexes.length !== 1) {
                 throw new Error('indexes shard must contain one address count')
