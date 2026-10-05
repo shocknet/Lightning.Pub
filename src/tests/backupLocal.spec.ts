@@ -47,6 +47,20 @@ const makeSpyBackup = (): SpyBackup => {
 
 const tempBackupDir = () => fs.mkdtempSync(path.join(os.tmpdir(), 'pub-backup-'))
 
+const withTimeout = async <T>(p: Promise<T>, ms: number, msg: string): Promise<T> => {
+    let t: ReturnType<typeof setTimeout> | undefined
+    try {
+        return await Promise.race([
+            p,
+            new Promise<never>((_, reject) => {
+                t = setTimeout(() => reject(new Error(msg)), ms)
+            }),
+        ])
+    } finally {
+        if (t) clearTimeout(t)
+    }
+}
+
 const listEncFiles = (dir: string) =>
     fs.existsSync(dir) ? fs.readdirSync(dir).filter(f => f.endsWith('.enc')).sort() : []
 
@@ -71,6 +85,7 @@ export default async (T: StorageTestBase) => {
     await testWrongPhraseLeavesNoCheckpoint(T)
     await testScbFailureKeepsCheckpoint(T)
     await testScbRetryCompletes(T)
+    await testCompletedDoesNotHangStartupWaiter(T)
     await testHasOngoingRecovery(T)
     await testConcurrentRestoreRejected(T)
     await testLocalRoundtrip(T)
@@ -361,6 +376,54 @@ const testScbRetryCompletes = async (T: StorageTestBase) => {
         fs.rmSync(dataDir, { recursive: true, force: true })
         fs.rmSync(dir, { recursive: true, force: true })
     }
+}
+
+const testCompletedDoesNotHangStartupWaiter = async (T: StorageTestBase) => {
+    T.d('starting testCompletedDoesNotHangStartupWaiter')
+    const dir = tempBackupDir()
+    const dest = await openSecondStorage()
+    const dataDir = dest.getStorageSettings().dataDir
+    try {
+        const sourceSettings = new SettingsManager(T.storage)
+        await sourceSettings.InitSettings()
+        await seedDialtone(T, sourceSettings)
+        await writeLocalBackup(T, dir, 4)
+        const settings = new SettingsManager(dest)
+        await settings.InitSettings()
+        const unlocker = {
+            WalletExists: async () => true,
+            Restore: async () => { throw new Error('should not Restore on resume') },
+            PostRestore: async () => { },
+            ApplyScb: async () => { },
+        } as unknown as Unlocker
+        const restore = new RestoreManager(dest, settings, unlocker)
+        fs.mkdirSync(dataDir, { recursive: true })
+        fs.writeFileSync(restore.getCheckpointPath(), 'DB_COMMITTED')
+        fs.writeFileSync(restore.getPhraseHashPath(), hashRestorePhrase(TEST_PHRASE))
+
+        const origUpdate = restore.updateCheckpoint
+        let extraWait: Promise<void> | undefined
+        ;(restore as any).updateCheckpoint = (current: string) => {
+            origUpdate(current as Parameters<typeof origUpdate>[0])
+            if (current === 'COMPLETED' && !extraWait) {
+                extraWait = restore.WaitForRecoveryCompletion()
+            }
+        }
+
+        const result = await restore.RestoreFromSource({
+            phrase: TEST_PHRASE,
+            source: { type: WizardTypes.RestoreRequest_source_type.LOCAL_PATH, local_path: dir },
+        })
+        T.expect(result.success).to.equal(true)
+        T.expect(!!extraWait).to.equal(true)
+        await withTimeout(extraWait!, 1000, 'startup waiter hung after COMPLETED while restoreInFlight was still true')
+        T.expect(restore.IsRecoveryActive()).to.equal(false)
+    } finally {
+        dest.Stop()
+        fs.rmSync(dataDir, { recursive: true, force: true })
+        fs.rmSync(dir, { recursive: true, force: true })
+    }
+    T.d('writing COMPLETED does not leave a waiter armed while restore is still in flight')
 }
 
 const testHasOngoingRecovery = async (T: StorageTestBase) => {

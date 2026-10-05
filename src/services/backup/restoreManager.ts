@@ -24,7 +24,8 @@
 // the node as having no channels skips ApplyScb. Otherwise restore fails unless ApplyScb
 // succeeds, and a failed SCB leaves the checkpoint at LND_ACTIVE so the same phrase can
 // retry. Normal startup must not proceed while HasOngoingRecovery() is true (any
-// non-COMPLETED checkpoint file).
+// non-COMPLETED checkpoint file). Recovery waiters are notified only after restoreInFlight
+// is cleared.
 
 import { getLogger, PubLogger } from '../helpers/logger.js'
 import { deriveBackupKeys, LATEST_DERIVATION_VERSION, type DerivedKeys } from './derivation.js'
@@ -101,11 +102,7 @@ export class RestoreManager {
     }
 
     updateCheckpoint = (current: RestoreCheckpoint) => {
-        const checkpointPath = this.getCheckpointPath()
-        fs.writeFileSync(checkpointPath, current)
-        if (current === RestoreCheckpoint.COMPLETED) {
-            this.notifyRecoveryComplete()
-        }
+        fs.writeFileSync(this.getCheckpointPath(), current)
     }
     getCheckpoint = (): RestoreCheckpoint => {
         const checkpointPath = this.getCheckpointPath()
@@ -149,7 +146,8 @@ export class RestoreManager {
         }
         return new Promise(resolve => {
             this.recoveryWaiters.push(resolve)
-            // COMPLETED may have landed between the check above and registering.
+            // Restore may have left the in-flight/checkpoint window between the check
+            // above and registering. Notify here if recovery is already inactive.
             if (!this.IsRecoveryActive()) {
                 this.notifyRecoveryComplete()
             }
@@ -199,6 +197,11 @@ export class RestoreManager {
             return failedRestore(err.message || 'restore failed')
         } finally {
             this.restoreInFlight = false
+            // COMPLETED (or a no-checkpoint attempt) can still look active while
+            // restoreInFlight is true. Wake waiters only after that flag is clear.
+            if (!this.HasOngoingRecovery()) {
+                this.notifyRecoveryComplete()
+            }
         }
     }
 
@@ -206,7 +209,6 @@ export class RestoreManager {
         const checkpoint = this.getCheckpoint()
         if (checkpoint === RestoreCheckpoint.COMPLETED) {
             this.log("Restore already completed, returning success")
-            this.notifyRecoveryComplete()
             return { entries_restored: 0, scb_restored: true, success: true, error: '' }
         }
         const resumable = checkpoint === RestoreCheckpoint.DB_COMMITTED ||
