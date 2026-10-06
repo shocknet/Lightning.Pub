@@ -13,10 +13,10 @@ export type ClientParams = {
 }
 export default (params: ClientParams) => ({
     GetAdminConnectInfo: async (): Promise<ResultError | ({ status: 'OK' }& Types.AdminConnectInfoResponse)> => {
+        let finalRoute = '/wizard/admin_connect_info'
         const auth = await params.retrieveGuestAuth()
         if (auth === null) throw new Error('retrieveGuestAuth() returned null')
-        let finalRoute = '/wizard/admin_connect_info'
-        const { data } = await axios.get(params.baseUrl + finalRoute, { headers: { 'authorization': auth } })
+        const { data } = await axios.get(params.baseUrl + finalRoute, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -27,10 +27,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     GetServiceState: async (): Promise<ResultError | ({ status: 'OK' }& Types.ServiceStateResponse)> => {
+        let finalRoute = '/wizard/service_state'
         const auth = await params.retrieveGuestAuth()
         if (auth === null) throw new Error('retrieveGuestAuth() returned null')
-        let finalRoute = '/wizard/service_state'
-        const { data } = await axios.get(params.baseUrl + finalRoute, { headers: { 'authorization': auth } })
+        const { data } = await axios.get(params.baseUrl + finalRoute, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -41,10 +41,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     WizardConfig: async (request: Types.ConfigRequest): Promise<ResultError | ({ status: 'OK' })> => {
+        let finalRoute = '/wizard/config'
         const auth = await params.retrieveGuestAuth()
         if (auth === null) throw new Error('retrieveGuestAuth() returned null')
-        let finalRoute = '/wizard/config'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             return data
@@ -52,10 +52,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     WizardRestore: async (request: Types.RestoreRequest): Promise<ResultError | ({ status: 'OK' }& Types.RestoreResponse)> => {
+        let finalRoute = '/wizard/restore'
         const auth = await params.retrieveGuestAuth()
         if (auth === null) throw new Error('retrieveGuestAuth() returned null')
-        let finalRoute = '/wizard/restore'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -66,10 +66,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     WizardState: async (): Promise<ResultError | ({ status: 'OK' }& Types.StateResponse)> => {
+        let finalRoute = '/wizard/state'
         const auth = await params.retrieveGuestAuth()
         if (auth === null) throw new Error('retrieveGuestAuth() returned null')
-        let finalRoute = '/wizard/state'
-        const { data } = await axios.get(params.baseUrl + finalRoute, { headers: { 'authorization': auth } })
+        const { data } = await axios.get(params.baseUrl + finalRoute, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data

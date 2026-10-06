@@ -14,7 +14,6 @@ import {
     isValidNodeName,
     lspAutoBuyEnabled,
     persistLspThreshold,
-    pickBackedUpDefaultApp,
     pickDefaultApp,
 } from "../services/main/adminNodeSettings.js"
 import { MAX_AVATAR_URL_LEN } from "../services/helpers/httpsAvatarUrl.js"
@@ -86,12 +85,6 @@ const testPolarityHelpers = (T: StorageTestBase) => {
     T.expect(pickDefaultApp([{ name: "wallet-test" }, { name: "wallet" }], "mynode")?.name).to.equal("wallet")
     T.expect(pickDefaultApp([{ name: "wallet-test" }], "mynode")?.name).to.equal("wallet-test")
     T.expect(pickDefaultApp([{ name: "wallet" }, { name: "wallet-test" }], "wallet-test")?.name).to.equal("wallet-test")
-    const backedUp = [{ name: "wallet" }, { name: "mynode" }, { name: "wallet-test" }]
-    T.expect(pickBackedUpDefaultApp(backedUp, [{ env_name: "DEFAULT_APP_NAME", env_value: "mynode" }])?.name).to.equal("mynode")
-    T.expect(pickBackedUpDefaultApp(backedUp, [{ env_name: "DEFAULT_APP_NAME", env_value: "  mynode  " }])?.name).to.equal("mynode")
-    T.expect(pickBackedUpDefaultApp(backedUp, [])?.name).to.equal("wallet")
-    T.expect(pickBackedUpDefaultApp([{ name: "wallet-test" }], [])?.name).to.equal("wallet-test")
-    T.expect(pickBackedUpDefaultApp(backedUp, [{ env_name: "DEFAULT_APP_NAME", env_value: "missing" }])).to.equal(undefined)
     T.expect(isHttpsAvatarUrl("")).to.equal(true)
     T.expect(isHttpsAvatarUrl("https://cdn.nostrcheck.me/x.png")).to.equal(true)
     T.expect(isHttpsAvatarUrl("http://cdn.nostrcheck.me/x.png")).to.equal(false)

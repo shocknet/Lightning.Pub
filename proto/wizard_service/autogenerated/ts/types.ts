@@ -4,6 +4,22 @@ export type ResultError = { status: 'ERROR', reason: string }
 export type RequestInfo = { rpcName: string, batch: boolean, nostr: boolean, batchSize: number }
 export type RequestStats = { startMs:number, start:bigint, parse: bigint, guard: bigint, validate: bigint, handle: bigint }
 export type RequestMetric = AuthContext & RequestInfo & RequestStats & { error?: string }
+export type ProtoSocketState = 'OPEN' | 'CLOSED' 
+export type ProtoSocket<T> = {
+    getState: () => ProtoSocketState
+    close: () => void
+    send: (res: T, err: Error | null, cb?: (err: Error | undefined) => void) => void
+    subMore: (cb: (bytes: Object | Buffer) => void) => void
+}
+export interface RequestLogger {}
+export type RequestContext = {
+    getIp: () => string | undefined
+    getHeader: (name: string) => string | undefined
+    setHeader: (name: string, value: string) => void
+    clearCookie: (name: string) => void
+    getRequestLogger: () => RequestLogger | undefined
+    setRequestLogger: (log: RequestLogger) => void
+}
 export type GuestContext = {
 }
 export type GuestMethodInputs = GetAdminConnectInfo_Input | GetServiceState_Input | WizardConfig_Input | WizardRestore_Input | WizardState_Input
@@ -26,11 +42,11 @@ export type WizardState_Input = {rpcName:'WizardState'}
 export type WizardState_Output = ResultError | ({ status: 'OK' } & StateResponse)
 
 export type ServerMethods = {
-    GetAdminConnectInfo?: (req: GetAdminConnectInfo_Input & {ctx: GuestContext }) => Promise<AdminConnectInfoResponse>
-    GetServiceState?: (req: GetServiceState_Input & {ctx: GuestContext }) => Promise<ServiceStateResponse>
-    WizardConfig?: (req: WizardConfig_Input & {ctx: GuestContext }) => Promise<void>
-    WizardRestore?: (req: WizardRestore_Input & {ctx: GuestContext }) => Promise<RestoreResponse>
-    WizardState?: (req: WizardState_Input & {ctx: GuestContext }) => Promise<StateResponse>
+    GetAdminConnectInfo?: (req: GetAdminConnectInfo_Input & {ctx: GuestContext, requestContext?: RequestContext }) => Promise<AdminConnectInfoResponse>
+    GetServiceState?: (req: GetServiceState_Input & {ctx: GuestContext, requestContext?: RequestContext }) => Promise<ServiceStateResponse>
+    WizardConfig?: (req: WizardConfig_Input & {ctx: GuestContext, requestContext?: RequestContext }) => Promise<void>
+    WizardRestore?: (req: WizardRestore_Input & {ctx: GuestContext, requestContext?: RequestContext }) => Promise<RestoreResponse>
+    WizardState?: (req: WizardState_Input & {ctx: GuestContext, requestContext?: RequestContext }) => Promise<StateResponse>
 }
 
 export enum LndState {
@@ -148,16 +164,14 @@ export const FtpCredsValidate = (o?: FtpCreds, opts: FtpCredsOptions = {}, path:
 export type RestoreRequest = {
     creds_override?: FtpCreds
     phrase: string
-    relay?: string
     source: RestoreRequest_source
 }
-export type RestoreRequestOptionalField = 'creds_override' | 'relay'
-export const RestoreRequestOptionalFields: RestoreRequestOptionalField[] = ['creds_override', 'relay']
+export type RestoreRequestOptionalField = 'creds_override'
+export const RestoreRequestOptionalFields: RestoreRequestOptionalField[] = ['creds_override']
 export type RestoreRequestOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: RestoreRequestOptionalField[]
     creds_override_Options?: FtpCredsOptions
     phrase_CustomCheck?: (v: string) => boolean
-    relay_CustomCheck?: (v?: string) => boolean
     source_Options?: RestoreRequest_sourceOptions
 }
 export const RestoreRequestValidate = (o?: RestoreRequest, opts: RestoreRequestOptions = {}, path: string = 'RestoreRequest::root.'): Error | null => {
@@ -172,9 +186,6 @@ export const RestoreRequestValidate = (o?: RestoreRequest, opts: RestoreRequestO
 
     if (typeof o.phrase !== 'string') return new Error(`${path}.phrase: is not a string`)
     if (opts.phrase_CustomCheck && !opts.phrase_CustomCheck(o.phrase)) return new Error(`${path}.phrase: custom check failed`)
-
-    if ((o.relay || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('relay')) && typeof o.relay !== 'string') return new Error(`${path}.relay: is not a string`)
-    if (opts.relay_CustomCheck && !opts.relay_CustomCheck(o.relay)) return new Error(`${path}.relay: custom check failed`)
 
     const sourceErr = RestoreRequest_sourceValidate(o.source, opts.source_Options, `${path}.source`)
     if (sourceErr !== null) return sourceErr

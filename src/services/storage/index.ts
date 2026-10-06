@@ -133,6 +133,7 @@ export default class {
     }
 
     Stop() {
+        this.metricsEventStorage?.Stop()
         this.dbs.disconnect()
     }
 

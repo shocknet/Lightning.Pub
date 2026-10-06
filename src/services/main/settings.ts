@@ -38,6 +38,7 @@ export type ServiceSettings = {
     serviceUrl: string
     disableExternalPayments: boolean
     defaultAppName: string
+    /** Legacy wizard/admin flag; SCB is in dialtone shards only (no Nostr publish). Kept for API compat. */
     pushBackupsToNostr: boolean
     lnurlMetaText: string,
     allowHttpUpgrade: boolean

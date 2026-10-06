@@ -45,14 +45,37 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
     const utils = storageManager.utils
     const swaps = new Swaps(settingsManager, storageManager)
     const adminManager = new AdminManager(settingsManager, storageManager, swaps)
+
+    // The wizard is the only retry path for a failed restore, so it comes up before the recovery
+    // gate and keeps serving while recovery is unfinished: the gate holds back the main server,
+    // not the wizard. An ongoing recovery brings it up even when the wizard is disabled.
+    const wizardEnabled = settingsManager.getSettings().serviceSettings.wizard
+    let wizard: Wizard | null = null
+    if (wizardEnabled || restore.HasOngoingRecovery()) {
+        wizard = new Wizard(settingsManager, storageManager, adminManager, restore, unlocker)
+    }
+
+    // A failed retry leaves recovery active, so keep waiting instead of exiting: the operator
+    // needs this process (and its wizard) alive to try again.
+    const awaitRecovery = async (reason: string) => {
+        if (!restore.IsRecoveryActive()) {
+            return
+        }
+        log(reason, "To abandon the restore, delete .restore_checkpoint, .restore_phrase_hash, and .restore_wallet_pub, reset LND and the database, then restart Pub.")
+        while (restore.IsRecoveryActive()) {
+            await restore.WaitForRecoveryCompletion()
+        }
+        log("Restore completed; continuing normal startup")
+    }
+
+    await awaitRecovery("Ongoing restore detected; recovery-only mode until restore completes (wizard or `restore` CLI). Normal server will not start, the wizard stays reachable to retry.")
+
     // Only an absent wallet waits for the wizard to unlock, so restore stays possible.
     const walletExisted = await unlocker.WalletExists()
     if (walletExisted) {
         await unlocker.Unlock()
     }
-    let wizard: Wizard | null = null
-    if (settingsManager.getSettings().serviceSettings.wizard) {
-        wizard = new Wizard(settingsManager, storageManager, adminManager, restore, unlocker)
+    if (wizardEnabled && wizard) {
         const wizardNonBlocking = settingsManager.getSettings().serviceSettings.wizardNonBlocking
         if (wizardNonBlocking) {
             // In dev mode, don't block on wizard - timeout after 1 second
@@ -69,6 +92,9 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
             await wizard.Configure()
         }
     }
+    // A restore launched from the wizard can still be running here. Unlock() would create a
+    // fresh wallet on a node that has none, which would destroy the restore, so wait it out.
+    await awaitRecovery("Restore is still unfinished after the wizard; normal startup stays blocked and the wizard stays reachable to retry.")
     if (!walletExisted) {
         await unlocker.Unlock()
     }
@@ -78,6 +104,7 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
     await backupManager.InitKeys(seed)
     settingsManager.setBackupManager(backupManager)
     adminManager.setBackupManager(backupManager)
+    unlocker.SetChannelBackupSink(scb => backupManager.ChannelBackupUpdate(scb))
     backupManager.notifyBackupTable('admin_settings', 'applications', 'user_balances')
 
     const mainHandler = new Main(settingsManager, storageManager, adminManager, utils, unlocker, backupManager)
@@ -88,8 +115,14 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
             const addressCount = await mainHandler.lnd.CountAddresses()
             await backupManager.AddressUpdate(addressCount)
         } catch (err: any) {
-            // indexesBackup stays unset, so a later upload does not replace a stored count with 0.
+            // The address count stays unset, so a later upload does not replace a stored count with 0.
             log("failed to snapshot address count for backup", err.message || err)
+        }
+        try {
+            await unlocker.SyncChannelBackup()
+        } catch (err: any) {
+            // The channel state stays unknown, so indexes.enc is not replaced until a snapshot arrives.
+            log("failed to snapshot channel backup", err.message || err)
         }
         try {
             await mainHandler.metricsManager.StampActiveChannels()
