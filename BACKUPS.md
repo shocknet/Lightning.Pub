@@ -56,6 +56,8 @@ There is one secret: the LND seed. It unlocks both the dialtone encryption key a
 
 At least one destination must be set for dialtone uploads to run. Backups need Pub to hold the node's seed (it does when Pub created or restored the wallet).
 
+The wizard's backup step and the admin `remote_backup` setting write the cloud and SFTP settings above, defaulting to the managed cloud. An empty host selects the cloud; a host selects your SFTP server. The password is never returned, and an empty one keeps the saved password for the same host and user. Setting any of these in the environment locks the remote destination for both. `BACKUP_LOCAL_PATH` is environment-only.
+
 ## Managed cloud (`backup.lightning.pub`)
 
 - **Server:** PubFTPService: SFTP on port 22, sign-up API over HTTPS on the same hostname. Ops docs are in that repo (`docs/RUNBOOK.md`).

@@ -21,17 +21,25 @@ type AdminConnectInfoResponse struct {
 	Nprofile     string                                 `json:"nprofile"`
 }
 type ConfigRequest struct {
-	Automate_liquidity    bool   `json:"automate_liquidity"`
-	Avatar_url            string `json:"avatar_url"`
-	Push_backups_to_nostr bool   `json:"push_backups_to_nostr"`
-	Relay_url             string `json:"relay_url"`
-	Source_name           string `json:"source_name"`
+	Automate_liquidity bool          `json:"automate_liquidity"`
+	Avatar_url         string        `json:"avatar_url"`
+	Relay_url          string        `json:"relay_url"`
+	Remote_backup      *RemoteBackup `json:"remote_backup"`
+	Source_name        string        `json:"source_name"`
 }
 type Empty struct {
 }
 type FtpCreds struct {
 	Pass string `json:"pass"`
 	User string `json:"user"`
+}
+type RemoteBackup struct {
+	Enabled          bool   `json:"enabled"`
+	Host             string `json:"host"`
+	Host_fingerprint string `json:"host_fingerprint"`
+	Pass             string `json:"pass"`
+	Port             int64  `json:"port"`
+	User             string `json:"user"`
 }
 type RestoreRequest struct {
 	Creds_override *FtpCreds              `json:"creds_override"`
@@ -45,22 +53,22 @@ type RestoreResponse struct {
 	Success          bool   `json:"success"`
 }
 type ServiceStateResponse struct {
-	Admin_npub            string   `json:"admin_npub"`
-	App_id                string   `json:"app_id"`
-	Automate_liquidity    bool     `json:"automate_liquidity"`
-	Avatar_url            string   `json:"avatar_url"`
-	Has_seed              bool     `json:"has_seed"`
-	Http_url              string   `json:"http_url"`
-	Is_db_clean           bool     `json:"is_db_clean"`
-	Lnd_state             LndState `json:"lnd_state"`
-	Nprofile              string   `json:"nprofile"`
-	Provider_name         string   `json:"provider_name"`
-	Push_backups_to_nostr bool     `json:"push_backups_to_nostr"`
-	Relay_connected       bool     `json:"relay_connected"`
-	Relay_url             string   `json:"relay_url"`
-	Relays                []string `json:"relays"`
-	Source_name           string   `json:"source_name"`
-	Watchdog_ok           bool     `json:"watchdog_ok"`
+	Admin_npub         string        `json:"admin_npub"`
+	App_id             string        `json:"app_id"`
+	Automate_liquidity bool          `json:"automate_liquidity"`
+	Avatar_url         string        `json:"avatar_url"`
+	Has_seed           bool          `json:"has_seed"`
+	Http_url           string        `json:"http_url"`
+	Is_db_clean        bool          `json:"is_db_clean"`
+	Lnd_state          LndState      `json:"lnd_state"`
+	Nprofile           string        `json:"nprofile"`
+	Provider_name      string        `json:"provider_name"`
+	Relay_connected    bool          `json:"relay_connected"`
+	Relay_url          string        `json:"relay_url"`
+	Relays             []string      `json:"relays"`
+	Remote_backup      *RemoteBackup `json:"remote_backup"`
+	Source_name        string        `json:"source_name"`
+	Watchdog_ok        bool          `json:"watchdog_ok"`
 }
 type StateResponse struct {
 	Admin_linked bool `json:"admin_linked"`

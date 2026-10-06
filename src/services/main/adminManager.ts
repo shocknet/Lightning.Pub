@@ -22,7 +22,6 @@ import { clampPageLimit, DEFAULT_LND_PAGE_SIZE, DEFAULT_PAGE_SIZE, MAX_LIQUIDITY
 import { aliasByRemotePubkey } from "../helpers/channelAliases.js";
 import {
     ADMIN_AUTOMATION_ENV,
-    ADMIN_BACKUPS_ENV,
     ADMIN_LSP_THRESHOLD_ENV,
     ADMIN_NODE_NAME_ENV,
     ADMIN_TIER1_CONFS_ENV,
@@ -34,10 +33,15 @@ import {
     assertLspThreshold,
     assertNodeName,
     assertOnchainConfSettings,
+    assertRemoteBackup,
     automationEnabled,
+    backupSettingsFromRemote,
+    changedRemoteBackupSettings,
     disableLiquidityFromAutomation,
     isEnvLocked,
+    isRemoteBackupEnvLocked,
     pickDefaultApp,
+    remoteBackupFromSettings,
     trimAvatarUrl,
     trimNodeName,
 } from "./adminNodeSettings.js";
@@ -356,10 +360,10 @@ export class AdminManager {
             node_name: app?.name || service.defaultAppName,
             avatar_url: app?.avatar_url || "",
             automate_liquidity: automationEnabled(liquidity.disableLiquidityProvider),
-            push_backups_to_nostr: service.pushBackupsToNostr,
+            remote_backup: remoteBackupFromSettings(this.settings.getSettings().backupSettings),
             node_name_env_locked: isEnvLocked(ADMIN_NODE_NAME_ENV),
             automate_liquidity_env_locked: isEnvLocked(ADMIN_AUTOMATION_ENV),
-            backups_env_locked: isEnvLocked(ADMIN_BACKUPS_ENV),
+            remote_backup_env_locked: isRemoteBackupEnvLocked(),
             lsp_channel_threshold: this.settings.getSettings().lspSettings.channelThreshold,
             lsp_threshold_env_locked: isEnvLocked(ADMIN_LSP_THRESHOLD_ENV),
         }
@@ -371,6 +375,7 @@ export class AdminManager {
         const avatar = trimAvatarUrl(req.avatar_url)
         assertAvatarUrl(avatar)
         assertLspThreshold(req.lsp_channel_threshold)
+        assertRemoteBackup(req.remote_backup)
         const current = await this.GetAdminNodeSettings()
         this.assertUnlockedChange(current, name, req)
 
@@ -398,8 +403,8 @@ export class AdminManager {
             await this.settings.updateLspChannelThreshold(req.lsp_channel_threshold)
         }
 
-        if (!current.backups_env_locked) {
-            await this.settings.updatePushBackupsToNostr(req.push_backups_to_nostr)
+        if (!current.remote_backup_env_locked) {
+            await this.settings.updateRemoteBackup(req.remote_backup)
         }
 
         if (beaconDirty) {
@@ -451,9 +456,14 @@ export class AdminManager {
         if (current.lsp_threshold_env_locked && req.lsp_channel_threshold !== current.lsp_channel_threshold) {
             throw new Error("LSP channel threshold is set in the environment")
         }
-        if (current.backups_env_locked && req.push_backups_to_nostr !== current.push_backups_to_nostr) {
-            throw new Error("channel backups are set in the environment")
+        if (current.remote_backup_env_locked && this.remoteBackupWouldChange(req.remote_backup)) {
+            throw new Error("remote backup is set in the environment")
         }
+    }
+
+    private remoteBackupWouldChange = (remote: Types.RemoteBackup) => {
+        const bs = this.settings.getSettings().backupSettings
+        return changedRemoteBackupSettings(bs, backupSettingsFromRemote(bs, remote)).length > 0
     }
 
     private assertUnlockedOnchainConfChange = (current: Types.AdminOnchainConfSettings, req: Types.UpdateAdminOnchainConfSettingsRequest) => {

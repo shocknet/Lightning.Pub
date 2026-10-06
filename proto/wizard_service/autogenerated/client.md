@@ -71,14 +71,22 @@ The nostr server will send back a message response, and inside the body there wi
 ### ConfigRequest
   - __automate_liquidity__: _boolean_
   - __avatar_url__: _string_
-  - __push_backups_to_nostr__: _boolean_
   - __relay_url__: _string_
+  - __remote_backup__: _[RemoteBackup](#RemoteBackup)_
   - __source_name__: _string_
 
 ### Empty
 
 ### FtpCreds
   - __pass__: _string_
+  - __user__: _string_
+
+### RemoteBackup
+  - __enabled__: _boolean_
+  - __host__: _string_
+  - __host_fingerprint__: _string_
+  - __pass__: _string_
+  - __port__: _number_
   - __user__: _string_
 
 ### RestoreRequest
@@ -103,10 +111,10 @@ The nostr server will send back a message response, and inside the body there wi
   - __lnd_state__: _[LndState](#LndState)_
   - __nprofile__: _string_
   - __provider_name__: _string_
-  - __push_backups_to_nostr__: _boolean_
   - __relay_connected__: _boolean_
   - __relay_url__: _string_
   - __relays__: ARRAY of: _string_
+  - __remote_backup__: _[RemoteBackup](#RemoteBackup)_
   - __source_name__: _string_
   - __watchdog_ok__: _boolean_
 

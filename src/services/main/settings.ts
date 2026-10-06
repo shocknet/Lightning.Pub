@@ -38,8 +38,6 @@ export type ServiceSettings = {
     serviceUrl: string
     disableExternalPayments: boolean
     defaultAppName: string
-    /** Legacy wizard/admin flag; SCB is in dialtone shards only (no Nostr publish). Kept for API compat. */
-    pushBackupsToNostr: boolean
     lnurlMetaText: string,
     allowHttpUpgrade: boolean
 
@@ -57,7 +55,6 @@ export const LoadServiceSettingsFromEnv = (dbEnv: Record<string, string | undefi
         wizard: chooseEnvBool("WIZARD", dbEnv, false, addToDb),
         wizardNonBlocking: chooseEnvBool("WIZARD_NON_BLOCKING", dbEnv, false, addToDb),
         defaultAppName: chooseEnv("DEFAULT_APP_NAME", dbEnv, "wallet", addToDb),
-        pushBackupsToNostr: chooseEnvBool("PUSH_BACKUPS_TO_NOSTR", dbEnv, false, addToDb),
         lnurlMetaText: chooseEnv("LNURL_META_TEXT", dbEnv, "LNURL via Lightning.pub", addToDb),
         bridgeUrl: chooseEnv("BRIDGE_URL", dbEnv, "https://shockwallet.app", addToDb),
         allowHttpUpgrade: chooseEnvBool("ALLOW_HTTP_UPGRADE", dbEnv, false, addToDb),

@@ -431,34 +431,6 @@
             </div>
           </div>
         </div>
-
-        <div class="backup-section">
-          <div class="backup-toggle-row">
-            <span class="backup-label">Sync backups to relay</span>
-            <label class="toggle-switch">
-              <input type="checkbox" x-model="backupEnabled" />
-              <span class="toggle-slider"></span>
-            </label>
-          </div>
-
-          <div class="backup-info" x-show="backupEnabled">
-            <p class="backup-info-title" style="color:#fff; margin-bottom: 0.5rem; font-size:14px;">Your backups will be
-              encrypted and synced to:</p>
-            <div class="backup-location">
-              <span class="relay-option-description" x-text="backupLocationText"></span>
-            </div>
-          </div>
-
-          <div class="backup-warning" x-show="!backupEnabled"
-            style="display: flex; gap: 10px; align-items: flex-start; margin-top: 1rem;">
-            <span style="color: #FF7700;">⚠</span>
-            <div class="warning-text" style="color: #E84C3D; font-size: 13px; line-height: 1.5;">
-              Your channel state changes with Lightning activity. Unlike your seed phrase which is permanent, channel
-              backups must be updated regularly and are required for recovery of Lightning funds. If you disable relay
-              sync, ensure you have another backup method configured.
-            </div>
-          </div>
-        </div>
       </div>
 
       <div class="page-separator"></div>
@@ -528,7 +500,7 @@
         <button class="icon-button back-button" @click="goBack()" type="button" aria-label="Back">
           <img src="img/back.svg" alt="" />
         </button>
-        <h2>Choose a Recovery Method</h2>
+        <h2>Backups</h2>
       </div>
       <div class="progress-indicator">
         <div class="progress-steps">
@@ -540,21 +512,56 @@
         </div>
       </div>
       <div class="setup-description">
-        <p class="header-title"><span class="bold">New Node! 🎉</span> It's important to backup your keys.</p>
+        <p class="header-title"><span class="bold">New Node! 🎉</span> Back it up before you use it.</p>
       </div>
       <div class="setup-content">
         <div class="description-box">
-          <p class="description">In addition to your seed phrase, you also need channel details to recover funds should your node experience a hardware failure.</p>
-          <p class="description">It's important always to have the latest version of this file. Fortunately, it's small enough to automatically store on the Nostr relay.</p>
-        </div>
-        <div class="warning-text">If you did not choose the developers relay, be sure your relay has adequate storage policies to hold NIP78 events.</div>
-        <div class="radio-option">
-          <input type="radio" id="backup" name="backup-option" value="relay" x-model="backupChoice" />
-          <label for="backup">Encrypted Backup to Nostr Relay</label>
+          <p class="description">Your seed phrase only recovers on-chain funds. To get Lightning channel funds and your users' balances back after a hardware failure, you also need a current backup of your channels and the Pub database.</p>
+          <p class="description">Pub encrypts that backup on this node with a key from your seed, then sends it after every change. Whoever stores it can't read it.</p>
         </div>
         <div class="radio-option">
-          <input type="radio" id="manual-backup" name="backup-option" value="manual" x-model="backupChoice" />
-          <label for="manual-backup">DO NOT store on relay (Manual Backups)</label>
+          <input type="radio" id="backup-remote" name="backup-option" value="remote" x-model="backupChoice" />
+          <label for="backup-remote">
+            <strong>Lightning.Pub backup server (recommended)</strong>
+            <br /><span style="font-size:13px; opacity:0.7;">Nothing to set up. The login comes from your seed, so the same phrase finds this backup when you restore.</span>
+          </label>
+        </div>
+        <div class="radio-option">
+          <input type="radio" id="backup-custom" name="backup-option" value="custom" x-model="backupChoice" />
+          <label for="backup-custom">
+            <strong>My own SFTP server</strong>
+            <br /><span style="font-size:13px; opacity:0.7;">The same encrypted backup, stored on a server you run.</span>
+          </label>
+        </div>
+        <div x-show="backupChoice === 'custom'" x-transition style="margin-top:1rem;">
+          <div class="input-group">
+            <h3>Host</h3>
+            <input type="text" class="input-text" placeholder="sftp.example.com" x-model="backupHost" />
+          </div>
+          <div class="input-group">
+            <h3>Port</h3>
+            <input type="number" class="input-text" min="1" max="65535" x-model.number="backupPort" />
+          </div>
+          <div class="input-group">
+            <h3>Username (optional — derived from your seed if empty)</h3>
+            <input type="text" class="input-text" x-model="backupUser" />
+          </div>
+          <div class="input-group">
+            <h3>Password (optional — derived from your seed if empty)</h3>
+            <input type="password" class="input-text" x-model="backupPass" />
+          </div>
+          <div class="input-group">
+            <h3>Host key fingerprint (recommended)</h3>
+            <input type="text" class="input-text" placeholder="SHA256:..." x-model="backupFingerprint" />
+            <span style="font-size:13px; opacity:0.7;">On the server, run <code>ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub</code>. Without it, Pub trusts whatever server answers at that address.</span>
+          </div>
+        </div>
+        <div class="radio-option">
+          <input type="radio" id="backup-manual" name="backup-option" value="manual" x-model="backupChoice" />
+          <label for="backup-manual">
+            <strong>No automatic backup</strong>
+            <br /><span style="font-size:13px; opacity:0.7;">Nothing leaves this machine. If its disk fails, Lightning funds and user balances can be lost.</span>
+          </label>
         </div>
         <div class="error-message" id="errorTextBackup"></div>
       </div>

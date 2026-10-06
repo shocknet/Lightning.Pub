@@ -13,14 +13,17 @@ window.wizard = function () {
         // Relay Data
         relayTier: 'free',
         customRelays: [{ url: '', state: 'idle', error: null }],
-        backupEnabled: true,
         useCustomRelay: false,
         automateLiquidity: null,
-        pushBackups: null,
 
         // Liquidity / Backup
         liquidityChoice: 'manual',
-        backupChoice: 'manual',
+        backupChoice: 'remote',
+        backupHost: '',
+        backupPort: 22,
+        backupUser: '',
+        backupPass: '',
+        backupFingerprint: '',
         showLiquidityQuestion: false,
 
         // Connect
@@ -85,9 +88,8 @@ window.wizard = function () {
                 this.avatarUrl = data.avatar_url || '';
                 this.relayUrl = data.relay_url || (data.relays && data.relays[0]) || '';
                 this.automateLiquidity = data.automate_liquidity;
-                this.pushBackups = data.push_backups_to_nostr;
                 this.liquidityChoice = this.automateLiquidity === true ? 'automate' : 'manual';
-                this.backupChoice = this.pushBackups === true ? 'relay' : 'manual';
+                this.loadRemoteBackup(data.remote_backup, !!data.admin_npub);
 
                 // If we have an admin npub, might redirect to status
                 if (data.admin_npub && !window.location.hash) {
@@ -169,16 +171,30 @@ window.wizard = function () {
             }
         },
 
-        get backupLocationText() {
-            if (this.relayTier === 'free') {
-                return 'Your encrypted backup syncs automatically to the community relay.';
-            } else if (this.relayTier === 'premium') {
-                return 'Your encrypted backup syncs automatically across the premium relay pool.';
+        // A first run defaults to the Lightning.Pub server; a configured node shows what it saved.
+        loadRemoteBackup(rb, configured) {
+            if (!rb) return;
+            this.backupHost = rb.host || '';
+            this.backupPort = rb.port || 22;
+            this.backupUser = rb.user || '';
+            this.backupFingerprint = rb.host_fingerprint || '';
+            if (rb.enabled) {
+                this.backupChoice = rb.host ? 'custom' : 'remote';
             } else {
-                const valid = this.customRelays.filter(r => r.state === 'valid');
-                if (valid.length === 0) return 'Enter and validate your relay URLs above.';
-                return `Your encrypted backup syncs automatically to: ${valid.map(r => r.url).join(', ')}`;
+                this.backupChoice = configured ? 'manual' : 'remote';
             }
+        },
+
+        remoteBackupPayload() {
+            const custom = this.backupChoice === 'custom';
+            return {
+                enabled: !!this.serviceState?.has_seed && this.backupChoice !== 'manual',
+                host: custom ? this.backupHost.trim() : '',
+                port: custom ? (Number(this.backupPort) || 22) : 22,
+                user: custom ? this.backupUser.trim() : '',
+                pass: custom ? this.backupPass : '',
+                host_fingerprint: custom ? this.backupFingerprint.trim() : '',
+            };
         },
 
         get avatarPreview() {
@@ -279,7 +295,7 @@ window.wizard = function () {
                 source_name: this.nodeName?.trim() || '',
                 relay_url: this.getWizardRelayUrl(),
                 automate_liquidity: this.liquidityChoice === 'automate',
-                push_backups_to_nostr: this.serviceState?.has_seed ? (this.backupChoice === 'relay') : false,
+                remote_backup: this.remoteBackupPayload(),
                 avatar_url: (this.avatarUrl || '').trim() || ''
             };
             const res = await fetch('/wizard/config', {
@@ -295,6 +311,9 @@ window.wizard = function () {
 
         async finishBackup() {
             try {
+                if (this.backupChoice === 'custom' && !this.backupHost.trim()) {
+                    throw new Error('Enter your SFTP server host, or pick another option.');
+                }
                 await this.submitWizardConfig();
                 this.error = null;
                 document.getElementById('errorTextBackup').textContent = '';

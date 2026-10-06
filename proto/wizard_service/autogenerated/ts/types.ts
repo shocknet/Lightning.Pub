@@ -90,8 +90,8 @@ export const AdminConnectInfoResponseValidate = (o?: AdminConnectInfoResponse, o
 export type ConfigRequest = {
     automate_liquidity: boolean
     avatar_url: string
-    push_backups_to_nostr: boolean
     relay_url: string
+    remote_backup: RemoteBackup
     source_name: string
 }
 export const ConfigRequestOptionalFields: [] = []
@@ -99,8 +99,8 @@ export type ConfigRequestOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: []
     automate_liquidity_CustomCheck?: (v: boolean) => boolean
     avatar_url_CustomCheck?: (v: string) => boolean
-    push_backups_to_nostr_CustomCheck?: (v: boolean) => boolean
     relay_url_CustomCheck?: (v: string) => boolean
+    remote_backup_Options?: RemoteBackupOptions
     source_name_CustomCheck?: (v: string) => boolean
 }
 export const ConfigRequestValidate = (o?: ConfigRequest, opts: ConfigRequestOptions = {}, path: string = 'ConfigRequest::root.'): Error | null => {
@@ -113,11 +113,12 @@ export const ConfigRequestValidate = (o?: ConfigRequest, opts: ConfigRequestOpti
     if (typeof o.avatar_url !== 'string') return new Error(`${path}.avatar_url: is not a string`)
     if (opts.avatar_url_CustomCheck && !opts.avatar_url_CustomCheck(o.avatar_url)) return new Error(`${path}.avatar_url: custom check failed`)
 
-    if (typeof o.push_backups_to_nostr !== 'boolean') return new Error(`${path}.push_backups_to_nostr: is not a boolean`)
-    if (opts.push_backups_to_nostr_CustomCheck && !opts.push_backups_to_nostr_CustomCheck(o.push_backups_to_nostr)) return new Error(`${path}.push_backups_to_nostr: custom check failed`)
-
     if (typeof o.relay_url !== 'string') return new Error(`${path}.relay_url: is not a string`)
     if (opts.relay_url_CustomCheck && !opts.relay_url_CustomCheck(o.relay_url)) return new Error(`${path}.relay_url: custom check failed`)
+
+    const remote_backupErr = RemoteBackupValidate(o.remote_backup, opts.remote_backup_Options, `${path}.remote_backup`)
+    if (remote_backupErr !== null) return remote_backupErr
+    
 
     if (typeof o.source_name !== 'string') return new Error(`${path}.source_name: is not a string`)
     if (opts.source_name_CustomCheck && !opts.source_name_CustomCheck(o.source_name)) return new Error(`${path}.source_name: custom check failed`)
@@ -154,6 +155,49 @@ export const FtpCredsValidate = (o?: FtpCreds, opts: FtpCredsOptions = {}, path:
 
     if (typeof o.pass !== 'string') return new Error(`${path}.pass: is not a string`)
     if (opts.pass_CustomCheck && !opts.pass_CustomCheck(o.pass)) return new Error(`${path}.pass: custom check failed`)
+
+    if (typeof o.user !== 'string') return new Error(`${path}.user: is not a string`)
+    if (opts.user_CustomCheck && !opts.user_CustomCheck(o.user)) return new Error(`${path}.user: custom check failed`)
+
+    return null
+}
+
+export type RemoteBackup = {
+    enabled: boolean
+    host: string
+    host_fingerprint: string
+    pass: string
+    port: number
+    user: string
+}
+export const RemoteBackupOptionalFields: [] = []
+export type RemoteBackupOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    enabled_CustomCheck?: (v: boolean) => boolean
+    host_CustomCheck?: (v: string) => boolean
+    host_fingerprint_CustomCheck?: (v: string) => boolean
+    pass_CustomCheck?: (v: string) => boolean
+    port_CustomCheck?: (v: number) => boolean
+    user_CustomCheck?: (v: string) => boolean
+}
+export const RemoteBackupValidate = (o?: RemoteBackup, opts: RemoteBackupOptions = {}, path: string = 'RemoteBackup::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.enabled !== 'boolean') return new Error(`${path}.enabled: is not a boolean`)
+    if (opts.enabled_CustomCheck && !opts.enabled_CustomCheck(o.enabled)) return new Error(`${path}.enabled: custom check failed`)
+
+    if (typeof o.host !== 'string') return new Error(`${path}.host: is not a string`)
+    if (opts.host_CustomCheck && !opts.host_CustomCheck(o.host)) return new Error(`${path}.host: custom check failed`)
+
+    if (typeof o.host_fingerprint !== 'string') return new Error(`${path}.host_fingerprint: is not a string`)
+    if (opts.host_fingerprint_CustomCheck && !opts.host_fingerprint_CustomCheck(o.host_fingerprint)) return new Error(`${path}.host_fingerprint: custom check failed`)
+
+    if (typeof o.pass !== 'string') return new Error(`${path}.pass: is not a string`)
+    if (opts.pass_CustomCheck && !opts.pass_CustomCheck(o.pass)) return new Error(`${path}.pass: custom check failed`)
+
+    if (typeof o.port !== 'number') return new Error(`${path}.port: is not a number`)
+    if (opts.port_CustomCheck && !opts.port_CustomCheck(o.port)) return new Error(`${path}.port: custom check failed`)
 
     if (typeof o.user !== 'string') return new Error(`${path}.user: is not a string`)
     if (opts.user_CustomCheck && !opts.user_CustomCheck(o.user)) return new Error(`${path}.user: custom check failed`)
@@ -238,10 +282,10 @@ export type ServiceStateResponse = {
     lnd_state: LndState
     nprofile: string
     provider_name: string
-    push_backups_to_nostr: boolean
     relay_connected: boolean
     relay_url: string
     relays: string[]
+    remote_backup: RemoteBackup
     source_name: string
     watchdog_ok: boolean
 }
@@ -258,10 +302,10 @@ export type ServiceStateResponseOptions = OptionsBaseMessage & {
     lnd_state_CustomCheck?: (v: LndState) => boolean
     nprofile_CustomCheck?: (v: string) => boolean
     provider_name_CustomCheck?: (v: string) => boolean
-    push_backups_to_nostr_CustomCheck?: (v: boolean) => boolean
     relay_connected_CustomCheck?: (v: boolean) => boolean
     relay_url_CustomCheck?: (v: string) => boolean
     relays_CustomCheck?: (v: string[]) => boolean
+    remote_backup_Options?: RemoteBackupOptions
     source_name_CustomCheck?: (v: string) => boolean
     watchdog_ok_CustomCheck?: (v: boolean) => boolean
 }
@@ -299,9 +343,6 @@ export const ServiceStateResponseValidate = (o?: ServiceStateResponse, opts: Ser
     if (typeof o.provider_name !== 'string') return new Error(`${path}.provider_name: is not a string`)
     if (opts.provider_name_CustomCheck && !opts.provider_name_CustomCheck(o.provider_name)) return new Error(`${path}.provider_name: custom check failed`)
 
-    if (typeof o.push_backups_to_nostr !== 'boolean') return new Error(`${path}.push_backups_to_nostr: is not a boolean`)
-    if (opts.push_backups_to_nostr_CustomCheck && !opts.push_backups_to_nostr_CustomCheck(o.push_backups_to_nostr)) return new Error(`${path}.push_backups_to_nostr: custom check failed`)
-
     if (typeof o.relay_connected !== 'boolean') return new Error(`${path}.relay_connected: is not a boolean`)
     if (opts.relay_connected_CustomCheck && !opts.relay_connected_CustomCheck(o.relay_connected)) return new Error(`${path}.relay_connected: custom check failed`)
 
@@ -313,6 +354,10 @@ export const ServiceStateResponseValidate = (o?: ServiceStateResponse, opts: Ser
         if (typeof o.relays[index] !== 'string') return new Error(`${path}.relays[${index}]: is not a string`)
     }
     if (opts.relays_CustomCheck && !opts.relays_CustomCheck(o.relays)) return new Error(`${path}.relays: custom check failed`)
+
+    const remote_backupErr = RemoteBackupValidate(o.remote_backup, opts.remote_backup_Options, `${path}.remote_backup`)
+    if (remote_backupErr !== null) return remote_backupErr
+    
 
     if (typeof o.source_name !== 'string') return new Error(`${path}.source_name: is not a string`)
     if (opts.source_name_CustomCheck && !opts.source_name_CustomCheck(o.source_name)) return new Error(`${path}.source_name: custom check failed`)

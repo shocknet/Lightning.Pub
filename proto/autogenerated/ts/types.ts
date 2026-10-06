@@ -777,12 +777,12 @@ export type AdminNodeSettings = {
     automate_liquidity: boolean
     automate_liquidity_env_locked: boolean
     avatar_url: string
-    backups_env_locked: boolean
     lsp_channel_threshold: number
     lsp_threshold_env_locked: boolean
     node_name: string
     node_name_env_locked: boolean
-    push_backups_to_nostr: boolean
+    remote_backup: RemoteBackup
+    remote_backup_env_locked: boolean
 }
 export const AdminNodeSettingsOptionalFields: [] = []
 export type AdminNodeSettingsOptions = OptionsBaseMessage & {
@@ -790,12 +790,12 @@ export type AdminNodeSettingsOptions = OptionsBaseMessage & {
     automate_liquidity_CustomCheck?: (v: boolean) => boolean
     automate_liquidity_env_locked_CustomCheck?: (v: boolean) => boolean
     avatar_url_CustomCheck?: (v: string) => boolean
-    backups_env_locked_CustomCheck?: (v: boolean) => boolean
     lsp_channel_threshold_CustomCheck?: (v: number) => boolean
     lsp_threshold_env_locked_CustomCheck?: (v: boolean) => boolean
     node_name_CustomCheck?: (v: string) => boolean
     node_name_env_locked_CustomCheck?: (v: boolean) => boolean
-    push_backups_to_nostr_CustomCheck?: (v: boolean) => boolean
+    remote_backup_Options?: RemoteBackupOptions
+    remote_backup_env_locked_CustomCheck?: (v: boolean) => boolean
 }
 export const AdminNodeSettingsValidate = (o?: AdminNodeSettings, opts: AdminNodeSettingsOptions = {}, path: string = 'AdminNodeSettings::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
@@ -810,9 +810,6 @@ export const AdminNodeSettingsValidate = (o?: AdminNodeSettings, opts: AdminNode
     if (typeof o.avatar_url !== 'string') return new Error(`${path}.avatar_url: is not a string`)
     if (opts.avatar_url_CustomCheck && !opts.avatar_url_CustomCheck(o.avatar_url)) return new Error(`${path}.avatar_url: custom check failed`)
 
-    if (typeof o.backups_env_locked !== 'boolean') return new Error(`${path}.backups_env_locked: is not a boolean`)
-    if (opts.backups_env_locked_CustomCheck && !opts.backups_env_locked_CustomCheck(o.backups_env_locked)) return new Error(`${path}.backups_env_locked: custom check failed`)
-
     if (typeof o.lsp_channel_threshold !== 'number') return new Error(`${path}.lsp_channel_threshold: is not a number`)
     if (opts.lsp_channel_threshold_CustomCheck && !opts.lsp_channel_threshold_CustomCheck(o.lsp_channel_threshold)) return new Error(`${path}.lsp_channel_threshold: custom check failed`)
 
@@ -825,8 +822,12 @@ export const AdminNodeSettingsValidate = (o?: AdminNodeSettings, opts: AdminNode
     if (typeof o.node_name_env_locked !== 'boolean') return new Error(`${path}.node_name_env_locked: is not a boolean`)
     if (opts.node_name_env_locked_CustomCheck && !opts.node_name_env_locked_CustomCheck(o.node_name_env_locked)) return new Error(`${path}.node_name_env_locked: custom check failed`)
 
-    if (typeof o.push_backups_to_nostr !== 'boolean') return new Error(`${path}.push_backups_to_nostr: is not a boolean`)
-    if (opts.push_backups_to_nostr_CustomCheck && !opts.push_backups_to_nostr_CustomCheck(o.push_backups_to_nostr)) return new Error(`${path}.push_backups_to_nostr: custom check failed`)
+    const remote_backupErr = RemoteBackupValidate(o.remote_backup, opts.remote_backup_Options, `${path}.remote_backup`)
+    if (remote_backupErr !== null) return remote_backupErr
+    
+
+    if (typeof o.remote_backup_env_locked !== 'boolean') return new Error(`${path}.remote_backup_env_locked: is not a boolean`)
+    if (opts.remote_backup_env_locked_CustomCheck && !opts.remote_backup_env_locked_CustomCheck(o.remote_backup_env_locked)) return new Error(`${path}.remote_backup_env_locked: custom check failed`)
 
     return null
 }
@@ -4957,6 +4958,49 @@ export const RelaysMigrationValidate = (o?: RelaysMigration, opts: RelaysMigrati
     return null
 }
 
+export type RemoteBackup = {
+    enabled: boolean
+    host: string
+    host_fingerprint: string
+    pass: string
+    port: number
+    user: string
+}
+export const RemoteBackupOptionalFields: [] = []
+export type RemoteBackupOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    enabled_CustomCheck?: (v: boolean) => boolean
+    host_CustomCheck?: (v: string) => boolean
+    host_fingerprint_CustomCheck?: (v: string) => boolean
+    pass_CustomCheck?: (v: string) => boolean
+    port_CustomCheck?: (v: number) => boolean
+    user_CustomCheck?: (v: string) => boolean
+}
+export const RemoteBackupValidate = (o?: RemoteBackup, opts: RemoteBackupOptions = {}, path: string = 'RemoteBackup::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.enabled !== 'boolean') return new Error(`${path}.enabled: is not a boolean`)
+    if (opts.enabled_CustomCheck && !opts.enabled_CustomCheck(o.enabled)) return new Error(`${path}.enabled: custom check failed`)
+
+    if (typeof o.host !== 'string') return new Error(`${path}.host: is not a string`)
+    if (opts.host_CustomCheck && !opts.host_CustomCheck(o.host)) return new Error(`${path}.host: custom check failed`)
+
+    if (typeof o.host_fingerprint !== 'string') return new Error(`${path}.host_fingerprint: is not a string`)
+    if (opts.host_fingerprint_CustomCheck && !opts.host_fingerprint_CustomCheck(o.host_fingerprint)) return new Error(`${path}.host_fingerprint: custom check failed`)
+
+    if (typeof o.pass !== 'string') return new Error(`${path}.pass: is not a string`)
+    if (opts.pass_CustomCheck && !opts.pass_CustomCheck(o.pass)) return new Error(`${path}.pass: custom check failed`)
+
+    if (typeof o.port !== 'number') return new Error(`${path}.port: is not a number`)
+    if (opts.port_CustomCheck && !opts.port_CustomCheck(o.port)) return new Error(`${path}.port: custom check failed`)
+
+    if (typeof o.user !== 'string') return new Error(`${path}.user: is not a string`)
+    if (opts.user_CustomCheck && !opts.user_CustomCheck(o.user)) return new Error(`${path}.user: custom check failed`)
+
+    return null
+}
+
 export type RequestNPubLinkingTokenRequest = {
     user_identifier: string
 }
@@ -5669,7 +5713,7 @@ export type UpdateAdminNodeSettingsRequest = {
     avatar_url: string
     lsp_channel_threshold: number
     node_name: string
-    push_backups_to_nostr: boolean
+    remote_backup: RemoteBackup
 }
 export const UpdateAdminNodeSettingsRequestOptionalFields: [] = []
 export type UpdateAdminNodeSettingsRequestOptions = OptionsBaseMessage & {
@@ -5678,7 +5722,7 @@ export type UpdateAdminNodeSettingsRequestOptions = OptionsBaseMessage & {
     avatar_url_CustomCheck?: (v: string) => boolean
     lsp_channel_threshold_CustomCheck?: (v: number) => boolean
     node_name_CustomCheck?: (v: string) => boolean
-    push_backups_to_nostr_CustomCheck?: (v: boolean) => boolean
+    remote_backup_Options?: RemoteBackupOptions
 }
 export const UpdateAdminNodeSettingsRequestValidate = (o?: UpdateAdminNodeSettingsRequest, opts: UpdateAdminNodeSettingsRequestOptions = {}, path: string = 'UpdateAdminNodeSettingsRequest::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
@@ -5696,8 +5740,9 @@ export const UpdateAdminNodeSettingsRequestValidate = (o?: UpdateAdminNodeSettin
     if (typeof o.node_name !== 'string') return new Error(`${path}.node_name: is not a string`)
     if (opts.node_name_CustomCheck && !opts.node_name_CustomCheck(o.node_name)) return new Error(`${path}.node_name: custom check failed`)
 
-    if (typeof o.push_backups_to_nostr !== 'boolean') return new Error(`${path}.push_backups_to_nostr: is not a boolean`)
-    if (opts.push_backups_to_nostr_CustomCheck && !opts.push_backups_to_nostr_CustomCheck(o.push_backups_to_nostr)) return new Error(`${path}.push_backups_to_nostr: custom check failed`)
+    const remote_backupErr = RemoteBackupValidate(o.remote_backup, opts.remote_backup_Options, `${path}.remote_backup`)
+    if (remote_backupErr !== null) return remote_backupErr
+    
 
     return null
 }

@@ -11,7 +11,10 @@ import {
 
 } from "./settings.js"
 import { BackupManager } from "../backup/backupManager.js"
-import { assertOnchainConfSettings, OnchainConfTiers } from "./adminNodeSettings.js"
+import {
+    assertOnchainConfSettings, assertRemoteBackup, backupSettingsFromRemote, changedRemoteBackupSettings,
+    isRemoteBackupEnvLocked, OnchainConfTiers, RemoteBackupConfig,
+} from "./adminNodeSettings.js"
 export type SettingOverrideFunction = (s: FullSettings) => FullSettings
 export default class SettingsManager {
     storage: Storage
@@ -170,19 +173,27 @@ export default class SettingsManager {
 
 
 
-    async updatePushBackupsToNostr(push: boolean): Promise<boolean> {
+    async updateRemoteBackup(remote: RemoteBackupConfig): Promise<boolean> {
         if (!this.settings) {
             throw new Error("Settings not initialized")
         }
-        if (push === this.settings.serviceSettings.pushBackupsToNostr) {
+        assertRemoteBackup(remote)
+        if (isRemoteBackupEnvLocked()) {
             return false
         }
-        if (!!process.env.PUSH_BACKUPS_TO_NOSTR) {
+        const current = this.settings.backupSettings
+        const next = backupSettingsFromRemote(current, remote)
+        const changed = changedRemoteBackupSettings(current, next)
+        if (changed.length === 0) {
             return false
         }
-        await this.storage.settingsStorage.setDbEnvIFNeeded("PUSH_BACKUPS_TO_NOSTR", push ? "true" : "false")
-        this.settings.serviceSettings.pushBackupsToNostr = push
-        void this.backupManager?.notifyBackupTable('admin_settings')
+        for (const { env, field } of changed) {
+            await this.storage.settingsStorage.setDbEnvIFNeeded(env, String(next[field]))
+        }
+        this.settings.backupSettings = next
+        if (next.cloudEnabled || next.sftpEnabled) {
+            void this.backupManager?.uploadAllTables()
+        }
         return true
     }
 
