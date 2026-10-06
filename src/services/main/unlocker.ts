@@ -122,7 +122,7 @@ export class Unlocker {
         return { adminMacaroon }
     }
 
-    PostRestore = async (seed: string[], initMacaroon: string | undefined) => {
+    PostRestore = async (seed: string[], initMacaroon: string | undefined, expectedPub?: string | null): Promise<string | 'noaction'> => {
         if (this.settings.getSettings().liquiditySettings.useOnlyLiquidityProvider) {
             this.log("USE_ONLY_LIQUIDITY_PROVIDER enabled, skipping LND restore")
             return 'noaction'
@@ -146,9 +146,14 @@ export class Unlocker {
             throw new Error("lnd is running but no macaroon was found, check LND_MACAROON_PATH")
         }
         const ln = this.GetLightningClient(lndCert, m)
+        const pub = await this.waitForNodePub(state, ln)
+        if (expectedPub && pub.toLowerCase() !== expectedPub.trim().toLowerCase()) {
+            throw new Error('LND wallet does not match the wallet this restore started. This restore cannot continue. Delete .restore_checkpoint, .restore_phrase_hash, and .restore_wallet_pub, reset LND and the database, then retry from a clean node.')
+        }
         const encryptedSeed = this.EncryptWalletSeed(seed)
         this.nodePub = await this.saveSeed(state, ln, encryptedSeed.encryptedData)
         this.subscribeToBackups(ln, state, this.nodePub)
+        return pub
     }
 
     Unlock = async (): Promise<'created' | 'unlocked' | 'noaction'> => {

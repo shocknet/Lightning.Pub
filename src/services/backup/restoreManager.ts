@@ -6,7 +6,7 @@
 //
 // If LND already has a wallet and there is no resumable checkpoint (DB_COMMITTED /
 // LND_ACTIVE), restore returns immediately. Resume after those checkpoints is
-// allowed — that wallet was created on the first leg of this restore.
+// allowed only when the leftover state is complete and consistent.
 //
 // Local source: a directory of per-table *.enc shards (see backupTables.ts), same as
 // SFTP / cloud layout, decrypted with the backup phrase — not a raw DB file.
@@ -23,9 +23,13 @@
 // The SCB travels in the indexes shard, so there is no separate fetch. A shard that marks
 // the node as having no channels skips ApplyScb. Otherwise restore fails unless ApplyScb
 // succeeds, and a failed SCB leaves the checkpoint at LND_ACTIVE so the same phrase can
-// retry. Normal startup must not proceed while HasOngoingRecovery() is true (any
-// non-COMPLETED checkpoint file). Recovery waiters are notified only after restoreInFlight
-// is cleared.
+// retry. After DB_COMMITTED or LND_ACTIVE, resume is allowed only when the checkpoint
+// is complete and consistent (phrase binding, LND still has a wallet, this DB is not
+// empty). LND_ACTIVE also requires .restore_wallet_pub from the first PostRestore and
+// refuses a different connected wallet. Incomplete or mismatched state is not resumable:
+// restore returns a cleanup error instead of continuing. Normal startup must not proceed
+// while HasOngoingRecovery() is true (any non-COMPLETED checkpoint file). Recovery
+// waiters are notified only after restoreInFlight is cleared.
 
 import { getLogger, PubLogger } from '../helpers/logger.js'
 import { deriveBackupKeys, LATEST_DERIVATION_VERSION, type DerivedKeys } from './derivation.js'
@@ -57,6 +61,9 @@ export type RestoreResult = {
 }
 const CHECKPOINT_FILE = ".restore_checkpoint"
 const PHRASE_HASH_FILE = ".restore_phrase_hash"
+const WALLET_PUB_FILE = ".restore_wallet_pub"
+const ABANDON_RESTORE = 'Delete .restore_checkpoint, .restore_phrase_hash, and .restore_wallet_pub, reset LND and the database, then retry from a clean node.'
+const cannotResume = (why: string) => `${why} This restore cannot continue. ${ABANDON_RESTORE}`
 enum RestoreCheckpoint {
     STARTED = 'STARTED', // backup fetched and decrypted, phrase bound, about to import DB and init LND
     LND_RECOVERED = 'LND_RECOVERED', // lnd was recovered, but DB not commit, cannot continue recovery from this state
@@ -99,6 +106,11 @@ export class RestoreManager {
     getPhraseHashPath = () => {
         const dataDir = this.settings.getStorageSettings().dataDir
         return dataDir ? path.join(dataDir, PHRASE_HASH_FILE) : PHRASE_HASH_FILE
+    }
+
+    getWalletPubPath = () => {
+        const dataDir = this.settings.getStorageSettings().dataDir
+        return dataDir ? path.join(dataDir, WALLET_PUB_FILE) : WALLET_PUB_FILE
     }
 
     updateCheckpoint = (current: RestoreCheckpoint) => {
@@ -160,6 +172,8 @@ export class RestoreManager {
         waiters.forEach(w => w())
     }
 
+    hasPhraseBinding = (): boolean => fs.existsSync(this.getPhraseHashPath())
+
     bindRestorePhrase = (phrase: string) => {
         fs.writeFileSync(this.getPhraseHashPath(), hashRestorePhrase(phrase))
     }
@@ -167,7 +181,7 @@ export class RestoreManager {
     assertRestorePhraseMatches = (phrase: string) => {
         const hashPath = this.getPhraseHashPath()
         if (!fs.existsSync(hashPath)) {
-            throw new Error('Restore checkpoint is missing a phrase binding. Delete .restore_checkpoint and retry from a clean LND/DB, or re-run restore with the original phrase after resetting state.')
+            throw new Error(cannotResume('The restore checkpoint is missing its phrase binding.'))
         }
         const stored = fs.readFileSync(hashPath, 'utf8').trim()
         if (stored !== hashRestorePhrase(phrase)) {
@@ -176,9 +190,33 @@ export class RestoreManager {
     }
 
     clearPhraseBinding = () => {
-        const hashPath = this.getPhraseHashPath()
+        this.unlinkIfExists(this.getPhraseHashPath())
+    }
+
+    bindRestoreWallet = (pub: string) => {
+        const normalized = pub.trim().toLowerCase()
+        if (!normalized) {
+            return
+        }
+        fs.writeFileSync(this.getWalletPubPath(), normalized)
+    }
+
+    getBoundWalletPub = (): string | null => {
+        const pubPath = this.getWalletPubPath()
+        if (!fs.existsSync(pubPath)) {
+            return null
+        }
+        const stored = fs.readFileSync(pubPath, 'utf8').trim().toLowerCase()
+        return stored || null
+    }
+
+    clearWalletBinding = () => {
+        this.unlinkIfExists(this.getWalletPubPath())
+    }
+
+    private unlinkIfExists = (filePath: string) => {
         try {
-            fs.unlinkSync(hashPath)
+            fs.unlinkSync(filePath)
         } catch (err: any) {
             if (err.code !== 'ENOENT') throw err
         }
@@ -240,19 +278,36 @@ export class RestoreManager {
 
     private refusalReason = async (req: wizardTypes.RestoreRequest, checkpoint: RestoreCheckpoint, resumable: boolean): Promise<string | null> => {
         if (checkpoint === RestoreCheckpoint.LND_RECOVERED) {
-            return `Restore currently in broken state, lnd was recovered, but DB was not committed, 
-                    Delete .restore_checkpoint, reset LND, and try again`
+            return cannotResume('LND has a wallet but the database import did not finish.')
         }
-        // A resume needs the wallet created on the first leg; a fresh restore must not find one.
         const walletExists = await this.unlocker.WalletExists()
-        if (resumable && !walletExists) {
-            return 'The database was already restored, but LND has no wallet. Delete .restore_checkpoint and .restore_phrase_hash, reset LND and the database, then restart Pub.'
+        const dbClean = await this.storage.IsDbClean()
+        const startedInProgress = checkpoint === RestoreCheckpoint.STARTED && this.HasOngoingRecovery()
+        if (startedInProgress && walletExists) {
+            return cannotResume('Restore stopped before import finished, and LND already has a wallet.')
+        }
+        if (startedInProgress && !dbClean) {
+            return cannotResume('Restore stopped before import finished, and the database is not empty.')
+        }
+        if (resumable) {
+            if (!this.hasPhraseBinding()) {
+                return cannotResume('The restore checkpoint is missing its phrase binding.')
+            }
+            if (!walletExists) {
+                return cannotResume('The database was restored, but LND has no wallet.')
+            }
+            if (dbClean) {
+                return cannotResume('The checkpoint says the database was restored, but this database is empty.')
+            }
+            if (checkpoint === RestoreCheckpoint.LND_ACTIVE && !this.getBoundWalletPub()) {
+                return cannotResume('The checkpoint says LND is up, but this restore never recorded which wallet it is.')
+            }
         }
         if (!resumable && walletExists) {
             this.log("LND is already started, restore will not continue")
             return 'LND is already started. Restore cannot continue.'
         }
-        if (!resumable && !(await this.storage.IsDbClean())) {
+        if (!resumable && !dbClean) {
             return 'Database is not empty. Restore can only run against a freshly initialized database.'
         }
         if (!req.phrase || req.phrase.trim() === '') {
@@ -281,6 +336,7 @@ export class RestoreManager {
         // phrase or set the node up fresh. A local folder or FTP login does not prove the phrase,
         // only decryption does.
         this.bindRestorePhrase(phrase)
+        this.clearWalletBinding()
         this.updateCheckpoint(RestoreCheckpoint.STARTED)
         const imported = await this.storage.StartTransaction(async tx => {
             this.log("importing dialtone")
@@ -296,7 +352,11 @@ export class RestoreManager {
 
     private finishRestore = async (seed: string[], macaroon: string | undefined, scb: Uint8Array | null) => {
         this.log("waiting LND" + (scb ? " and restoring SCB" : ", backup has no channels"))
-        await this.unlocker.PostRestore(seed, macaroon)
+        const expectedPub = this.getBoundWalletPub()
+        const pub = await this.unlocker.PostRestore(seed, macaroon, expectedPub)
+        if (pub && pub !== 'noaction' && !expectedPub) {
+            this.bindRestoreWallet(pub)
+        }
         this.updateCheckpoint(RestoreCheckpoint.LND_ACTIVE)
         if (scb) {
             await this.restoreScb(Buffer.from(scb))
@@ -305,6 +365,7 @@ export class RestoreManager {
         }
         this.updateCheckpoint(RestoreCheckpoint.COMPLETED)
         this.clearPhraseBinding()
+        this.clearWalletBinding()
         this.log("RestoreFromSource completed")
     }
 

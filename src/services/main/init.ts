@@ -61,7 +61,7 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
         if (!restore.IsRecoveryActive()) {
             return
         }
-        log(reason, "To abandon the restore, delete .restore_checkpoint and .restore_phrase_hash, then restart Pub.")
+        log(reason, "To abandon the restore, delete .restore_checkpoint, .restore_phrase_hash, and .restore_wallet_pub, reset LND and the database, then restart Pub.")
         while (restore.IsRecoveryActive()) {
             await restore.WaitForRecoveryCompletion()
         }
