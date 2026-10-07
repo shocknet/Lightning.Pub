@@ -5,14 +5,8 @@ import SettingsManager from "../main/settingsManager.js"
 import Storage from '../storage/index.js'
 import { Unlocker } from "../main/unlocker.js"
 import { AdminManager } from '../main/adminManager.js';
-import { pickDefaultApp } from '../main/adminNodeSettings.js'
+import { assertRemoteBackup, DEFAULT_SFTP_PORT, pickDefaultApp, remoteBackupFromSettings } from '../main/adminNodeSettings.js'
 import { RestoreManager } from '../backup/restoreManager.js'
-export type WizardSettings = {
-    sourceName: string
-    relayUrl: string
-    automateLiquidity: boolean
-    pushBackupsToNostr: boolean
-}
 const defaultProviderPub = ""
 export class Wizard {
     log = getLogger({ component: "wizard" })
@@ -71,7 +65,7 @@ export class Wizard {
                 source_name: defaultApp?.name || this.settings.getSettings().serviceSettings.defaultAppName || appNamesList,
                 relay_url: relayUrl,
                 automate_liquidity: !this.settings.getSettings().liquiditySettings.disableLiquidityProvider,
-                push_backups_to_nostr: this.settings.getSettings().serviceSettings.pushBackupsToNostr,
+                remote_backup: remoteBackupFromSettings(this.settings.getSettings().backupSettings),
                 avatar_url: defaultApp?.avatar_url || '',
                 app_id: defaultApp?.app_id || '',
                 has_seed: await this.unlocker.HasSeedForNode(),
@@ -92,7 +86,7 @@ export class Wizard {
                 source_name: 'Error',
                 relay_url: '',
                 automate_liquidity: false,
-                push_backups_to_nostr: false,
+                remote_backup: { enabled: false, host: '', port: DEFAULT_SFTP_PORT, user: '', pass: '', host_fingerprint: '' },
                 avatar_url: '',
                 app_id: '',
                 has_seed: false,
@@ -176,19 +170,20 @@ export class Wizard {
             relay_url_CustomCheck: relay => relay !== '',
         })
         if (err != null) { throw new Error(err.message) }
+        assertRemoteBackup(req.remote_backup)
 
         const has_seed = await this.unlocker.HasSeedForNode()
-        if (!has_seed && req.push_backups_to_nostr) {
-            this.log("Ignoring request to push backups to nostr because no seed is available")
-            req.push_backups_to_nostr = false
+        if (!has_seed && req.remote_backup.enabled) {
+            this.log("Ignoring request to enable remote backup because no seed is available")
+            req.remote_backup = { ...req.remote_backup, enabled: false }
         }
 
-        const pendingConfig = { sourceName: req.source_name, relayUrl: req.relay_url, automateLiquidity: req.automate_liquidity, pushBackupsToNostr: req.push_backups_to_nostr }
+        const pendingConfig = { sourceName: req.source_name, relayUrl: req.relay_url, automateLiquidity: req.automate_liquidity }
 
         // Persist app name/avatar to DB regardless (idempotent behavior)
         // automateLiquidity=true means enable automation, so disableLiquidityProvider should be false
         await this.settings.updateDisableLiquidityProvider(!pendingConfig.automateLiquidity)
-        await this.settings.updatePushBackupsToNostr(pendingConfig.pushBackupsToNostr)
+        await this.settings.updateRemoteBackup(req.remote_backup)
         const oldAppName = this.settings.getSettings().serviceSettings.defaultAppName
         const nameUpdated = await this.settings.updateDefaultAppName(pendingConfig.sourceName)
         // Always try to update the default app info (handles avatar update even if name didn't change)

@@ -34,17 +34,21 @@ const OTHER_PHRASE = 'legal winner thank year wave sausage worth useful legal wi
 const TEST_WALLET_PUB = 'restore-wallet-a'
 const OTHER_WALLET_PUB = 'restore-wallet-b'
 
-type SpyBackup = BackupManager & { notified: BackupTableId[] }
+type SpyBackup = BackupManager & { notified: BackupTableId[], fullUploads: number }
 
 const makeSpyBackup = (): SpyBackup => {
     const notified: BackupTableId[] = []
     const spy = {
         notified,
+        fullUploads: 0,
         notifyBackupTable: async (...ids: BackupTableId[]) => {
             notified.push(...ids)
         },
+        uploadAllTables: async () => {
+            spy.fullUploads++
+        },
     }
-    return spy as SpyBackup
+    return spy as unknown as SpyBackup
 }
 
 const tempBackupDir = () => fs.mkdtempSync(path.join(os.tmpdir(), 'pub-backup-'))
@@ -111,7 +115,7 @@ export default async (T: StorageTestBase) => {
     await testShardWithoutScbFieldFails(T)
     testScbFromSnapshot(T)
     await testHookLspThreshold(T)
-    await testHookSiblingSettings(T)
+    await testHookRemoteBackupEnable(T)
     await testHookDefaultAppRename(T)
     await testHookEnrollCreate(T)
 }
@@ -1175,16 +1179,17 @@ const testHookLspThreshold = async (T: StorageTestBase) => {
     T.d('updateLspChannelThreshold notifies admin_settings')
 }
 
-const testHookSiblingSettings = async (T: StorageTestBase) => {
-    T.d('starting testHookSiblingSettings')
+const testHookRemoteBackupEnable = async (T: StorageTestBase) => {
+    T.d('starting testHookRemoteBackupEnable')
     const settings = new SettingsManager(T.storage)
     await settings.InitSettings()
     const spy = makeSpyBackup()
     settings.setBackupManager(spy)
-    const current = settings.getSettings().serviceSettings.pushBackupsToNostr
-    await settings.updatePushBackupsToNostr(!current)
-    T.expect(spy.notified).to.include('admin_settings')
-    T.d('sibling settings updater still notifies admin_settings')
+    await settings.updateRemoteBackup({ enabled: false, host: '', port: 22, user: '', pass: '', host_fingerprint: '' })
+    const changed = await settings.updateRemoteBackup({ enabled: true, host: '', port: 22, user: '', pass: '', host_fingerprint: '' })
+    T.expect(changed).to.equal(true)
+    T.expect(spy.fullUploads).to.equal(1)
+    T.d('turning remote backup on uploads every table to the new destination')
 }
 
 const testHookDefaultAppRename = async (T: StorageTestBase) => {
@@ -1215,7 +1220,7 @@ const testHookDefaultAppRename = async (T: StorageTestBase) => {
         node_name: newName,
         avatar_url: current.avatar_url,
         automate_liquidity: current.automate_liquidity,
-        push_backups_to_nostr: current.push_backups_to_nostr,
+        remote_backup: current.remote_backup,
         lsp_channel_threshold: current.lsp_channel_threshold,
     } as Types.UpdateAdminNodeSettingsRequest)
 

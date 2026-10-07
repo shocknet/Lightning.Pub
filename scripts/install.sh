@@ -14,7 +14,7 @@ log() {
 
 SCRIPT_VERSION="0.3.3"
 REPO="shocknet/Lightning.Pub"
-BRANCH="wizard-wip-merge-dash2"
+BRANCH="dash2"
 
 cleanup() {
     log "Cleaning up temporary files..."

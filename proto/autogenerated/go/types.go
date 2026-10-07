@@ -134,15 +134,15 @@ type AdminInvoiceSwapResponse struct {
 	Tx_id string `json:"tx_id"`
 }
 type AdminNodeSettings struct {
-	Automate_liquidity            bool   `json:"automate_liquidity"`
-	Automate_liquidity_env_locked bool   `json:"automate_liquidity_env_locked"`
-	Avatar_url                    string `json:"avatar_url"`
-	Backups_env_locked            bool   `json:"backups_env_locked"`
-	Lsp_channel_threshold         int64  `json:"lsp_channel_threshold"`
-	Lsp_threshold_env_locked      bool   `json:"lsp_threshold_env_locked"`
-	Node_name                     string `json:"node_name"`
-	Node_name_env_locked          bool   `json:"node_name_env_locked"`
-	Push_backups_to_nostr         bool   `json:"push_backups_to_nostr"`
+	Automate_liquidity            bool          `json:"automate_liquidity"`
+	Automate_liquidity_env_locked bool          `json:"automate_liquidity_env_locked"`
+	Avatar_url                    string        `json:"avatar_url"`
+	Lsp_channel_threshold         int64         `json:"lsp_channel_threshold"`
+	Lsp_threshold_env_locked      bool          `json:"lsp_threshold_env_locked"`
+	Node_name                     string        `json:"node_name"`
+	Node_name_env_locked          bool          `json:"node_name_env_locked"`
+	Remote_backup                 *RemoteBackup `json:"remote_backup"`
+	Remote_backup_env_locked      bool          `json:"remote_backup_env_locked"`
 }
 type AdminOnchainConfSettings struct {
 	Tier1_confs            int64 `json:"tier1_confs"`
@@ -826,6 +826,14 @@ type RefundAdminInvoiceSwapRequest struct {
 type RelaysMigration struct {
 	Relays []string `json:"relays"`
 }
+type RemoteBackup struct {
+	Enabled          bool   `json:"enabled"`
+	Host             string `json:"host"`
+	Host_fingerprint string `json:"host_fingerprint"`
+	Pass             string `json:"pass"`
+	Port             int64  `json:"port"`
+	User             string `json:"user"`
+}
 type RequestNPubLinkingTokenRequest struct {
 	User_identifier string `json:"user_identifier"`
 }
@@ -945,11 +953,11 @@ type TxSwapsList struct {
 	Swaps []TxSwapOperation `json:"swaps"`
 }
 type UpdateAdminNodeSettingsRequest struct {
-	Automate_liquidity    bool   `json:"automate_liquidity"`
-	Avatar_url            string `json:"avatar_url"`
-	Lsp_channel_threshold int64  `json:"lsp_channel_threshold"`
-	Node_name             string `json:"node_name"`
-	Push_backups_to_nostr bool   `json:"push_backups_to_nostr"`
+	Automate_liquidity    bool          `json:"automate_liquidity"`
+	Avatar_url            string        `json:"avatar_url"`
+	Lsp_channel_threshold int64         `json:"lsp_channel_threshold"`
+	Node_name             string        `json:"node_name"`
+	Remote_backup         *RemoteBackup `json:"remote_backup"`
 }
 type UpdateAdminOnchainConfSettingsRequest struct {
 	Tier1_confs      int64 `json:"tier1_confs"`

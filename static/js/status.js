@@ -54,7 +54,7 @@ $(() => {
                 source_name: updates.source_name ?? (s.source_name || s.provider_name || ''),
                 relay_url: updates.relay_url ?? (s.relay_url || (s.relays && s.relays[0]) || ''),
                 automate_liquidity: s.automate_liquidity || false,
-                push_backups_to_nostr: s.push_backups_to_nostr || false,
+                remote_backup: s.remote_backup,
                 avatar_url: updates.avatar_url !== undefined ? updates.avatar_url : (s.avatar_url || "")
             }
             const res = await fetch('/wizard/config', {

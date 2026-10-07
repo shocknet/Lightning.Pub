@@ -957,8 +957,7 @@ main.wizard section#page-relay .setup-content {
     margin-right: auto !important;
 }
 
-main.wizard section#page-relay .relay-cards-group,
-main.wizard section#page-relay .backup-section {
+main.wizard section#page-relay .relay-cards-group {
     width: 100% !important;
     max-width: 100% !important;
     min-width: 0 !important;
@@ -1214,79 +1213,6 @@ main.wizard input.relay-custom-input {
     appearance: none;
 }
 
-/* Backup Toggle - same content width as cards and progress bar */
-.backup-section {
-    margin-top: 1rem;
-    padding: 1rem;
-    border: 1px solid #3C3C3C;
-    border-radius: 10px;
-    background: #212325;
-}
-
-main.wizard .backup-section {
-    width: 100%;
-    min-width: 0;
-    box-sizing: border-box;
-}
-
-.backup-toggle-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1rem;
-}
-
-.backup-label {
-    font-size: 16px;
-    color: #fff;
-}
-
-/* Toggle Switch */
-.toggle-switch {
-    position: relative;
-    display: inline-block;
-    width: 40px;
-    height: 20px;
-}
-
-.toggle-switch input {
-    opacity: 0;
-    width: 0;
-    height: 0;
-}
-
-.toggle-slider {
-    position: absolute;
-    cursor: pointer;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: #ccc;
-    transition: .4s;
-    border-radius: 20px;
-}
-
-.toggle-slider:before {
-    position: absolute;
-    content: "";
-    height: 16px;
-    width: 16px;
-    left: 2px;
-    bottom: 2px;
-    background-color: white;
-    transition: .4s;
-    border-radius: 50%;
-}
-
-input:checked+.toggle-slider {
-    background-color: var(--color-marked);
-}
-
-input:checked+.toggle-slider:before {
-    transform: translateX(20px);
-}
-
 /* Utility */
 /* Utility */
 [x-cloak] {
@@ -1359,46 +1285,6 @@ input:checked+.toggle-slider:before {
     opacity: 0.9;
 }
 
-/* Backup Info Box (Purple) */
-.backup-info {
-    background: rgba(199, 64, 199, 0.08);
-    border: 1px solid rgba(199, 64, 199, 0.3);
-    border-radius: 8px;
-    padding: 1rem;
-    margin-top: 1rem;
-    text-align: left;
-}
-
-.backup-info-title {
-    font-family: 'Inter', sans-serif;
-    font-size: 14px;
-    color: #fff;
-    margin: 0 0 0.5rem;
-}
-
-.backup-location {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    margin-bottom: 0.75rem;
-}
-
-/* Backup Warning */
-.backup-warning {
-    background: rgba(80, 50, 30, 0.5);
-    border-radius: 8px;
-    padding: 0.75rem 1rem;
-    margin-top: 1rem;
-    display: flex;
-    gap: 0.75rem;
-    align-items: center;
-}
-
-.backup-warning .warning-text {
-    flex: 1;
-    margin: 0;
-}
-
 .warning-text {
     font-family: 'Inter', sans-serif;
     font-size: 13px;
@@ -1406,50 +1292,6 @@ input:checked+.toggle-slider:before {
     line-height: 1.6;
     text-align: left;
     margin: 1rem 0;
-}
-
-/* Correct Toggle Switch (Larger) */
-.toggle-switch {
-    position: relative;
-    display: inline-block;
-    width: 50px !important;
-    /* Legacy size */
-    height: 28px !important;
-    flex-shrink: 0;
-}
-
-.toggle-slider {
-    position: absolute;
-    cursor: pointer;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: #5F5F5F;
-    /* Legacy dark gray */
-    transition: 0.3s;
-    border-radius: 28px;
-}
-
-.toggle-slider:before {
-    position: absolute;
-    content: "";
-    height: 22px;
-    width: 22px;
-    left: 3px;
-    bottom: 3px;
-    background-color: #FFFFFF;
-    transition: 0.3s;
-    border-radius: 50%;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-}
-
-input:checked+.toggle-slider {
-    background: linear-gradient(90deg, #FF7700 0%, #C740C7 100%);
-}
-
-input:checked+.toggle-slider:before {
-    transform: translateX(22px);
 }
 
 /* --- Liquidity / Backup / Connect / Status (restored pages) --- */
