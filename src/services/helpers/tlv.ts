@@ -68,8 +68,28 @@ export const integerFromUint8Array = (data: Uint8Array): number => {
     return parseInt(bytesToHex(data), 16)
 }
 
+/**
+ * Big-endian unsigned integer, only as many bytes as the value needs (1–8).
+ * Backup amounts and generation ids use this. It is not a replacement for
+ * integerToUint8Array: TLbV lengths and metrics records are fixed at 4 bytes.
+ */
+export const uintToBytes = (value: number): Uint8Array => {
+    if (!Number.isSafeInteger(value) || value < 0) {
+        throw new Error(`integer out of range: ${value}`)
+    }
+    if (value === 0) return new Uint8Array([0])
+    const bytes: number[] = []
+    let n = value
+    while (n > 0) {
+        bytes.push(n % 256)
+        n = Math.floor(n / 256)
+    }
+    bytes.reverse()
+    return Uint8Array.from(bytes)
+}
+
 export const integerToUint8Array = (number: number): Uint8Array => {
-    // Create a Uint8Array with enough space to hold a 32-bit integer (4 bytes).
+    // Fixed 4-byte layout. Width is part of the format for TLbV lengths and metrics.
     const uint8Array = new Uint8Array(4)
 
     // Use bitwise operations to extract the bytes.

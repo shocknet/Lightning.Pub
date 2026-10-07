@@ -1,7 +1,7 @@
 import crypto from 'crypto'
 import { deriveBackupKeys, LATEST_DERIVATION_VERSION } from '../services/backup/derivation.js'
 import { encryptPayload, decryptPayload } from '../services/backup/encryption.js'
-import { encryptTableRows, decryptTableRows, encodeBalanceRow, decodeBalanceRow, BalanceRow } from '../services/backup/segments.js'
+import { encryptTableRows, decryptTableRows, decryptTableShard, encodeBalanceRow, decodeBalanceRow, BalanceRow } from '../services/backup/segments.js'
 import { StorageTestBase } from './testBase.js'
 
 export const ignore = false
@@ -16,6 +16,8 @@ export default async (T: StorageTestBase) => {
     await testEncryptDecryptPayload(T)
     await testEncryptDecryptRejectsWrongKey(T)
     await testEncryptDecryptTableRows(T)
+    await testEncryptDecryptTableGeneration(T)
+    await testLargeBackupIntegersRoundTrip(T)
 }
 
 const testDeriveKeysStable = async (T: StorageTestBase) => {
@@ -76,8 +78,32 @@ const testEncryptDecryptTableRows = async (T: StorageTestBase) => {
         { user_id: 'aa'.repeat(16), balance_sats: 100, locked: false },
         { user_id: 'bb'.repeat(16), balance_sats: 0, locked: true },
     ]
-    const enc = encryptTableRows(rows.map(encodeBalanceRow), keys.encKey)
+    const enc = encryptTableRows(rows.map(encodeBalanceRow), keys.encKey, 1)
     const decoded = decryptTableRows(enc, keys.encKey).map(decodeBalanceRow)
     T.expect(decoded).to.deep.equal(rows)
     T.d('per-table encrypt/decrypt preserves balance rows')
+}
+
+const testEncryptDecryptTableGeneration = async (T: StorageTestBase) => {
+    T.d('starting testEncryptDecryptTableGeneration')
+    const keys = await deriveBackupKeys(TEST_PHRASE)
+    const rows: BalanceRow[] = [{ user_id: 'aa'.repeat(16), balance_sats: 1, locked: false }]
+    const enc = encryptTableRows(rows.map(encodeBalanceRow), keys.encKey, 42)
+    const shard = decryptTableShard(enc, keys.encKey)
+    T.expect(shard.generation).to.equal(42)
+    T.expect(shard.rows.map(decodeBalanceRow)).to.deep.equal(rows)
+    T.d('a table shard stores its generation')
+}
+
+const testLargeBackupIntegersRoundTrip = async (T: StorageTestBase) => {
+    T.d('starting testLargeBackupIntegersRoundTrip')
+    const keys = await deriveBackupKeys(TEST_PHRASE)
+    const generation = Date.now()
+    const balance = 5_000_000_000
+    const rows: BalanceRow[] = [{ user_id: 'aa'.repeat(16), balance_sats: balance, locked: false }]
+    const enc = encryptTableRows(rows.map(encodeBalanceRow), keys.encKey, generation)
+    const shard = decryptTableShard(enc, keys.encKey)
+    T.expect(shard.generation).to.equal(generation)
+    T.expect(shard.rows.map(decodeBalanceRow)).to.deep.equal(rows)
+    T.d('balances and generation ids above 2^32 round-trip')
 }

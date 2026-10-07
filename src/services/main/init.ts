@@ -105,7 +105,6 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
     settingsManager.setBackupManager(backupManager)
     adminManager.setBackupManager(backupManager)
     unlocker.SetChannelBackupSink(scb => backupManager.ChannelBackupUpdate(scb))
-    backupManager.notifyBackupTable('admin_settings', 'applications', 'user_balances')
 
     const mainHandler = new Main(settingsManager, storageManager, adminManager, utils, unlocker, backupManager)
     adminManager.setLND(mainHandler.lnd)
@@ -140,7 +139,6 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
         log("no default wallet app found, creating one...")
         const newWalletApp = await mainHandler.storage.applicationStorage.AddApplication(defaultAppName, true)
         appsData.push(newWalletApp)
-        // Runs after the early applications/user_balances notify above — flush the new owner row too.
         backupManager.notifyBackupTable('applications', 'user_balances')
     }
     const apps: AppData[] = await Promise.all(appsData.map(async app => {
@@ -153,6 +151,9 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
             return { privateKey: app.nostr_private_key, publicKey: app.nostr_public_key, appId: app.app_id, name: app.name }
         }
     }))
+    // Every shard, including empty tables, so a newly enabled destination is restorable.
+    // indexes.enc is included only when both the address count and channel backup were snapshotted.
+    await backupManager.uploadAllTables()
     const localProviderClient = pickDefaultApp(apps, defaultAppName)
     if (!localProviderClient) {
         throw new Error("local app not initialized correctly")

@@ -112,20 +112,68 @@ function connectSftp(config: SftpConfig): Promise<{ client: Client, sftp: SFTPWr
     })
 }
 
-// Upload a buffer to a remote file path. Latest-only: overwrites on each call.
-export async function sftpUpload(config: SftpConfig, remotePath: string, data: Buffer): Promise<void> {
+async function withSftp<T>(config: SftpConfig, fn: (sftp: SFTPWrapper) => Promise<T>): Promise<T> {
     const { client, sftp } = await connectSftp(config)
     try {
-        await new Promise<void>((resolve, reject) => {
-            const stream = sftp.createWriteStream(remotePath)
-            stream.on('error', (err: Error) => reject(new Error(`SFTP write error: ${err.message}`)))
-            stream.on('close', () => resolve())
-            stream.end(data)
-        })
-        log(`Uploaded ${remotePath} (${data.length} bytes)`)
+        return await fn(sftp)
     } finally {
         client.end()
     }
+}
+
+function sftpWriteStream(sftp: SFTPWrapper, remotePath: string, data: Buffer): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+        const stream = sftp.createWriteStream(remotePath)
+        stream.on('error', (err: Error) => reject(new Error(`SFTP write error: ${err.message}`)))
+        stream.on('close', () => resolve())
+        stream.end(data)
+    })
+}
+
+function sftpRenameOverwriteOn(sftp: SFTPWrapper, from: string, to: string): Promise<void> {
+    const posixRename = (src: string, dest: string) => new Promise<void>((resolve, reject) => {
+        sftp.ext_openssh_rename(src, dest, err => {
+            if (err) reject(err)
+            else resolve()
+        })
+    })
+    const rename = (src: string, dest: string) => new Promise<void>((resolve, reject) => {
+        sftp.rename(src, dest, err => {
+            if (err) reject(err)
+            else resolve()
+        })
+    })
+    const unlink = (p: string) => new Promise<void>(resolve => {
+        sftp.unlink(p, () => resolve())
+    })
+    return posixRename(from, to).catch(() =>
+        rename(from, to).catch(async () => {
+            await unlink(to)
+            await rename(from, to)
+        }),
+    ).catch((err: any) => {
+        throw new Error(`SFTP rename error: ${err.message || err}`)
+    })
+}
+
+/** Write a remote file. Prefer sftpAtomicReplace so a crash cannot truncate the committed name. */
+export async function sftpUpload(config: SftpConfig, remotePath: string, data: Buffer): Promise<void> {
+    await withSftp(config, sftp => sftpWriteStream(sftp, remotePath, data))
+    log(`Uploaded ${remotePath} (${data.length} bytes)`)
+}
+
+/** Write `dest.tmp` then POSIX-rename over `dest` so the previous dest survives an interrupted write. */
+export async function sftpAtomicReplace(config: SftpConfig, destPath: string, data: Buffer): Promise<void> {
+    const tmpPath = `${destPath}.tmp`
+    await withSftp(config, async sftp => {
+        await sftpWriteStream(sftp, tmpPath, data)
+        await sftpRenameOverwriteOn(sftp, tmpPath, destPath)
+    })
+    log(`Uploaded ${destPath} (${data.length} bytes)`)
+}
+
+export async function sftpRenameOverwrite(config: SftpConfig, from: string, to: string): Promise<void> {
+    await withSftp(config, sftp => sftpRenameOverwriteOn(sftp, from, to))
 }
 export type SFTPFile = { found: true, data: Buffer } | { found: false }
 // Download a remote file. Returns null if file not found.
