@@ -20,6 +20,7 @@ import PaymentManager from "../main/paymentManager.js";
 import { K1_PRUNE_INTERVAL_MS } from "../storage/debitStorage.js";
 import { isAccountOwner, denyStrangerLiveAuth } from "./clinkOwner.js";
 import { NotificationsManager } from "../main/notificationsManager.js";
+import { BackupManager } from "../backup/backupManager.js";
 import { ClinkCtx, ClinkError, encodeClinkResponse } from "./clinkTypes.js";
 import { CLINK_DEBIT_KIND } from "./clinkConstants.js";
 import { DebitAuthGate } from "./debitAuthGate.js";
@@ -53,14 +54,16 @@ export class DebitManager {
     paymentManager: PaymentManager
     pruneTimer: NodeJS.Timer
     notificationsManager: NotificationsManager
+    backupManager: BackupManager
     authGate = new DebitAuthGate()
     logger = getLogger({ component: 'DebitManager' })
-    constructor(storage: Storage, lnd: LND, applicationManager: ApplicationManager, paymentManager: PaymentManager, notificationsManager: NotificationsManager) {
+    constructor(storage: Storage, lnd: LND, applicationManager: ApplicationManager, paymentManager: PaymentManager, notificationsManager: NotificationsManager, backupManager: BackupManager) {
         this.storage = storage
         this.lnd = lnd
         this.applicationManager = applicationManager
         this.paymentManager = paymentManager
         this.notificationsManager = notificationsManager
+        this.backupManager = backupManager
         this.pruneTimer = setInterval(() => {
             this.storage.debitStorage.PruneDebitK1Attempts().catch(e => this.logger("k1 prune failed", e?.message || e))
         }, K1_PRUNE_INTERVAL_MS)
@@ -88,14 +91,17 @@ export class DebitManager {
             throw new Error("Debit does not exist")
         }
         await this.storage.debitStorage.UpdateDebitAccessRules(ctx.app_user_id, req.authorize_npub, debitRulesToDebitAccessRules(req.rules));
+        void this.backupManager.notifyBackupTable('debit_accesses')
     }
 
     BanDebit = async (ctx: Types.UserContext, req: Types.DebitOperation): Promise<void> => {
         await this.storage.debitStorage.DenyDebitAccess(ctx.app_user_id, req.npub)
+        void this.backupManager.notifyBackupTable('debit_accesses')
         this.authGate.clearPair(ctx.app_user_id, req.npub)
     }
     ResetDebit = async (ctx: Types.UserContext, req: Types.DebitOperation): Promise<void> => {
         await this.storage.debitStorage.RemoveDebitAccess(ctx.app_user_id, req.npub)
+        void this.backupManager.notifyBackupTable('debit_accesses')
         this.authGate.clearPair(ctx.app_user_id, req.npub)
     }
 
@@ -211,6 +217,7 @@ export class DebitManager {
             npub,
             rules: debitRulesToDebitAccessRules(debit.rules)
         })
+        void this.backupManager.notifyBackupTable('debit_accesses')
         if (!request_id) {
             return
         }
@@ -628,6 +635,7 @@ export class DebitManager {
             )
             if (!skipAccessIncrement) {
                 await this.storage.debitStorage.IncrementDebitAccess(appUserId, requestorPub, payment.amount_paid + payment.service_fee)
+                void this.backupManager.notifyBackupTable('debit_accesses')
             }
             return { payment }
         } catch (e: any) {
@@ -691,6 +699,7 @@ export class DebitManager {
             const [expiration] = rules[expirationRuleName]
             if (+expiration < Math.floor(Date.now() / 1000)) {
                 await this.storage.debitStorage.RemoveDebitAccess(access.app_user_id, access.npub)
+                void this.backupManager.notifyBackupTable('debit_accesses')
                 this.fail(3)
             }
         }

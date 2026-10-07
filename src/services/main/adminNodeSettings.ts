@@ -1,12 +1,124 @@
+import type { BackupSettings } from "./settings.js"
+
 export const ADMIN_NODE_NAME_ENV = "DEFAULT_APP_NAME"
 export const ADMIN_AUTOMATION_ENV = "DISABLE_LIQUIDITY_PROVIDER"
-export const ADMIN_BACKUPS_ENV = "PUSH_BACKUPS_TO_NOSTR"
 export const ADMIN_LSP_THRESHOLD_ENV = "LSP_CHANNEL_THRESHOLD"
+export const ADMIN_TIER1_LIMIT_ENV = "ONCHAIN_TIER1_LIMIT_SATS"
+export const ADMIN_TIER1_CONFS_ENV = "ONCHAIN_TIER1_CONFS"
+export const ADMIN_TIER2_LIMIT_ENV = "ONCHAIN_TIER2_LIMIT_SATS"
+export const ADMIN_TIER2_CONFS_ENV = "ONCHAIN_TIER2_CONFS"
+export const ADMIN_TIER3_CONFS_ENV = "ONCHAIN_TIER3_CONFS"
 export const MAX_NODE_NAME_LEN = 64
 export const DEFAULT_LSP_CHANNEL_THRESHOLD = 1_000_000
 export const MAX_LSP_CHANNEL_THRESHOLD = 100_000_000_000
 
 export const isEnvLocked = (key: string) => !!process.env[key]
+
+export const DEFAULT_SFTP_PORT = 22
+const MAX_PORT = 65535
+
+/** Shared shape of the wizard and admin RemoteBackup messages. */
+export type RemoteBackupConfig = {
+    enabled: boolean
+    host: string
+    port: number
+    user: string
+    pass: string
+    host_fingerprint: string
+}
+
+type RemoteBackupField = Exclude<keyof BackupSettings, 'localPath'>
+export const REMOTE_BACKUP_SETTINGS: { env: string, field: RemoteBackupField }[] = [
+    { env: "BACKUP_CLOUD_ENABLED", field: "cloudEnabled" },
+    { env: "BACKUP_SFTP_ENABLED", field: "sftpEnabled" },
+    { env: "BACKUP_SFTP_HOST", field: "sftpHost" },
+    { env: "BACKUP_SFTP_PORT", field: "sftpPort" },
+    { env: "BACKUP_SFTP_USER", field: "sftpUser" },
+    { env: "BACKUP_SFTP_PASS", field: "sftpPass" },
+    { env: "BACKUP_SFTP_HOST_FINGERPRINT", field: "sftpHostFingerprint" },
+]
+
+export const isRemoteBackupEnvLocked = () => REMOTE_BACKUP_SETTINGS.some(s => isEnvLocked(s.env))
+
+export const changedRemoteBackupSettings = (current: BackupSettings, next: BackupSettings) =>
+    REMOTE_BACKUP_SETTINGS.filter(s => current[s.field] !== next[s.field])
+
+export const remoteBackupFromSettings = (bs: BackupSettings): RemoteBackupConfig => {
+    const custom = bs.sftpEnabled
+    return {
+        enabled: bs.cloudEnabled || custom,
+        host: custom ? bs.sftpHost : "",
+        port: custom ? bs.sftpPort : DEFAULT_SFTP_PORT,
+        user: custom ? bs.sftpUser : "",
+        pass: "",
+        host_fingerprint: custom ? bs.sftpHostFingerprint : "",
+    }
+}
+
+/** An empty host selects the Lightning.Pub server; stored custom SFTP values are kept for switching back. */
+export const backupSettingsFromRemote = (current: BackupSettings, remote: RemoteBackupConfig): BackupSettings => {
+    const host = remote.host.trim()
+    const user = remote.user.trim()
+    const custom = remote.enabled && host !== ""
+    if (!custom) {
+        return { ...current, cloudEnabled: remote.enabled, sftpEnabled: false }
+    }
+    const sameLogin = current.sftpEnabled && current.sftpHost === host && current.sftpUser === user
+    return {
+        ...current,
+        cloudEnabled: false,
+        sftpEnabled: true,
+        sftpHost: host,
+        sftpPort: remote.port || DEFAULT_SFTP_PORT,
+        sftpUser: user,
+        sftpPass: remote.pass === "" && sameLogin ? current.sftpPass : remote.pass,
+        sftpHostFingerprint: remote.host_fingerprint.trim(),
+    }
+}
+
+export const isValidRemoteBackup = (remote: RemoteBackupConfig) => {
+    const host = remote.host.trim()
+    if (!remote.enabled || host === "") return true
+    if (/\s/.test(host)) return false
+    return Number.isSafeInteger(remote.port) && remote.port >= 0 && remote.port <= MAX_PORT
+}
+
+export const assertRemoteBackup = (remote: RemoteBackupConfig) => {
+    if (!isValidRemoteBackup(remote)) {
+        throw new Error("remote backup needs a host without spaces and a port between 1 and 65535")
+    }
+}
+
+export type OnchainConfTiers = {
+    tier1LimitSats: number
+    tier1Confs: number
+    tier2LimitSats: number
+    tier2Confs: number
+    tier3Confs: number
+}
+
+export const isValidOnchainConfSettings = (tiers: OnchainConfTiers) => {
+    const { tier1LimitSats, tier1Confs, tier2LimitSats, tier2Confs, tier3Confs } = tiers
+    if (![tier1LimitSats, tier1Confs, tier2LimitSats, tier2Confs, tier3Confs].every(Number.isSafeInteger)) {
+        return false
+    }
+    if (tier1LimitSats < 0 || tier2LimitSats < 0) {
+        return false
+    }
+    if (tier1LimitSats > tier2LimitSats) {
+        return false
+    }
+    if (tier1Confs < 1 || tier1Confs > tier2Confs || tier2Confs > tier3Confs) {
+        return false
+    }
+    return true
+}
+
+export const assertOnchainConfSettings = (tiers: OnchainConfTiers) => {
+    if (!isValidOnchainConfSettings(tiers)) {
+        throw new Error("onchain conf tiers must have non-negative limits with tier1 <= tier2, and confs >= 1 non-decreasing across tiers")
+    }
+}
 
 /** User-facing "use automation" is the inverse of DISABLE_LIQUIDITY_PROVIDER. Default (no env): on. */
 export const automationEnabled = (disableLiquidityProvider: boolean) => !disableLiquidityProvider

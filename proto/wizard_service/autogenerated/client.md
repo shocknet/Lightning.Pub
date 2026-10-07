@@ -10,18 +10,18 @@ A nostr request will take the same parameter and give the same response as an ht
 
 The nostr server will send back a message response, and inside the body there will also be a __requestId__ to identify the request this response is answering
 
-## NOSTR Methods
+## Wizard NOSTR Methods
 ### These are the nostr methods the client implements to communicate with the API via nostr
 
-# HTTP API DEFINITION
+# Wizard HTTP API DEFINITION
 
-## Supported HTTP Auths
+## Wizard Supported HTTP Auths
 ### These are the supported http auth types, to give different type of access to the API users
 
 - __Guest__:
   - expected context content
 
-## HTTP Methods
+## Wizard HTTP Methods
 ### These are the http methods the client implements to communicate with the API
 
 - GetAdminConnectInfo
@@ -45,6 +45,13 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [ConfigRequest](#ConfigRequest)
   - This methods has an __empty__ __response__ body
 
+- WizardRestore
+  - auth type: __Guest__
+  - http method: __post__
+  - http route: __/wizard/restore__
+  - input: [RestoreRequest](#RestoreRequest)
+  - output: [RestoreResponse](#RestoreResponse)
+
 - WizardState
   - auth type: __Guest__
   - http method: __get__
@@ -64,25 +71,50 @@ The nostr server will send back a message response, and inside the body there wi
 ### ConfigRequest
   - __automate_liquidity__: _boolean_
   - __avatar_url__: _string_
-  - __push_backups_to_nostr__: _boolean_
   - __relay_url__: _string_
+  - __remote_backup__: _[RemoteBackup](#RemoteBackup)_
   - __source_name__: _string_
 
 ### Empty
+
+### FtpCreds
+  - __pass__: _string_
+  - __user__: _string_
+
+### RemoteBackup
+  - __enabled__: _boolean_
+  - __host__: _string_
+  - __host_fingerprint__: _string_
+  - __pass__: _string_
+  - __port__: _number_
+  - __user__: _string_
+
+### RestoreRequest
+  - __creds_override__: _[FtpCreds](#FtpCreds)_ *this field is optional
+  - __phrase__: _string_
+  - __source__: _[RestoreRequest_source](#RestoreRequest_source)_
+
+### RestoreResponse
+  - __entries_restored__: _number_
+  - __error__: _string_
+  - __scb_restored__: _boolean_
+  - __success__: _boolean_
 
 ### ServiceStateResponse
   - __admin_npub__: _string_
   - __app_id__: _string_
   - __automate_liquidity__: _boolean_
   - __avatar_url__: _string_
+  - __has_seed__: _boolean_
   - __http_url__: _string_
+  - __is_db_clean__: _boolean_
   - __lnd_state__: _[LndState](#LndState)_
   - __nprofile__: _string_
   - __provider_name__: _string_
-  - __push_backups_to_nostr__: _boolean_
   - __relay_connected__: _boolean_
   - __relay_url__: _string_
   - __relays__: ARRAY of: _string_
+  - __remote_backup__: _[RemoteBackup](#RemoteBackup)_
   - __source_name__: _string_
   - __watchdog_ok__: _boolean_
 

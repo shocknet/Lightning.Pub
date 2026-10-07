@@ -997,7 +997,7 @@ const testAcceptedK1RejectsOtherInvoiceAfterRestart = async (T: TestBase) => {
     )
     await expectDebitFail(T, sameInvoice, 6, invalidRequestError(invoiceAlreadyPaidReason), gfy6Reason.invoiceAlreadyPaid)
     T.main.debitManager.Stop()
-    T.main.debitManager = new DebitManager(T.main.storage, T.main.lnd, T.main.applicationManager, T.main.paymentManager, T.main.notificationsManager)
+    T.main.debitManager = new DebitManager(T.main.storage, T.main.lnd, T.main.applicationManager, T.main.paymentManager, T.main.notificationsManager, T.main.backupManager)
     const invoice2 = await T.externalAccessToOtherLnd.NewInvoice(500, "debit k1 persist 2", defaultInvoiceExpiry, { from: 'system', useProvider: false })
     await expectDebitFail(T, handleDebit(T,
         mockNostrEvent(T, npub, "k1-persist-2"),
@@ -1420,7 +1420,7 @@ const testK1ConsumeRateLimitIsDurable = async (T: TestBase) => {
         invalidRequestError(k1AlreadyProcessedReason),
     )
     T.main.debitManager.Stop()
-    T.main.debitManager = new DebitManager(T.main.storage, T.main.lnd, T.main.applicationManager, T.main.paymentManager, T.main.notificationsManager)
+    T.main.debitManager = new DebitManager(T.main.storage, T.main.lnd, T.main.applicationManager, T.main.paymentManager, T.main.notificationsManager, T.main.backupManager)
     await expectThrowsAsync(
         T.main.debitManager.consumeK1(appId, pointer, sessionK1(9000)),
         debitErrors[4],

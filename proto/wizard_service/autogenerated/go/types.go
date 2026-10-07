@@ -21,29 +21,54 @@ type AdminConnectInfoResponse struct {
 	Nprofile     string                                 `json:"nprofile"`
 }
 type ConfigRequest struct {
-	Automate_liquidity    bool   `json:"automate_liquidity"`
-	Avatar_url            string `json:"avatar_url"`
-	Push_backups_to_nostr bool   `json:"push_backups_to_nostr"`
-	Relay_url             string `json:"relay_url"`
-	Source_name           string `json:"source_name"`
+	Automate_liquidity bool          `json:"automate_liquidity"`
+	Avatar_url         string        `json:"avatar_url"`
+	Relay_url          string        `json:"relay_url"`
+	Remote_backup      *RemoteBackup `json:"remote_backup"`
+	Source_name        string        `json:"source_name"`
 }
 type Empty struct {
 }
+type FtpCreds struct {
+	Pass string `json:"pass"`
+	User string `json:"user"`
+}
+type RemoteBackup struct {
+	Enabled          bool   `json:"enabled"`
+	Host             string `json:"host"`
+	Host_fingerprint string `json:"host_fingerprint"`
+	Pass             string `json:"pass"`
+	Port             int64  `json:"port"`
+	User             string `json:"user"`
+}
+type RestoreRequest struct {
+	Creds_override *FtpCreds              `json:"creds_override"`
+	Phrase         string                 `json:"phrase"`
+	Source         *RestoreRequest_source `json:"source"`
+}
+type RestoreResponse struct {
+	Entries_restored int64  `json:"entries_restored"`
+	Error            string `json:"error"`
+	Scb_restored     bool   `json:"scb_restored"`
+	Success          bool   `json:"success"`
+}
 type ServiceStateResponse struct {
-	Admin_npub            string   `json:"admin_npub"`
-	App_id                string   `json:"app_id"`
-	Automate_liquidity    bool     `json:"automate_liquidity"`
-	Avatar_url            string   `json:"avatar_url"`
-	Http_url              string   `json:"http_url"`
-	Lnd_state             LndState `json:"lnd_state"`
-	Nprofile              string   `json:"nprofile"`
-	Provider_name         string   `json:"provider_name"`
-	Push_backups_to_nostr bool     `json:"push_backups_to_nostr"`
-	Relay_connected       bool     `json:"relay_connected"`
-	Relay_url             string   `json:"relay_url"`
-	Relays                []string `json:"relays"`
-	Source_name           string   `json:"source_name"`
-	Watchdog_ok           bool     `json:"watchdog_ok"`
+	Admin_npub         string        `json:"admin_npub"`
+	App_id             string        `json:"app_id"`
+	Automate_liquidity bool          `json:"automate_liquidity"`
+	Avatar_url         string        `json:"avatar_url"`
+	Has_seed           bool          `json:"has_seed"`
+	Http_url           string        `json:"http_url"`
+	Is_db_clean        bool          `json:"is_db_clean"`
+	Lnd_state          LndState      `json:"lnd_state"`
+	Nprofile           string        `json:"nprofile"`
+	Provider_name      string        `json:"provider_name"`
+	Relay_connected    bool          `json:"relay_connected"`
+	Relay_url          string        `json:"relay_url"`
+	Relays             []string      `json:"relays"`
+	Remote_backup      *RemoteBackup `json:"remote_backup"`
+	Source_name        string        `json:"source_name"`
+	Watchdog_ok        bool          `json:"watchdog_ok"`
 }
 type StateResponse struct {
 	Admin_linked bool `json:"admin_linked"`
@@ -60,4 +85,18 @@ type AdminConnectInfoResponse_connect_info struct {
 	Type          AdminConnectInfoResponse_connect_info_type `json:"type"`
 	Admin_token   *string                                    `json:"admin_token"`
 	Enrolled_npub *string                                    `json:"enrolled_npub"`
+}
+type RestoreRequest_source_type string
+
+const (
+	CLOUD      RestoreRequest_source_type = "cloud"
+	FTP_HOST   RestoreRequest_source_type = "ftp_host"
+	LOCAL_PATH RestoreRequest_source_type = "local_path"
+)
+
+type RestoreRequest_source struct {
+	Type       RestoreRequest_source_type `json:"type"`
+	Cloud      *Empty                     `json:"cloud"`
+	Ftp_host   *string                    `json:"ftp_host"`
+	Local_path *string                    `json:"local_path"`
 }

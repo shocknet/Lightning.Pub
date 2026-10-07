@@ -7,9 +7,10 @@ import { getLogger } from "../helpers/logger.js";
 import { UserOffer } from '../storage/entity/UserOffer.js';
 import { LiquidityManager } from "../main/liquidityManager.js"
 import { NofferData, OfferPriceType, nofferEncode } from '@shocknet/clink-sdk';
+import { BackupManager } from "../backup/backupManager.js";
 import SettingsManager from "../main/settingsManager.js";
 import { assertCallbackUrlAllowed } from "../helpers/safeOutboundFetch.js";
-import { assertValidOfferPriceSats } from "../helpers/offerValidation.js";
+import { assertValidOfferPriceSats, defaultOfferWebhookRejection, DEFAULT_OFFER_NO_DELETE, isDefaultUserOffer } from "../helpers/offerValidation.js";
 import { NofferError } from "./offerTypes.js";
 import { ClinkCtx } from "./clinkTypes.js";
 
@@ -39,14 +40,16 @@ export class OfferManager {
     storage: Storage
     lnd: LND
     liquidityManager: LiquidityManager
+    backupManager: BackupManager
     logger = getLogger({ component: 'OfferManager' })
-    constructor(storage: Storage, settings: SettingsManager, lnd: LND, applicationManager: ApplicationManager, productManager: ProductManager, liquidityManager: LiquidityManager) {
+    constructor(storage: Storage, settings: SettingsManager, lnd: LND, applicationManager: ApplicationManager, productManager: ProductManager, liquidityManager: LiquidityManager, backupManager: BackupManager) {
         this.storage = storage
         this.settings = settings
         this.lnd = lnd
         this.applicationManager = applicationManager
         this.productManager = productManager
         this.liquidityManager = liquidityManager
+        this.backupManager = backupManager
     }
 
     async AddUserOffer(ctx: Types.UserContext, req: Types.OfferCreateRequest): Promise<Types.OfferId> {
@@ -61,18 +64,29 @@ export class OfferManager {
             bearer_token: req.token,
             rejectUnauthorized: req.rejectUnauthorized,
         })
+        this.backupManager.notifyBackupTable('user_offers')
         return {
             offer_id: newOffer.offer_id
         }
     }
 
     async DeleteUserOffer(ctx: Types.UserContext, req: Types.OfferId) {
+        if (isDefaultUserOffer(ctx.app_user_id, req.offer_id)) {
+            throw new Error(DEFAULT_OFFER_NO_DELETE)
+        }
         await this.storage.offerStorage.DeleteUserOffer(ctx.app_user_id, req.offer_id)
+        this.backupManager.notifyBackupTable('user_offers')
     }
 
     async UpdateUserOffer(ctx: Types.UserContext, req: Types.OfferUpdateRequest) {
         assertValidOfferPriceSats(req.price_sats)
         assertCallbackUrlAllowed(req.callback_url)
+        if (isDefaultUserOffer(ctx.app_user_id, req.offer_id)) {
+            const rejection = defaultOfferWebhookRejection(req)
+            if (rejection) {
+                throw new Error(rejection)
+            }
+        }
         await this.storage.offerStorage.UpdateUserOffer(ctx.app_user_id, req.offer_id, {
             payer_data: req.payer_data,
             label: req.label,
@@ -82,6 +96,7 @@ export class OfferManager {
             bearer_token: req.token,
             rejectUnauthorized: req.rejectUnauthorized,
         })
+        this.backupManager.notifyBackupTable('user_offers')
     }
     async GetUserOfferInvoices(ctx: Types.UserContext, req: Types.GetUserOfferInvoicesReq): Promise<Types.OfferInvoices> {
         const userOffer = await this.storage.offerStorage.GetUserOffer(ctx.app_user_id, req.offer_id)
@@ -123,6 +138,7 @@ export class OfferManager {
         let toAppend: UserOffer | undefined = undefined
         if (!defaultOffer) {
             toAppend = await this.storage.offerStorage.AddDefaultUserOffer(ctx.app_user_id)
+            this.backupManager.notifyBackupTable('user_offers')
         }
         if (toAppend) {
             offers.push(toAppend)

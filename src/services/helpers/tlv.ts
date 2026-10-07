@@ -64,6 +64,10 @@ export const tlvToUsageMetrics = (rpcName: string, tlv: TLV): Types.UsageMetric 
     return metric
 }
 
+export const integerFromUint8Array = (data: Uint8Array): number => {
+    return parseInt(bytesToHex(data), 16)
+}
+
 export const integerToUint8Array = (number: number): Uint8Array => {
     // Create a Uint8Array with enough space to hold a 32-bit integer (4 bytes).
     const uint8Array = new Uint8Array(4)

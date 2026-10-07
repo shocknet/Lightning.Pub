@@ -1,6 +1,8 @@
 import { DebitAccess, DebitAccessRules } from "./entity/DebitAccess.js";
 import { ConsumedDebitK1, DebitK1Status } from "./entity/ConsumedDebitK1.js";
 import { StorageInterface } from "./db/storageInterface.js";
+import { DebitAccessRow, mapDebitAccessBackupRow } from "../backup/segments.js";
+import { getLogger } from "../helpers/logger.js";
 import {
     DebitK1AlreadyProcessedError, DebitRateLimitedError,
 } from "../CLINK/debitTypes.js";
@@ -73,6 +75,34 @@ export default class {
 
     async RemoveUserDebitAccess(appUserId: string, txId?: string) {
         return this.dbs.Delete<DebitAccess>('DebitAccess', { app_user_id: appUserId }, txId)
+    }
+
+    async GetAllDebitAccess(txId?: string) {
+        return this.dbs.Find<DebitAccess>('DebitAccess', {}, txId)
+    }
+
+    async ExportDebitAccess(): Promise<DebitAccessRow[]> {
+        const access = await this.GetAllDebitAccess()
+        return access.map(mapDebitAccessBackupRow)
+    }
+
+    async RestoreDebitAccesses(accesses: DebitAccessRow[], txId: string): Promise<number> {
+        let restoredAccess = 0;
+        for (const access of accesses) {
+            try {
+                await this.dbs.CreateAndSave<DebitAccess>('DebitAccess', {
+                    app_user_id: access.app_user_id,
+                    npub: access.npub,
+                    authorized: access.authorized,
+                    rules: access.rules,
+                    total_debits: access.total_debits,
+                }, txId)
+                restoredAccess++;
+            } catch (error: any) {
+                getLogger({ component: "backupRestore" })("error restoring debit access", error.message)
+            }
+        }
+        return restoredAccess;
     }
 
     async ConsumeDebitK1(appId: string, pointer: string, k1: string, details: { txId?: string, invoice?: string, requestId?: string, npub?: string, status?: DebitK1Status } = {}) {

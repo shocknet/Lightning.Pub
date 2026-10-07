@@ -5,7 +5,8 @@ import { getLogger } from '../helpers/logger.js';
 import EventsLogManager from './eventsLog.js';
 import { StorageInterface } from './db/storageInterface.js';
 import { UserAccess } from './entity/UserAccess.js';
-import { In, LessThan, MoreThan } from 'typeorm';
+import { In, LessThan } from 'typeorm';
+import { BalanceRow, mapBalanceBackupRow } from '../backup/segments.js';
 import { InsufficientBalanceError } from '../main/invoicePaymentErrors.js';
 export default class {
     dbs: StorageInterface
@@ -13,6 +14,30 @@ export default class {
     constructor(dbs: StorageInterface, eventsLog: EventsLogManager) {
         this.dbs = dbs
         this.eventsLog = eventsLog
+    }
+
+
+    async ExportBalances(txId?: string): Promise<BalanceRow[]> {
+        const users = await this.dbs.Find<User>('User', {}, txId)
+        return users.map(mapBalanceBackupRow)
+    }
+
+    async RestoreBalances(balances: BalanceRow[], txId: string): Promise<number> {
+        let restoredUsers = 0;
+        for (const user of balances) {
+            try {
+                await this.dbs.CreateAndSave<User>('User', {
+                    user_id: user.user_id,
+                    balance_sats: user.balance_sats,
+                    locked: user.locked,
+                }, txId)
+                restoredUsers++;
+            } catch (error: any) {
+                getLogger({ component: "backupRestore" })("error restoring user", error.message)
+            }
+        }
+        return restoredUsers;
+
     }
 
     async AddUser(balance: number, txId: string): Promise<User> {
