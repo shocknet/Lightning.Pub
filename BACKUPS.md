@@ -31,18 +31,18 @@ There is one secret: the LND seed. It unlocks both the dialtone encryption key a
 - **Adding a derivation version.** The version decides the SFTP login too, so each version is a separate account and the version cannot be looked up before deriving. Restore must try versions newest-first (derive, log in, decrypt one shard; a wrong key fails the GCM tag) and stop at the first that works. A node that moves to a new version must immediately upload every shard under the new account, so the newest version with files is always complete. Today restore only uses the latest version, which is correct while v1 is the only one.
 - **Envelope** (`encryption.ts`): `[version:1][iv:12][ciphertext][tag:16]`, AES-256-GCM. The tag rejects any tampered or truncated file before anything touches the DB.
 - **Payload** (`segments.ts`): per-table version byte + TLV-encoded rows.
-- **Shards** (`backupTables.ts`): 12 files named `<table>.enc`: `indexes`, `user_balances`, `tracked_providers`, `applications`, `application_users`, `admin_settings`, `app_user_devices`, `user_offers`, `products`, `management_grants`, `debit_accesses`, `invite_tokens`. A publish writes `<table>.enc.tmp` first, then renames over `<table>.enc`. Restore reads both and picks the newest generation that has every shard. `BACKUP_RESTORE_ORDER` is also the import order: balances first, so users exist before app links reference them.
+- **Shards** (`backupTables.ts`): 12 files named `<table>.enc`: `indexes`, `user_balances`, `tracked_providers`, `applications`, `application_users`, `admin_settings`, `app_user_devices`, `user_offers`, `products`, `management_grants`, `debit_accesses`, `invite_tokens`. Each table replace writes `<table>.enc.tmp` first, then renames over `<table>.enc`. Restore prefers the committed `.enc` and falls back to `.tmp` only if that file is missing or undecryptable. `BACKUP_RESTORE_ORDER` is also the import order: balances first, so users exist before app links reference them.
 - **`indexes.enc`:** one row with the address count (TLV tag 2) and the multi-channel backup (TLV tag 3, chunked). A one-byte marker means the node had no channels; a missing tag 3 is refused. The row is written only once both the address count and the channel state are known, so a half-known snapshot cannot overwrite a good one.
 - **Not backed up on purpose:** pending (unpaid) invoice payments. A restore may under-count in-flight money but never inflates balances.
 - Machine-local admin settings are filtered out of the `admin_settings` shard (`mapAdminSettingBackupRow`).
 
 ## When uploads happen
 
-- Managers call `notifyBackupTable(<table>)` after writes. That schedules one **full snapshot generation** (every table, same generation id), not a single-file replace. Snapshots are debounced: publish 30 s after the last change, but never deferred more than 5 min under continuous writes.
-- Each generation is exported in one DB transaction, written to `<table>.enc.tmp`, then renamed over `<table>.enc`. Local writes use a sibling `.part` file, fsync, and rename. SFTP uses POSIX rename (overwrite) of the staging file. An interrupted write cannot truncate the previous committed file. Restore decrypts both names and uses the newest generation that has every shard; a truncated or foreign `.tmp` fails GCM and is ignored.
-- On startup, after LND address/channel snapshots and default-app setup, **every** table is uploaded once (`uploadAllTables`). Empty tables still get a shard file, so a newly enabled destination is restorable without waiting for those tables to be written in live traffic. If either LND snapshot has not run, the publish is skipped so a previous restorable copy is not replaced with an incomplete set.
-- The same full snapshot runs when remote backup is turned on and after bulk user deletes.
-- On graceful shutdown (SIGINT/SIGTERM), pending timers are cancelled, in-flight snapshots finish, then **every** table is uploaded once while the DB is still open. `indexes.enc` is uploaded only after both an address-count snapshot and a channel-backup snapshot. Startup takes those from LND (including address count 0 and the no-channels marker). If either half has not run, or it failed, the upload leaves any existing backup in place.
+- Managers call `notifyBackupTable(<table>)` after writes. That schedules an upload of **only those tables**, not the whole set. Uploads are debounced per table: publish 30 s after the last change to that table, but never deferred more than 5 min under continuous writes.
+- Each table is exported, written to `<table>.enc.tmp`, then renamed over `<table>.enc`. Local writes use a sibling `.part` file, fsync, and rename. SFTP requires OpenSSH `posix-rename@openssh.com` so the rename overwrites atomically; a server that lacks it fails the upload and is flagged incompatible (no unlink-then-rename fallback, which could delete the last good copy). Restore decrypts `.enc` first; a truncated or foreign `.tmp` fails GCM and is ignored.
+- On startup, after LND address/channel snapshots and default-app setup, **every** table is uploaded once (`uploadAllTables`). Empty tables still get a shard file, so a newly enabled destination is restorable without waiting for those tables to be written in live traffic. `indexes.enc` is skipped until both LND snapshots have run, so a previous indexes copy is not replaced with an incomplete row.
+- The same full upload runs when remote backup is turned on and after bulk user deletes.
+- On graceful shutdown (SIGINT/SIGTERM), pending timers are cancelled, in-flight table uploads finish, then **every** table is uploaded once while the DB is still open. `indexes.enc` is uploaded only after both an address-count snapshot and a channel-backup snapshot. Startup takes those from LND (including address count 0 and the no-channels marker). If either half has not run, or it failed, the indexes upload leaves any existing file in place.
 - Live channel changes update the sink through LND's backup subscription; startup also runs an explicit export so a quiet node still gets a first SCB into `indexes.enc`.
 - Each destination is tried independently; an upload counts as done if any destination succeeds.
 
@@ -93,7 +93,7 @@ Sources: **cloud** (seed-derived login, pinned; a rejected login is a login erro
 
 ## Your own SFTP server
 
-Any OpenSSH server works. Pub uploads bare filenames into the login's starting directory.
+OpenSSH is required (`posix-rename@openssh.com`). Pub will not upload to a server that cannot atomically overwrite a file; the destination is flagged incompatible and further SFTP uploads fail until restart. Pub uploads bare filenames into the login's starting directory.
 
 ```bash
 sudo groupadd sftpbackup

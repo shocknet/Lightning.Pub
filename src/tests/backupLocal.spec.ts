@@ -5,11 +5,11 @@ import crypto from 'crypto'
 import SettingsManager from '../services/main/settingsManager.js'
 import { BackupManager } from '../services/backup/backupManager.js'
 import { failureMessage, hashRestorePhrase, RestoreManager } from '../services/backup/restoreManager.js'
-import { decodeIndexesRow, decryptTableRows, decryptTableShard, encodeIndexesRow, encryptTableRows } from '../services/backup/segments.js'
+import { decodeIndexesRow, decryptTableRows, encodeIndexesRow, encryptTableRows } from '../services/backup/segments.js'
 import { encodeTLV, integerToUint8Array } from '../services/helpers/tlv.js'
 import { scbFromSnapshot } from '../services/main/unlocker.js'
 import { Unlocker } from '../services/main/unlocker.js'
-import { BACKUP_TABLE_IDS, backupTableFilename, backupTableStagingFilename, selectConsistentSnapshot, type BackupTableId } from '../services/backup/backupTables.js'
+import { BACKUP_TABLE_IDS, backupTableFilename, backupTableStagingFilename, type BackupTableId } from '../services/backup/backupTables.js'
 import { atomicWriteFile } from '../services/backup/atomicWrite.js'
 import { deriveBackupKeys } from '../services/backup/derivation.js'
 import Storage, { GetTestStorageSettings } from '../services/storage/index.js'
@@ -92,9 +92,9 @@ export default async (T: StorageTestBase) => {
     await testUploadAllTablesWritesEveryShard(T)
     await testUploadAllTablesWithoutSnapshotsOmitsIndexes(T)
     await testAtomicLocalReplace(T)
-    await testSnapshotPicksCompleteStagingGeneration(T)
-    await testSnapshotIgnoresIncompleteNewGeneration(T)
-    await testSnapshotRejectsMixedGenerations(T)
+    await testRestorePrefersCommittedEnc(T)
+    await testRestoreFallsBackToStagingIfCommittedMissing(T)
+    await testLiveUploadReplacesOnlyThatTable(T)
     await testRefusesWhenLndStarted(T)
     await testResumeAfterDbCommitted(T)
     await testResumePhraseMismatch(T)
@@ -745,12 +745,13 @@ const testUploadAllTablesWithoutSnapshotsOmitsIndexes = async (T: StorageTestBas
     try {
         await backup.InitKeys(TEST_SEED)
         await backup.uploadAllTables()
-        T.expect(listEncFiles(dir)).to.deep.equal([])
+        T.expect(listEncFiles(dir).includes(backupTableFilename('indexes'))).to.equal(false)
+        T.expect(listEncFiles(dir).length).to.be.greaterThan(0)
     } finally {
         await backup.shutdown()
         fs.rmSync(dir, { recursive: true, force: true })
     }
-    T.d('a full snapshot without address/channel state leaves previous files in place')
+    T.d('a full upload without address/channel state writes other shards and leaves indexes.enc alone')
 }
 
 const testAtomicLocalReplace = async (T: StorageTestBase) => {
@@ -768,58 +769,16 @@ const testAtomicLocalReplace = async (T: StorageTestBase) => {
     T.d('local replace writes a sibling then renames over the dest')
 }
 
-const testSnapshotPicksCompleteStagingGeneration = async (T: StorageTestBase) => {
-    T.d('starting testSnapshotPicksCompleteStagingGeneration')
+const testRestorePrefersCommittedEnc = async (T: StorageTestBase) => {
+    T.d('starting testRestorePrefersCommittedEnc')
     const dir = tempBackupDir()
     try {
         await writeLocalBackup(T, dir, 4)
         const keys = await deriveBackupKeys(TEST_PHRASE)
-        const copies = new Map<BackupTableId, { generation: number, data: Buffer }[]>()
-        for (const id of BACKUP_TABLE_IDS) {
-            const committed = fs.readFileSync(path.join(dir, backupTableFilename(id)))
-            const { generation } = decryptTableShard(committed, keys.encKey)
-            const staged = encryptTableRows(
-                id === 'indexes' ? [encodeIndexesRow({ addressesCount: 99, scb: SAMPLE_SCB })] : decryptTableRows(committed, keys.encKey),
-                keys.encKey,
-                generation + 1,
-            )
-            fs.writeFileSync(path.join(dir, backupTableStagingFilename(id)), staged)
-            copies.set(id, [
-                { generation, data: committed },
-                { generation: generation + 1, data: staged },
-            ])
-        }
-        const picked = selectConsistentSnapshot(copies)
-        const indexes = decryptTableRows(picked.get('indexes')!, keys.encKey).map(decodeIndexesRow)[0]
-        T.expect(indexes.addressesCount).to.equal(99)
-
-        const settings = new SettingsManager(T.storage)
-        await settings.InitSettings()
-        const restore = new RestoreManager(T.storage, settings, {} as Unlocker)
-        const buffers = await restore.fetchSegmentsData({
-            phrase: TEST_PHRASE,
-            source: { type: WizardTypes.RestoreRequest_source_type.LOCAL_PATH, local_path: dir },
-        }, keys)
-        T.expect(decodeIndexesRow(decryptTableRows(buffers.get('indexes')!, keys.encKey)[0]).addressesCount).to.equal(99)
-    } finally {
-        fs.rmSync(dir, { recursive: true, force: true })
-    }
-    T.d('a complete newer staging generation is preferred over the committed files')
-}
-
-const testSnapshotIgnoresIncompleteNewGeneration = async (T: StorageTestBase) => {
-    T.d('starting testSnapshotIgnoresIncompleteNewGeneration')
-    const dir = tempBackupDir()
-    try {
-        await writeLocalBackup(T, dir, 4)
-        const keys = await deriveBackupKeys(TEST_PHRASE)
-        const committed = fs.readFileSync(path.join(dir, backupTableFilename('indexes')))
-        const { generation } = decryptTableShard(committed, keys.encKey)
         fs.writeFileSync(
             path.join(dir, backupTableStagingFilename('indexes')),
-            encryptTableRows([encodeIndexesRow({ addressesCount: 99, scb: SAMPLE_SCB })], keys.encKey, generation + 1),
+            encryptTableRows([encodeIndexesRow({ addressesCount: 99, scb: SAMPLE_SCB })], keys.encKey),
         )
-        fs.writeFileSync(path.join(dir, backupTableStagingFilename('products')), Buffer.from('truncated'))
         const settings = new SettingsManager(T.storage)
         await settings.InitSettings()
         const restore = new RestoreManager(T.storage, settings, {} as Unlocker)
@@ -831,23 +790,53 @@ const testSnapshotIgnoresIncompleteNewGeneration = async (T: StorageTestBase) =>
     } finally {
         fs.rmSync(dir, { recursive: true, force: true })
     }
-    T.d('an incomplete or truncated new generation leaves the previous good snapshot in place')
+    T.d('restore prefers the committed .enc over a leftover staging file')
 }
 
-const testSnapshotRejectsMixedGenerations = async (T: StorageTestBase) => {
-    T.d('starting testSnapshotRejectsMixedGenerations')
-    const copies = new Map<BackupTableId, { generation: number, data: Buffer }[]>()
-    for (const id of BACKUP_TABLE_IDS) {
-        copies.set(id, [{ generation: id === 'application_users' ? 2 : 1, data: Buffer.from(id) }])
-    }
-    let message = ''
+const testRestoreFallsBackToStagingIfCommittedMissing = async (T: StorageTestBase) => {
+    T.d('starting testRestoreFallsBackToStagingIfCommittedMissing')
+    const dir = tempBackupDir()
     try {
-        selectConsistentSnapshot(copies)
-    } catch (err: any) {
-        message = err.message
+        await writeLocalBackup(T, dir, 4)
+        fs.renameSync(
+            path.join(dir, backupTableFilename('indexes')),
+            path.join(dir, backupTableStagingFilename('indexes')),
+        )
+        const settings = new SettingsManager(T.storage)
+        await settings.InitSettings()
+        const restore = new RestoreManager(T.storage, settings, {} as Unlocker)
+        const keys = await deriveBackupKeys(TEST_PHRASE)
+        const buffers = await restore.fetchSegmentsData({
+            phrase: TEST_PHRASE,
+            source: { type: WizardTypes.RestoreRequest_source_type.LOCAL_PATH, local_path: dir },
+        }, keys)
+        T.expect(decodeIndexesRow(decryptTableRows(buffers.get('indexes')!, keys.encKey)[0]).addressesCount).to.equal(4)
+    } finally {
+        fs.rmSync(dir, { recursive: true, force: true })
     }
-    T.expect(message).to.include('incomplete backup snapshot')
-    T.d('shards from different generations are not mixed into a restore set')
+    T.d('restore uses the staging file when the committed .enc is missing')
+}
+
+const testLiveUploadReplacesOnlyThatTable = async (T: StorageTestBase) => {
+    T.d('starting testLiveUploadReplacesOnlyThatTable')
+    const dir = tempBackupDir()
+    const backup = new BackupManager(T.storage, await localBackupSettings(T, dir))
+    try {
+        await backup.InitKeys(TEST_SEED)
+        await seedDialtone(T, backup.settings)
+        await backup.AddressUpdate(5)
+        backup.ChannelBackupUpdate(SAMPLE_SCB)
+        await backup.uploadAllTables()
+        const indexesBefore = fs.readFileSync(path.join(dir, backupTableFilename('indexes')))
+        const balancesBefore = fs.readFileSync(path.join(dir, backupTableFilename('user_balances')))
+        await (backup as any).uploadTable('user_balances')
+        T.expect(fs.readFileSync(path.join(dir, backupTableFilename('indexes'))).equals(indexesBefore)).to.equal(true)
+        T.expect(fs.readFileSync(path.join(dir, backupTableFilename('user_balances'))).equals(balancesBefore)).to.equal(false)
+    } finally {
+        await backup.shutdown()
+        fs.rmSync(dir, { recursive: true, force: true })
+    }
+    T.d('a live table upload replaces only that shard')
 }
 
 const localBackupSettings = async (T: StorageTestBase, dir: string) => {
@@ -1009,8 +998,7 @@ const writeLocalBackup = async (T: StorageTestBase, dir: string, addressCount?: 
 const rewriteTableShard = async (dir: string, id: BackupTableId, rows: Uint8Array[]) => {
     const keys = await deriveBackupKeys(TEST_PHRASE)
     const file = path.join(dir, backupTableFilename(id))
-    const { generation } = decryptTableShard(fs.readFileSync(file), keys.encKey)
-    fs.writeFileSync(file, encryptTableRows(rows, keys.encKey, generation))
+    fs.writeFileSync(file, encryptTableRows(rows, keys.encKey))
 }
 
 const testMissingShardFailsClosed = async (T: StorageTestBase) => {
@@ -1093,7 +1081,7 @@ const testIndexesWithoutAddressUpdate = async (T: StorageTestBase) => {
     const dir = tempBackupDir()
     try {
         await writeLocalBackup(T, dir)
-        T.expect(listEncFiles(dir)).to.deep.equal([])
+        T.expect(listEncFiles(dir).includes(backupTableFilename('indexes'))).to.equal(false)
         const settings = new SettingsManager(T.storage)
         await settings.InitSettings()
         const restore = new RestoreManager(T.storage, settings, {} as Unlocker)
@@ -1112,7 +1100,7 @@ const testIndexesWithoutAddressUpdate = async (T: StorageTestBase) => {
     } finally {
         fs.rmSync(dir, { recursive: true, force: true })
     }
-    T.d('a backup with no address snapshot writes nothing, so the previous copy is kept')
+    T.d('a backup with no address snapshot omits indexes.enc, so restore fails closed on that shard')
 }
 
 const testIndexesZeroSnapshot = async (T: StorageTestBase) => {

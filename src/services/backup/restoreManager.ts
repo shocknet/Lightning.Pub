@@ -43,11 +43,11 @@ import {
     decodeApplicationRow, decodeApplicationUserRow, decodeAdminSettingRow, decodeAppUserDeviceRow,
     decodeUserOfferRow, decodeProductRow, decodeManagementGrantRow, decodeDebitAccessRow,
     decodeInviteTokenRow, decodeBalanceRow, decodeTrackedProviderRow,
-    decryptTableRows, decryptTableShard,
+    decryptTableRows,
     BackupData,
     decodeIndexesRow,
 } from './segments.js'
-import { BACKUP_RESTORE_ORDER, backupTableFilename, backupTableStagingFilename, selectConsistentSnapshot, type BackupTableId, type ShardCopy } from './backupTables.js'
+import { BACKUP_RESTORE_ORDER, backupTableFilename, backupTableStagingFilename, type BackupTableId } from './backupTables.js'
 import SettingsManager from '../main/settingsManager.js'
 import { Unlocker } from '../main/unlocker.js'
 
@@ -371,36 +371,34 @@ export class RestoreManager {
 
     async fetchSegmentsData(req: wizardTypes.RestoreRequest, keys: DerivedKeys) {
         this.log("fetching segments data")
-        const copies = new Map<BackupTableId, ShardCopy[]>()
+        const buffers = new Map<BackupTableId, Buffer>()
         const missing: BackupTableId[] = []
         for (const id of BACKUP_RESTORE_ORDER) {
-            const found: ShardCopy[] = []
+            let data: Buffer | undefined
             for (const name of [backupTableFilename(id), backupTableStagingFilename(id)]) {
                 const chunk = await fetchFile(this.log, keys, req, name)
                 if (!chunk.found) {
                     continue
                 }
                 try {
-                    const { generation } = decryptTableShard(chunk.data, keys.encKey)
-                    found.push({ generation, data: chunk.data })
+                    decryptTableRows(chunk.data, keys.encKey)
+                    data = chunk.data
+                    break
                 } catch (err: any) {
                     this.log("ignoring undecryptable " + name + ": " + (err.message || err))
                 }
             }
-            copies.set(id, found)
-            if (found.length === 0) {
+            if (!data) {
                 this.log("buffer not found: " + backupTableFilename(id))
                 missing.push(id)
+                continue
             }
+            buffers.set(id, data)
         }
-        try {
-            return selectConsistentSnapshot(copies)
-        } catch (err) {
-            if (missing.length > 0) {
-                throw new Error(missing.map(id => failureMessage(req.source.type, id)).join('\n'))
-            }
-            throw err
+        if (missing.length > 0) {
+            throw new Error(missing.map(id => failureMessage(req.source.type, id)).join('\n'))
         }
+        return buffers
     }
 
     decodeSegmentsData(buffers: Map<BackupTableId, Buffer>, keys: DerivedKeys) {

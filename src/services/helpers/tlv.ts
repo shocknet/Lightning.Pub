@@ -70,7 +70,7 @@ export const integerFromUint8Array = (data: Uint8Array): number => {
 
 /**
  * Big-endian unsigned integer, only as many bytes as the value needs (1–8).
- * Backup amounts and generation ids use this. It is not a replacement for
+ * Backup amounts use this. It is not a replacement for
  * integerToUint8Array: TLbV lengths and metrics records are fixed at 4 bytes.
  */
 export const uintToBytes = (value: number): Uint8Array => {

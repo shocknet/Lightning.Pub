@@ -190,31 +190,22 @@ export const decodeTrackedProviderRow = (data: Uint8Array): TrackedProviderRow =
 
 const PER_TABLE_PAYLOAD_VERSION = 1
 
-export const encryptTableRows = (rowEncodings: Uint8Array[], encKey: Buffer, generation: number): Buffer => {
+export const encryptTableRows = (rowEncodings: Uint8Array[], encKey: Buffer): Buffer => {
     const tlv: TLV = {
         2: [new Uint8Array([PER_TABLE_PAYLOAD_VERSION])],
         3: rowEncodings,
-        4: [uintToBytes(generation)],
     }
     return encryptPayload(Buffer.from(encodeTLbV(tlv)), encKey)
 }
 
-export const decryptTableShard = (data: Buffer, encKey: Buffer): { rows: Uint8Array[], generation: number } => {
+export const decryptTableRows = (data: Buffer, encKey: Buffer): Uint8Array[] => {
     const plaintext = decryptPayload(data, encKey)
     const tlv = parseTLbV(plaintext)
     const v = tlv[2]?.[0]?.[0]
     if (v !== PER_TABLE_PAYLOAD_VERSION) {
         throw new Error(`Unsupported per-table backup payload version: ${v}`)
     }
-    const generationBytes = tlv[4]?.[0]
-    if (!generationBytes) {
-        throw new Error('backup shard has no generation')
-    }
-    return { rows: tlv[3] ?? [], generation: numberFromBytes(generationBytes) }
-}
-
-export const decryptTableRows = (data: Buffer, encKey: Buffer): Uint8Array[] => {
-    return decryptTableShard(data, encKey).rows
+    return tlv[3] ?? []
 }
 
 

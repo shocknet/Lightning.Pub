@@ -17,7 +17,3 @@ export function atomicWriteFile(dest: string, data: Buffer): void {
     }
     fs.renameSync(part, dest)
 }
-
-export function atomicRenameFile(from: string, to: string): void {
-    fs.renameSync(from, to)
-}
