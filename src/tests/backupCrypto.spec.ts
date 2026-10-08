@@ -16,6 +16,7 @@ export default async (T: StorageTestBase) => {
     await testEncryptDecryptPayload(T)
     await testEncryptDecryptRejectsWrongKey(T)
     await testEncryptDecryptTableRows(T)
+    await testLargeBackupIntegersRoundTrip(T)
 }
 
 const testDeriveKeysStable = async (T: StorageTestBase) => {
@@ -80,4 +81,14 @@ const testEncryptDecryptTableRows = async (T: StorageTestBase) => {
     const decoded = decryptTableRows(enc, keys.encKey).map(decodeBalanceRow)
     T.expect(decoded).to.deep.equal(rows)
     T.d('per-table encrypt/decrypt preserves balance rows')
+}
+
+const testLargeBackupIntegersRoundTrip = async (T: StorageTestBase) => {
+    T.d('starting testLargeBackupIntegersRoundTrip')
+    const keys = await deriveBackupKeys(TEST_PHRASE)
+    const balance = 5_000_000_000
+    const rows: BalanceRow[] = [{ user_id: 'aa'.repeat(16), balance_sats: balance, locked: false }]
+    const enc = encryptTableRows(rows.map(encodeBalanceRow), keys.encKey)
+    T.expect(decryptTableRows(enc, keys.encKey).map(decodeBalanceRow)).to.deep.equal(rows)
+    T.d('balances above 2^32 round-trip')
 }

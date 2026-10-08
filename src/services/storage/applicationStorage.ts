@@ -42,8 +42,8 @@ export default class {
         return this.dbs.Find<Application>('Application', {}, txId)
     }
 
-    async ExportApplications(): Promise<ApplicationRow[]> {
-        const apps = await this.GetApplications()
+    async ExportApplications(txId?: string): Promise<ApplicationRow[]> {
+        const apps = await this.GetApplications(txId)
         return apps.map(mapAppBackupRow)
     }
 
@@ -162,8 +162,8 @@ export default class {
         return this.dbs.Find<ApplicationUser>('ApplicationUser', {}, txId)
     }
 
-    async ExportApplicationUsers(): Promise<ApplicationUserRow[]> {
-        const appUsers = await this.GetAllApplicationUsers()
+    async ExportApplicationUsers(txId?: string): Promise<ApplicationUserRow[]> {
+        const appUsers = await this.GetAllApplicationUsers(txId)
         return appUsers.map(mapAppUserBackupRow)
     }
 
@@ -327,8 +327,8 @@ export default class {
         return this.dbs.Find<InviteToken>('InviteToken', {}, txId)
     }
 
-    async ExportInviteTokens(): Promise<InviteTokenRow[]> {
-        const tokens = await this.GetAllInviteTokens()
+    async ExportInviteTokens(txId?: string): Promise<InviteTokenRow[]> {
+        const tokens = await this.GetAllInviteTokens(txId)
         return tokens.map(mapInviteTokenBackupRow)
     }
 
@@ -377,8 +377,8 @@ export default class {
         return this.dbs.Find<AppUserDevice>('AppUserDevice', {}, txId)
     }
 
-    async ExportAppUserDevices(): Promise<AppUserDeviceRow[]> {
-        const devices = await this.GetAllAppUserDevices()
+    async ExportAppUserDevices(txId?: string): Promise<AppUserDeviceRow[]> {
+        const devices = await this.GetAllAppUserDevices(txId)
         return devices.map(mapAppUserDeviceBackupRow)
     }
 

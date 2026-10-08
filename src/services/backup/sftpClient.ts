@@ -2,8 +2,9 @@
 //
 // SFTP (SSH-based) was chosen over FTPS because nearly every VPS/NAS already runs an SSH
 // server, so a self-hosted destination is just "create a user".
-// Server is dumb storage — no Lightning.Pub-specific logic.
-// Cloud managed = Shocknet-hosted (PubFTPService); self-hosters run any standard SFTP server.
+// Server is dumb storage — no Lightning.Pub-specific logic. Atomic replace needs
+// OpenSSH posix-rename@openssh.com; a server without it is flagged incompatible.
+// Cloud managed = Shocknet-hosted (PubFTPService); self-hosters run OpenSSH.
 
 import crypto from 'crypto'
 import { Client, SFTPWrapper } from 'ssh2'
@@ -27,6 +28,17 @@ export const CLOUD_SFTP_HOST_FINGERPRINT = 'SHA256:3bEOvUFGn+Ts/kfRtKV5AGd3j4AAo
 
 /** The server rejected our login (no account yet, or wrong credentials). */
 export class SftpAuthError extends Error { }
+
+/**
+ * The server cannot atomically replace a file (no OpenSSH posix-rename@openssh.com).
+ * Uploads refuse this host for the rest of the process so we do not unlink a good copy.
+ */
+export class SftpIncompatibleError extends Error {
+    constructor(target: string, detail: string) {
+        super(`SFTP server ${target} is not compatible with Lightning.Pub backups: ${detail}. The server must support OpenSSH posix-rename@openssh.com.`)
+        this.name = 'SftpIncompatibleError'
+    }
+}
 
 export function cloudSftpConfig(sftpUser: string, sftpPass: string): SftpConfig {
     return {
@@ -112,21 +124,85 @@ function connectSftp(config: SftpConfig): Promise<{ client: Client, sftp: SFTPWr
     })
 }
 
-// Upload a buffer to a remote file path. Latest-only: overwrites on each call.
-export async function sftpUpload(config: SftpConfig, remotePath: string, data: Buffer): Promise<void> {
+async function withSftp<T>(config: SftpConfig, fn: (sftp: SFTPWrapper) => Promise<T>): Promise<T> {
     const { client, sftp } = await connectSftp(config)
     try {
-        await new Promise<void>((resolve, reject) => {
-            const stream = sftp.createWriteStream(remotePath)
-            stream.on('error', (err: Error) => reject(new Error(`SFTP write error: ${err.message}`)))
-            stream.on('close', () => resolve())
-            stream.end(data)
-        })
-        log(`Uploaded ${remotePath} (${data.length} bytes)`)
+        return await fn(sftp)
     } finally {
         client.end()
     }
 }
+
+function sftpWriteStream(sftp: SFTPWrapper, remotePath: string, data: Buffer): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+        const stream = sftp.createWriteStream(remotePath)
+        stream.on('error', (err: Error) => reject(new Error(`SFTP write error: ${err.message}`)))
+        stream.on('close', () => resolve())
+        stream.end(data)
+    })
+}
+
+const incompatibleHosts = new Set<string>()
+
+function sftpTarget(config: SftpConfig): string {
+    return `${config.host}:${config.port ?? 22}`
+}
+
+function flagIncompatible(target: string, detail: string): SftpIncompatibleError {
+    if (!incompatibleHosts.has(target)) {
+        log(`SFTP server ${target} is not compatible with backups (${detail})`)
+    }
+    incompatibleHosts.add(target)
+    return new SftpIncompatibleError(target, detail)
+}
+
+function throwIfHostIncompatible(config: SftpConfig) {
+    const target = sftpTarget(config)
+    if (incompatibleHosts.has(target)) {
+        throw new SftpIncompatibleError(target, 'this server was already flagged as missing OpenSSH posix-rename@openssh.com')
+    }
+}
+
+/** True when an ext_openssh_rename failure means the server lacks posix-rename. */
+export function isPosixRenameUnsupported(err: unknown): boolean {
+    const e = err as { message?: string, code?: number | string }
+    const msg = e.message || String(err)
+    if (e.code === 8) return true
+    return /posix-rename/i.test(msg) || /does not support this extended request/i.test(msg)
+}
+
+function sftpPosixRename(sftp: SFTPWrapper, from: string, to: string, target: string): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+        sftp.ext_openssh_rename(from, to, err => {
+            if (!err) {
+                return resolve()
+            }
+            if (isPosixRenameUnsupported(err)) {
+                return reject(flagIncompatible(target, err.message || String(err)))
+            }
+            reject(new Error(`SFTP rename error: ${err.message || err}`))
+        })
+    })
+}
+
+/** Write a remote file. Used by sftpAtomicReplace for the staging name. */
+export async function sftpUpload(config: SftpConfig, remotePath: string, data: Buffer): Promise<void> {
+    await withSftp(config, sftp => sftpWriteStream(sftp, remotePath, data))
+    log(`Uploaded ${remotePath} (${data.length} bytes)`)
+}
+
+/** Write `dest.tmp` then POSIX-rename over `dest` so the previous dest survives an interrupted write. */
+export async function sftpAtomicReplace(config: SftpConfig, destPath: string, data: Buffer): Promise<void> {
+    throwIfHostIncompatible(config)
+    const target = sftpTarget(config)
+    const tmpPath = `${destPath}.tmp`
+    await withSftp(config, async sftp => {
+        await sftpWriteStream(sftp, tmpPath, data)
+        await sftpPosixRename(sftp, tmpPath, destPath, target)
+    })
+    log(`Uploaded ${destPath} (${data.length} bytes)`)
+}
+
 export type SFTPFile = { found: true, data: Buffer } | { found: false }
 // Download a remote file. Returns null if file not found.
 export async function sftpDownload(config: SftpConfig, remotePath: string): Promise<SFTPFile> {

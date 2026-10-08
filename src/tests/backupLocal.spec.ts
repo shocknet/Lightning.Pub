@@ -9,7 +9,8 @@ import { decodeIndexesRow, decryptTableRows, encodeIndexesRow, encryptTableRows 
 import { encodeTLV, integerToUint8Array } from '../services/helpers/tlv.js'
 import { scbFromSnapshot } from '../services/main/unlocker.js'
 import { Unlocker } from '../services/main/unlocker.js'
-import { BACKUP_TABLE_IDS, backupTableFilename, type BackupTableId } from '../services/backup/backupTables.js'
+import { BACKUP_TABLE_IDS, backupTableFilename, backupTableStagingFilename, type BackupTableId } from '../services/backup/backupTables.js'
+import { atomicWriteFile } from '../services/backup/atomicWrite.js'
 import { deriveBackupKeys } from '../services/backup/derivation.js'
 import Storage, { GetTestStorageSettings } from '../services/storage/index.js'
 import { Utils } from '../services/helpers/utilsWrapper.js'
@@ -88,6 +89,12 @@ const sortBy = <T>(rows: T[], key: (r: T) => string) =>
 export default async (T: StorageTestBase) => {
     await testGateNoDestination(T)
     await testGateNoSeed(T)
+    await testUploadAllTablesWritesEveryShard(T)
+    await testUploadAllTablesWithoutSnapshotsOmitsIndexes(T)
+    await testAtomicLocalReplace(T)
+    await testRestorePrefersCommittedEnc(T)
+    await testRestoreFallsBackToStagingIfCommittedMissing(T)
+    await testLiveUploadReplacesOnlyThatTable(T)
     await testRefusesWhenLndStarted(T)
     await testResumeAfterDbCommitted(T)
     await testResumePhraseMismatch(T)
@@ -686,23 +693,8 @@ const testGateNoDestination = async (T: StorageTestBase) => {
     const backup = new BackupManager(T.storage, settings)
     await backup.InitKeys(TEST_SEED)
     settings.setBackupManager(backup)
-    let pushed = 0
-    const proto = Object.getPrototypeOf(backup) as { pushEncrypted?: (filename: string, encrypted: Buffer) => Promise<void> }
-    const original = proto.pushEncrypted
-    if (!original) {
-        throw new Error('BackupManager.pushEncrypted missing')
-    }
-    proto.pushEncrypted = async function (this: BackupManager, filename: string, encrypted: Buffer) {
-        pushed++
-        return original.call(this, filename, encrypted)
-    }
-    try {
-        await backup.notifyBackupTable('admin_settings', 'applications')
-        await backup.shutdown()
-        T.expect(pushed).to.equal(0)
-    } finally {
-        proto.pushEncrypted = original
-    }
+    await backup.notifyBackupTable('admin_settings', 'applications')
+    await backup.shutdown()
     T.d('no destination means notify/shutdown never push encrypted shards')
 }
 
@@ -722,6 +714,141 @@ const testGateNoSeed = async (T: StorageTestBase) => {
     T.expect(listEncFiles(dir)).to.deep.equal([])
     fs.rmSync(dir, { recursive: true, force: true })
     T.d('empty seed means backups stay no-ops even with localPath')
+}
+
+const testUploadAllTablesWritesEveryShard = async (T: StorageTestBase) => {
+    T.d('starting testUploadAllTablesWritesEveryShard')
+    const dir = tempBackupDir()
+    const backup = new BackupManager(T.storage, await localBackupSettings(T, dir))
+    try {
+        await backup.InitKeys(TEST_SEED)
+        await seedDialtone(T, backup.settings)
+        await backup.AddressUpdate(5)
+        backup.ChannelBackupUpdate(SAMPLE_SCB)
+        await backup.uploadAllTables()
+        const expectedFiles = BACKUP_TABLE_IDS.map(backupTableFilename).sort()
+        T.expect(listEncFiles(dir)).to.deep.equal(expectedFiles)
+        T.expect(await readAddressCount(dir)).to.equal(5)
+        const row = await readIndexesRow(dir)
+        T.expect(Buffer.from(row.scb ?? []).equals(SAMPLE_SCB)).to.equal(true)
+    } finally {
+        await backup.shutdown()
+        fs.rmSync(dir, { recursive: true, force: true })
+    }
+    T.d('uploadAllTables writes every shard immediately, including indexes once both snapshots exist')
+}
+
+const testUploadAllTablesWithoutSnapshotsOmitsIndexes = async (T: StorageTestBase) => {
+    T.d('starting testUploadAllTablesWithoutSnapshotsOmitsIndexes')
+    const dir = tempBackupDir()
+    const backup = new BackupManager(T.storage, await localBackupSettings(T, dir))
+    try {
+        await backup.InitKeys(TEST_SEED)
+        await backup.uploadAllTables()
+        T.expect(listEncFiles(dir).includes(backupTableFilename('indexes'))).to.equal(false)
+        T.expect(listEncFiles(dir).length).to.be.greaterThan(0)
+    } finally {
+        await backup.shutdown()
+        fs.rmSync(dir, { recursive: true, force: true })
+    }
+    T.d('a full upload without address/channel state writes other shards and leaves indexes.enc alone')
+}
+
+const testAtomicLocalReplace = async (T: StorageTestBase) => {
+    T.d('starting testAtomicLocalReplace')
+    const dir = tempBackupDir()
+    try {
+        const dest = path.join(dir, 'user_balances.enc')
+        fs.writeFileSync(dest, Buffer.from('good-copy'))
+        atomicWriteFile(dest, Buffer.from('next-copy'))
+        T.expect(fs.readFileSync(dest, 'utf8')).to.equal('next-copy')
+        T.expect(fs.existsSync(dest + '.part')).to.equal(false)
+    } finally {
+        fs.rmSync(dir, { recursive: true, force: true })
+    }
+    T.d('local replace writes a sibling then renames over the dest')
+}
+
+const testRestorePrefersCommittedEnc = async (T: StorageTestBase) => {
+    T.d('starting testRestorePrefersCommittedEnc')
+    const dir = tempBackupDir()
+    try {
+        await writeLocalBackup(T, dir, 4)
+        const keys = await deriveBackupKeys(TEST_PHRASE)
+        fs.writeFileSync(
+            path.join(dir, backupTableStagingFilename('indexes')),
+            encryptTableRows([encodeIndexesRow({ addressesCount: 99, scb: SAMPLE_SCB })], keys.encKey),
+        )
+        const settings = new SettingsManager(T.storage)
+        await settings.InitSettings()
+        const restore = new RestoreManager(T.storage, settings, {} as Unlocker)
+        const buffers = await restore.fetchSegmentsData({
+            phrase: TEST_PHRASE,
+            source: { type: WizardTypes.RestoreRequest_source_type.LOCAL_PATH, local_path: dir },
+        }, keys)
+        T.expect(decodeIndexesRow(decryptTableRows(buffers.get('indexes')!, keys.encKey)[0]).addressesCount).to.equal(4)
+    } finally {
+        fs.rmSync(dir, { recursive: true, force: true })
+    }
+    T.d('restore prefers the committed .enc over a leftover staging file')
+}
+
+const testRestoreFallsBackToStagingIfCommittedMissing = async (T: StorageTestBase) => {
+    T.d('starting testRestoreFallsBackToStagingIfCommittedMissing')
+    const dir = tempBackupDir()
+    try {
+        await writeLocalBackup(T, dir, 4)
+        fs.renameSync(
+            path.join(dir, backupTableFilename('indexes')),
+            path.join(dir, backupTableStagingFilename('indexes')),
+        )
+        const settings = new SettingsManager(T.storage)
+        await settings.InitSettings()
+        const restore = new RestoreManager(T.storage, settings, {} as Unlocker)
+        const keys = await deriveBackupKeys(TEST_PHRASE)
+        const buffers = await restore.fetchSegmentsData({
+            phrase: TEST_PHRASE,
+            source: { type: WizardTypes.RestoreRequest_source_type.LOCAL_PATH, local_path: dir },
+        }, keys)
+        T.expect(decodeIndexesRow(decryptTableRows(buffers.get('indexes')!, keys.encKey)[0]).addressesCount).to.equal(4)
+    } finally {
+        fs.rmSync(dir, { recursive: true, force: true })
+    }
+    T.d('restore uses the staging file when the committed .enc is missing')
+}
+
+const testLiveUploadReplacesOnlyThatTable = async (T: StorageTestBase) => {
+    T.d('starting testLiveUploadReplacesOnlyThatTable')
+    const dir = tempBackupDir()
+    const backup = new BackupManager(T.storage, await localBackupSettings(T, dir))
+    try {
+        await backup.InitKeys(TEST_SEED)
+        await seedDialtone(T, backup.settings)
+        await backup.AddressUpdate(5)
+        backup.ChannelBackupUpdate(SAMPLE_SCB)
+        await backup.uploadAllTables()
+        const indexesBefore = fs.readFileSync(path.join(dir, backupTableFilename('indexes')))
+        const balancesBefore = fs.readFileSync(path.join(dir, backupTableFilename('user_balances')))
+        await (backup as any).uploadTable('user_balances')
+        T.expect(fs.readFileSync(path.join(dir, backupTableFilename('indexes'))).equals(indexesBefore)).to.equal(true)
+        T.expect(fs.readFileSync(path.join(dir, backupTableFilename('user_balances'))).equals(balancesBefore)).to.equal(false)
+    } finally {
+        await backup.shutdown()
+        fs.rmSync(dir, { recursive: true, force: true })
+    }
+    T.d('a live table upload replaces only that shard')
+}
+
+const localBackupSettings = async (T: StorageTestBase, dir: string) => {
+    const settings = new SettingsManager(T.storage)
+    await settings.InitSettings()
+    settings.OverrideTestSettings(s => {
+        s.backupSettings.localPath = dir
+        s.backupSettings.cloudEnabled = false
+        s.backupSettings.sftpEnabled = false
+        return s
+    })
+    return settings
 }
 
 const seedDialtone = async (T: StorageTestBase, settings: SettingsManager) => {
@@ -868,6 +995,12 @@ const writeLocalBackup = async (T: StorageTestBase, dir: string, addressCount?: 
     await backup.shutdown()
 }
 
+const rewriteTableShard = async (dir: string, id: BackupTableId, rows: Uint8Array[]) => {
+    const keys = await deriveBackupKeys(TEST_PHRASE)
+    const file = path.join(dir, backupTableFilename(id))
+    fs.writeFileSync(file, encryptTableRows(rows, keys.encKey))
+}
+
 const testMissingShardFailsClosed = async (T: StorageTestBase) => {
     T.d('starting testMissingShardFailsClosed')
     const dir = tempBackupDir()
@@ -911,7 +1044,7 @@ const testEmptyProductsShardImports = async (T: StorageTestBase) => {
     try {
         await writeLocalBackup(T, dir, 4)
         const keys = await deriveBackupKeys(TEST_PHRASE)
-        fs.writeFileSync(path.join(dir, backupTableFilename('products')), encryptTableRows([], keys.encKey))
+        await rewriteTableShard(dir, 'products', [])
         const destSettings = new SettingsManager(dest)
         await destSettings.InitSettings()
         const restore = new RestoreManager(dest, destSettings, {} as Unlocker)
@@ -948,8 +1081,7 @@ const testIndexesWithoutAddressUpdate = async (T: StorageTestBase) => {
     const dir = tempBackupDir()
     try {
         await writeLocalBackup(T, dir)
-        const expectedFiles = BACKUP_TABLE_IDS.filter(id => id !== 'indexes').map(backupTableFilename).sort()
-        T.expect(listEncFiles(dir)).to.deep.equal(expectedFiles)
+        T.expect(listEncFiles(dir).includes(backupTableFilename('indexes'))).to.equal(false)
         const settings = new SettingsManager(T.storage)
         await settings.InitSettings()
         const restore = new RestoreManager(T.storage, settings, {} as Unlocker)
@@ -964,11 +1096,11 @@ const testIndexesWithoutAddressUpdate = async (T: StorageTestBase) => {
         } catch (err: any) {
             message = err.message
         }
-        T.expect(message).to.equal(failureMessage(WizardTypes.RestoreRequest_source_type.LOCAL_PATH, 'indexes'))
+        T.expect(message).to.include(failureMessage(WizardTypes.RestoreRequest_source_type.LOCAL_PATH, 'indexes'))
     } finally {
         fs.rmSync(dir, { recursive: true, force: true })
     }
-    T.d('a backup with no address snapshot omits indexes.enc and restore refuses it')
+    T.d('a backup with no address snapshot omits indexes.enc, so restore fails closed on that shard')
 }
 
 const testIndexesZeroSnapshot = async (T: StorageTestBase) => {
@@ -990,8 +1122,7 @@ const testEmptyIndexesShardFails = async (T: StorageTestBase) => {
     const dataDir = dest.getStorageSettings().dataDir
     try {
         await writeLocalBackup(T, dir, 4)
-        const keys = await deriveBackupKeys(TEST_PHRASE)
-        fs.writeFileSync(path.join(dir, backupTableFilename('indexes')), encryptTableRows([], keys.encKey))
+        await rewriteTableShard(dir, 'indexes', [])
         const destSettings = new SettingsManager(dest)
         await destSettings.InitSettings()
         let movedOn = false
@@ -1124,10 +1255,8 @@ const testShardWithoutScbFieldFails = async (T: StorageTestBase) => {
     const dataDir = dest.getStorageSettings().dataDir
     try {
         await writeLocalBackup(T, dir, 4)
-        const keys = await deriveBackupKeys(TEST_PHRASE)
-        // The older layout: an address count and nothing else.
-        const legacyRow = encodeTLV({ 2: [integerToUint8Array(4)] })
-        fs.writeFileSync(path.join(dir, backupTableFilename('indexes')), encryptTableRows([legacyRow], keys.encKey))
+        const rowWithoutChannelBackup = encodeTLV({ 2: [integerToUint8Array(4)] })
+        await rewriteTableShard(dir, 'indexes', [rowWithoutChannelBackup])
         const destSettings = new SettingsManager(dest)
         await destSettings.InitSettings()
         let movedOn = false

@@ -47,7 +47,7 @@ import {
     BackupData,
     decodeIndexesRow,
 } from './segments.js'
-import { BACKUP_RESTORE_ORDER, backupTableFilename, type BackupTableId } from './backupTables.js'
+import { BACKUP_RESTORE_ORDER, backupTableFilename, backupTableStagingFilename, type BackupTableId } from './backupTables.js'
 import SettingsManager from '../main/settingsManager.js'
 import { Unlocker } from '../main/unlocker.js'
 
@@ -374,14 +374,26 @@ export class RestoreManager {
         const buffers = new Map<BackupTableId, Buffer>()
         const missing: BackupTableId[] = []
         for (const id of BACKUP_RESTORE_ORDER) {
-            const name = backupTableFilename(id)
-            const chunk = await fetchFile(this.log, keys, req, name)
-            if (!chunk.found) {
-                this.log("buffer not found: " + name)
+            let data: Buffer | undefined
+            for (const name of [backupTableFilename(id), backupTableStagingFilename(id)]) {
+                const chunk = await fetchFile(this.log, keys, req, name)
+                if (!chunk.found) {
+                    continue
+                }
+                try {
+                    decryptTableRows(chunk.data, keys.encKey)
+                    data = chunk.data
+                    break
+                } catch (err: any) {
+                    this.log("ignoring undecryptable " + name + ": " + (err.message || err))
+                }
+            }
+            if (!data) {
+                this.log("buffer not found: " + backupTableFilename(id))
                 missing.push(id)
                 continue
             }
-            buffers.set(id, chunk.data)
+            buffers.set(id, data)
         }
         if (missing.length > 0) {
             throw new Error(missing.map(id => failureMessage(req.source.type, id)).join('\n'))

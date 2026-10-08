@@ -12,8 +12,8 @@ export default class SettingsStorage {
         return this.dbs.Find<AdminSettings>('AdminSettings', {}, txId)
     }
 
-    async ExportSettings(): Promise<AdminSettingRow[]> {
-        const settings = await this.GetallSettings()
+    async ExportSettings(txId?: string): Promise<AdminSettingRow[]> {
+        const settings = await this.GetallSettings(txId)
         return settings.map(mapAdminSettingBackupRow).filter(s => s !== null)
     }
 
