@@ -7,12 +7,13 @@
 // failed upload cannot truncate the previous good copy of that table.
 // High-churn tables coalesce into one upload per table; a max-wait caps continuous resets.
 // Destinations: managed cloud SFTP, custom SFTP (BACKUP_SFTP_USER/PASS override phrase-derived
-// login when set), optional local dir.
+// login when set), optional local dir. Local is written first so a stalled remote cannot
+// block the on-disk copy. Remotes run in parallel. Failed shards retry with backoff.
 
 import path from 'path'
 import { getLogger } from '../helpers/logger.js'
 import { deriveBackupKeys, LATEST_DERIVATION_VERSION, type DerivedKeys } from './derivation.js'
-import { sftpAtomicReplace, cloudSftpConfig, customHostFingerprint, SftpAuthError, type SftpConfig } from './sftpClient.js'
+import { sftpAtomicReplace, cloudSftpConfig, customHostFingerprint, SftpAuthError, SftpIncompatibleError, type SftpConfig } from './sftpClient.js'
 import { provisionCloudAccount } from './cloudProvision.js'
 import { atomicWriteFile } from './atomicWrite.js'
 import Storage from '../storage/index.js'
@@ -41,7 +42,11 @@ export type { BackupTableId } from './backupTables.js'
 const TABLE_DEBOUNCE_MS = 30_000
 /** Upper bound on how long uploads can be deferred while the same table keeps notifying. */
 const TABLE_DEBOUNCE_MAX_MS = 5 * 60_000
-const WAIT_IN_FLIGHT_MS = 10_000
+export const WAIT_IN_FLIGHT_MS = 10_000
+/** Hard cap on the shutdown snapshot after the idle wait. Remotes must not block exit. */
+export const SHUTDOWN_FLUSH_MS = 15_000
+export const RETRY_BASE_MS = 30_000
+const RETRY_MAX_MS = 5 * 60_000
 
 type BackupDest =
     | { type: 'cloud'; config: SftpConfig }
@@ -64,9 +69,17 @@ export class BackupManager {
     private pendingAfterInFlight = new Set<BackupTableId>()
     /** Serializes replace of a given table so shutdown/full flush cannot overlap a live upload. */
     private tableUploadTail = new Map<BackupTableId, Promise<void>>()
+    private retryTimers = new Map<BackupTableId, ReturnType<typeof setTimeout>>()
+    private retryAttempt = new Map<BackupTableId, number>()
+    /** Remotes kicked off during shutdown; awaited with a deadline after local snapshots. */
+    private shutdownRemotePushes: Promise<void>[] = []
     /** In-flight cloud sign-up, shared by shard uploads that hit a rejected login together. */
     private cloudSignUp: Promise<void> | null = null
     shuttingDown = false
+    /** Overridable in tests so retries do not wait the production 30s. */
+    retryBaseMs = RETRY_BASE_MS
+    waitInFlightMs = WAIT_IN_FLIGHT_MS
+    shutdownFlushMs = SHUTDOWN_FLUSH_MS
     /** Null until the address count has been snapshotted from LND. */
     private addressesCount: number | null = null
     /**
@@ -109,7 +122,7 @@ export class BackupManager {
      */
     async uploadAllTables(): Promise<void> {
         this.clearAllDebounce()
-        await this.waitUntilUploadsIdle(WAIT_IN_FLIGHT_MS)
+        await this.waitUntilUploadsIdle(this.waitInFlightMs)
         await this.uploadTables(BACKUP_RESTORE_ORDER)
     }
 
@@ -147,6 +160,38 @@ export class BackupManager {
         this.debounceTimers.clear()
         this.debounceWindowStart.clear()
         this.pendingAfterInFlight.clear()
+        this.clearAllRetries()
+    }
+
+    private clearRetry(id: BackupTableId) {
+        const t = this.retryTimers.get(id)
+        if (t) clearTimeout(t)
+        this.retryTimers.delete(id)
+        this.retryAttempt.delete(id)
+    }
+
+    private clearAllRetries() {
+        for (const t of this.retryTimers.values()) {
+            clearTimeout(t)
+        }
+        this.retryTimers.clear()
+        this.retryAttempt.clear()
+    }
+
+    private scheduleRetry(id: BackupTableId) {
+        if (this.shuttingDown || this.retryTimers.has(id) || this.debounceTimers.has(id)) return
+        const attempt = this.retryAttempt.get(id) ?? 0
+        const delay = Math.min(RETRY_MAX_MS, this.retryBaseMs * 2 ** attempt)
+        this.retryAttempt.set(id, attempt + 1)
+        this.retryTimers.set(
+            id,
+            setTimeout(() => {
+                this.retryTimers.delete(id)
+                this.flushDebouncedTable(id).catch(err => {
+                    this.log(`Retry backup upload failed (${id}): ${err.message}`)
+                })
+            }, delay),
+        )
     }
 
     /** Debounced upload for any backup table (coalesces rapid writes per table id). */
@@ -158,6 +203,7 @@ export class BackupManager {
         const isBackupConfigured = this.isBackupConfigured()
         this.log("notifying backup table debounced: " + id + " isBackupConfigured: " + isBackupConfigured)
         if (!isBackupConfigured) return
+        this.clearRetry(id)
         if (this.debouncedUploadInProgress.has(id)) {
             this.pendingAfterInFlight.add(id)
         }
@@ -237,7 +283,18 @@ export class BackupManager {
         if (!encrypted) {
             return false
         }
-        await this.pushEncrypted(backupTableFilename(id), encrypted)
+        const result = await this.pushEncrypted(backupTableFilename(id), encrypted)
+        if (result.retryable) {
+            this.scheduleRetry(id)
+        } else {
+            this.clearRetry(id)
+        }
+        if (!result.anyOk && result.failures.length > 0) {
+            throw new Error(result.failures.join('; '))
+        }
+        if (result.failures.length > 0) {
+            this.log(`${backupTableFilename(id)} partial: ${result.failures.join('; ')}`)
+        }
         this.log("table uploaded: " + id)
         return true
     }
@@ -308,24 +365,66 @@ export class BackupManager {
         return dests
     }
 
-    private async pushEncrypted(filename: string, encrypted: Buffer) {
+    private destFailure(dest: BackupDest, err: unknown): { message: string, retryable: boolean } {
+        const message = `${dest.type}: ${err instanceof Error ? err.message : String(err)}`
+        return { message, retryable: !(err instanceof SftpIncompatibleError) }
+    }
+
+    private async pushEncrypted(filename: string, encrypted: Buffer): Promise<{ anyOk: boolean, failures: string[], retryable: boolean }> {
         const dests = this.configuredDests()
+        const locals = dests.filter(d => d.type === 'local')
+        const remotes = dests.filter(d => d.type !== 'local')
         const failures: string[] = []
         let anyOk = false
-        for (const dest of dests) {
+        let retryable = false
+
+        for (const dest of locals) {
             try {
                 await this.replaceDest(dest, filename, encrypted)
                 anyOk = true
-            } catch (err: any) {
-                failures.push(`${dest.type}: ${err.message}`)
+            } catch (err: unknown) {
+                const f = this.destFailure(dest, err)
+                failures.push(f.message)
+                if (f.retryable) retryable = true
             }
         }
-        if (!anyOk && failures.length > 0) {
-            throw new Error(failures.join('; '))
+
+        const remoteP = this.replaceRemotes(remotes, filename, encrypted)
+        if (this.shuttingDown && anyOk) {
+            this.shutdownRemotePushes.push(remoteP.then(remote => {
+                if (remote.failures.length > 0) {
+                    this.log(`${filename} remote ${remote.anyOk ? 'partial' : 'failed'}: ${remote.failures.join('; ')}`)
+                }
+            }))
+            return { anyOk, failures, retryable }
         }
-        if (failures.length > 0) {
-            this.log(`${filename} partial: ${failures.join('; ')}`)
+
+        const remote = await remoteP
+        if (remote.anyOk) anyOk = true
+        failures.push(...remote.failures)
+        if (remote.retryable) retryable = true
+        return { anyOk, failures, retryable }
+    }
+
+    private async replaceRemotes(remotes: BackupDest[], filename: string, encrypted: Buffer): Promise<{ anyOk: boolean, failures: string[], retryable: boolean }> {
+        if (remotes.length === 0) {
+            return { anyOk: false, failures: [], retryable: false }
         }
+        const results = await Promise.allSettled(remotes.map(dest => this.replaceDest(dest, filename, encrypted)))
+        const failures: string[] = []
+        let anyOk = false
+        let retryable = false
+        for (let i = 0; i < results.length; i++) {
+            const r = results[i]
+            if (r.status === 'fulfilled') {
+                anyOk = true
+                continue
+            }
+            const f = this.destFailure(remotes[i], r.reason)
+            failures.push(f.message)
+            if (f.retryable) retryable = true
+        }
+        return { anyOk, failures, retryable }
     }
 
     private async replaceDest(dest: BackupDest, filename: string, encrypted: Buffer) {
@@ -381,16 +480,35 @@ export class BackupManager {
         }
     }
 
+    private async withTimeout(work: Promise<void>, timeoutMs: number, msg: string): Promise<void> {
+        let timer: ReturnType<typeof setTimeout> | undefined
+        try {
+            await Promise.race([
+                work,
+                new Promise<never>((_, reject) => {
+                    timer = setTimeout(() => reject(new Error(msg)), timeoutMs)
+                }),
+            ])
+        } finally {
+            if (timer) clearTimeout(timer)
+        }
+    }
+
     /**
      * Run before DB/storage teardown: clear debounce timers, let in-flight shard uploads finish,
-     * then upload every table once so remote matches current DB.
+     * then snapshot every table locally. Remotes are started but cannot block the deadline.
      */
     async shutdown(): Promise<void> {
         this.shuttingDown = true
         this.clearAllDebounce()
-        await this.waitUntilUploadsIdle(WAIT_IN_FLIGHT_MS)
+        await this.waitUntilUploadsIdle(this.waitInFlightMs)
         try {
-            await this.uploadTables(BACKUP_RESTORE_ORDER)
+            await this.withTimeout((async () => {
+                await this.uploadTables(BACKUP_RESTORE_ORDER)
+                if (this.shutdownRemotePushes.length > 0) {
+                    await Promise.allSettled(this.shutdownRemotePushes)
+                }
+            })(), this.shutdownFlushMs, `Shutdown backup flush timed out after ${this.shutdownFlushMs}ms`)
         } catch (err: any) {
             this.log(`Shutdown backup failed: ${err.message}`)
         }

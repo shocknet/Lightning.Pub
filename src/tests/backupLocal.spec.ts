@@ -125,6 +125,9 @@ export default async (T: StorageTestBase) => {
     await testHookRemoteBackupEnable(T)
     await testHookDefaultAppRename(T)
     await testHookEnrollCreate(T)
+    await testStalledRemoteDoesNotBlockLocal(T)
+    await testFailedUploadRetries(T)
+    await testShutdownDoesNotWaitOnStalledRemote(T)
 }
 
 const testRefusesWhenLndStarted = async (T: StorageTestBase) => {
@@ -1390,4 +1393,123 @@ const testHookEnrollCreate = async (T: StorageTestBase) => {
     T.expect(spy.notified).to.include('application_users')
     T.expect(spy.notified).to.include('user_balances')
     T.d('enroll create notifies application_users and user_balances')
+}
+
+const waitUntil = async (pred: () => boolean, ms: number, msg: string) => {
+    const start = Date.now()
+    while (!pred()) {
+        if (Date.now() - start > ms) throw new Error(msg)
+        await new Promise<void>(resolve => setTimeout(resolve, 20))
+    }
+}
+
+const localAndSftpSettings = async (T: StorageTestBase, dir: string) => {
+    const settings = new SettingsManager(T.storage)
+    await settings.InitSettings()
+    settings.OverrideTestSettings(s => {
+        s.backupSettings.localPath = dir
+        s.backupSettings.cloudEnabled = false
+        s.backupSettings.sftpEnabled = true
+        s.backupSettings.sftpHost = '127.0.0.1'
+        s.backupSettings.sftpPort = 1
+        s.backupSettings.sftpUser = 'pub'
+        s.backupSettings.sftpPass = 'secret'
+        return s
+    })
+    return settings
+}
+
+const testStalledRemoteDoesNotBlockLocal = async (T: StorageTestBase) => {
+    T.d('starting testStalledRemoteDoesNotBlockLocal')
+    const dir = tempBackupDir()
+    const backup = new BackupManager(T.storage, await localAndSftpSettings(T, dir))
+    await backup.InitKeys(TEST_SEED)
+    let releaseRemote!: () => void
+    const remoteHold = new Promise<void>(resolve => { releaseRemote = resolve })
+    const orig = (backup as any).replaceDest.bind(backup)
+    ;(backup as any).replaceDest = async (dest: any, filename: string, encrypted: Buffer) => {
+        if (dest.type !== 'local') {
+            await remoteHold
+            return
+        }
+        return orig(dest, filename, encrypted)
+    }
+    try {
+        const upload = (backup as any).uploadTable('admin_settings')
+        await waitUntil(
+            () => fs.existsSync(path.join(dir, backupTableFilename('admin_settings'))),
+            2000,
+            'local shard was not written while SFTP was stalled',
+        )
+        releaseRemote()
+        await upload
+    } finally {
+        releaseRemote()
+        await backup.shutdown()
+        fs.rmSync(dir, { recursive: true, force: true })
+    }
+    T.d('a stalled remote destination does not prevent the local shard from being written')
+}
+
+const testFailedUploadRetries = async (T: StorageTestBase) => {
+    T.d('starting testFailedUploadRetries')
+    const dir = tempBackupDir()
+    const backup = new BackupManager(T.storage, await localBackupSettings(T, dir))
+    backup.retryBaseMs = 40
+    await backup.InitKeys(TEST_SEED)
+    let attempts = 0
+    const orig = (backup as any).replaceDest.bind(backup)
+    ;(backup as any).replaceDest = async (dest: any, filename: string, encrypted: Buffer) => {
+        attempts++
+        if (attempts === 1) throw new Error('transient dest failure')
+        return orig(dest, filename, encrypted)
+    }
+    try {
+        let threw = false
+        try {
+            await (backup as any).uploadTable('admin_settings')
+        } catch (err: any) {
+            threw = true
+            T.expect(err.message).to.include('transient dest failure')
+        }
+        T.expect(threw).to.equal(true)
+        T.expect(attempts).to.equal(1)
+        await waitUntil(
+            () => fs.existsSync(path.join(dir, backupTableFilename('admin_settings'))),
+            2000,
+            'failed shard was not retried',
+        )
+        T.expect(attempts).to.be.greaterThan(1)
+    } finally {
+        await backup.shutdown()
+        fs.rmSync(dir, { recursive: true, force: true })
+    }
+    T.d('a failed table upload is retried without waiting for another notify')
+}
+
+const testShutdownDoesNotWaitOnStalledRemote = async (T: StorageTestBase) => {
+    T.d('starting testShutdownDoesNotWaitOnStalledRemote')
+    const dir = tempBackupDir()
+    const backup = new BackupManager(T.storage, await localAndSftpSettings(T, dir))
+    backup.waitInFlightMs = 50
+    backup.shutdownFlushMs = 200
+    await backup.InitKeys(TEST_SEED)
+    await backup.AddressUpdate(3)
+    backup.ChannelBackupUpdate(SAMPLE_SCB)
+    const orig = (backup as any).replaceDest.bind(backup)
+    ;(backup as any).replaceDest = async (dest: any, filename: string, encrypted: Buffer) => {
+        if (dest.type !== 'local') {
+            return new Promise(() => { /* stall until process teardown */ })
+        }
+        return orig(dest, filename, encrypted)
+    }
+    try {
+        await withTimeout(backup.shutdown(), 2000, 'shutdown hung on stalled SFTP')
+        T.expect(listEncFiles(dir).length).to.be.greaterThan(0)
+        T.expect(listEncFiles(dir)).to.include(backupTableFilename('admin_settings'))
+        T.expect(listEncFiles(dir)).to.include(backupTableFilename('indexes'))
+    } finally {
+        fs.rmSync(dir, { recursive: true, force: true })
+    }
+    T.d('shutdown writes local shards and returns even if a remote never completes')
 }
