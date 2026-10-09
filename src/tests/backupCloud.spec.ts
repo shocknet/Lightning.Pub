@@ -1,6 +1,7 @@
 import crypto from 'crypto'
 import net from 'net'
-import { Server, utils } from 'ssh2'
+import ssh2 from 'ssh2'
+const { Server, utils } = ssh2
 import { assertPowDifficulty, hasLeadingZeroBits, MAX_ACCEPTED_POW_BITS, solvePow } from '../services/backup/cloudProvision.js'
 import {
     CLOUD_SFTP_HOST,
@@ -316,7 +317,14 @@ const startStallSftp = async (mode: StallMode) => {
                 const session = accept()
                 session.on('sftp', (acceptSftp) => {
                     const sftp = acceptSftp()
-                    if (mode === 'silent') return
+                    // ssh2 auto-replies OP_UNSUPPORTED when emit has no listeners.
+                    // Register handlers that never respond so the client's idle/op watchdog fires.
+                    if (mode === 'silent') {
+                        sftp.on('OPEN', () => { /* stall */ })
+                        sftp.on('READ', () => { /* stall */ })
+                        sftp.on('WRITE', () => { /* stall */ })
+                        return
+                    }
                     const handle = Buffer.alloc(4)
                     handle.writeUInt32BE(1, 0)
                     sftp.on('OPEN', (id) => sftp.handle(id, handle))
