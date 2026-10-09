@@ -1,6 +1,7 @@
 import crypto from 'crypto'
 import net from 'net'
-import { Server, utils } from 'ssh2'
+import ssh2 from 'ssh2'
+const { Server, utils } = ssh2
 import { assertPowDifficulty, hasLeadingZeroBits, MAX_ACCEPTED_POW_BITS, solvePow } from '../services/backup/cloudProvision.js'
 import {
     CLOUD_SFTP_HOST_FINGERPRINT,
