@@ -10,6 +10,7 @@ import {
     hostFingerprintMatches,
     sftpAtomicReplace,
     sftpDownload,
+    sftpUpload,
     SftpAuthError,
     SftpIncompatibleError,
     SftpTimeoutError,
@@ -36,6 +37,7 @@ export default async (T: StorageTestBase) => {
     await testSftpConnectTimesOut(T)
     await testSftpStalledDownloadTimesOut(T)
     await testSftpStalledUploadTimesOut(T)
+    await testSftpSlowUploadSurvivesIdle(T)
     await testSftpDownloadSizeBound(T)
 }
 
@@ -302,6 +304,59 @@ const testSftpStalledUploadTimesOut = async (T: StorageTestBase) => {
         await stop()
     }
     T.d('a stalled SFTP write is aborted instead of hanging the backup')
+}
+
+/** Server that answers WRITE slowly but steadily so total time exceeds idle if idle is not reset. */
+const startSlowWriteSftp = async (writeDelayMs: number) => {
+    const hostKeys = utils.generateKeyPairSync('ed25519')
+    const clients: Array<{ end: () => void }> = []
+    const server = new Server({ hostKeys: [hostKeys.private], keepaliveInterval: 0 }, client => {
+        clients.push(client)
+        client.on('error', () => { /* client may abort */ })
+        client.on('authentication', ctx => ctx.accept())
+        client.on('ready', () => {
+            client.on('session', (accept) => {
+                const session = accept()
+                session.on('sftp', (acceptSftp) => {
+                    const sftp = acceptSftp()
+                    const handle = Buffer.alloc(4)
+                    handle.writeUInt32BE(1, 0)
+                    sftp.on('OPEN', (id) => sftp.handle(id, handle))
+                    sftp.on('WRITE', (id) => {
+                        setTimeout(() => sftp.status(id, utils.sftp.STATUS_CODE.OK), writeDelayMs)
+                    })
+                    sftp.on('CLOSE', (id) => sftp.status(id, utils.sftp.STATUS_CODE.OK))
+                })
+            })
+        })
+    })
+    const port = await listenPort(server)
+    return {
+        port,
+        stop: async () => {
+            for (const c of clients) {
+                try { c.end() } catch { /* already closed */ }
+            }
+            await new Promise<void>(resolve => server.close(() => resolve()))
+        },
+    }
+}
+
+const testSftpSlowUploadSurvivesIdle = async (T: StorageTestBase) => {
+    T.d('starting testSftpSlowUploadSurvivesIdle')
+    const writeDelayMs = 80
+    const idleTimeoutMs = 150
+    const { port, stop } = await startSlowWriteSftp(writeDelayMs)
+    try {
+        // Several 16KiB chunks: total wall time >> idle unless each WRITE resets the watchdog.
+        const payload = Buffer.alloc(64 * 1024, 9)
+        const start = Date.now()
+        await sftpUpload(sftpCfg(port, { idleTimeoutMs, opTimeoutMs: 500 }), 'applications.enc', payload)
+        T.expect(Date.now() - start).to.be.greaterThan(idleTimeoutMs)
+    } finally {
+        await stop()
+    }
+    T.d('a slow upload that keeps moving is not killed by the idle timeout')
 }
 
 const testSftpDownloadSizeBound = async (T: StorageTestBase) => {
