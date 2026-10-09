@@ -2,15 +2,15 @@
 registering extensions for wizard_structs
 hasCustomExtensions false wizard_structs
 registering extensions for wizard_methods
-(protoreflect.Name) (len=5) "query"
 (protoreflect.Name) (len=5) "nostr"
 (protoreflect.Name) (len=5) "batch"
 (protoreflect.Name) (len=12) "file_options"
 (protoreflect.Name) (len=9) "auth_type"
 (protoreflect.Name) (len=11) "http_method"
 (protoreflect.Name) (len=10) "http_route"
+(protoreflect.Name) (len=5) "query"
 hasCustomExtensions true wizard_methods
-parsing file: wizard_structs 8
+parsing file: wizard_structs 10
 parsing file: wizard_methods 2
 skipping reserved name: MethodQueryOptions
 skipping reserved name: ProtoFileOptions

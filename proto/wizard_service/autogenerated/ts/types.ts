@@ -162,6 +162,34 @@ export const FtpCredsValidate = (o?: FtpCreds, opts: FtpCredsOptions = {}, path:
     return null
 }
 
+export type FtpHost = {
+    host: string
+    host_fingerprint: string
+    port: number
+}
+export const FtpHostOptionalFields: [] = []
+export type FtpHostOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    host_CustomCheck?: (v: string) => boolean
+    host_fingerprint_CustomCheck?: (v: string) => boolean
+    port_CustomCheck?: (v: number) => boolean
+}
+export const FtpHostValidate = (o?: FtpHost, opts: FtpHostOptions = {}, path: string = 'FtpHost::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.host !== 'string') return new Error(`${path}.host: is not a string`)
+    if (opts.host_CustomCheck && !opts.host_CustomCheck(o.host)) return new Error(`${path}.host: custom check failed`)
+
+    if (typeof o.host_fingerprint !== 'string') return new Error(`${path}.host_fingerprint: is not a string`)
+    if (opts.host_fingerprint_CustomCheck && !opts.host_fingerprint_CustomCheck(o.host_fingerprint)) return new Error(`${path}.host_fingerprint: custom check failed`)
+
+    if (typeof o.port !== 'number') return new Error(`${path}.port: is not a number`)
+    if (opts.port_CustomCheck && !opts.port_CustomCheck(o.port)) return new Error(`${path}.port: custom check failed`)
+
+    return null
+}
+
 export type RemoteBackup = {
     enabled: boolean
     host: string
@@ -437,12 +465,12 @@ export const enumCheckRestoreRequest_source_type = (e?: RestoreRequest_source_ty
 }
 export type RestoreRequest_source = 
     {type:RestoreRequest_source_type.CLOUD, cloud:Empty}|
-    {type:RestoreRequest_source_type.FTP_HOST, ftp_host:string}|
+    {type:RestoreRequest_source_type.FTP_HOST, ftp_host:FtpHost}|
     {type:RestoreRequest_source_type.LOCAL_PATH, local_path:string}
 
 export type RestoreRequest_sourceOptions = {
     cloud_Options?: EmptyOptions
-    ftp_host_CustomCheck?: (v: string) => boolean
+    ftp_host_Options?: FtpHostOptions
     local_path_CustomCheck?: (v: string) => boolean
 }
 export const RestoreRequest_sourceValidate = (o?: RestoreRequest_source, opts:RestoreRequest_sourceOptions = {}, path: string = 'RestoreRequest_source::root.'): Error | null => {
@@ -456,8 +484,9 @@ export const RestoreRequest_sourceValidate = (o?: RestoreRequest_source, opts:Re
 
         break
         case RestoreRequest_source_type.FTP_HOST:
-        if (typeof o.ftp_host !== 'string') return new Error(`${path}.ftp_host: is not a string`)
-        if (opts.ftp_host_CustomCheck && !opts.ftp_host_CustomCheck(o.ftp_host)) return new Error(`${path}.ftp_host: custom check failed`)
+        const ftp_hostErr = FtpHostValidate(o.ftp_host, opts.ftp_host_Options, `${path}.ftp_host`)
+        if (ftp_hostErr !== null) return ftp_hostErr
+        
 
         break
         case RestoreRequest_source_type.LOCAL_PATH:

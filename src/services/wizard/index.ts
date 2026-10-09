@@ -236,6 +236,12 @@ export class Wizard {
     WizardRestore = async (req: WizardTypes.RestoreRequest): Promise<WizardTypes.RestoreResponse> => {
         const err = WizardTypes.RestoreRequestValidate(req, {
             phrase_CustomCheck: phrase => phrase !== '',
+            source_Options: {
+                ftp_host_Options: {
+                    host_CustomCheck: host => host.trim() !== '' && !/\s/.test(host.trim()),
+                    port_CustomCheck: port => Number.isSafeInteger(port) && port >= 0 && port <= 65535,
+                },
+            },
         })
         if (err != null) throw new Error(err.message)
         return this.restoreManager.RestoreFromSource(req)

@@ -62,11 +62,18 @@ message FtpCreds {
     string user = 1;
     string pass = 2;
 }
+// Custom SFTP restore target. port 0 means 22. host_fingerprint is required unless
+// host+port is the managed Lightning.Pub backup server (which stays pinned in code).
+message FtpHost {
+    string host = 1;
+    int64 port = 2;
+    string host_fingerprint = 3;
+}
 message RestoreRequest {
     string phrase = 1;
     oneof source {
         Empty cloud = 2;
-        string ftp_host = 3;
+        FtpHost ftp_host = 3;
         string local_path = 4;
     }
     optional FtpCreds creds_override = 5;

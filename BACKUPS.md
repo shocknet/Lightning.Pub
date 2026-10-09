@@ -74,7 +74,8 @@ Entry points: the wizard's `WizardRestore` RPC and the CLI:
 
 ```bash
 node build/src/index.js restore --phrase "<24 words>" --source cloud|ftp|local \
-  [--ftp-host host] [--ftp-user u --ftp-pass p] [--local-path dir]
+  [--ftp-host host] [--ftp-port 22] [--ftp-host-fingerprint SHA256:...] \
+  [--ftp-user u --ftp-pass p] [--local-path dir]
 ```
 
 Flow (`RestoreManager.RestoreFromSource`):
@@ -89,7 +90,7 @@ Progress is recorded in `.restore_checkpoint` in the data dir (`STARTED` → `LN
 
 **Startup gate:** if `.restore_checkpoint` exists and is not `COMPLETED` (including `STARTED`), normal startup enters recovery-only mode: the wizard is brought up so `WizardRestore` can finish, and the main server does not start until the checkpoint is `COMPLETED`. The gate blocks the main server, never the wizard: it is created before the gate (even when `WIZARD` is disabled) and the gate waits in a loop, so a retry that fails again leaves the process and its wizard up for another attempt instead of exiting. Waiters are notified only after the in-flight restore flag is cleared, so a successful wizard restore cannot leave startup blocked. A restore started from the wizard is also waited out before the no-wallet `Unlock()`, which would otherwise create a fresh wallet and destroy the restore. The `restore` CLI is an alternative entry point (it runs before `initMainHandler` and exits). An operator abandoning a failed restore must delete `.restore_checkpoint`, `.restore_phrase_hash`, and `.restore_wallet_pub`, reset LND and the database, then restart Pub; a running process keeps waiting until a restore completes. While recovery is active, wizard config is refused so it cannot unlock the node mid-restore. The instance lock means the CLI cannot run while a recovery-only process is already holding the data dir.
 
-Sources: **cloud** (seed-derived login, pinned; a rejected login is a login error, and a reachable account missing any shard is reported with `failureMessage()` for each missing file), **ftp** (your host; pinned only if it is `backup.lightning.pub`, since the request has no fingerprint field yet), **local** (a folder of the same `*.enc` files).
+Sources: **cloud** (seed-derived login, pinned; a rejected login is a login error, and a reachable account missing any shard is reported with `failureMessage()` for each missing file), **ftp** (your host + port + host-key fingerprint; pointing at `backup.lightning.pub:22` without a fingerprint still pins the managed key), **local** (a folder of the same `*.enc` files).
 
 ## Your own SFTP server
 
@@ -125,6 +126,5 @@ The chroot top level must be root-owned and read-only, so `-d /upload` starts se
 ## Open issues
 
 - Restore hardening (security review): refuse `WizardRestore` once the node is set up (outside an in-progress restore checkpoint).
-- Wizard `ftp` restores cannot pin a host key (no field in `RestoreRequest`).
 - Custom hosts are not trust-on-first-use; pinning is manual.
 - Longer term: log in to SFTP with a seed-derived SSH key instead of a password, so a captured login cannot be replayed.

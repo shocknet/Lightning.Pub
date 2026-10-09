@@ -45,8 +45,10 @@ window.wizard = function () {
         restorePhraseError: '',
         restoreSource: 'cloud',
         restoreSftpHost: '',
+        restoreSftpPort: 22,
         restoreSftpUser: '',
         restoreSftpPass: '',
+        restoreSftpFingerprint: '',
         restoreLocalPath: '',
         restoreError: '',
         restoreLoading: false,
@@ -358,8 +360,26 @@ window.wizard = function () {
                         this.restoreLoading = false;
                         return;
                     }
-                    payload.source = { type: 'ftp_host', ftp_host: this.restoreSftpHost.trim() };
-                    
+                    const port = Number(this.restoreSftpPort) || 22;
+                    if (!Number.isInteger(port) || port < 1 || port > 65535) {
+                        this.restoreError = 'SFTP port must be between 1 and 65535.';
+                        this.restoreLoading = false;
+                        return;
+                    }
+                    if (!this.restoreSftpFingerprint.trim()) {
+                        this.restoreError = 'Host key fingerprint is required for custom SFTP restore.';
+                        this.restoreLoading = false;
+                        return;
+                    }
+                    payload.source = {
+                        type: 'ftp_host',
+                        ftp_host: {
+                            host: this.restoreSftpHost.trim(),
+                            port,
+                            host_fingerprint: this.restoreSftpFingerprint.trim(),
+                        },
+                    };
+
                     if (this.restoreSftpUser.trim() || this.restoreSftpPass.trim()) {
                         payload.creds_override = {
                             user: this.restoreSftpUser.trim(),
