@@ -33,6 +33,11 @@ type FtpCreds struct {
 	Pass string `json:"pass"`
 	User string `json:"user"`
 }
+type FtpHost struct {
+	Host             string `json:"host"`
+	Host_fingerprint string `json:"host_fingerprint"`
+	Port             int64  `json:"port"`
+}
 type RemoteBackup struct {
 	Enabled          bool   `json:"enabled"`
 	Host             string `json:"host"`
@@ -97,6 +102,6 @@ const (
 type RestoreRequest_source struct {
 	Type       RestoreRequest_source_type `json:"type"`
 	Cloud      *Empty                     `json:"cloud"`
-	Ftp_host   *string                    `json:"ftp_host"`
+	Ftp_host   *FtpHost                   `json:"ftp_host"`
 	Local_path *string                    `json:"local_path"`
 }

@@ -81,6 +81,11 @@ The nostr server will send back a message response, and inside the body there wi
   - __pass__: _string_
   - __user__: _string_
 
+### FtpHost
+  - __host__: _string_
+  - __host_fingerprint__: _string_
+  - __port__: _number_
+
 ### RemoteBackup
   - __enabled__: _boolean_
   - __host__: _string_

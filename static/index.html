@@ -180,7 +180,7 @@
           <input type="radio" id="source-ftp" name="restore-source" value="ftp" x-model="restoreSource" />
           <label for="source-ftp">
             <strong>Custom SFTP server</strong>
-            <br /><span style="font-size:13px; opacity:0.7;">Provide host and optionally override credentials.</span>
+            <br /><span style="font-size:13px; opacity:0.7;">Provide host, port, host-key fingerprint, and optionally override credentials.</span>
           </label>
         </div>
         <div x-show="restoreSource === 'ftp'" x-transition style="margin-top:1rem;">
@@ -189,12 +189,21 @@
             <input type="text" class="input-text" placeholder="sftp.example.com" x-model="restoreSftpHost" />
           </div>
           <div class="input-group">
+            <h3>Port</h3>
+            <input type="number" class="input-text" min="1" max="65535" x-model.number="restoreSftpPort" />
+          </div>
+          <div class="input-group">
             <h3>Username (optional — derived from phrase if empty)</h3>
             <input type="text" class="input-text" placeholder="" x-model="restoreSftpUser" />
           </div>
           <div class="input-group">
             <h3>Password (optional — derived from phrase if empty)</h3>
             <input type="password" class="input-text" placeholder="" x-model="restoreSftpPass" />
+          </div>
+          <div class="input-group">
+            <h3>Host key fingerprint</h3>
+            <input type="text" class="input-text" placeholder="SHA256:..." x-model="restoreSftpFingerprint" />
+            <span style="font-size:13px; opacity:0.7;">Required for custom hosts. On the server, run <code>ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub</code>.</span>
           </div>
         </div>
         <div class="radio-option">
