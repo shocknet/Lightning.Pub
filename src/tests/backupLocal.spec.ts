@@ -1032,13 +1032,16 @@ const testRestoreReloadsLiveSettings = async (T: StorageTestBase) => {
 const testBadSettingsDoNotBlockScb = async (T: StorageTestBase) => {
     T.d('starting testBadSettingsDoNotBlockScb')
     const dir = tempBackupDir()
+    const source = await openSecondStorage()
     const dest = await openSecondStorage()
+    const sourceDataDir = source.getStorageSettings().dataDir
     const dataDir = dest.getStorageSettings().dataDir
     try {
-        const sourceSettings = new SettingsManager(T.storage)
+        const sourceT = { ...T, storage: source }
+        const sourceSettings = new SettingsManager(source)
         await sourceSettings.InitSettings()
-        await seedDialtone(T, sourceSettings)
-        await writeLocalBackup(T, dir, 4)
+        await seedDialtone(sourceT, sourceSettings)
+        await writeLocalBackup(sourceT, dir, 4)
         const destSettings = new SettingsManager(dest)
         await destSettings.InitSettings()
         await markDbImported(dest)
@@ -1066,7 +1069,9 @@ const testBadSettingsDoNotBlockScb = async (T: StorageTestBase) => {
         T.expect(result.error || '').to.contain('ROUTING_FEE_LIMIT_BPS')
         T.expect(fs.readFileSync(restore.getCheckpointPath(), 'utf8')).to.equal('COMPLETED')
     } finally {
+        source.Stop()
         dest.Stop()
+        fs.rmSync(sourceDataDir, { recursive: true, force: true })
         fs.rmSync(dataDir, { recursive: true, force: true })
         fs.rmSync(dir, { recursive: true, force: true })
     }
