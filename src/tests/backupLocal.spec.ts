@@ -129,6 +129,7 @@ export default async (T: StorageTestBase) => {
     await testStalledRemoteDoesNotBlockLocal(T)
     await testFailedUploadRetries(T)
     await testShutdownDoesNotWaitOnStalledRemote(T)
+    await testUploadAllTablesSurvivesRemoteFailure(T)
 }
 
 const testRefusesWhenLndStarted = async (T: StorageTestBase) => {
@@ -1564,4 +1565,39 @@ const testShutdownDoesNotWaitOnStalledRemote = async (T: StorageTestBase) => {
         fs.rmSync(dir, { recursive: true, force: true })
     }
     T.d('shutdown writes local shards and returns even if a remote never completes')
+}
+
+const sftpOnlySettings = async (T: StorageTestBase) => {
+    const settings = new SettingsManager(T.storage)
+    await settings.InitSettings()
+    settings.OverrideTestSettings(s => {
+        s.backupSettings.localPath = ''
+        s.backupSettings.cloudEnabled = false
+        s.backupSettings.sftpEnabled = true
+        s.backupSettings.sftpHost = '127.0.0.1'
+        s.backupSettings.sftpPort = 1
+        s.backupSettings.sftpUser = 'pub'
+        s.backupSettings.sftpPass = 'secret'
+        return s
+    })
+    return settings
+}
+
+const testUploadAllTablesSurvivesRemoteFailure = async (T: StorageTestBase) => {
+    T.d('starting testUploadAllTablesSurvivesRemoteFailure')
+    const backup = new BackupManager(T.storage, await sftpOnlySettings(T))
+    backup.retryBaseMs = 60_000
+    await backup.InitKeys(TEST_SEED)
+    await seedDialtone(T, backup.settings)
+    await backup.AddressUpdate(2)
+    backup.ChannelBackupUpdate(SAMPLE_SCB)
+    ;(backup as any).replaceDest = async () => {
+        throw new Error('remote unreachable')
+    }
+    try {
+        await withTimeout(backup.uploadAllTables(), 5000, 'uploadAllTables rejected or hung on remote failure')
+    } finally {
+        await backup.shutdown()
+    }
+    T.d('uploadAllTables resolves when every remote destination fails')
 }

@@ -6,9 +6,10 @@
 // OpenSSH posix-rename@openssh.com; a server without it is flagged incompatible.
 // Cloud managed = Shocknet-hosted (PubFTPService); self-hosters run OpenSSH.
 //
-// Every connect/upload/download is bounded: handshake readyTimeout, a hard operation
-// deadline, an idle timeout while a download is receiving bytes, and a max download size.
-// A server that authenticates then stalls is destroyed rather than left hanging.
+// Every connect/upload/download is bounded: handshake readyTimeout, a hard deadline that
+// covers connect, then an idle timeout while bytes are moving (uploads and downloads),
+// and a max download size. A server that authenticates then stalls is destroyed rather
+// than left hanging. Idle resets on real transfer progress so large slow links can finish.
 
 import crypto from 'crypto'
 import { Client, SFTPWrapper } from 'ssh2'
@@ -18,12 +19,14 @@ const log = getLogger({ component: 'sftpBackup' })
 
 /** SSH handshake + auth. ssh2's readyTimeout. */
 export const SFTP_READY_TIMEOUT_MS = 15_000
-/** Connect through the last SFTP request (write, rename, or download). */
+/** Hard deadline covering connect; cleared once the SFTP session is ready (idle bounds the transfer). */
 export const SFTP_OP_TIMEOUT_MS = 60_000
-/** Abort a download that has stopped receiving bytes. */
+/** Abort a transfer that has stopped sending or receiving bytes. */
 export const SFTP_IDLE_TIMEOUT_MS = 20_000
 /** Refuse a shard that would blow memory. Encrypted tables are far smaller. */
 export const SFTP_MAX_DOWNLOAD_BYTES = 64 * 1024 * 1024
+/** Chunk size / write-stream highWaterMark so backpressure (and idle resets) track network drain. */
+const SFTP_WRITE_CHUNK_BYTES = 16 * 1024
 const SFTP_KEEPALIVE_INTERVAL_MS = 10_000
 const SFTP_KEEPALIVE_COUNT_MAX = 3
 
@@ -243,6 +246,12 @@ async function withSftp<T>(config: SftpConfig, fn: (sftp: SFTPWrapper, idle: Idl
                         client = undefined
                         return
                     }
+                    // Transfer length is bounded by idle progress, not a wall clock that kills slow links.
+                    if (opTimer) {
+                        clearTimeout(opTimer)
+                        opTimer = undefined
+                    }
+                    idle!.touch()
                     done(null, await fn(conn.sftp, idle!))
                 } catch (err) {
                     done(err instanceof Error ? err : new Error(String(err)))
@@ -258,7 +267,6 @@ async function withSftp<T>(config: SftpConfig, fn: (sftp: SFTPWrapper, idle: Idl
 }
 
 function sftpWriteStream(sftp: SFTPWrapper, remotePath: string, data: Buffer, idle: IdleWatchdog): Promise<void> {
-    idle.touch()
     return new Promise<void>((resolve, reject) => {
         let settled = false
         const done = (err?: Error) => {
@@ -267,12 +275,34 @@ function sftpWriteStream(sftp: SFTPWrapper, remotePath: string, data: Buffer, id
             if (err) reject(err)
             else resolve()
         }
-        const stream = sftp.createWriteStream(remotePath)
-        stream.on('drain', () => idle.touch())
+        const stream = sftp.createWriteStream(remotePath, { highWaterMark: SFTP_WRITE_CHUNK_BYTES })
+        let offset = 0
+        const writeNext = () => {
+            if (settled) return
+            try {
+                while (offset < data.length) {
+                    idle.touch()
+                    const end = Math.min(offset + SFTP_WRITE_CHUNK_BYTES, data.length)
+                    const chunk = data.subarray(offset, end)
+                    offset = end
+                    if (!stream.write(chunk)) {
+                        stream.once('drain', () => {
+                            idle.touch()
+                            writeNext()
+                        })
+                        return
+                    }
+                }
+                idle.touch()
+                stream.end()
+            } catch (err) {
+                done(err instanceof Error ? err : new Error(String(err)))
+            }
+        }
         stream.on('error', (err: Error) => done(new Error(`SFTP write error: ${err.message}`)))
         stream.on('finish', () => done())
         stream.on('close', () => done())
-        stream.end(data)
+        writeNext()
     })
 }
 
