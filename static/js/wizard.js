@@ -292,7 +292,8 @@ $(() => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body)
             })
-            return res.ok;
+            const data = await res.json().catch(() => ({}))
+            return res.ok && data.status !== 'ERROR'
         } catch { return false }
     }
 
@@ -514,7 +515,10 @@ $(() => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(req)
             });
-            if (!res.ok) throw new Error((await res.json()).reason || "Failed to start service");
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || data.status === 'ERROR') {
+                throw new Error(data.reason || "Failed to start service");
+            }
             
             showPage(pages.connect);
             const connRes = await fetch('/wizard/admin_connect_info');

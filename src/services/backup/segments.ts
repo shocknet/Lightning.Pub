@@ -264,6 +264,7 @@ export type ApplicationUserRow = {
     callback_url: string
     topic_id: string
     nostr_public_key: string | null
+    owner_only_clink: boolean
 }
 
 export const mapAppUserBackupRow = (appUser: ApplicationUser): ApplicationUserRow => ({
@@ -273,6 +274,7 @@ export const mapAppUserBackupRow = (appUser: ApplicationUser): ApplicationUserRo
     callback_url: appUser.callback_url,
     topic_id: appUser.topic_id,
     nostr_public_key: appUser.nostr_public_key || null,
+    owner_only_clink: !!appUser.owner_only_clink,
 })
 
 export const encodeApplicationUserRow = (row: ApplicationUserRow): Uint8Array => {
@@ -286,6 +288,10 @@ export const encodeApplicationUserRow = (row: ApplicationUserRow): Uint8Array =>
     if (row.nostr_public_key) {
         tlv[7] = [hexToBytes(row.nostr_public_key)]
     }
+    // TLV 8 is omitted when false so backups from before this field still decode.
+    if (row.owner_only_clink) {
+        tlv[8] = [boolToBytes(true)]
+    }
     return encodeTLV(tlv)
 }
 
@@ -298,6 +304,7 @@ export const decodeApplicationUserRow = (data: Uint8Array): ApplicationUserRow =
         callback_url: stringFromBytes(joinChunks(tlv[5])),
         topic_id: hexFromBytes(tlv[6][0]),
         nostr_public_key: tlv[7] ? hexFromBytes(tlv[7][0]) : null,
+        owner_only_clink: tlv[8] ? boolFromBytes(tlv[8][0]) : false,
     }
 }
 

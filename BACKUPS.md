@@ -40,7 +40,7 @@ There is one secret: the LND seed. It unlocks both the dialtone encryption key a
 
 - Managers call `notifyBackupTable(<table>)` after writes. That schedules an upload of **only those tables**, not the whole set. Uploads are debounced per table: publish 30 s after the last change to that table, but never deferred more than 5 min under continuous writes.
 - Each table is exported, written to `<table>.enc.tmp`, then renamed over `<table>.enc`. Local writes use a sibling `.part` file, fsync, and rename. SFTP requires OpenSSH `posix-rename@openssh.com` so the rename overwrites atomically; a server that lacks it fails the upload and is flagged incompatible (no unlink-then-rename fallback, which could delete the last good copy). Restore decrypts `.enc` first; a truncated or foreign `.tmp` fails GCM and is ignored.
-- On startup, after LND address/channel snapshots and default-app setup, **every** table is uploaded once (`uploadAllTables`). Empty tables still get a shard file, so a newly enabled destination is restorable without waiting for those tables to be written in live traffic. `indexes.enc` is skipped until both LND snapshots have run, so a previous indexes copy is not replaced with an incomplete row.
+- On startup, after LND address/channel snapshots and default-app setup, **every** table is uploaded once (`uploadAllTables`). Empty tables still get a shard file, so a newly enabled destination is restorable without waiting for those tables to be written in live traffic. `indexes.enc` is skipped until both LND snapshots have run, so a previous indexes copy is not replaced with an incomplete row. If no destination succeeds (for example the only remote is unreachable), the failure is logged as a warning and startup continues; failed shards still retry with backoff. The same applies to the other full-flush callers below.
 - The same full upload runs when remote backup is turned on and after bulk user deletes.
 - On graceful shutdown (SIGINT/SIGTERM), pending timers are cancelled, in-flight table uploads finish, then **every** table is uploaded once while the DB is still open. `indexes.enc` is uploaded only after both an address-count snapshot and a channel-backup snapshot. Startup takes those from LND (including address count 0 and the no-channels marker). If either half has not run, or it failed, the indexes upload leaves any existing file in place.
 - Live channel changes update the sink through LND's backup subscription; startup also runs an explicit export so a quiet node still gets a first SCB into `indexes.enc`.
@@ -74,7 +74,8 @@ Entry points: the wizard's `WizardRestore` RPC and the CLI:
 
 ```bash
 node build/src/index.js restore --phrase "<24 words>" --source cloud|ftp|local \
-  [--ftp-host host] [--ftp-user u --ftp-pass p] [--local-path dir]
+  [--ftp-host host] [--ftp-port 22] [--ftp-host-fingerprint SHA256:...] \
+  [--ftp-user u --ftp-pass p] [--local-path dir]
 ```
 
 Flow (`RestoreManager.RestoreFromSource`):
@@ -89,7 +90,9 @@ Progress is recorded in `.restore_checkpoint` in the data dir (`STARTED` → `LN
 
 **Startup gate:** if `.restore_checkpoint` exists and is not `COMPLETED` (including `STARTED`), normal startup enters recovery-only mode: the wizard is brought up so `WizardRestore` can finish, and the main server does not start until the checkpoint is `COMPLETED`. The gate blocks the main server, never the wizard: it is created before the gate (even when `WIZARD` is disabled) and the gate waits in a loop, so a retry that fails again leaves the process and its wizard up for another attempt instead of exiting. Waiters are notified only after the in-flight restore flag is cleared, so a successful wizard restore cannot leave startup blocked. A restore started from the wizard is also waited out before the no-wallet `Unlock()`, which would otherwise create a fresh wallet and destroy the restore. The `restore` CLI is an alternative entry point (it runs before `initMainHandler` and exits). An operator abandoning a failed restore must delete `.restore_checkpoint`, `.restore_phrase_hash`, and `.restore_wallet_pub`, reset LND and the database, then restart Pub; a running process keeps waiting until a restore completes. While recovery is active, wizard config is refused so it cannot unlock the node mid-restore. The instance lock means the CLI cannot run while a recovery-only process is already holding the data dir.
 
-Sources: **cloud** (seed-derived login, pinned; a rejected login is a login error, and a reachable account missing any shard is reported with `failureMessage()` for each missing file), **ftp** (your host; pinned only if it is `backup.lightning.pub`, since the request has no fingerprint field yet), **local** (a folder of the same `*.enc` files).
+**Wizard retry:** `GetServiceState` reports `has_ongoing_recovery` from `IsRecoveryActive()`. The welcome page shows **Retry Restore** (not **Edit Setup**) when that flag is set, because a committed restore leaves `is_db_clean` false and setup is refused until the checkpoint completes. A failed restore that still has an open checkpoint stays on the restore-source step with the error; "No Backup Found" is only for failures that left no checkpoint.
+
+Sources: **cloud** (seed-derived login, pinned; a rejected login is a login error, and a reachable account missing any shard is reported with `failureMessage()` for each missing file), **ftp** (your host + port + host-key fingerprint; pointing at `backup.lightning.pub:22` without a fingerprint still pins the managed key), **local** (a folder of the same `*.enc` files).
 
 ## Your own SFTP server
 
@@ -121,10 +124,9 @@ The chroot top level must be root-owned and read-only, so `-d /upload` starts se
 - Adding a table to backups means: `backupTables.ts`, an encoder/decoder in `segments.ts`, export in `BackupManager`, import in `RestoreManager`, **and** the allowlist in PubFTPService `src/allowlist.ts` (both `<table>.enc` and `<table>.enc.tmp`). Otherwise the cloud rejects the new shard.
 - Never change derivation v1 or the envelope version 1 layout.
 - The cloud fingerprint in `sftpClient.ts` must match `/var/lib/pubftp/keys/host.key.pub` on the server.
+- The wizard has no login. It is for Start9 and Umbrel, which publish that UI only on the appliance network (Start9: LAN-only, port 1777). Pub listens on every interface; the appliance is the access control. See the comment above `GuestAuthGuard` in `src/services/wizard/index.ts`.
 
 ## Open issues
 
-- Restore hardening (security review): refuse `WizardRestore` once the node is set up (outside an in-progress restore checkpoint).
-- Wizard `ftp` restores cannot pin a host key (no field in `RestoreRequest`).
 - Custom hosts are not trust-on-first-use; pinning is manual.
 - Longer term: log in to SFTP with a seed-derived SSH key instead of a password, so a captured login cannot be replayed.
