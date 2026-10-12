@@ -262,7 +262,10 @@ export class BackupManager {
             }
         }
         if (!anyOk && failures.length > 0) {
-            throw new Error(failures.join('; '))
+            // Do not throw: startup awaits uploadAllTables, and settings/user-cleanup
+            // fire-and-forget it. A total remote failure must not block the server.
+            this.log(`WARNING: backup upload failed (no destination succeeded): ${failures.join('; ')}`)
+            return
         }
         if (failures.length > 0) {
             this.log(`Backup upload partial: ${failures.join('; ')}`)
