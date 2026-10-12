@@ -497,6 +497,9 @@ const testScbFailureKeepsCheckpoint = async (T: StorageTestBase) => {
         T.expect(fs.existsSync(restore.getPhraseHashPath())).to.equal(true)
         T.expect(fs.readFileSync(restore.getWalletPubPath(), 'utf8').trim()).to.equal(TEST_WALLET_PUB)
         T.expect(restore.HasOngoingRecovery()).to.equal(true)
+        T.expect(restore.IsRecoveryActive()).to.equal(true)
+        // Wizard welcome used to hide Restore Backup when the DB is no longer clean.
+        T.expect(await dest.IsDbClean()).to.equal(false)
     } finally {
         dest.Stop()
         fs.rmSync(dataDir, { recursive: true, force: true })

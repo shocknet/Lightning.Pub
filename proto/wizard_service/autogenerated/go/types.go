@@ -58,22 +58,23 @@ type RestoreResponse struct {
 	Success          bool   `json:"success"`
 }
 type ServiceStateResponse struct {
-	Admin_npub         string        `json:"admin_npub"`
-	App_id             string        `json:"app_id"`
-	Automate_liquidity bool          `json:"automate_liquidity"`
-	Avatar_url         string        `json:"avatar_url"`
-	Has_seed           bool          `json:"has_seed"`
-	Http_url           string        `json:"http_url"`
-	Is_db_clean        bool          `json:"is_db_clean"`
-	Lnd_state          LndState      `json:"lnd_state"`
-	Nprofile           string        `json:"nprofile"`
-	Provider_name      string        `json:"provider_name"`
-	Relay_connected    bool          `json:"relay_connected"`
-	Relay_url          string        `json:"relay_url"`
-	Relays             []string      `json:"relays"`
-	Remote_backup      *RemoteBackup `json:"remote_backup"`
-	Source_name        string        `json:"source_name"`
-	Watchdog_ok        bool          `json:"watchdog_ok"`
+	Admin_npub           string        `json:"admin_npub"`
+	App_id               string        `json:"app_id"`
+	Automate_liquidity   bool          `json:"automate_liquidity"`
+	Avatar_url           string        `json:"avatar_url"`
+	Has_ongoing_recovery bool          `json:"has_ongoing_recovery"`
+	Has_seed             bool          `json:"has_seed"`
+	Http_url             string        `json:"http_url"`
+	Is_db_clean          bool          `json:"is_db_clean"`
+	Lnd_state            LndState      `json:"lnd_state"`
+	Nprofile             string        `json:"nprofile"`
+	Provider_name        string        `json:"provider_name"`
+	Relay_connected      bool          `json:"relay_connected"`
+	Relay_url            string        `json:"relay_url"`
+	Relays               []string      `json:"relays"`
+	Remote_backup        *RemoteBackup `json:"remote_backup"`
+	Source_name          string        `json:"source_name"`
+	Watchdog_ok          bool          `json:"watchdog_ok"`
 }
 type StateResponse struct {
 	Admin_linked bool `json:"admin_linked"`

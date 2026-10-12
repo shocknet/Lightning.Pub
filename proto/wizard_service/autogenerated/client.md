@@ -110,6 +110,7 @@ The nostr server will send back a message response, and inside the body there wi
   - __app_id__: _string_
   - __automate_liquidity__: _boolean_
   - __avatar_url__: _string_
+  - __has_ongoing_recovery__: _boolean_
   - __has_seed__: _boolean_
   - __http_url__: _string_
   - __is_db_clean__: _boolean_

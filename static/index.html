@@ -81,9 +81,10 @@
       <p class="welcome-terms">By using this bleeding-edge software you acknowledge and agree to its <a
           href="https://docs.shock.network/" target="_blank" rel="noopener" class="marked">terms</a> regarding any
         services herein.</p>
+      <p class="welcome-terms" x-show="serviceState?.has_ongoing_recovery">A previous restore did not finish. Retry with the same seed phrase — setup is blocked until restore completes.</p>
       <div class="welcome-actions">
-        <button type="button" class="wizard-cta wizard-cta--ghost" x-show="serviceState?.is_db_clean" @click="goTo('restore-intent')">Restore Backup</button>
-        <button type="button" class="wizard-cta wizard-cta--gradient-fill" @click="goTo('node')" x-text="serviceState?.is_db_clean ? 'Get Started!' : 'Edit Setup'"></button>
+        <button type="button" class="wizard-cta wizard-cta--ghost" x-show="serviceState?.is_db_clean || serviceState?.has_ongoing_recovery" @click="goTo('restore-intent')" x-text="serviceState?.has_ongoing_recovery ? 'Retry Restore' : 'Restore Backup'"></button>
+        <button type="button" class="wizard-cta wizard-cta--gradient-fill" x-show="!serviceState?.has_ongoing_recovery" @click="goTo('node')" x-text="serviceState?.is_db_clean ? 'Get Started!' : 'Edit Setup'"></button>
       </div>
       <a href="https://docs.shock.network" target="_blank" rel="noopener"
         class="marked need-help welcome-need-help">Need Help?</a>
@@ -109,7 +110,7 @@
             <br /><span style="font-size:13px; opacity:0.7;">I previously ran a Pub and have my LND seed phrase. I want to recover my users, balances, and settings.</span>
           </label>
         </div>
-        <div class="radio-option">
+        <div class="radio-option" x-show="!serviceState?.has_ongoing_recovery">
           <input type="radio" id="restore-lnd-only" name="restore-intent" value="lnd-only" x-model="restoreIntent" />
           <label for="restore-lnd-only">
             <strong>New Pub on an existing LND node</strong>
@@ -121,8 +122,8 @@
       <div class="page-footer-actions">
         <a href="https://docs.shock.network" class="marked need-help">Need Help?</a>
         <button type="button" class="wizard-cta wizard-cta--gradient-fill"
-          @click="restoreIntent === 'restore' ? goTo('restore-phrase') : goTo('node')"
-          :disabled="!restoreIntent">Next</button>
+          @click="restoreIntent === 'restore' || serviceState?.has_ongoing_recovery ? goTo('restore-phrase') : goTo('node')"
+          :disabled="!restoreIntent && !serviceState?.has_ongoing_recovery">Next</button>
       </div>
     </section>
 
@@ -226,7 +227,7 @@
         <a href="https://docs.shock.network" class="marked need-help">Need Help?</a>
         <button type="button" class="wizard-cta wizard-cta--gradient-fill"
           @click="executeRestore()" :disabled="!restoreSource || restoreLoading">
-          <span x-show="!restoreLoading">Restore</span>
+          <span x-show="!restoreLoading" x-text="serviceState?.has_ongoing_recovery ? 'Retry Restore' : 'Restore'"></span>
           <span x-show="restoreLoading">Restoring...</span>
         </button>
       </div>
@@ -248,7 +249,7 @@
         </div>
         <div class="welcome-actions" style="margin-top:2rem; flex-direction:column; gap:1rem;">
           <button type="button" class="wizard-cta wizard-cta--gradient-fill" @click="goTo('restore-source')">Yes — try a different source</button>
-          <button type="button" class="wizard-cta wizard-cta--ghost" @click="goTo('restore-lndonly')">No — this is LND only</button>
+          <button type="button" class="wizard-cta wizard-cta--ghost" x-show="!serviceState?.has_ongoing_recovery" @click="goTo('restore-lndonly')">No — this is LND only</button>
         </div>
       </div>
     </section>
@@ -266,10 +267,12 @@
         <div class="description-box">
           <p class="description">This restore flow recovers a Lightning.Pub database (users, balances, settings). It looks like this LND seed was not associated with a Pub instance.</p>
           <p class="description" style="margin-top:1rem;">To recover LND channel funds only, run <code>lncli create</code>, enter your seed when prompted, and set a recovery window when asked.</p>
-          <p class="description" style="margin-top:1rem;">You can continue to set up a fresh Pub on this node.</p>
+          <p class="description" style="margin-top:1rem;" x-show="!serviceState?.has_ongoing_recovery">You can continue to set up a fresh Pub on this node.</p>
+          <p class="description" style="margin-top:1rem;" x-show="serviceState?.has_ongoing_recovery">A previous restore is still unfinished, so a fresh setup cannot start until you finish or abandon it.</p>
         </div>
         <div class="welcome-actions" style="margin-top:2rem;">
-          <button type="button" class="wizard-cta wizard-cta--gradient-fill" @click="goTo('node')">Continue to fresh setup</button>
+          <button type="button" class="wizard-cta wizard-cta--gradient-fill" x-show="!serviceState?.has_ongoing_recovery" @click="goTo('node')">Continue to fresh setup</button>
+          <button type="button" class="wizard-cta wizard-cta--gradient-fill" x-show="serviceState?.has_ongoing_recovery" @click="goTo('restore-phrase')">Retry Restore</button>
         </div>
       </div>
     </section>

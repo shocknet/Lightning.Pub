@@ -35,6 +35,9 @@ export class Wizard {
     }
 
     GetServiceState = async (): Promise<WizardTypes.ServiceStateResponse> => {
+        // Keep this even if the rest of the snapshot fails: the welcome page needs it to
+        // show Retry Restore after a committed restore (is_db_clean is then false).
+        const hasOngoingRecovery = this.restoreManager.IsRecoveryActive()
         try {
             const apps = await this.storage.applicationStorage.GetApplications()
             const appNamesList = apps.map(app => app.name).join(', ')
@@ -69,7 +72,8 @@ export class Wizard {
                 avatar_url: defaultApp?.avatar_url || '',
                 app_id: defaultApp?.app_id || '',
                 has_seed: await this.unlocker.HasSeedForNode(),
-                is_db_clean: await this.storage.IsDbClean()
+                is_db_clean: await this.storage.IsDbClean(),
+                has_ongoing_recovery: hasOngoingRecovery,
             }
         } catch (e) {
             this.log(`Error in GetServiceState: ${(e as Error).message}`)
@@ -90,7 +94,8 @@ export class Wizard {
                 avatar_url: '',
                 app_id: '',
                 has_seed: false,
-                is_db_clean: false
+                is_db_clean: false,
+                has_ongoing_recovery: hasOngoingRecovery,
             }
         }
     }

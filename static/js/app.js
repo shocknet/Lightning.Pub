@@ -77,24 +77,34 @@ window.wizard = function () {
             });
         },
 
+        async refreshServiceState() {
+            const res = await fetch('/wizard/service_state');
+            if (!res.ok) throw new Error('Failed to load state');
+            const data = await res.json();
+            this.serviceState = data;
+
+            this.nodeName = data.source_name !== 'Error' ? (data.source_name || '') : '';
+            this.avatarUrl = data.avatar_url || '';
+            this.relayUrl = data.relay_url || (data.relays && data.relays[0]) || '';
+            this.automateLiquidity = data.automate_liquidity;
+            this.liquidityChoice = this.automateLiquidity === true ? 'automate' : 'manual';
+            this.loadRemoteBackup(data.remote_backup, !!data.admin_npub);
+            if (data.has_ongoing_recovery) {
+                this.restoreIntent = 'restore';
+            }
+            return data;
+        },
+
         async loadState() {
             this.loading = true;
             try {
-                const res = await fetch('/wizard/service_state');
-                if (!res.ok) throw new Error('Failed to load state');
-                const data = await res.json();
-                this.serviceState = data;
+                const data = await this.refreshServiceState();
 
-                // Populate local state
-                this.nodeName = data.source_name !== 'Error' ? (data.source_name || '') : '';
-                this.avatarUrl = data.avatar_url || '';
-                this.relayUrl = data.relay_url || (data.relays && data.relays[0]) || '';
-                this.automateLiquidity = data.automate_liquidity;
-                this.liquidityChoice = this.automateLiquidity === true ? 'automate' : 'manual';
-                this.loadRemoteBackup(data.remote_backup, !!data.admin_npub);
-
-                // If we have an admin npub, might redirect to status
-                if (data.admin_npub && !window.location.hash) {
+                // Recovery-only mode keeps the wizard up to retry restore; do not send
+                // the operator to status (config is refused until the checkpoint completes).
+                if (data.has_ongoing_recovery && !window.location.hash) {
+                    this.step = 'welcome';
+                } else if (data.admin_npub && !window.location.hash) {
                     this.goTo('status');
                 }
             } catch (e) {
@@ -305,9 +315,9 @@ window.wizard = function () {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
-            if (!res.ok) {
-                const err = await res.json().catch(() => ({}));
-                throw new Error(err.reason || 'Failed to save config');
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || data.status === 'ERROR') {
+                throw new Error(data.reason || 'Failed to save config');
             }
         },
 
@@ -406,7 +416,16 @@ window.wizard = function () {
                     this.goTo('node');
                 } else {
                     this.restoreError = result.error || 'Restore failed.';
-                    this.goTo('restore-nobackup');
+                    try {
+                        await this.refreshServiceState();
+                    } catch (e) {
+                        console.error('Error refreshing state after restore failure', e);
+                    }
+                    // A committed restore that then failed is still resumable. Stay on
+                    // this step with the real error instead of "No Backup Found".
+                    if (!this.serviceState?.has_ongoing_recovery) {
+                        this.goTo('restore-nobackup');
+                    }
                 }
             } catch (e) {
                 this.restoreError = e.message || 'Restore request failed.';
