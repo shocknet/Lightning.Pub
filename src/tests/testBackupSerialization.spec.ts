@@ -104,6 +104,7 @@ const generateApplicationUserRow = (base: number): ApplicationUserRow => {
         callback_url: `https://test-app-user-${base}.com`,
         topic_id: randomHex,
         nostr_public_key: randomHex,
+        owner_only_clink: base % 2 === 0,
     }
 }
 

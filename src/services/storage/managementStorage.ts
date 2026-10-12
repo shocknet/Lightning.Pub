@@ -33,8 +33,8 @@ export class ManagementStorage {
         return this.dbs.Find<ManagementGrant>('ManagementGrant', {}, txId)
     }
 
-    async ExportManagementGrants(): Promise<ManagementGrantRow[]> {
-        const grants = await this.GetAllManagementGrants()
+    async ExportManagementGrants(txId?: string): Promise<ManagementGrantRow[]> {
+        const grants = await this.GetAllManagementGrants(txId)
         return grants.map(mapManagementGrantBackupRow)
     }
 

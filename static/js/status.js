@@ -62,8 +62,8 @@ $(() => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body)
             })
-            if (res.status !== 200) return false
-            return true
+            const data = await res.json().catch(() => ({}))
+            return res.ok && data.status !== 'ERROR'
         } catch { return false }
     }
     $("#show-reset").click(() => {

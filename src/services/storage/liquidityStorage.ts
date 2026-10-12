@@ -45,12 +45,12 @@ export class LiquidityStorage {
         return this.dbs.CreateAndSave<LndNodeInfo>('LndNodeInfo', { pubkey, backup })
     }
 
-    async GetTrackedProviders() {
-        return this.dbs.Find<TrackedProvider>('TrackedProvider', {})
+    async GetTrackedProviders(txId?: string) {
+        return this.dbs.Find<TrackedProvider>('TrackedProvider', {}, txId)
     }
 
-    async ExportTrackedProviders(): Promise<TrackedProviderRow[]> {
-        const providers = await this.GetTrackedProviders()
+    async ExportTrackedProviders(txId?: string): Promise<TrackedProviderRow[]> {
+        const providers = await this.GetTrackedProviders(txId)
         return providers.map(mapTrackedProviderBackupRow)
     }
 

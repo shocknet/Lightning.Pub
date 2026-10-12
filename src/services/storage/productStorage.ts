@@ -40,8 +40,8 @@ export default class {
         return this.dbs.Find<Product>('Product', {}, txId)
     }
 
-    async ExportProducts(): Promise<ProductRow[]> {
-        const products = await this.GetAllProducts()
+    async ExportProducts(txId?: string): Promise<ProductRow[]> {
+        const products = await this.GetAllProducts(txId)
         return products.map(mapProductBackupRow)
     }
 

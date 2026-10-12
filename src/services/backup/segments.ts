@@ -20,7 +20,7 @@ import type { DebitAccess } from '../storage/entity/DebitAccess.js'
 import type { InviteToken } from '../storage/entity/InviteToken.js'
 import type { AppUserDevice } from '../storage/entity/AppUserDevice.js'
 import { encryptPayload, decryptPayload } from './encryption.js'
-import { encodeTLbV, encodeTLV, integerFromUint8Array, integerToUint8Array, parseTLbV, parseTLV, utf8Decoder, utf8Encoder, type TLV } from '../helpers/tlv.js'
+import { encodeTLbV, encodeTLV, integerFromUint8Array, parseTLbV, parseTLV, uintToBytes, utf8Decoder, utf8Encoder, type TLV } from '../helpers/tlv.js'
 
 // admin_settings keys to strip — machine-local, wizard re-configures on restore
 export const STRIPPED_SETTINGS_KEYS = [
@@ -34,7 +34,7 @@ export const STRIPPED_SETTINGS_KEYS = [
 const boolToBytes = (value: boolean): Uint8Array => new Uint8Array([value ? 1 : 0])
 const boolFromBytes = (data: Uint8Array): boolean => data[0] === 1
 
-const numberToBytes = (value: number): Uint8Array => integerToUint8Array(value)
+const numberToBytes = (value: number): Uint8Array => uintToBytes(value)
 const numberFromBytes = (data: Uint8Array): number => integerFromUint8Array(data)
 
 const stringToBytes = (value: string): Uint8Array => utf8Encoder.encode(value)
@@ -81,7 +81,7 @@ export type BackupData = {
 /**
  * Marker stored in place of the SCB when the node has no channels. A real LND multi-channel
  * backup is far longer than one byte, so the two cannot be confused. The field itself is
- * always present, so a shard that lacks it is an older format, not an empty wallet.
+ * always present. A shard that lacks it is incomplete, not a wallet with no channels.
  */
 export const NO_CHANNELS_SCB = new Uint8Array([0])
 
@@ -107,7 +107,7 @@ export const encodeIndexesRow = (indexes: IndexesRow): Uint8Array => {
 export const decodeIndexesRow = (data: Uint8Array): IndexesRow => {
     const tlv = parseTLV(data)
     if (!tlv[3] || tlv[3].length === 0) {
-        throw new Error('indexes shard has no channel backup field, it was written by an older version')
+        throw new Error('indexes shard has no channel backup field')
     }
     const scb = joinChunks(tlv[3])
     return {
@@ -264,6 +264,7 @@ export type ApplicationUserRow = {
     callback_url: string
     topic_id: string
     nostr_public_key: string | null
+    owner_only_clink: boolean
 }
 
 export const mapAppUserBackupRow = (appUser: ApplicationUser): ApplicationUserRow => ({
@@ -273,6 +274,7 @@ export const mapAppUserBackupRow = (appUser: ApplicationUser): ApplicationUserRo
     callback_url: appUser.callback_url,
     topic_id: appUser.topic_id,
     nostr_public_key: appUser.nostr_public_key || null,
+    owner_only_clink: !!appUser.owner_only_clink,
 })
 
 export const encodeApplicationUserRow = (row: ApplicationUserRow): Uint8Array => {
@@ -286,6 +288,10 @@ export const encodeApplicationUserRow = (row: ApplicationUserRow): Uint8Array =>
     if (row.nostr_public_key) {
         tlv[7] = [hexToBytes(row.nostr_public_key)]
     }
+    // TLV 8 is omitted when false so backups from before this field still decode.
+    if (row.owner_only_clink) {
+        tlv[8] = [boolToBytes(true)]
+    }
     return encodeTLV(tlv)
 }
 
@@ -298,6 +304,7 @@ export const decodeApplicationUserRow = (data: Uint8Array): ApplicationUserRow =
         callback_url: stringFromBytes(joinChunks(tlv[5])),
         topic_id: hexFromBytes(tlv[6][0]),
         nostr_public_key: tlv[7] ? hexFromBytes(tlv[7][0]) : null,
+        owner_only_clink: tlv[8] ? boolFromBytes(tlv[8][0]) : false,
     }
 }
 

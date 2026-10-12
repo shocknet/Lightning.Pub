@@ -34,6 +34,7 @@
 import { getLogger, PubLogger } from '../helpers/logger.js'
 import { deriveBackupKeys, LATEST_DERIVATION_VERSION, type DerivedKeys } from './derivation.js'
 import { sftpDownload, cloudSftpConfig, customHostFingerprint, SftpAuthError, type SftpConfig, SFTPFile } from './sftpClient.js'
+import { DEFAULT_SFTP_PORT } from '../main/adminNodeSettings.js'
 import crypto from 'crypto'
 import fs from 'fs'
 import path from 'path'
@@ -47,7 +48,7 @@ import {
     BackupData,
     decodeIndexesRow,
 } from './segments.js'
-import { BACKUP_RESTORE_ORDER, backupTableFilename, type BackupTableId } from './backupTables.js'
+import { BACKUP_RESTORE_ORDER, backupTableFilename, backupTableStagingFilename, type BackupTableId } from './backupTables.js'
 import SettingsManager from '../main/settingsManager.js'
 import { Unlocker } from '../main/unlocker.js'
 
@@ -273,6 +274,11 @@ export class RestoreManager {
             macaroon = imported.adminMacaroon
         }
         await this.finishRestore(seed, macaroon, scb)
+        // Restore writes admin_settings to SQLite; InitSettings already ran at boot with
+        // the empty-node values. Reload after channel recovery so a bad restored setting
+        // cannot block SCB retries. This process then uses restored fees, conf tiers,
+        // backup dest, and default-app name instead of creating a second default app.
+        await this.settings.InitSettings()
         return { entries_restored: restoredEntries, scb_restored: !!scb, success: true, error: '' }
     }
 
@@ -374,14 +380,26 @@ export class RestoreManager {
         const buffers = new Map<BackupTableId, Buffer>()
         const missing: BackupTableId[] = []
         for (const id of BACKUP_RESTORE_ORDER) {
-            const name = backupTableFilename(id)
-            const chunk = await fetchFile(this.log, keys, req, name)
-            if (!chunk.found) {
-                this.log("buffer not found: " + name)
+            let data: Buffer | undefined
+            for (const name of [backupTableFilename(id), backupTableStagingFilename(id)]) {
+                const chunk = await fetchFile(this.log, keys, req, name)
+                if (!chunk.found) {
+                    continue
+                }
+                try {
+                    decryptTableRows(chunk.data, keys.encKey)
+                    data = chunk.data
+                    break
+                } catch (err: any) {
+                    this.log("ignoring undecryptable " + name + ": " + (err.message || err))
+                }
+            }
+            if (!data) {
+                this.log("buffer not found: " + backupTableFilename(id))
                 missing.push(id)
                 continue
             }
-            buffers.set(id, chunk.data)
+            buffers.set(id, data)
         }
         if (missing.length > 0) {
             throw new Error(missing.map(id => failureMessage(req.source.type, id)).join('\n'))
@@ -481,20 +499,58 @@ export class RestoreManager {
 
 }
 
+const MAX_SFTP_PORT = 65535
+
+/** Build an SFTP config for custom-host restore. Refuses unpinned non-managed hosts. */
+export function sftpConfigForFtpRestore(
+    ftp: wizardTypes.FtpHost,
+    creds: { username: string, password: string },
+): SftpConfig {
+    const host = ftp.host.trim()
+    if (!host) {
+        throw new Error('SFTP host is required for source=ftp')
+    }
+    if (/\s/.test(host)) {
+        throw new Error('SFTP host must not contain spaces')
+    }
+    const port = ftp.port || DEFAULT_SFTP_PORT
+    if (!Number.isSafeInteger(port) || port < 1 || port > MAX_SFTP_PORT) {
+        throw new Error(`SFTP port must be between 1 and ${MAX_SFTP_PORT}`)
+    }
+    const hostFingerprint = customHostFingerprint(host, port, ftp.host_fingerprint || '')
+    if (!hostFingerprint) {
+        throw new Error(
+            'SFTP host key fingerprint is required for custom restore. ' +
+            'Set host_fingerprint (SHA256:...) after verifying it on the server with: ssh-keygen -lf <host key>.pub',
+        )
+    }
+    return {
+        host,
+        port,
+        username: creds.username,
+        password: creds.password,
+        hostFingerprint,
+    }
+}
+
+/** Empty override fields fall back to the phrase-derived login, same as backup dests. */
+export function ftpRestoreCreds(
+    override: wizardTypes.FtpCreds | undefined,
+    keys: Pick<DerivedKeys, 'sftpUser' | 'sftpPass'>,
+): { username: string, password: string } {
+    return {
+        username: override?.user || keys.sftpUser,
+        password: override?.pass || keys.sftpPass,
+    }
+}
+
 const fetchFile = async (log: PubLogger, keys: DerivedKeys, opts: wizardTypes.RestoreRequest, filename: string): Promise<SFTPFile> => {
     log("fetching file: " + filename, "source: " + opts.source.type)
     switch (opts.source.type) {
         case wizardTypes.RestoreRequest_source_type.CLOUD:
             return downloadFromCloud(keys, filename)
         case wizardTypes.RestoreRequest_source_type.FTP_HOST:
-            if (!opts.source.ftp_host) throw new Error('--ftp-host is required for source=ftp')
-            const sftpConf: SftpConfig = {
-                host: opts.source.ftp_host,
-                username: opts.creds_override?.user ?? keys.sftpUser,
-                password: opts.creds_override?.pass ?? keys.sftpPass,
-                hostFingerprint: customHostFingerprint(opts.source.ftp_host, 22, ''),
-            }
-            return sftpDownload(sftpConf, filename)
+            return sftpDownload(sftpConfigForFtpRestore(opts.source.ftp_host, ftpRestoreCreds(opts.creds_override, keys)), filename)
 
         case wizardTypes.RestoreRequest_source_type.LOCAL_PATH: {
             const dir = opts.source.local_path
@@ -585,10 +641,22 @@ export const parseRestoreFlags = (flags: Record<string, string>): wizardTypes.Re
         if (!sftpHost) {
             throw new Error('Error: --ftp-host is required when source=ftp')
         }
+        const portFlag = flags['ftp-port']
+        let port = DEFAULT_SFTP_PORT
+        if (portFlag !== undefined && portFlag !== '') {
+            port = Number(portFlag)
+            if (!Number.isSafeInteger(port) || port < 1 || port > MAX_SFTP_PORT) {
+                throw new Error(`Error: --ftp-port must be an integer between 1 and ${MAX_SFTP_PORT}`)
+            }
+        }
         return {
             phrase, source: {
                 type: wizardTypes.RestoreRequest_source_type.FTP_HOST,
-                ftp_host: sftpHost,
+                ftp_host: {
+                    host: sftpHost,
+                    port,
+                    host_fingerprint: flags['ftp-host-fingerprint'] || '',
+                },
             }, creds_override: creds,
         }
     } else if (source === 'local') {

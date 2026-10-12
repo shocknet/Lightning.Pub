@@ -16,8 +16,8 @@ export default class {
         return this.dbs.Find<UserOffer>('UserOffer', {}, txId)
     }
 
-    async ExportUserOffers(): Promise<UserOfferRow[]> {
-        const offers = await this.GetAllUserOffers()
+    async ExportUserOffers(txId?: string): Promise<UserOfferRow[]> {
+        const offers = await this.GetAllUserOffers(txId)
         return offers.map(mapUserOfferBackupRow)
     }
 

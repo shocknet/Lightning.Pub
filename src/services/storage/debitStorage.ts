@@ -81,8 +81,8 @@ export default class {
         return this.dbs.Find<DebitAccess>('DebitAccess', {}, txId)
     }
 
-    async ExportDebitAccess(): Promise<DebitAccessRow[]> {
-        const access = await this.GetAllDebitAccess()
+    async ExportDebitAccess(txId?: string): Promise<DebitAccessRow[]> {
+        const access = await this.GetAllDebitAccess(txId)
         return access.map(mapDebitAccessBackupRow)
     }
 
