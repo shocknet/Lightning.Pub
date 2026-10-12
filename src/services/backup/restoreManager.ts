@@ -273,11 +273,12 @@ export class RestoreManager {
             restoredEntries = imported.entriesRestored
             macaroon = imported.adminMacaroon
         }
+        await this.finishRestore(seed, macaroon, scb)
         // Restore writes admin_settings to SQLite; InitSettings already ran at boot with
-        // the empty-node values. Reload so this process uses restored fees, conf tiers,
+        // the empty-node values. Reload after channel recovery so a bad restored setting
+        // cannot block SCB retries. This process then uses restored fees, conf tiers,
         // backup dest, and default-app name instead of creating a second default app.
         await this.settings.InitSettings()
-        await this.finishRestore(seed, macaroon, scb)
         return { entries_restored: restoredEntries, scb_restored: !!scb, success: true, error: '' }
     }
 
@@ -532,16 +533,24 @@ export function sftpConfigForFtpRestore(
     }
 }
 
+/** Empty override fields fall back to the phrase-derived login, same as backup dests. */
+export function ftpRestoreCreds(
+    override: wizardTypes.FtpCreds | undefined,
+    keys: Pick<DerivedKeys, 'sftpUser' | 'sftpPass'>,
+): { username: string, password: string } {
+    return {
+        username: override?.user || keys.sftpUser,
+        password: override?.pass || keys.sftpPass,
+    }
+}
+
 const fetchFile = async (log: PubLogger, keys: DerivedKeys, opts: wizardTypes.RestoreRequest, filename: string): Promise<SFTPFile> => {
     log("fetching file: " + filename, "source: " + opts.source.type)
     switch (opts.source.type) {
         case wizardTypes.RestoreRequest_source_type.CLOUD:
             return downloadFromCloud(keys, filename)
         case wizardTypes.RestoreRequest_source_type.FTP_HOST:
-            return sftpDownload(sftpConfigForFtpRestore(opts.source.ftp_host, {
-                username: opts.creds_override?.user ?? keys.sftpUser,
-                password: opts.creds_override?.pass ?? keys.sftpPass,
-            }), filename)
+            return sftpDownload(sftpConfigForFtpRestore(opts.source.ftp_host, ftpRestoreCreds(opts.creds_override, keys)), filename)
 
         case wizardTypes.RestoreRequest_source_type.LOCAL_PATH: {
             const dir = opts.source.local_path

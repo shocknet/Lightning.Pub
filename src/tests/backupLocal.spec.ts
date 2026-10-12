@@ -111,6 +111,7 @@ export default async (T: StorageTestBase) => {
     await testConcurrentRestoreRejected(T)
     await testLocalRoundtrip(T)
     await testRestoreReloadsLiveSettings(T)
+    await testBadSettingsDoNotBlockScb(T)
     await testMissingShardFailsClosed(T)
     await testEmptyProductsShardImports(T)
     await testIndexesWithoutAddressUpdate(T)
@@ -1026,6 +1027,50 @@ const testRestoreReloadsLiveSettings = async (T: StorageTestBase) => {
         fs.rmSync(dir, { recursive: true, force: true })
     }
     T.d('restore reloads the live settings manager from the imported admin_settings')
+}
+
+const testBadSettingsDoNotBlockScb = async (T: StorageTestBase) => {
+    T.d('starting testBadSettingsDoNotBlockScb')
+    const dir = tempBackupDir()
+    const dest = await openSecondStorage()
+    const dataDir = dest.getStorageSettings().dataDir
+    try {
+        const sourceSettings = new SettingsManager(T.storage)
+        await sourceSettings.InitSettings()
+        await seedDialtone(T, sourceSettings)
+        await writeLocalBackup(T, dir, 4)
+        const destSettings = new SettingsManager(dest)
+        await destSettings.InitSettings()
+        await markDbImported(dest)
+        const order: string[] = []
+        destSettings.InitSettings = async () => {
+            order.push('reload')
+            throw new Error('ROUTING_FEE_LIMIT_BPS (100) must be <= SERVICE_FEE_BPS (50) to ensure Pub keeps a spread')
+        }
+        const unlocker = {
+            WalletExists: async () => true,
+            Restore: async () => { throw new Error('should not Restore on resume') },
+            PostRestore: async () => TEST_WALLET_PUB,
+            ApplyScb: async () => { order.push('scb') },
+        } as unknown as Unlocker
+        const restore = new RestoreManager(dest, destSettings, unlocker)
+        fs.mkdirSync(dataDir, { recursive: true })
+        fs.writeFileSync(restore.getCheckpointPath(), 'DB_COMMITTED')
+        fs.writeFileSync(restore.getPhraseHashPath(), hashRestorePhrase(TEST_PHRASE))
+        const result = await restore.RestoreFromSource({
+            phrase: TEST_PHRASE,
+            source: { type: WizardTypes.RestoreRequest_source_type.LOCAL_PATH, local_path: dir },
+        })
+        T.expect(order).to.deep.equal(['scb', 'reload'])
+        T.expect(result.success).to.equal(false)
+        T.expect(result.error || '').to.contain('ROUTING_FEE_LIMIT_BPS')
+        T.expect(fs.readFileSync(restore.getCheckpointPath(), 'utf8')).to.equal('COMPLETED')
+    } finally {
+        dest.Stop()
+        fs.rmSync(dataDir, { recursive: true, force: true })
+        fs.rmSync(dir, { recursive: true, force: true })
+    }
+    T.d('a bad restored setting reloads after SCB, so channel recovery is not blocked')
 }
 
 const SAMPLE_SCB = Buffer.from('multi-chan-backup'.repeat(40))
