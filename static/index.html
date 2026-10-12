@@ -81,9 +81,10 @@
       <p class="welcome-terms">By using this bleeding-edge software you acknowledge and agree to its <a
           href="https://docs.shock.network/" target="_blank" rel="noopener" class="marked">terms</a> regarding any
         services herein.</p>
+      <p class="welcome-terms" x-show="serviceState?.has_ongoing_recovery">A previous restore did not finish. Retry with the same seed phrase — setup is blocked until restore completes.</p>
       <div class="welcome-actions">
-        <button type="button" class="wizard-cta wizard-cta--ghost" x-show="serviceState?.is_db_clean" @click="goTo('restore-intent')">Restore Backup</button>
-        <button type="button" class="wizard-cta wizard-cta--gradient-fill" @click="goTo('node')" x-text="serviceState?.is_db_clean ? 'Get Started!' : 'Edit Setup'"></button>
+        <button type="button" class="wizard-cta wizard-cta--ghost" x-show="serviceState?.is_db_clean || serviceState?.has_ongoing_recovery" @click="goTo('restore-intent')" x-text="serviceState?.has_ongoing_recovery ? 'Retry Restore' : 'Restore Backup'"></button>
+        <button type="button" class="wizard-cta wizard-cta--gradient-fill" x-show="!serviceState?.has_ongoing_recovery" @click="goTo('node')" x-text="serviceState?.is_db_clean ? 'Get Started!' : 'Edit Setup'"></button>
       </div>
       <a href="https://docs.shock.network" target="_blank" rel="noopener"
         class="marked need-help welcome-need-help">Need Help?</a>
@@ -109,7 +110,7 @@
             <br /><span style="font-size:13px; opacity:0.7;">I previously ran a Pub and have my LND seed phrase. I want to recover my users, balances, and settings.</span>
           </label>
         </div>
-        <div class="radio-option">
+        <div class="radio-option" x-show="!serviceState?.has_ongoing_recovery">
           <input type="radio" id="restore-lnd-only" name="restore-intent" value="lnd-only" x-model="restoreIntent" />
           <label for="restore-lnd-only">
             <strong>New Pub on an existing LND node</strong>
@@ -121,8 +122,8 @@
       <div class="page-footer-actions">
         <a href="https://docs.shock.network" class="marked need-help">Need Help?</a>
         <button type="button" class="wizard-cta wizard-cta--gradient-fill"
-          @click="restoreIntent === 'restore' ? goTo('restore-phrase') : goTo('node')"
-          :disabled="!restoreIntent">Next</button>
+          @click="restoreIntent === 'restore' || serviceState?.has_ongoing_recovery ? goTo('restore-phrase') : goTo('node')"
+          :disabled="!restoreIntent && !serviceState?.has_ongoing_recovery">Next</button>
       </div>
     </section>
 
@@ -180,13 +181,17 @@
           <input type="radio" id="source-ftp" name="restore-source" value="ftp" x-model="restoreSource" />
           <label for="source-ftp">
             <strong>Custom SFTP server</strong>
-            <br /><span style="font-size:13px; opacity:0.7;">Provide host and optionally override credentials.</span>
+            <br /><span style="font-size:13px; opacity:0.7;">Provide host, port, host-key fingerprint, and optionally override credentials.</span>
           </label>
         </div>
         <div x-show="restoreSource === 'ftp'" x-transition style="margin-top:1rem;">
           <div class="input-group">
             <h3>SFTP Host</h3>
             <input type="text" class="input-text" placeholder="sftp.example.com" x-model="restoreSftpHost" />
+          </div>
+          <div class="input-group">
+            <h3>Port</h3>
+            <input type="number" class="input-text" min="1" max="65535" x-model.number="restoreSftpPort" />
           </div>
           <div class="input-group">
             <h3>Username (optional — derived from phrase if empty)</h3>
@@ -196,18 +201,23 @@
             <h3>Password (optional — derived from phrase if empty)</h3>
             <input type="password" class="input-text" placeholder="" x-model="restoreSftpPass" />
           </div>
+          <div class="input-group">
+            <h3>Host key fingerprint</h3>
+            <input type="text" class="input-text" placeholder="SHA256:..." x-model="restoreSftpFingerprint" />
+            <span style="font-size:13px; opacity:0.7;">Required for custom hosts. On the server, run <code>ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub</code>.</span>
+          </div>
         </div>
         <div class="radio-option">
           <input type="radio" id="source-local" name="restore-source" value="local" x-model="restoreSource" />
           <label for="source-local">
-            <strong>Local file</strong>
-            <br /><span style="font-size:13px; opacity:0.7;">Point to an existing db.sqlite file on disk.</span>
+            <strong>Local folder</strong>
+            <br /><span style="font-size:13px; opacity:0.7;">Directory of encrypted shards (the same path as BACKUP_LOCAL_PATH), not db.sqlite.</span>
           </label>
         </div>
         <div x-show="restoreSource === 'local'" x-transition style="margin-top:1rem;">
           <div class="input-group">
-            <h3>Path to db.sqlite</h3>
-            <input type="text" class="input-text" placeholder="/path/to/db.sqlite" x-model="restoreLocalPath" />
+            <h3>Path to backup directory</h3>
+            <input type="text" class="input-text" placeholder="/path/to/backup" x-model="restoreLocalPath" />
           </div>
         </div>
         <div class="error-message" x-show="restoreError" x-text="restoreError" style="color:#E84C3D; margin-top:1rem;"></div>
@@ -217,7 +227,7 @@
         <a href="https://docs.shock.network" class="marked need-help">Need Help?</a>
         <button type="button" class="wizard-cta wizard-cta--gradient-fill"
           @click="executeRestore()" :disabled="!restoreSource || restoreLoading">
-          <span x-show="!restoreLoading">Restore</span>
+          <span x-show="!restoreLoading" x-text="serviceState?.has_ongoing_recovery ? 'Retry Restore' : 'Restore'"></span>
           <span x-show="restoreLoading">Restoring...</span>
         </button>
       </div>
@@ -239,7 +249,7 @@
         </div>
         <div class="welcome-actions" style="margin-top:2rem; flex-direction:column; gap:1rem;">
           <button type="button" class="wizard-cta wizard-cta--gradient-fill" @click="goTo('restore-source')">Yes — try a different source</button>
-          <button type="button" class="wizard-cta wizard-cta--ghost" @click="goTo('restore-lndonly')">No — this is LND only</button>
+          <button type="button" class="wizard-cta wizard-cta--ghost" x-show="!serviceState?.has_ongoing_recovery" @click="goTo('restore-lndonly')">No — this is LND only</button>
         </div>
       </div>
     </section>
@@ -257,10 +267,12 @@
         <div class="description-box">
           <p class="description">This restore flow recovers a Lightning.Pub database (users, balances, settings). It looks like this LND seed was not associated with a Pub instance.</p>
           <p class="description" style="margin-top:1rem;">To recover LND channel funds only, run <code>lncli create</code>, enter your seed when prompted, and set a recovery window when asked.</p>
-          <p class="description" style="margin-top:1rem;">You can continue to set up a fresh Pub on this node.</p>
+          <p class="description" style="margin-top:1rem;" x-show="!serviceState?.has_ongoing_recovery">You can continue to set up a fresh Pub on this node.</p>
+          <p class="description" style="margin-top:1rem;" x-show="serviceState?.has_ongoing_recovery">A previous restore is still unfinished, so a fresh setup cannot start until you finish or abandon it.</p>
         </div>
         <div class="welcome-actions" style="margin-top:2rem;">
-          <button type="button" class="wizard-cta wizard-cta--gradient-fill" @click="goTo('node')">Continue to fresh setup</button>
+          <button type="button" class="wizard-cta wizard-cta--gradient-fill" x-show="!serviceState?.has_ongoing_recovery" @click="goTo('node')">Continue to fresh setup</button>
+          <button type="button" class="wizard-cta wizard-cta--gradient-fill" x-show="serviceState?.has_ongoing_recovery" @click="goTo('restore-phrase')">Retry Restore</button>
         </div>
       </div>
     </section>
@@ -628,7 +640,7 @@
       </div>
       <div class="status-line"></div>
       <section class="node-status">
-        <p id="statusErrorText" x-show="error" x-text="error" style="color:red; display:none;"></p>
+        <p id="statusErrorText" x-show="error" x-text="error" style="color:red;"></p>
         <div class="status-content">
           <div class="status-row">
             <div class="status-label">Public node name:</div>
@@ -637,12 +649,12 @@
                 <div class="show-nodey" x-show="editingNodeName" style="display: none;">
                   <input type="text" class="input-text" x-model="nodeName" name="show-nodey" placeholder="Node name" />
                   <div style="display: flex; justify-content: end; gap: 8px; margin-top: 8px;">
-                    <button type="button" class="secondary" @click="editingNodeName = false">Cancel</button>
-                    <button type="button" @click="editingNodeName = false">Save</button>
+                    <button type="button" class="secondary" @click="cancelNodeName()" :disabled="statusSaving">Cancel</button>
+                    <button type="button" @click="saveNodeName()" :disabled="statusSaving">Save</button>
                   </div>
                 </div>
                 <div class="status-value-container" x-show="!editingNodeName">
-                  <button type="button" class="status-icon-button" @click="editingNodeName = true" aria-label="Edit">
+                  <button type="button" class="status-icon-button" @click="startEditNodeName()" aria-label="Edit">
                     <img src="img/pencil.svg" alt="edit" />
                   </button>
                   <span id="show-nodey-text" class="status-value" x-text="serviceState?.source_name || '—'"></span>
@@ -660,12 +672,12 @@
                 <div class="show-avatar" x-show="editingAvatar" style="display: none;">
                   <input type="text" class="input-text" x-model="avatarUrl" name="show-avatar" placeholder="Avatar URL" />
                   <div style="display: flex; justify-content: end; gap: 8px; margin-top: 8px;">
-                    <button type="button" class="secondary" @click="editingAvatar = false">Cancel</button>
-                    <button type="button" @click="editingAvatar = false">Save</button>
+                    <button type="button" class="secondary" @click="cancelAvatar()" :disabled="statusSaving">Cancel</button>
+                    <button type="button" @click="saveAvatar()" :disabled="statusSaving">Save</button>
                   </div>
                 </div>
                 <div class="status-value-container" x-show="!editingAvatar">
-                  <button type="button" class="status-icon-button" @click="editingAvatar = true" aria-label="Edit">
+                  <button type="button" class="status-icon-button" @click="startEditAvatar()" aria-label="Edit">
                     <img src="img/pencil.svg" alt="edit" />
                   </button>
                   <span id="avatar-url-text" class="status-value" x-text="serviceState?.avatar_url || '—'"></span>
@@ -684,15 +696,15 @@
                 <div class="show-nostr" x-show="editingNostr" style="display: none;">
                   <input type="text" class="input-text" x-model="relayUrl" name="show-nostr" placeholder="wss://relay.lightning.pub" />
                   <div style="display: flex; justify-content: end; gap: 8px; margin-top: 8px;">
-                    <button type="button" class="secondary" @click="editingNostr = false">Cancel</button>
-                    <button type="button" @click="editingNostr = false">Save</button>
+                    <button type="button" class="secondary" @click="cancelRelay()" :disabled="statusSaving">Cancel</button>
+                    <button type="button" @click="saveRelay()" :disabled="statusSaving">Save</button>
                   </div>
                 </div>
                 <div class="status-value-container" x-show="!editingNostr">
-                  <button type="button" class="status-icon-button" @click="editingNostr = true" aria-label="Edit">
+                  <button type="button" class="status-icon-button" @click="startEditRelay()" aria-label="Edit">
                     <img src="img/pencil.svg" alt="edit" />
                   </button>
-                  <span id="show-nostr-text" class="status-value" x-text="relayUrl || serviceState?.relay_url || (serviceState?.relays && serviceState.relays[0]) || '—'"></span>
+                  <span id="show-nostr-text" class="status-value" x-text="serviceState?.relay_url || (serviceState?.relays && serviceState.relays[0]) || '—'"></span>
                   <button type="button" class="status-icon-button status-copy-btn" data-copy-target="show-nostr-text" aria-label="Copy">
                     <img src="img/copy.svg" alt="copy" />
                   </button>

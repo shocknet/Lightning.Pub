@@ -180,6 +180,7 @@ export default class {
                     nostr_public_key: appUser.nostr_public_key || undefined,
                     callback_url: appUser.callback_url,
                     topic_id: appUser.topic_id,
+                    owner_only_clink: appUser.owner_only_clink === true,
                 }, txId)
                 restoredAppUsers++;
             } catch (error: any) {

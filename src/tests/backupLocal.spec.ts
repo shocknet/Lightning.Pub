@@ -110,6 +110,8 @@ export default async (T: StorageTestBase) => {
     await testHasOngoingRecovery(T)
     await testConcurrentRestoreRejected(T)
     await testLocalRoundtrip(T)
+    await testRestoreReloadsLiveSettings(T)
+    await testBadSettingsDoNotBlockScb(T)
     await testMissingShardFailsClosed(T)
     await testEmptyProductsShardImports(T)
     await testIndexesWithoutAddressUpdate(T)
@@ -495,6 +497,9 @@ const testScbFailureKeepsCheckpoint = async (T: StorageTestBase) => {
         T.expect(fs.existsSync(restore.getPhraseHashPath())).to.equal(true)
         T.expect(fs.readFileSync(restore.getWalletPubPath(), 'utf8').trim()).to.equal(TEST_WALLET_PUB)
         T.expect(restore.HasOngoingRecovery()).to.equal(true)
+        T.expect(restore.IsRecoveryActive()).to.equal(true)
+        // Wizard welcome used to hide Restore Backup when the DB is no longer clean.
+        T.expect(await dest.IsDbClean()).to.equal(false)
     } finally {
         dest.Stop()
         fs.rmSync(dataDir, { recursive: true, force: true })
@@ -864,7 +869,7 @@ const seedDialtone = async (T: StorageTestBase, settings: SettingsManager) => {
     await T.storage.applicationStorage.GenerateApplicationKeys(app)
     app = await T.storage.applicationStorage.GetApplication(app.app_id)
 
-    const user = await T.storage.applicationStorage.AddApplicationUser(app, crypto.randomBytes(32).toString('hex'), 1234)
+    const user = await T.storage.applicationStorage.AddApplicationUser(app, crypto.randomBytes(32).toString('hex'), 1234, undefined, { ownerOnlyClink: true })
     await T.storage.applicationStorage.UpdateAppUserMessagingToken(user.identifier, 'aa'.repeat(16), 'token-1')
     await T.storage.offerStorage.AddDefaultUserOffer(user.identifier)
     await T.storage.productStorage.AddProduct('backup-product', 50, user.user)
@@ -920,6 +925,7 @@ const testLocalRoundtrip = async (T: StorageTestBase) => {
     T.expect(before.applications.some(a => a.app_id === app.app_id && !!a.nostr_public_key)).to.equal(true)
     T.expect(before.balances.some(b => b.user_id === user.user.user_id && b.balance_sats === 1234)).to.equal(true)
     T.expect(before.adminSettings.some(s => s.env_name === 'LSP_CHANNEL_THRESHOLD' && s.env_value === '1500000')).to.equal(true)
+    T.expect(before.applicationUsers.some(u => u.identifier === user.identifier && u.owner_only_clink)).to.equal(true)
 
     const dest = await openSecondStorage()
     T.expect(await dest.IsDbClean()).to.equal(true)
@@ -974,6 +980,105 @@ const testLocalRoundtrip = async (T: StorageTestBase) => {
     dest.Stop()
     fs.rmSync(dir, { recursive: true, force: true })
     T.d('local backup shards restore dialtone state')
+}
+
+const testRestoreReloadsLiveSettings = async (T: StorageTestBase) => {
+    T.d('starting testRestoreReloadsLiveSettings')
+    const dir = tempBackupDir()
+    const dest = await openSecondStorage()
+    const dataDir = dest.getStorageSettings().dataDir
+    try {
+        const sourceSettings = new SettingsManager(T.storage)
+        await sourceSettings.InitSettings()
+        await sourceSettings.updateOnchainConfTiers({
+            tier1LimitSats: 500_000,
+            tier1Confs: 2,
+            tier2LimitSats: 50_000_000,
+            tier2Confs: 3,
+            tier3Confs: 6,
+        })
+        await seedDialtone(T, sourceSettings)
+        await writeLocalBackup(T, dir, 4)
+        const destSettings = new SettingsManager(dest)
+        await destSettings.InitSettings()
+        T.expect(destSettings.getSettings().lspSettings.channelThreshold).to.equal(1_000_000)
+        T.expect(destSettings.getSettings().lndSettings.tier1Confs).to.equal(1)
+        const unlocker = {
+            WalletExists: async () => false,
+            Restore: async () => ({ adminMacaroon: 'mac' }),
+            PostRestore: async () => TEST_WALLET_PUB,
+            ApplyScb: async () => { },
+        } as unknown as Unlocker
+        const restore = new RestoreManager(dest, destSettings, unlocker)
+        const result = await restore.RestoreFromSource({
+            phrase: TEST_PHRASE,
+            source: { type: WizardTypes.RestoreRequest_source_type.LOCAL_PATH, local_path: dir },
+        })
+        T.expect(result.error || '').to.equal('')
+        T.expect(result.success).to.equal(true)
+        T.expect(destSettings.getSettings().lspSettings.channelThreshold).to.equal(1_500_000)
+        T.expect(destSettings.getSettings().lndSettings.tier1LimitSats).to.equal(500_000)
+        T.expect(destSettings.getSettings().lndSettings.tier1Confs).to.equal(2)
+        T.expect(destSettings.getSettings().lndSettings.tier2LimitSats).to.equal(50_000_000)
+        T.expect(destSettings.getSettings().lndSettings.tier2Confs).to.equal(3)
+        T.expect(destSettings.getSettings().lndSettings.tier3Confs).to.equal(6)
+        const apps = await dest.applicationStorage.GetApplications()
+        T.expect(pickDefaultApp(apps, destSettings.getSettings().serviceSettings.defaultAppName)).to.not.equal(undefined)
+    } finally {
+        dest.Stop()
+        fs.rmSync(dataDir, { recursive: true, force: true })
+        fs.rmSync(dir, { recursive: true, force: true })
+    }
+    T.d('restore reloads the live settings manager from the imported admin_settings')
+}
+
+const testBadSettingsDoNotBlockScb = async (T: StorageTestBase) => {
+    T.d('starting testBadSettingsDoNotBlockScb')
+    const dir = tempBackupDir()
+    const source = await openSecondStorage()
+    const dest = await openSecondStorage()
+    const sourceDataDir = source.getStorageSettings().dataDir
+    const dataDir = dest.getStorageSettings().dataDir
+    try {
+        const sourceT = { ...T, storage: source }
+        const sourceSettings = new SettingsManager(source)
+        await sourceSettings.InitSettings()
+        await seedDialtone(sourceT, sourceSettings)
+        await writeLocalBackup(sourceT, dir, 4)
+        const destSettings = new SettingsManager(dest)
+        await destSettings.InitSettings()
+        await markDbImported(dest)
+        const order: string[] = []
+        destSettings.InitSettings = async () => {
+            order.push('reload')
+            throw new Error('ROUTING_FEE_LIMIT_BPS (100) must be <= SERVICE_FEE_BPS (50) to ensure Pub keeps a spread')
+        }
+        const unlocker = {
+            WalletExists: async () => true,
+            Restore: async () => { throw new Error('should not Restore on resume') },
+            PostRestore: async () => TEST_WALLET_PUB,
+            ApplyScb: async () => { order.push('scb') },
+        } as unknown as Unlocker
+        const restore = new RestoreManager(dest, destSettings, unlocker)
+        fs.mkdirSync(dataDir, { recursive: true })
+        fs.writeFileSync(restore.getCheckpointPath(), 'DB_COMMITTED')
+        fs.writeFileSync(restore.getPhraseHashPath(), hashRestorePhrase(TEST_PHRASE))
+        const result = await restore.RestoreFromSource({
+            phrase: TEST_PHRASE,
+            source: { type: WizardTypes.RestoreRequest_source_type.LOCAL_PATH, local_path: dir },
+        })
+        T.expect(order).to.deep.equal(['scb', 'reload'])
+        T.expect(result.success).to.equal(false)
+        T.expect(result.error || '').to.contain('ROUTING_FEE_LIMIT_BPS')
+        T.expect(fs.readFileSync(restore.getCheckpointPath(), 'utf8')).to.equal('COMPLETED')
+    } finally {
+        source.Stop()
+        dest.Stop()
+        fs.rmSync(sourceDataDir, { recursive: true, force: true })
+        fs.rmSync(dataDir, { recursive: true, force: true })
+        fs.rmSync(dir, { recursive: true, force: true })
+    }
+    T.d('a bad restored setting reloads after SCB, so channel recovery is not blocked')
 }
 
 const SAMPLE_SCB = Buffer.from('multi-chan-backup'.repeat(40))

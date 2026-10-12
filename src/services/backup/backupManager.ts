@@ -43,7 +43,7 @@ const TABLE_DEBOUNCE_MS = 30_000
 /** Upper bound on how long uploads can be deferred while the same table keeps notifying. */
 const TABLE_DEBOUNCE_MAX_MS = 5 * 60_000
 export const WAIT_IN_FLIGHT_MS = 10_000
-/** Hard cap on the shutdown snapshot after the idle wait. Remotes must not block exit. */
+/** Hard cap on remote pushes after local snapshots. Remotes must not block exit. */
 export const SHUTDOWN_FLUSH_MS = 15_000
 export const RETRY_BASE_MS = 30_000
 const RETRY_MAX_MS = 5 * 60_000
@@ -506,12 +506,15 @@ export class BackupManager {
         this.clearAllDebounce()
         await this.waitUntilUploadsIdle(this.waitInFlightMs)
         try {
-            await this.withTimeout((async () => {
-                await this.uploadTables(BACKUP_RESTORE_ORDER)
-                if (this.shutdownRemotePushes.length > 0) {
-                    await Promise.allSettled(this.shutdownRemotePushes)
-                }
-            })(), this.shutdownFlushMs, `Shutdown backup flush timed out after ${this.shutdownFlushMs}ms`)
+            // Local shards must finish; the deadline only covers remotes kicked off above.
+            await this.uploadTables(BACKUP_RESTORE_ORDER)
+            if (this.shutdownRemotePushes.length > 0) {
+                await this.withTimeout(
+                    Promise.allSettled(this.shutdownRemotePushes).then(() => undefined),
+                    this.shutdownFlushMs,
+                    `Shutdown backup flush timed out after ${this.shutdownFlushMs}ms`,
+                )
+            }
         } catch (err: any) {
             this.log(`Shutdown backup failed: ${err.message}`)
         }
