@@ -25,6 +25,10 @@ export class Wizard {
         this.storage = storage
         this.restoreManager = restoreManager
         this.log('Starting wizard...')
+        // No login. This UI is for Start9 and Umbrel, which publish it only on the
+        // appliance network (Start9: LAN-only, port 1777). Pub listens on every
+        // interface; the appliance keeps the port off the public internet.
+        // A missing wizard password is not a bug.
         const wizardServer = NewWizardServer({
             WizardState: async () => { return this.WizardState() },
             WizardConfig: async ({ req }) => { return this.wizardConfig(req) },

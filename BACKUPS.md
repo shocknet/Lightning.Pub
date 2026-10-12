@@ -124,9 +124,9 @@ The chroot top level must be root-owned and read-only, so `-d /upload` starts se
 - Adding a table to backups means: `backupTables.ts`, an encoder/decoder in `segments.ts`, export in `BackupManager`, import in `RestoreManager`, **and** the allowlist in PubFTPService `src/allowlist.ts` (both `<table>.enc` and `<table>.enc.tmp`). Otherwise the cloud rejects the new shard.
 - Never change derivation v1 or the envelope version 1 layout.
 - The cloud fingerprint in `sftpClient.ts` must match `/var/lib/pubftp/keys/host.key.pub` on the server.
+- The wizard has no login. It is for Start9 and Umbrel, which publish that UI only on the appliance network (Start9: LAN-only, port 1777). Pub listens on every interface; the appliance is the access control. See the comment above `GuestAuthGuard` in `src/services/wizard/index.ts`.
 
 ## Open issues
 
-- Restore hardening (security review): refuse `WizardRestore` once the node is set up (outside an in-progress restore checkpoint).
 - Custom hosts are not trust-on-first-use; pinning is manual.
 - Longer term: log in to SFTP with a seed-derived SSH key instead of a password, so a captured login cannot be replayed.
