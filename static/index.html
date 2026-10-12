@@ -210,14 +210,14 @@
         <div class="radio-option">
           <input type="radio" id="source-local" name="restore-source" value="local" x-model="restoreSource" />
           <label for="source-local">
-            <strong>Local file</strong>
-            <br /><span style="font-size:13px; opacity:0.7;">Point to an existing db.sqlite file on disk.</span>
+            <strong>Local folder</strong>
+            <br /><span style="font-size:13px; opacity:0.7;">Directory of encrypted shards (the same path as BACKUP_LOCAL_PATH), not db.sqlite.</span>
           </label>
         </div>
         <div x-show="restoreSource === 'local'" x-transition style="margin-top:1rem;">
           <div class="input-group">
-            <h3>Path to db.sqlite</h3>
-            <input type="text" class="input-text" placeholder="/path/to/db.sqlite" x-model="restoreLocalPath" />
+            <h3>Path to backup directory</h3>
+            <input type="text" class="input-text" placeholder="/path/to/backup" x-model="restoreLocalPath" />
           </div>
         </div>
         <div class="error-message" x-show="restoreError" x-text="restoreError" style="color:#E84C3D; margin-top:1rem;"></div>
@@ -640,7 +640,7 @@
       </div>
       <div class="status-line"></div>
       <section class="node-status">
-        <p id="statusErrorText" x-show="error" x-text="error" style="color:red; display:none;"></p>
+        <p id="statusErrorText" x-show="error" x-text="error" style="color:red;"></p>
         <div class="status-content">
           <div class="status-row">
             <div class="status-label">Public node name:</div>
@@ -649,12 +649,12 @@
                 <div class="show-nodey" x-show="editingNodeName" style="display: none;">
                   <input type="text" class="input-text" x-model="nodeName" name="show-nodey" placeholder="Node name" />
                   <div style="display: flex; justify-content: end; gap: 8px; margin-top: 8px;">
-                    <button type="button" class="secondary" @click="editingNodeName = false">Cancel</button>
-                    <button type="button" @click="editingNodeName = false">Save</button>
+                    <button type="button" class="secondary" @click="cancelNodeName()" :disabled="statusSaving">Cancel</button>
+                    <button type="button" @click="saveNodeName()" :disabled="statusSaving">Save</button>
                   </div>
                 </div>
                 <div class="status-value-container" x-show="!editingNodeName">
-                  <button type="button" class="status-icon-button" @click="editingNodeName = true" aria-label="Edit">
+                  <button type="button" class="status-icon-button" @click="startEditNodeName()" aria-label="Edit">
                     <img src="img/pencil.svg" alt="edit" />
                   </button>
                   <span id="show-nodey-text" class="status-value" x-text="serviceState?.source_name || '—'"></span>
@@ -672,12 +672,12 @@
                 <div class="show-avatar" x-show="editingAvatar" style="display: none;">
                   <input type="text" class="input-text" x-model="avatarUrl" name="show-avatar" placeholder="Avatar URL" />
                   <div style="display: flex; justify-content: end; gap: 8px; margin-top: 8px;">
-                    <button type="button" class="secondary" @click="editingAvatar = false">Cancel</button>
-                    <button type="button" @click="editingAvatar = false">Save</button>
+                    <button type="button" class="secondary" @click="cancelAvatar()" :disabled="statusSaving">Cancel</button>
+                    <button type="button" @click="saveAvatar()" :disabled="statusSaving">Save</button>
                   </div>
                 </div>
                 <div class="status-value-container" x-show="!editingAvatar">
-                  <button type="button" class="status-icon-button" @click="editingAvatar = true" aria-label="Edit">
+                  <button type="button" class="status-icon-button" @click="startEditAvatar()" aria-label="Edit">
                     <img src="img/pencil.svg" alt="edit" />
                   </button>
                   <span id="avatar-url-text" class="status-value" x-text="serviceState?.avatar_url || '—'"></span>
@@ -696,15 +696,15 @@
                 <div class="show-nostr" x-show="editingNostr" style="display: none;">
                   <input type="text" class="input-text" x-model="relayUrl" name="show-nostr" placeholder="wss://relay.lightning.pub" />
                   <div style="display: flex; justify-content: end; gap: 8px; margin-top: 8px;">
-                    <button type="button" class="secondary" @click="editingNostr = false">Cancel</button>
-                    <button type="button" @click="editingNostr = false">Save</button>
+                    <button type="button" class="secondary" @click="cancelRelay()" :disabled="statusSaving">Cancel</button>
+                    <button type="button" @click="saveRelay()" :disabled="statusSaving">Save</button>
                   </div>
                 </div>
                 <div class="status-value-container" x-show="!editingNostr">
-                  <button type="button" class="status-icon-button" @click="editingNostr = true" aria-label="Edit">
+                  <button type="button" class="status-icon-button" @click="startEditRelay()" aria-label="Edit">
                     <img src="img/pencil.svg" alt="edit" />
                   </button>
-                  <span id="show-nostr-text" class="status-value" x-text="relayUrl || serviceState?.relay_url || (serviceState?.relays && serviceState.relays[0]) || '—'"></span>
+                  <span id="show-nostr-text" class="status-value" x-text="serviceState?.relay_url || (serviceState?.relays && serviceState.relays[0]) || '—'"></span>
                   <button type="button" class="status-icon-button status-copy-btn" data-copy-target="show-nostr-text" aria-label="Copy">
                     <img src="img/copy.svg" alt="copy" />
                   </button>

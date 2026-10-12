@@ -7,6 +7,7 @@ import { Unlocker } from "../main/unlocker.js"
 import { AdminManager } from '../main/adminManager.js';
 import { assertRemoteBackup, DEFAULT_SFTP_PORT, pickDefaultApp, remoteBackupFromSettings } from '../main/adminNodeSettings.js'
 import { RestoreManager } from '../backup/restoreManager.js'
+import { applyWizardDefaultApp } from './defaultApp.js'
 const defaultProviderPub = ""
 export class Wizard {
     log = getLogger({ component: "wizard" })
@@ -185,14 +186,18 @@ export class Wizard {
 
         const pendingConfig = { sourceName: req.source_name, relayUrl: req.relay_url, automateLiquidity: req.automate_liquidity }
 
-        // Persist app name/avatar to DB regardless (idempotent behavior)
+        // Rename through the admin transaction so a collision cannot leave DEFAULT_APP_NAME
+        // pointing at a different existing app. Other settings come after so they stay put if rename fails.
+        const nameUpdated = await applyWizardDefaultApp(
+            this.adminManager,
+            this.settings,
+            this.storage,
+            pendingConfig.sourceName,
+            req.avatar_url,
+        )
         // automateLiquidity=true means enable automation, so disableLiquidityProvider should be false
         await this.settings.updateDisableLiquidityProvider(!pendingConfig.automateLiquidity)
         await this.settings.updateRemoteBackup(req.remote_backup)
-        const oldAppName = this.settings.getSettings().serviceSettings.defaultAppName
-        const nameUpdated = await this.settings.updateDefaultAppName(pendingConfig.sourceName)
-        // Always try to update the default app info (handles avatar update even if name didn't change)
-        await this.updateDefaultApp(oldAppName, req.avatar_url)
 
         const relayUpdated = await this.settings.updateRelayUrl(pendingConfig.relayUrl)
         if (relayUpdated && this.IsInitialized()) {
@@ -211,31 +216,6 @@ export class Wizard {
         this.configQueue.forEach(q => q.res(true))
         this.configQueue = []
         return
-    }
-
-    updateDefaultApp = async (currentName: string, avatarUrl?: string): Promise<void> => {
-        const newName = this.settings.getSettings().serviceSettings.defaultAppName
-        try {
-            const appsList = await this.storage.applicationStorage.GetApplications()
-            const existingDefaultApp = pickDefaultApp(appsList, currentName) || appsList[0]
-            if (existingDefaultApp) {
-                await this.storage.applicationStorage.UpdateApplication(existingDefaultApp, {
-                    name: newName,
-                    avatar_url: avatarUrl !== undefined ? avatarUrl : existingDefaultApp.avatar_url
-                    // Note: We don't update ID here to maintain consistency
-                })
-            } else {
-                // If no app exists yet (first run), create it now so settings are preserved
-                const newApp = await this.storage.applicationStorage.AddApplication(newName, true)
-                if (avatarUrl) {
-                    await this.storage.applicationStorage.UpdateApplication(newApp, { avatar_url: avatarUrl })
-                }
-            }
-            // First-time configure runs before BackupManager exists; boot flush covers that path.
-            void this.adminManager.backupManager?.notifyBackupTable('applications')
-        } catch (e) {
-            this.log(`Error updating app info: ${(e as Error).message}`)
-        }
     }
 
     WizardRestore = async (req: WizardTypes.RestoreRequest): Promise<WizardTypes.RestoreResponse> => {
