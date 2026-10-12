@@ -1,3 +1,5 @@
+const COMMUNITY_RELAY_URL = 'wss://relay.lightning.pub';
+
 window.wizard = function () {
     return {
         step: 'welcome',
@@ -36,6 +38,7 @@ window.wizard = function () {
         editingNodeName: false,
         editingAvatar: false,
         editingNostr: false,
+        statusSaving: false,
         showResetBox: false,
         resetBoxContent: '',
 
@@ -77,24 +80,32 @@ window.wizard = function () {
             });
         },
 
+        async refreshServiceState() {
+            const res = await fetch('/wizard/service_state');
+            if (!res.ok) throw new Error('Failed to load state');
+            const data = await res.json();
+            this.serviceState = data;
+
+            this.applyServiceFields(data);
+            this.automateLiquidity = data.automate_liquidity;
+            this.liquidityChoice = this.automateLiquidity === true ? 'automate' : 'manual';
+            this.loadRemoteBackup(data.remote_backup, !!data.admin_npub);
+            if (data.has_ongoing_recovery) {
+                this.restoreIntent = 'restore';
+            }
+            return data;
+        },
+
         async loadState() {
             this.loading = true;
             try {
-                const res = await fetch('/wizard/service_state');
-                if (!res.ok) throw new Error('Failed to load state');
-                const data = await res.json();
-                this.serviceState = data;
+                const data = await this.refreshServiceState();
 
-                // Populate local state
-                this.nodeName = data.source_name !== 'Error' ? (data.source_name || '') : '';
-                this.avatarUrl = data.avatar_url || '';
-                this.relayUrl = data.relay_url || (data.relays && data.relays[0]) || '';
-                this.automateLiquidity = data.automate_liquidity;
-                this.liquidityChoice = this.automateLiquidity === true ? 'automate' : 'manual';
-                this.loadRemoteBackup(data.remote_backup, !!data.admin_npub);
-
-                // If we have an admin npub, might redirect to status
-                if (data.admin_npub && !window.location.hash) {
+                // Recovery-only mode keeps the wizard up to retry restore; do not send
+                // the operator to status (config is refused until the checkpoint completes).
+                if (data.has_ongoing_recovery && !window.location.hash) {
+                    this.step = 'welcome';
+                } else if (data.admin_npub && !window.location.hash) {
                     this.goTo('status');
                 }
             } catch (e) {
@@ -131,10 +142,144 @@ window.wizard = function () {
             }
         },
 
-        // Actions
-        saveNodeSettings() {
-            if (!this.nodeName.trim()) return false;
-            return true;
+        applyServiceFields(data) {
+            this.nodeName = data?.source_name !== 'Error' ? (data?.source_name || '') : '';
+            this.avatarUrl = data?.avatar_url || '';
+            this.relayUrl = data?.relay_url || (data?.relays && data.relays[0]) || '';
+            this.syncRelaySelectionFromSaved();
+        },
+
+        syncRelaySelectionFromSaved() {
+            const saved = (this.relayUrl || '').trim();
+            if (!saved || saved === COMMUNITY_RELAY_URL) {
+                this.relayTier = 'free';
+                this.customRelays = [{ url: '', state: 'idle', error: null }];
+                return;
+            }
+            this.relayTier = 'custom';
+            this.customRelays = [{ url: saved, state: 'valid', error: null }];
+        },
+
+        savedRelayUrl() {
+            return this.serviceState?.relay_url || (this.serviceState?.relays && this.serviceState.relays[0]) || '';
+        },
+
+        statusRemoteBackup() {
+            const rb = this.serviceState?.remote_backup;
+            return {
+                enabled: !!rb?.enabled,
+                host: rb?.host || '',
+                port: Number(rb?.port) || 22,
+                user: rb?.user || '',
+                pass: rb?.pass || '',
+                host_fingerprint: rb?.host_fingerprint || '',
+            };
+        },
+
+        startEditNodeName() {
+            this.error = null;
+            this.applyServiceFields(this.serviceState);
+            this.editingNodeName = true;
+        },
+
+        startEditAvatar() {
+            this.error = null;
+            this.applyServiceFields(this.serviceState);
+            this.editingAvatar = true;
+        },
+
+        startEditRelay() {
+            this.error = null;
+            this.applyServiceFields(this.serviceState);
+            this.editingNostr = true;
+        },
+
+        cancelNodeName() {
+            this.error = null;
+            this.applyServiceFields(this.serviceState);
+            this.editingNodeName = false;
+        },
+
+        cancelAvatar() {
+            this.error = null;
+            this.applyServiceFields(this.serviceState);
+            this.editingAvatar = false;
+        },
+
+        cancelRelay() {
+            this.error = null;
+            this.applyServiceFields(this.serviceState);
+            this.editingNostr = false;
+        },
+
+        async saveStatusConfig(updates) {
+            const s = this.serviceState || {};
+            const payload = {
+                source_name: updates.source_name ?? (s.source_name !== 'Error' ? (s.source_name || '') : ''),
+                relay_url: updates.relay_url ?? this.savedRelayUrl(),
+                automate_liquidity: typeof s.automate_liquidity === 'boolean' ? s.automate_liquidity : false,
+                remote_backup: this.statusRemoteBackup(),
+                avatar_url: updates.avatar_url !== undefined ? updates.avatar_url : (s.avatar_url || ''),
+            };
+            const res = await fetch('/wizard/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || data.status === 'ERROR') {
+                throw new Error(data.reason || 'Failed to save config');
+            }
+            await this.refreshServiceState();
+        },
+
+        async saveNodeName() {
+            const name = (this.nodeName || '').trim();
+            if (!name) {
+                this.error = 'Please enter a node name';
+                return;
+            }
+            this.statusSaving = true;
+            try {
+                this.error = null;
+                await this.saveStatusConfig({ source_name: name });
+                this.editingNodeName = false;
+            } catch (e) {
+                this.error = e.message || 'Failed to save node name';
+            } finally {
+                this.statusSaving = false;
+            }
+        },
+
+        async saveAvatar() {
+            this.statusSaving = true;
+            try {
+                this.error = null;
+                await this.saveStatusConfig({ avatar_url: (this.avatarUrl || '').trim() });
+                this.editingAvatar = false;
+            } catch (e) {
+                this.error = e.message || 'Failed to save avatar';
+            } finally {
+                this.statusSaving = false;
+            }
+        },
+
+        async saveRelay() {
+            const url = (this.relayUrl || '').trim();
+            if (!url) {
+                this.error = 'Please enter a relay URL';
+                return;
+            }
+            this.statusSaving = true;
+            try {
+                this.error = null;
+                await this.saveStatusConfig({ relay_url: url });
+                this.editingNostr = false;
+            } catch (e) {
+                this.error = e.message || 'Failed to save relay';
+            } finally {
+                this.statusSaving = false;
+            }
         },
 
         addCustomRelay() {
@@ -287,9 +432,9 @@ window.wizard = function () {
         getWizardRelayUrl() {
             if (this.relayTier === 'custom') {
                 const valid = this.customRelays.find(r => r.state === 'valid');
-                return valid ? valid.url : (this.customRelays[0]?.url || 'wss://relay.lightning.pub');
+                return valid ? valid.url : (this.customRelays[0]?.url || COMMUNITY_RELAY_URL);
             }
-            return 'wss://relay.lightning.pub';
+            return COMMUNITY_RELAY_URL;
         },
 
         async submitWizardConfig() {
@@ -305,9 +450,9 @@ window.wizard = function () {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
-            if (!res.ok) {
-                const err = await res.json().catch(() => ({}));
-                throw new Error(err.reason || 'Failed to save config');
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || data.status === 'ERROR') {
+                throw new Error(data.reason || 'Failed to save config');
             }
         },
 
@@ -406,7 +551,16 @@ window.wizard = function () {
                     this.goTo('node');
                 } else {
                     this.restoreError = result.error || 'Restore failed.';
-                    this.goTo('restore-nobackup');
+                    try {
+                        await this.refreshServiceState();
+                    } catch (e) {
+                        console.error('Error refreshing state after restore failure', e);
+                    }
+                    // A committed restore that then failed is still resumable. Stay on
+                    // this step with the real error instead of "No Backup Found".
+                    if (!this.serviceState?.has_ongoing_recovery) {
+                        this.goTo('restore-nobackup');
+                    }
                 }
             } catch (e) {
                 this.restoreError = e.message || 'Restore request failed.';

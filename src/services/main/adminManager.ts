@@ -490,7 +490,7 @@ export class AdminManager {
         return pickDefaultApp(apps, name)
     }
 
-    private commitDefaultAppName = async (app: Application | undefined, name: string): Promise<boolean> => {
+    commitDefaultAppName = async (app: Application | undefined, name: string): Promise<boolean> => {
         const result = await this.storage.StartTransaction(
             txId => this.writeDefaultAppName(app, name, txId),
             "rename-default-app",
