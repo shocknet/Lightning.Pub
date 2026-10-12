@@ -66,99 +66,101 @@ type Client struct {
 	BanDebit          func(req DebitOperation) error
 	BanUser           func(req BanUserRequest) (*BanUserResponse, error)
 	// batching method: BatchUser not implemented
-	BumpTx                        func(req BumpTx) error
-	CloseChannel                  func(req CloseChannelRequest) (*CloseChannelResponse, error)
-	CreateOneTimeInviteLink       func(req CreateOneTimeInviteLinkRequest) (*CreateOneTimeInviteLinkResponse, error)
-	DecodeInvoice                 func(req DecodeInvoiceRequest) (*DecodeInvoiceResponse, error)
-	DeleteUserOffer               func(req OfferId) error
-	EditDebit                     func(req DebitAuthorizationRequest) error
-	EncryptionExchange            func(req EncryptionExchangeRequest) error
-	EnrollAdminToken              func(req EnrollAdminTokenRequest) error
-	EnrollMessagingToken          func(req MessagingToken) error
-	GetAdminInvoiceSwapQuotes     func(req InvoiceSwapRequest) (*InvoiceSwapQuoteList, error)
-	GetAdminNodeSettings          func() (*AdminNodeSettings, error)
-	GetAdminTransactionSwapQuotes func(req TransactionSwapRequest) (*TransactionSwapQuoteList, error)
-	GetApp                        func() (*Application, error)
-	GetAppUser                    func(req GetAppUserRequest) (*AppUser, error)
-	GetAppUserLNURLInfo           func(req GetAppUserLNURLInfoRequest) (*LnurlPayInfoResponse, error)
-	GetAppsMetrics                func(req AppsMetricsRequest) (*AppsMetrics, error)
-	GetAssetsAndLiabilities       func(req AssetsAndLiabilitiesReq) (*AssetsAndLiabilities, error)
-	GetAssetsAndLiabilitiesV2     func(req AssetsAndLiabilitiesReqV2) (*AssetsAndLiabilitiesV2, error)
-	GetBundleMetrics              func(req LatestBundleMetricReq) (*BundleMetrics, error)
-	GetDebitAuthorizations        func() (*DebitAuthorizations, error)
-	GetErrorStats                 func() (*ErrorStats, error)
-	GetHttpCreds                  func() (*HttpCreds, error)
-	GetInviteLinkState            func(req GetInviteTokenStateRequest) (*GetInviteTokenStateResponse, error)
-	GetLNURLChannelLink           func() (*LnurlLinkResponse, error)
-	GetLiveDebitRequests          func() (*LiveDebitRequest, error)
-	GetLiveManageRequests         func() (*LiveManageRequest, error)
-	GetLiveUserOperations         func() (*LiveUserOperation, error)
-	GetLndForwardingMetrics       func(req LndMetricsRequest) (*LndForwardingMetrics, error)
-	GetLndMetrics                 func(req LndMetricsRequest) (*LndMetrics, error)
-	GetLnurlPayInfo               func(query GetLnurlPayInfo_Query) (*LnurlPayInfoResponse, error)
-	GetLnurlPayLink               func() (*LnurlLinkResponse, error)
-	GetLnurlWithdrawInfo          func(query GetLnurlWithdrawInfo_Query) (*LnurlWithdrawInfoResponse, error)
-	GetLnurlWithdrawLink          func() (*LnurlLinkResponse, error)
-	GetManageAuthorizations       func() (*ManageAuthorizations, error)
-	GetMigrationUpdate            func() (*MigrationUpdate, error)
-	GetNPubLinkingState           func(req GetNPubLinking) (*NPubLinking, error)
-	GetPaymentState               func(req GetPaymentStateRequest) (*PaymentState, error)
-	GetProvidersDisruption        func() (*ProvidersDisruption, error)
-	GetSeed                       func() (*LndSeed, error)
-	GetSingleBundleMetrics        func(req SingleMetricReq) (*BundleData, error)
-	GetSingleUsageMetrics         func(req SingleMetricReq) (*UsageMetricTlv, error)
-	GetTransactionSwapQuotes      func(req TransactionSwapRequest) (*TransactionSwapQuoteList, error)
-	GetUsageMetrics               func(req LatestUsageMetricReq) (*UsageMetrics, error)
-	GetUserInfo                   func() (*UserInfo, error)
-	GetUserOffer                  func(req OfferId) (*OfferConfig, error)
-	GetUserOfferInvoices          func(req GetUserOfferInvoicesReq) (*OfferInvoices, error)
-	GetUserOffers                 func() (*UserOffers, error)
-	GetUserOperations             func(req GetUserOperationsRequest) (*GetUserOperationsResponse, error)
-	GetUserOperationsFromAdmin    func(req GetUserOperationsRequest) (*GetUserOperationsResponse, error)
-	GetUsersAdminInfo             func(req UsersAdminInfoRequest) (*UsersAdminInfo, error)
-	HandleLnurlAddress            func(routeParams HandleLnurlAddress_RouteParams) (*LnurlPayInfoResponse, error)
-	HandleLnurlPay                func(query HandleLnurlPay_Query) (*HandleLnurlPayResponse, error)
-	HandleLnurlWithdraw           func(query HandleLnurlWithdraw_Query) error
-	Health                        func() error
-	LinkNPubThroughToken          func(req LinkNPubThroughTokenRequest) error
-	ListAdminInvoiceSwaps         func() (*InvoiceSwapsList, error)
-	ListAdminTxSwaps              func() (*TxSwapsList, error)
-	ListChannels                  func() (*LndChannels, error)
-	ListPeers                     func() (*LndPeers, error)
-	ListTxSwaps                   func() (*TxSwapsList, error)
-	ListUtxos                     func() (*LndUtxos, error)
-	LndGetInfo                    func(req LndGetInfoRequest) (*LndGetInfoResponse, error)
-	NewAddress                    func(req NewAddressRequest) (*NewAddressResponse, error)
-	NewInvoice                    func(req NewInvoiceRequest) (*NewInvoiceResponse, error)
-	NewProductInvoice             func(query NewProductInvoice_Query) (*NewInvoiceResponse, error)
-	OpenChannel                   func(req OpenChannelRequest) (*OpenChannelResponse, error)
-	PayAddress                    func(req PayAddressRequest) (*PayAddressResponse, error)
-	PayAdminInvoiceSwap           func(req PayAdminInvoiceSwapRequest) (*AdminInvoiceSwapResponse, error)
-	PayAdminTransactionSwap       func(req PayAdminTransactionSwapRequest) (*AdminTxSwapResponse, error)
-	PayAppUserInvoice             func(req PayAppUserInvoiceRequest) (*PayInvoiceResponse, error)
-	PayInvoice                    func(req PayInvoiceRequest) (*PayInvoiceResponse, error)
-	PingSubProcesses              func() error
-	RefundAdminInvoiceSwap        func(req RefundAdminInvoiceSwapRequest) (*AdminInvoiceSwapResponse, error)
-	RequestNPubLinkingToken       func(req RequestNPubLinkingTokenRequest) (*RequestNPubLinkingTokenResponse, error)
-	ResetDebit                    func(req DebitOperation) error
-	ResetManage                   func(req ManageOperation) error
-	ResetMetricsStorages          func() error
-	ResetNPubLinkingToken         func(req RequestNPubLinkingTokenRequest) (*RequestNPubLinkingTokenResponse, error)
-	RespondToDebit                func(req DebitResponse) error
-	SendAppUserToAppPayment       func(req SendAppUserToAppPaymentRequest) error
-	SendAppUserToAppUserPayment   func(req SendAppUserToAppUserPaymentRequest) error
-	SetMockAppBalance             func(req SetMockAppBalanceRequest) error
-	SetMockAppUserBalance         func(req SetMockAppUserBalanceRequest) error
-	SetMockInvoiceAsPaid          func(req SetMockInvoiceAsPaidRequest) error
-	SubToWebRtcCandidates         func() (*WebRtcCandidate, error)
-	SubmitWebRtcMessage           func(req WebRtcMessage) (*WebRtcAnswer, error)
-	UpdateAdminNodeSettings       func(req UpdateAdminNodeSettingsRequest) (*AdminNodeSettings, error)
-	UpdateCallbackUrl             func(req CallbackUrl) (*CallbackUrl, error)
-	UpdateChannelPolicy           func(req UpdateChannelPolicyRequest) error
-	UpdateUserOffer               func(req OfferUpdateRequest) error
-	UseInviteLink                 func(req UseInviteLinkRequest) error
-	UserHealth                    func() (*UserHealthState, error)
-	ZipMetricsStorages            func() (*ZippedMetrics, error)
+	BumpTx                         func(req BumpTx) error
+	CloseChannel                   func(req CloseChannelRequest) (*CloseChannelResponse, error)
+	CreateOneTimeInviteLink        func(req CreateOneTimeInviteLinkRequest) (*CreateOneTimeInviteLinkResponse, error)
+	DecodeInvoice                  func(req DecodeInvoiceRequest) (*DecodeInvoiceResponse, error)
+	DeleteUserOffer                func(req OfferId) error
+	EditDebit                      func(req DebitAuthorizationRequest) error
+	EncryptionExchange             func(req EncryptionExchangeRequest) error
+	EnrollAdminToken               func(req EnrollAdminTokenRequest) error
+	EnrollMessagingToken           func(req MessagingToken) error
+	GetAdminInvoiceSwapQuotes      func(req InvoiceSwapRequest) (*InvoiceSwapQuoteList, error)
+	GetAdminNodeSettings           func() (*AdminNodeSettings, error)
+	GetAdminOnchainConfSettings    func() (*AdminOnchainConfSettings, error)
+	GetAdminTransactionSwapQuotes  func(req TransactionSwapRequest) (*TransactionSwapQuoteList, error)
+	GetApp                         func() (*Application, error)
+	GetAppUser                     func(req GetAppUserRequest) (*AppUser, error)
+	GetAppUserLNURLInfo            func(req GetAppUserLNURLInfoRequest) (*LnurlPayInfoResponse, error)
+	GetAppsMetrics                 func(req AppsMetricsRequest) (*AppsMetrics, error)
+	GetAssetsAndLiabilities        func(req AssetsAndLiabilitiesReq) (*AssetsAndLiabilities, error)
+	GetAssetsAndLiabilitiesV2      func(req AssetsAndLiabilitiesReqV2) (*AssetsAndLiabilitiesV2, error)
+	GetBundleMetrics               func(req LatestBundleMetricReq) (*BundleMetrics, error)
+	GetDebitAuthorizations         func() (*DebitAuthorizations, error)
+	GetErrorStats                  func() (*ErrorStats, error)
+	GetHttpCreds                   func() (*HttpCreds, error)
+	GetInviteLinkState             func(req GetInviteTokenStateRequest) (*GetInviteTokenStateResponse, error)
+	GetLNURLChannelLink            func() (*LnurlLinkResponse, error)
+	GetLiveDebitRequests           func() (*LiveDebitRequest, error)
+	GetLiveManageRequests          func() (*LiveManageRequest, error)
+	GetLiveUserOperations          func() (*LiveUserOperation, error)
+	GetLndForwardingMetrics        func(req LndMetricsRequest) (*LndForwardingMetrics, error)
+	GetLndMetrics                  func(req LndMetricsRequest) (*LndMetrics, error)
+	GetLnurlPayInfo                func(query GetLnurlPayInfo_Query) (*LnurlPayInfoResponse, error)
+	GetLnurlPayLink                func() (*LnurlLinkResponse, error)
+	GetLnurlWithdrawInfo           func(query GetLnurlWithdrawInfo_Query) (*LnurlWithdrawInfoResponse, error)
+	GetLnurlWithdrawLink           func() (*LnurlLinkResponse, error)
+	GetManageAuthorizations        func() (*ManageAuthorizations, error)
+	GetMigrationUpdate             func() (*MigrationUpdate, error)
+	GetNPubLinkingState            func(req GetNPubLinking) (*NPubLinking, error)
+	GetPaymentState                func(req GetPaymentStateRequest) (*PaymentState, error)
+	GetProvidersDisruption         func() (*ProvidersDisruption, error)
+	GetSeed                        func() (*LndSeed, error)
+	GetSingleBundleMetrics         func(req SingleMetricReq) (*BundleData, error)
+	GetSingleUsageMetrics          func(req SingleMetricReq) (*UsageMetricTlv, error)
+	GetTransactionSwapQuotes       func(req TransactionSwapRequest) (*TransactionSwapQuoteList, error)
+	GetUsageMetrics                func(req LatestUsageMetricReq) (*UsageMetrics, error)
+	GetUserInfo                    func() (*UserInfo, error)
+	GetUserOffer                   func(req OfferId) (*OfferConfig, error)
+	GetUserOfferInvoices           func(req GetUserOfferInvoicesReq) (*OfferInvoices, error)
+	GetUserOffers                  func() (*UserOffers, error)
+	GetUserOperations              func(req GetUserOperationsRequest) (*GetUserOperationsResponse, error)
+	GetUserOperationsFromAdmin     func(req GetUserOperationsRequest) (*GetUserOperationsResponse, error)
+	GetUsersAdminInfo              func(req UsersAdminInfoRequest) (*UsersAdminInfo, error)
+	HandleLnurlAddress             func(routeParams HandleLnurlAddress_RouteParams) (*LnurlPayInfoResponse, error)
+	HandleLnurlPay                 func(query HandleLnurlPay_Query) (*HandleLnurlPayResponse, error)
+	HandleLnurlWithdraw            func(query HandleLnurlWithdraw_Query) error
+	Health                         func() error
+	LinkNPubThroughToken           func(req LinkNPubThroughTokenRequest) error
+	ListAdminInvoiceSwaps          func() (*InvoiceSwapsList, error)
+	ListAdminTxSwaps               func() (*TxSwapsList, error)
+	ListChannels                   func() (*LndChannels, error)
+	ListPeers                      func() (*LndPeers, error)
+	ListTxSwaps                    func() (*TxSwapsList, error)
+	ListUtxos                      func() (*LndUtxos, error)
+	LndGetInfo                     func(req LndGetInfoRequest) (*LndGetInfoResponse, error)
+	NewAddress                     func(req NewAddressRequest) (*NewAddressResponse, error)
+	NewInvoice                     func(req NewInvoiceRequest) (*NewInvoiceResponse, error)
+	NewProductInvoice              func(query NewProductInvoice_Query) (*NewInvoiceResponse, error)
+	OpenChannel                    func(req OpenChannelRequest) (*OpenChannelResponse, error)
+	PayAddress                     func(req PayAddressRequest) (*PayAddressResponse, error)
+	PayAdminInvoiceSwap            func(req PayAdminInvoiceSwapRequest) (*AdminInvoiceSwapResponse, error)
+	PayAdminTransactionSwap        func(req PayAdminTransactionSwapRequest) (*AdminTxSwapResponse, error)
+	PayAppUserInvoice              func(req PayAppUserInvoiceRequest) (*PayInvoiceResponse, error)
+	PayInvoice                     func(req PayInvoiceRequest) (*PayInvoiceResponse, error)
+	PingSubProcesses               func() error
+	RefundAdminInvoiceSwap         func(req RefundAdminInvoiceSwapRequest) (*AdminInvoiceSwapResponse, error)
+	RequestNPubLinkingToken        func(req RequestNPubLinkingTokenRequest) (*RequestNPubLinkingTokenResponse, error)
+	ResetDebit                     func(req DebitOperation) error
+	ResetManage                    func(req ManageOperation) error
+	ResetMetricsStorages           func() error
+	ResetNPubLinkingToken          func(req RequestNPubLinkingTokenRequest) (*RequestNPubLinkingTokenResponse, error)
+	RespondToDebit                 func(req DebitResponse) error
+	SendAppUserToAppPayment        func(req SendAppUserToAppPaymentRequest) error
+	SendAppUserToAppUserPayment    func(req SendAppUserToAppUserPaymentRequest) error
+	SetMockAppBalance              func(req SetMockAppBalanceRequest) error
+	SetMockAppUserBalance          func(req SetMockAppUserBalanceRequest) error
+	SetMockInvoiceAsPaid           func(req SetMockInvoiceAsPaidRequest) error
+	SubToWebRtcCandidates          func() (*WebRtcCandidate, error)
+	SubmitWebRtcMessage            func(req WebRtcMessage) (*WebRtcAnswer, error)
+	UpdateAdminNodeSettings        func(req UpdateAdminNodeSettingsRequest) (*AdminNodeSettings, error)
+	UpdateAdminOnchainConfSettings func(req UpdateAdminOnchainConfSettingsRequest) (*AdminOnchainConfSettings, error)
+	UpdateCallbackUrl              func(req CallbackUrl) (*CallbackUrl, error)
+	UpdateChannelPolicy            func(req UpdateChannelPolicyRequest) error
+	UpdateUserOffer                func(req OfferUpdateRequest) error
+	UseInviteLink                  func(req UseInviteLinkRequest) error
+	UserHealth                     func() (*UserHealthState, error)
+	ZipMetricsStorages             func() (*ZippedMetrics, error)
 }
 
 func NewClient(params ClientParams) *Client {
@@ -749,6 +751,28 @@ func NewClient(params ClientParams) *Client {
 				return nil, fmt.Errorf(result.Reason)
 			}
 			res := AdminNodeSettings{}
+			err = json.Unmarshal(resBody, &res)
+			if err != nil {
+				return nil, err
+			}
+			return &res, nil
+		},
+		GetAdminOnchainConfSettings: func() (*AdminOnchainConfSettings, error) {
+			auth, err := params.RetrieveAdminAuth()
+			if err != nil {
+				return nil, err
+			}
+			finalRoute := "/api/admin/node/onchain-conf"
+			resBody, err := doGetRequest(params.BaseURL+finalRoute, auth)
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return nil, err
+			}
+			if result.Status == "ERROR" {
+				return nil, fmt.Errorf(result.Reason)
+			}
+			res := AdminOnchainConfSettings{}
 			err = json.Unmarshal(resBody, &res)
 			if err != nil {
 				return nil, err
@@ -2656,6 +2680,35 @@ func NewClient(params ClientParams) *Client {
 				return nil, fmt.Errorf(result.Reason)
 			}
 			res := AdminNodeSettings{}
+			err = json.Unmarshal(resBody, &res)
+			if err != nil {
+				return nil, err
+			}
+			return &res, nil
+		},
+		UpdateAdminOnchainConfSettings: func(req UpdateAdminOnchainConfSettingsRequest) (*AdminOnchainConfSettings, error) {
+			auth, err := params.RetrieveAdminAuth()
+			if err != nil {
+				return nil, err
+			}
+			finalRoute := "/api/admin/node/onchain-conf"
+			body, err := json.Marshal(req)
+			if err != nil {
+				return nil, err
+			}
+			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
+			if err != nil {
+				return nil, err
+			}
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return nil, err
+			}
+			if result.Status == "ERROR" {
+				return nil, fmt.Errorf(result.Reason)
+			}
+			res := AdminOnchainConfSettings{}
 			err = json.Unmarshal(resBody, &res)
 			if err != nil {
 				return nil, err

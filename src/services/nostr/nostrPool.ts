@@ -55,7 +55,6 @@ const actionKinds = CLINK_ACTION_KINDS
 const beaconKind = CLINK_BEACON_KIND
 const appTag = LEGACY_BEACON_D_TAG
 
-
 export const MAX_FALLBACK_IN_FLIGHT = 8
 
 export class NostrPool {
@@ -177,7 +176,6 @@ export class NostrPool {
         try {
             const keys = this.getSendKeys(initiator)
             const r = this.getRelays(initiator, relays)
-            const privateKey = Buffer.from(keys.privateKey, 'hex')
             const toSign = await this.handleSend(data, keys)
             await Promise.all(toSign.map(ue => this.sendEvent(ue, keys, r)))
         } catch (e: any) {

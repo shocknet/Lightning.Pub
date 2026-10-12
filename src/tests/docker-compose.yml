@@ -106,3 +106,43 @@ services:
       #      - '8084:8080'
       - '10004:10009'
       - '9738:9735'
+  eliot:
+    environment:
+      USERID: ${USERID:-1000}
+      GROUPID: ${GROUPID:-1000}
+    stop_grace_period: 2m
+    image: polarlightning/lnd:0.19.0-beta
+    container_name: polar-n2-eliot
+    hostname: eliot
+    command: >-
+      lnd --trickledelay=5000 --alias=eliot --externalip=eliot --tlsextradomain=eliot --tlsextradomain=polar-n2-eliot --tlsextradomain=host.docker.internal --listen=0.0.0.0:9735 --rpclisten=0.0.0.0:10009 --restlisten=0.0.0.0:8080 --bitcoin.active --bitcoin.regtest --bitcoin.node=bitcoind --bitcoind.rpchost=polar-n2-backend1 --bitcoind.rpcuser=polaruser --bitcoind.rpcpass=polarpass --bitcoind.zmqpubrawblock=tcp://polar-n2-backend1:28334 --bitcoind.zmqpubrawtx=tcp://polar-n2-backend1:28335
+    restart: always
+    volumes:
+      - ./volumes/lnd/eliot:/home/lnd/.lnd
+    expose:
+      - '8080'
+      - '10009'
+      - '9735'
+    ports:
+      - '10005:10009'
+      - '9739:9735'
+  eliot2:
+    environment:
+      USERID: ${USERID:-1000}
+      GROUPID: ${GROUPID:-1000}
+    stop_grace_period: 2m
+    image: polarlightning/lnd:0.19.0-beta
+    container_name: polar-n2-eliot2
+    hostname: eliot2
+    command: >-
+      lnd --trickledelay=5000 --alias=eliot2 --externalip=eliot2 --tlsextradomain=eliot2 --tlsextradomain=polar-n2-eliot2 --tlsextradomain=host.docker.internal --listen=0.0.0.0:9735 --rpclisten=0.0.0.0:10009 --restlisten=0.0.0.0:8080 --bitcoin.active --bitcoin.regtest --bitcoin.node=bitcoind --bitcoind.rpchost=polar-n2-backend1 --bitcoind.rpcuser=polaruser --bitcoind.rpcpass=polarpass --bitcoind.zmqpubrawblock=tcp://polar-n2-backend1:28334 --bitcoind.zmqpubrawtx=tcp://polar-n2-backend1:28335
+    restart: always
+    volumes:
+      - ./volumes/lnd/eliot2:/home/lnd/.lnd
+    expose:
+      - '8080'
+      - '10009'
+      - '9735'
+    ports:
+      - '10006:10009'
+      - '9740:9735'

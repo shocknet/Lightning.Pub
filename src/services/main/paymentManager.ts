@@ -25,6 +25,7 @@ import Metrics from '../metrics/index.js'
 import { TxPointSettings } from '../storage/tlv/stateBundler.js'
 import { clampPageLimit, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from '../helpers/pageLimit.js'
 import { PaymentSideEffects } from './paymentSideEffects.js'
+import { BackupManager } from '../backup/backupManager.js'
 import { AssertDebitFrequency } from '../CLINK/debitTypes.js'
 import { InvoiceAlreadyFailedError, InvoiceAlreadyPaidError, InvoicePaymentInProgressError, UserBannedError } from './invoicePaymentErrors.js'
 
@@ -100,7 +101,8 @@ export default class {
     invoiceLock: InvoiceLock
     metrics: Metrics
     paymentSideEffects: PaymentSideEffects
-    constructor(storage: Storage, metrics: Metrics, lnd: LND, swaps: Swaps, settings: SettingsManager, liquidityManager: LiquidityManager, sideEffects: PaymentSideEffects, utils: Utils, addressPaidCb: AddressPaidCb, newBlockCb: NewBlockCb, outgoingInvoiceFailedCb: OutgoingInvoiceFailedCb) {
+    backupManager: BackupManager
+    constructor(storage: Storage, metrics: Metrics, lnd: LND, swaps: Swaps, settings: SettingsManager, liquidityManager: LiquidityManager, sideEffects: PaymentSideEffects, utils: Utils, addressPaidCb: AddressPaidCb, newBlockCb: NewBlockCb, backupManager: BackupManager, outgoingInvoiceFailedCb: OutgoingInvoiceFailedCb) {
         this.storage = storage
         this.metrics = metrics
         this.settings = settings
@@ -108,7 +110,8 @@ export default class {
         this.liquidityManager = liquidityManager
         this.utils = utils
         this.paymentSideEffects = sideEffects
-        this.watchDog = new Watchdog(settings, this.liquidityManager, this.lnd, this.storage, this.utils, this.liquidityManager.rugPullTracker)
+        this.backupManager = backupManager
+        this.watchDog = new Watchdog(settings, this.liquidityManager, this.lnd, this.storage, this.utils, this.liquidityManager.rugPullTracker, this.backupManager)
         this.swaps = swaps
         this.addressPaidCb = addressPaidCb
         this.newBlockCb = newBlockCb
@@ -155,6 +158,7 @@ export default class {
                 await this.storage.paymentStorage.UpdateExternalPayment(p.serial_id, 0, 0, false, undefined, tx)
                 await this.outgoingInvoiceFailedCb(p.invoice, tx)
             }, "refund failed provider payment")
+            this.backupManager.notifyBackupTable('user_balances')
             this.utils.stateBundler.AddTxPointFailed('paidAnInvoice', fullAmount, { used: 'provider', from: 'user' })
             return
         } else if (state.paid_at_unix > 0) {
@@ -177,6 +181,8 @@ export default class {
                 await this.lnd.liquidProvider.SettleProviderPayment(p.invoice, providerTotal, tx)
 
             })
+
+            this.backupManager.notifyBackupTable('user_balances')
             const user = await this.storage.userStorage.GetUser(p.user.user_id)
             this.storage.eventsLog.LogEvent({ type: 'invoice_payment', userId: p.user.user_id, appId: p.linkedApplication?.app_id || "", appUserId: "", balance: user.balance_sats, data: p.invoice, amount: p.paid_amount })
             const txPoint: TxPointSettings = { used: 'provider', from: 'user', timeDiscount: true }
@@ -251,6 +257,7 @@ export default class {
                     }
                 })
 
+                this.backupManager.notifyBackupTable('user_balances')
                 const user = await this.storage.userStorage.GetUser(p.user.user_id)
                 this.storage.eventsLog.LogEvent({ type: 'invoice_payment', userId: p.user.user_id, appId: p.linkedApplication?.app_id || "", appUserId: "", balance: user.balance_sats, data: p.invoice, amount: p.paid_amount })
 
@@ -265,6 +272,7 @@ export default class {
                     await this.storage.paymentStorage.UpdateExternalPayment(p.serial_id, 0, 0, false, undefined, tx)
                     await this.outgoingInvoiceFailedCb(p.invoice, tx)
                 }, "refund failed pending payment")
+                this.backupManager.notifyBackupTable('user_balances')
                 this.utils.stateBundler.AddTxPointFailed('paidAnInvoice', fullAmount, { used: 'lnd', from: 'user' })
                 return
             default:
@@ -455,6 +463,7 @@ export default class {
         }
         getLogger({})("setting mock balance...")
         await this.storage.userStorage.UpdateUser(userId, { balance_sats: balance })
+        this.backupManager.notifyBackupTable('user_balances')
     }
 
     async NewAddress(ctx: Types.UserContext, req: Types.NewAddressRequest): Promise<Types.NewAddressResponse> {
@@ -591,6 +600,7 @@ export default class {
             const feeDiff = serviceFee - paymentInfo.networkFee
             if (isManagedUser && feeDiff > 0) {
                 await this.storage.userStorage.IncrementUserBalance(linkedApplication.owner.user_id, feeDiff, "fees")
+                this.backupManager.notifyBackupTable('user_balances')
             }
             const user = await this.storage.userStorage.GetUser(userId)
             this.storage.eventsLog.LogEvent({ type: 'invoice_payment', userId, appId: linkedApplication.app_id, appUserId: "", balance: user.balance_sats, data: req.invoice, amount: payAmount })
@@ -645,6 +655,7 @@ export default class {
             await this.storage.userStorage.DecrementUserBalance(userId, totalAmountToDecrement, invoice, tx)
             return await this.storage.paymentStorage.AddPendingExternalPayment(userId, invoice, { payAmount, serviceFee, networkFee: 0 }, linkedApplication, provider, tx, optionals)
         }, "payment started")
+        this.backupManager.notifyBackupTable('user_balances')
         this.log("ready to pay")
         const opId = `${Types.UserOperationType.OUTGOING_INVOICE}-${pendingPayment.serial_id}`
         const op = this.newInvoicePaymentOperation({ invoice, opId, amount: payAmount, networkFee: 0, serviceFee: serviceFee, confirmed: false, paidAtUnix: 0 })
@@ -682,6 +693,7 @@ export default class {
             } else {
                 this.log(ERROR, "payment attempt errored without confirmed failure, leaving pending", pendingPayment.serial_id, err)
             }
+            this.backupManager.notifyBackupTable('user_balances')
             throw err
         }
     }
@@ -726,10 +738,12 @@ export default class {
                 return { newPayment: payment, paidInvoice: credited }
             }))
         } catch (err) {
+            this.backupManager.notifyBackupTable('user_balances')
             this.utils.stateBundler.AddTxPointFailed('paidAnInvoice', totalAmountToDecrement, { used: 'internal', from: 'user' }, linkedApplication.app_id)
             throw err
         }
 
+        this.backupManager.notifyBackupTable('user_balances')
         this.liquidityManager.afterInInvoicePaid()
         this.utils.stateBundler.AddTxPoint('invoiceWasPaid', payAmount, { used: 'internal', from: 'system', timeDiscount: true }, paidInvoice.linkedApplication!.app_id)
         this.log("invoice credited successfully to user", paidInvoice.user.user_id, 'internal', payAmount, internalInvoice.invoice)
@@ -846,6 +860,7 @@ export default class {
             const newTx = await this.storage.paymentStorage.AddUserTransactionPayment(ctx.user_id, req.address, txId, 0, amount, chainFees, serviceFee, internalAddress, blockHeight, app, tx)
             return { newTx, receivingTx }
         })
+        this.backupManager.notifyBackupTable('user_balances')
         const operationId = `${Types.UserOperationType.INCOMING_TX}-${receivingTx.serial_id}`
         const op = { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_TX, identifier: req.address, operationId, network_fee: 0, service_fee: receivingTx.service_fee, confirmed: true, tx_hash: txId, internal: true }
         try {
@@ -1253,6 +1268,7 @@ export default class {
             }
             return paymentEntry
         })
+        this.backupManager.notifyBackupTable('user_balances')
         const fromUser = await this.storage.userStorage.GetUser(fromUserId)
         const toUser = await this.storage.userStorage.GetUser(toUserId)
         this.storage.eventsLog.LogEvent({ type: 'u2u_sender', userId: fromUserId, appId: linkedApplication.app_id, appUserId: "", balance: fromUser.balance_sats, data: toUserId, amount: payment.paid_amount + payment.service_fees })

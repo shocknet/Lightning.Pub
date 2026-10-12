@@ -7,15 +7,16 @@ import { User } from '../services/storage/entity/User.js'
 import chaiString from 'chai-string'
 import { defaultInvoiceExpiry } from '../services/storage/paymentStorage.js'
 import SanityChecker from '../services/main/sanityChecker.js'
-import LND from '../services/lnd/lnd.js'
+import LND, { LndHooks } from '../services/lnd/lnd.js'
 import { getLogger, resetDisabledLoggers } from '../services/helpers/logger.js'
 import { LiquidityProvider } from '../services/main/liquidityProvider.js'
 import { Utils } from '../services/helpers/utilsWrapper.js'
 import { AdminManager } from '../services/main/adminManager.js'
 import { TlvStorageFactory } from '../services/storage/tlv/tlvFilesStorageFactory.js'
 import { ChainTools } from './networkSetup.js'
-import { LiquiditySettings, LoadLndSettingsFromEnv, LoadSecondLndSettingsFromEnv, LoadThirdLndSettingsFromEnv } from '../services/main/settings.js'
+import { LiquiditySettings, LoadLndSettingsFromEnv, LoadBobLndSettingsFromEnv, LoadCarolLndSettingsFromEnv } from '../services/main/settings.js'
 import { NostrSender } from '../services/nostr/sender.js'
+import { SettingOverrideFunction } from '../services/main/settingsManager.js'
 import { getPublicKey } from 'nostr-tools'
 chai.use(chaiString)
 
@@ -69,16 +70,20 @@ export const teardownStorageTest = async (T: StorageTestBase) => {
     T.storage.Stop()
 }
 
-export const SetupTest = async (d: Describe, chainTools: ChainTools): Promise<TestBase> => {
+export const SetupTest = async (d: Describe, chainTools: ChainTools, overrideFunction: SettingOverrideFunction): Promise<TestBase> => {
     const storageSettings = GetTestStorageSettings(LoadStorageSettingsFromEnv())
-    const settingsManager = await initSettings(getLogger({ component: "mainForTest" }), storageSettings)
+    const initOk = await initSettings(getLogger({ component: "mainForTest" }), storageSettings)
+    if (!initOk) {
+        throw new Error("failed to initialize settings manager")
+    }
+    const { settingsManager, restore, unlocker } = initOk
     settingsManager.OverrideTestSettings(s => {
         s.liquiditySettings.disableLiquidityProvider = true
         s.liquiditySettings.liquidityProviderPub = ""
         s.liquiditySettings.useOnlyLiquidityProvider = false
-        return s
+        return overrideFunction(s)
     })
-    const initialized = await initMainHandler(getLogger({ component: "mainForTest" }), settingsManager)
+    const initialized = await initMainHandler(getLogger({ component: "mainForTest" }), settingsManager, restore, unlocker)
     if (!initialized) {
         throw new Error("failed to initialize main handler")
     }
@@ -101,14 +106,23 @@ export const SetupTest = async (d: Describe, chainTools: ChainTools): Promise<Te
         await externalAccessToMainLnd.Warmup() */
     const liquiditySettings: LiquiditySettings = { disableLiquidityProvider: true, liquidityProviderPub: "", useOnlyLiquidityProvider: false, providerRelayUrl: "" }
     const lndSettings = LoadLndSettingsFromEnv({})
-    const secondLndNodeSettings = LoadSecondLndSettingsFromEnv()
+    const secondLndNodeSettings = LoadBobLndSettingsFromEnv()
     const otherLndSetting = () => ({ lndSettings, lndNodeSettings: secondLndNodeSettings })
-    const externalAccessToOtherLnd = new LND(otherLndSetting, new LiquidityProvider(() => liquiditySettings, extermnalUtils, async () => { }, async () => { }), async () => { }, extermnalUtils, async () => { }, async () => { }, async () => { }, () => { }, () => { })
+    const hooks: LndHooks = {
+        unlockLnd: async () => 'unlocked',
+        addressPaidCb: async () => { },
+        invoicePaidCb: async () => { },
+        newBlockCb: async () => { },
+        htlcCb: async () => { },
+        channelEventCb: async () => { },
+        newAddressCb: async () => { },
+    }
+    const externalAccessToOtherLnd = new LND(otherLndSetting, new LiquidityProvider(() => liquiditySettings, extermnalUtils, async () => { }, async () => { }), extermnalUtils, hooks)
     await externalAccessToOtherLnd.Warmup()
 
-    const thirdLndNodeSettings = LoadThirdLndSettingsFromEnv()
+    const thirdLndNodeSettings = LoadCarolLndSettingsFromEnv()
     const thirdLndSetting = () => ({ lndSettings, lndNodeSettings: thirdLndNodeSettings })
-    const externalAccessToThirdLnd = new LND(thirdLndSetting, new LiquidityProvider(() => liquiditySettings, extermnalUtils, async () => { }, async () => { }), async () => { }, extermnalUtils, async () => { }, async () => { }, async () => { }, () => { }, () => { })
+    const externalAccessToThirdLnd = new LND(thirdLndSetting, new LiquidityProvider(() => liquiditySettings, extermnalUtils, async () => { }, async () => { }), extermnalUtils, hooks)
     await externalAccessToThirdLnd.Warmup()
 
 

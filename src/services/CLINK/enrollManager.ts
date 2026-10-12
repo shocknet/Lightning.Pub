@@ -1,6 +1,7 @@
 import Storage from "../storage/index.js"
 import { ERROR, getLogger } from "../helpers/logger.js"
 import SettingsManager from "../main/settingsManager.js"
+import { BackupManager } from "../backup/backupManager.js"
 import { encodeDefaultClinkPointers } from "./clinkPointers.js"
 import { enrollPowSatisfied } from "../helpers/nip13.js"
 import { ClinkCtx, clinkVersionFromTags } from "./clinkTypes.js"
@@ -15,7 +16,7 @@ export class EnrollManager {
     private limiter = new ClinkRateLimiter({ windowMs: 60_000, maxHits: 60, maxKeys: 1 })
     private replies = new ClinkRateLimiter({ windowMs: 60_000, maxHits: 3 })
 
-    constructor(private storage: Storage, private settings: SettingsManager) { }
+    constructor(private storage: Storage, private settings: SettingsManager, private backupManager: BackupManager) { }
 
     async HandleClinkEnroll(ctx: ClinkCtx, payload: unknown): Promise<EnrollOk | null> {
         if (!this.replies.tryAdd(ctx.pub).ok) {
@@ -62,6 +63,7 @@ export class EnrollManager {
         if (!created) {
             this.deny(1)
         }
+        void this.backupManager.notifyBackupTable('application_users', 'user_balances')
         return this.encodePointers(app, created)
     }
 

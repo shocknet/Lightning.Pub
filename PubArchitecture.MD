@@ -178,6 +178,7 @@ src/
     lnd/            # LND wrapper, LSP, swaps
     nostr/          # relay pool / encryption / sender
     metrics/        # MetricsManager
+    backup/         # encrypted table backups, cloud sign-up, restore (see BACKUPS.md)
     wizard/ ShockPush/ webRTC/ helpers/   # helpers includes Utils
 proto/service/      # source of truth for RPC + structs
 ```
