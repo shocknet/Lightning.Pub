@@ -4,19 +4,19 @@ How Pub backs up its accounting database and LND channel state, where it goes, a
 
 ## What goes where
 
-| | Dialtone shards (`*.enc`) |
+| | Dialtone shards (`<table>.v<generation>.enc`) + `manifest.json` |
 |---|---|
-| **What** | Users, balances, apps and their Nostr keys, settings, offers, grants… plus address count and LND multi-channel backup in `indexes.enc` |
+| **What** | Users, balances, apps and their Nostr keys, settings, offers, grants… plus address count and LND multi-channel backup in the indexes shard |
 | **Where** | Managed cloud SFTP, your own SFTP server, and/or a local folder |
-| **Encrypted with** | Key derived from the LND seed |
+| **Encrypted with** | Key derived from the LND seed (shards only; the manifest is plaintext JSON) |
 | **Written by** | `backupManager.ts` (SCB via `unlocker` → channel-backup sink) |
 | **Read by** | `restoreManager.ts` |
 
 ```mermaid
 flowchart LR
   Seed[LND seed] -->|Argon2id + HKDF| Keys[enc key + SFTP login]
-  DB[(Pub DB)] -->|one shard per table, TLV + AES-GCM| Shards[*.enc]
-  LND[LND channel backups] -->|SCB in indexes.enc| Shards
+  DB[(Pub DB)] -->|one shard per table, TLV + AES-GCM| Shards["versioned *.enc + manifest.json"]
+  LND[LND channel backups] -->|SCB in indexes shard| Shards
   Keys --> Shards
   Shards --> Cloud[backup.lightning.pub]
   Shards --> Own[your SFTP host]
@@ -31,20 +31,21 @@ There is one secret: the LND seed. It unlocks both the dialtone encryption key a
 - **Adding a derivation version.** The version decides the SFTP login too, so each version is a separate account and the version cannot be looked up before deriving. Restore must try versions newest-first (derive, log in, decrypt one shard; a wrong key fails the GCM tag) and stop at the first that works. A node that moves to a new version must immediately upload every shard under the new account, so the newest version with files is always complete. Today restore only uses the latest version, which is correct while v1 is the only one.
 - **Envelope** (`encryption.ts`): `[version:1][iv:12][ciphertext][tag:16]`, AES-256-GCM. The tag rejects any tampered or truncated file before anything touches the DB.
 - **Payload** (`segments.ts`): per-table version byte + TLV-encoded rows.
-- **Shards** (`backupTables.ts`): 12 files named `<table>.enc`: `indexes`, `user_balances`, `tracked_providers`, `applications`, `application_users`, `admin_settings`, `app_user_devices`, `user_offers`, `products`, `management_grants`, `debit_accesses`, `invite_tokens`. Each table replace writes `<table>.enc.tmp` first, then renames over `<table>.enc`. Restore prefers the committed `.enc` and falls back to `.tmp` only if that file is missing or undecryptable. `BACKUP_RESTORE_ORDER` is also the import order: balances first, so users exist before app links reference them.
-- **`indexes.enc`:** one row with the address count (TLV tag 2) and the multi-channel backup (TLV tag 3, chunked). A one-byte marker means the node had no channels; a missing tag 3 is refused. The row is written only once both the address count and the channel state are known, so a half-known snapshot cannot overwrite a good one.
+- **Shards** (`backupTables.ts`): 12 tables (`indexes`, `user_balances`, `tracked_providers`, `applications`, `application_users`, `admin_settings`, `app_user_devices`, `user_offers`, `products`, `management_grants`, `debit_accesses`, `invite_tokens`), each stored as an immutable `<table>.v<generation>.enc`. A batch that changes several linked tables shares one generation token. Unchanged tables keep their previous filename. `BACKUP_RESTORE_ORDER` is also the import order: balances first, so users exist before app links reference them.
+- **Manifest** (`manifest.json`): plaintext JSON `{ generation, tables }` naming the selected file for every published table. Restore reads this file and downloads exactly those shards. A missing or corrupt manifest is a restore error. Each publish re-reads the destination's manifest and copies unchanged names from that read. Publication writes `manifest.json.tmp` (SFTP) or a sibling `.part` (local) and atomically renames over `manifest.json`. Shard bytes go straight to their unique names. Local shard files are fsynced, and the directory is fsynced, before the manifest is published. An incomplete shard is never referenced by the published manifest.
+- **Indexes shard:** one row with the address count (TLV tag 2) and the multi-channel backup (TLV tag 3, chunked). A one-byte marker means the node had no channels; a missing tag 3 is refused. The row is written only once both the address count and the channel state are known, so a half-known snapshot cannot overwrite a good one. If either half is still unknown, the previous manifest entry is left in place.
 - **Not backed up on purpose:** pending (unpaid) invoice payments. A restore may under-count in-flight money but never inflates balances.
 - Machine-local admin settings are filtered out of the `admin_settings` shard (`mapAdminSettingBackupRow`).
 
 ## When uploads happen
 
-- Managers call `notifyBackupTable(<table>)` after writes. That schedules an upload of **only those tables**, not the whole set. Uploads are debounced per table: publish 30 s after the last change to that table, but never deferred more than 5 min under continuous writes.
-- Each table is exported, written to `<table>.enc.tmp`, then renamed over `<table>.enc`. Local writes use a sibling `.part` file, fsync, and rename. SFTP requires OpenSSH `posix-rename@openssh.com` so the rename overwrites atomically; a server that lacks it fails the upload and is flagged incompatible (no unlink-then-rename fallback, which could delete the last good copy). Restore decrypts `.enc` first; a truncated or foreign `.tmp` fails GCM and is ignored.
-- On startup, after LND address/channel snapshots and default-app setup, **every** table is uploaded once (`uploadAllTables`). Empty tables still get a shard file, so a newly enabled destination is restorable without waiting for those tables to be written in live traffic. `indexes.enc` is skipped until both LND snapshots have run, so a previous indexes copy is not replaced with an incomplete row. If no destination succeeds (for example the only remote is unreachable), the failure is logged as a warning and startup continues; failed shards still retry with backoff. The same applies to the other full-flush callers below.
+- Managers call `notifyBackupTable(<table>)` after writes. Notifies that land in one debounce window become one snapshot and one manifest commit, so linked tables notified together are published atomically. Publish 30 s after the last change, but never deferred more than 5 min under continuous writes. A write that changes only one table still uploads only that shard; other manifest entries are copied forward.
+- Dirty tables are exported inside one DB read transaction, then that transaction is released before any network IO. Each destination re-reads its manifest, uploads the new shards to unique names, and only then atomically replaces `manifest.json`. Local shard writes fsync the file; the directory is fsynced before the manifest's sibling `.part` is fsynced and renamed. SFTP shards use a plain upload that finishes only after the server acknowledges CLOSE; the manifest requires OpenSSH `posix-rename@openssh.com` so the rename overwrites atomically. A server that lacks it fails the upload and is flagged incompatible (no unlink-then-rename fallback, which could delete the last good copy). A destination that fails a shard does not write a new manifest. If the manifest replace throws, the destination is re-read: shards that landed are kept when the published manifest names them, and deleted when it does not. Previous published shards are kept until the next successful commit. That retention is remembered in the process. A restart drops it, and the next publish lists the directory and removes shard files the manifest does not name, including leftovers from a crashed upload, before uploading new ones. Listing or delete errors are logged and do not fail the backup; a delete that fails is retried on the next publish.
+- On startup, after LND address/channel snapshots and default-app setup, **every** table is uploaded once (`uploadAllTables`). Empty tables still get a shard file, so a newly enabled destination is restorable without waiting for those tables to be written in live traffic. Indexes is skipped until both LND snapshots have run, so a previous indexes copy is not replaced with an incomplete row. If no destination succeeds (for example the only remote is unreachable), the failure is logged as a warning and startup continues; failed batches still retry with backoff. The same applies to the other full-flush callers below.
 - The same full upload runs when remote backup is turned on and after bulk user deletes.
-- On graceful shutdown (SIGINT/SIGTERM), pending timers are cancelled, in-flight table uploads finish, then **every** table is uploaded once while the DB is still open. `indexes.enc` is uploaded only after both an address-count snapshot and a channel-backup snapshot. Startup takes those from LND (including address count 0 and the no-channels marker). If either half has not run, or it failed, the indexes upload leaves any existing file in place.
-- Live channel changes update the sink through LND's backup subscription; startup also runs an explicit export so a quiet node still gets a first SCB into `indexes.enc`.
-- Each destination is tried independently; an upload counts as done if any destination succeeds.
+- On graceful shutdown (SIGINT/SIGTERM), pending timers are cancelled, in-flight batches finish, then **every** table is uploaded once while the DB is still open. Indexes is uploaded only after both an address-count snapshot and a channel-backup snapshot. Startup takes those from LND (including address count 0 and the no-channels marker). If either half has not run, or it failed, the indexes upload leaves any existing manifest entry in place.
+- Live channel changes update the sink through LND's backup subscription; startup also runs an explicit export so a quiet node still gets a first SCB into the indexes shard.
+- Each destination is tried independently and commits its own manifest; an upload counts as done if any destination succeeds.
 
 ## Destinations and settings
 
@@ -55,7 +56,7 @@ There is one secret: the LND seed. It unlocks both the dialtone encryption key a
 | `BACKUP_SFTP_HOST` / `BACKUP_SFTP_PORT` | Your server (port defaults to 22) |
 | `BACKUP_SFTP_USER` / `BACKUP_SFTP_PASS` | Optional explicit login; unset = seed-derived login |
 | `BACKUP_SFTP_HOST_FINGERPRINT` | Your server's host key (`SHA256:…`). Unset = connect anyway and log the observed fingerprint so you can pin it |
-| `BACKUP_LOCAL_PATH` | Also write the same `*.enc` files to this folder |
+| `BACKUP_LOCAL_PATH` | Also write the same versioned shards and `manifest.json` to this folder |
 
 At least one destination must be set for dialtone uploads to run. Backups need Pub to hold the node's seed (it does when Pub created or restored the wallet).
 
@@ -81,8 +82,8 @@ node build/src/index.js restore --phrase "<24 words>" --source cloud|ftp|local \
 Flow (`RestoreManager.RestoreFromSource`):
 
 1. Refuse unless the DB is clean (no apps, users, app users, or node info), except when resuming from a checkpoint (below).
-2. Derive keys from the phrase, fetch each shard from the chosen source. **Every shard in `BACKUP_RESTORE_ORDER` must be present.** A missing file stops the restore with `failureMessage()` for each missing shard (the login succeeded and that file is not there). A file that decrypts to zero rows is an empty table and is imported, except `indexes`, which must be exactly one row with address count and SCB (or the no-channels marker). A count of 0 is valid. An empty `applications` table still stops the restore. A rejected cloud login throws `CloudLoginRejectedError` and stops the restore; it is not reported as a missing shard. Host-key mismatch and other connection errors keep their own messages.
-3. Decrypt the shards. The SCB travels in `indexes.enc`; there is no separate relay fetch.
+2. Derive keys from the phrase, fetch `manifest.json` from the chosen source, then the shards it names. A missing or corrupt manifest stops the restore (no backup set). **Every shard in `BACKUP_RESTORE_ORDER` must be present in the manifest.** A missing file stops the restore with `failureMessage()` for each missing name (the login succeeded and that file is not there). A file that decrypts to zero rows is an empty table and is imported, except `indexes`, which must be exactly one row with address count and SCB (or the no-channels marker). A count of 0 is valid. An empty `applications` table still stops the restore. Unreferenced objects in the directory, including a newer shard that is not in the manifest, are ignored. A rejected cloud login throws `CloudLoginRejectedError` and stops the restore; it is not reported as a missing file. Host-key mismatch and other connection errors keep their own messages.
+3. Decrypt the shards. The SCB travels in the indexes shard; there is no separate relay fetch.
 4. In one DB transaction: import all dialtone tables, then initialize LND from the seed (recovery window scales with the backed-up address count).
 5. Wait for LND, save the seed. If the backup has channels, restore the SCB (`ApplyScb`); if it marks no channels, skip apply. A failed SCB apply leaves the checkpoint at `LND_ACTIVE` so the same phrase can retry. Restore only reports success after this step and the checkpoint is `COMPLETED`.
 
@@ -92,11 +93,11 @@ Progress is recorded in `.restore_checkpoint` in the data dir (`STARTED` → `LN
 
 **Wizard retry:** `GetServiceState` reports `has_ongoing_recovery` from `IsRecoveryActive()`. The welcome page shows **Retry Restore** (not **Edit Setup**) when that flag is set, because a committed restore leaves `is_db_clean` false and setup is refused until the checkpoint completes. A failed restore that still has an open checkpoint stays on the restore-source step with the error; "No Backup Found" is only for failures that left no checkpoint.
 
-Sources: **cloud** (seed-derived login, pinned; a rejected login is a login error, and a reachable account missing any shard is reported with `failureMessage()` for each missing file), **ftp** (your host + port + host-key fingerprint; pointing at `backup.lightning.pub:22` without a fingerprint still pins the managed key), **local** (a folder of the same `*.enc` files).
+Sources: **cloud** (seed-derived login, pinned; a rejected login is a login error, and a reachable account missing the manifest or any named shard is reported with `failureMessage()` for each missing file), **ftp** (your host + port + host-key fingerprint; pointing at `backup.lightning.pub:22` without a fingerprint still pins the managed key), **local** (a folder of `manifest.json` plus the versioned shards it names).
 
 ## Your own SFTP server
 
-OpenSSH is required (`posix-rename@openssh.com`). Pub will not upload to a server that cannot atomically overwrite a file; the destination is flagged incompatible and further SFTP uploads fail until restart. Pub uploads bare filenames into the login's starting directory.
+OpenSSH is required (`posix-rename@openssh.com`) so `manifest.json` can be replaced atomically. Pub will not publish to a server that cannot atomically overwrite that file; the destination is flagged incompatible and further SFTP uploads fail until restart. Pub uploads bare filenames into the login's starting directory.
 
 ```bash
 sudo groupadd sftpbackup
@@ -121,7 +122,7 @@ The chroot top level must be root-owned and read-only, so `-d /upload` starts se
 
 ## Invariants for contributors
 
-- Adding a table to backups means: `backupTables.ts`, an encoder/decoder in `segments.ts`, export in `BackupManager`, import in `RestoreManager`, **and** the allowlist in PubFTPService `src/allowlist.ts` (both `<table>.enc` and `<table>.enc.tmp`). Otherwise the cloud rejects the new shard.
+- Adding a table to backups means: `backupTables.ts`, an encoder/decoder in `segments.ts`, export in `BackupManager`, import in `RestoreManager`, **and** the allowlist in PubFTPService `src/allowlist.ts`. The cloud must accept `manifest.json`, `manifest.json.tmp`, and `^(indexes|user_balances|...)\.v[0-9a-z]+\.enc$`. Otherwise the cloud rejects the new names. This repo does not update PubFTPService.
 - Never change derivation v1 or the envelope version 1 layout.
 - The cloud fingerprint in `sftpClient.ts` must match `/var/lib/pubftp/keys/host.key.pub` on the server.
 - The wizard has no login. It is for Start9 and Umbrel, which publish that UI only on the appliance network (Start9: LAN-only, port 1777). Pub listens on every interface; the appliance is the access control. See the comment above `GuestAuthGuard` in `src/services/wizard/index.ts`.

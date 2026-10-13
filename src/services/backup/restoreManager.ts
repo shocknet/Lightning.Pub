@@ -8,13 +8,16 @@
 // LND_ACTIVE), restore returns immediately. Resume after those checkpoints is
 // allowed only when the leftover state is complete and consistent.
 //
-// Local source: a directory of per-table *.enc shards (see backupTables.ts), same as
-// SFTP / cloud layout, decrypted with the backup phrase — not a raw DB file.
+// Local source: a directory with manifest.json plus the versioned shards it names
+// (see backupTables.ts), same as SFTP / cloud layout, decrypted with the backup phrase
+// — not a raw DB file.
 //
 // Import order matches BACKUP_RESTORE_ORDER in backupTables.ts (balances overlay, then FK order).
-// Every shard file in that list is required. A file that decrypts to zero rows is an empty
+// Restore reads one manifest and uses exactly those files. Every table in
+// BACKUP_RESTORE_ORDER must be present. A file that decrypts to zero rows is an empty
 // table and is imported, except indexes, which must be exactly one row holding the address
-// count and the SCB (or the no-channels marker). A missing file fails the restore.
+// count and the SCB (or the no-channels marker). A missing or corrupt manifest, or a
+// missing shard named by the manifest, fails the restore.
 //
 // ECONOMIC INVARIANT: Pending UserInvoicePayment rows (paid_at_unix = 0) are NOT
 // restored. Restore favors non-inflation over exact replay. This must be stated
@@ -48,7 +51,7 @@ import {
     BackupData,
     decodeIndexesRow,
 } from './segments.js'
-import { BACKUP_RESTORE_ORDER, backupTableFilename, backupTableStagingFilename, type BackupTableId } from './backupTables.js'
+import { BACKUP_MANIFEST_FILENAME, BACKUP_RESTORE_ORDER, parseBackupManifest, type BackupTableId } from './backupTables.js'
 import SettingsManager from '../main/settingsManager.js'
 import { Unlocker } from '../main/unlocker.js'
 
@@ -377,32 +380,43 @@ export class RestoreManager {
 
     async fetchSegmentsData(req: wizardTypes.RestoreRequest, keys: DerivedKeys) {
         this.log("fetching segments data")
+        const manifestChunk = await fetchFile(this.log, keys, req, BACKUP_MANIFEST_FILENAME)
+        if (!manifestChunk.found) {
+            throw new Error(failureMessage(req.source.type, BACKUP_MANIFEST_FILENAME))
+        }
+        let manifest
+        try {
+            manifest = parseBackupManifest(manifestChunk.data)
+        } catch (err: any) {
+            throw new Error(`backup ${BACKUP_MANIFEST_FILENAME} is corrupt: ${err.message || err}`)
+        }
         const buffers = new Map<BackupTableId, Buffer>()
-        const missing: BackupTableId[] = []
+        const missing: string[] = []
         for (const id of BACKUP_RESTORE_ORDER) {
-            let data: Buffer | undefined
-            for (const name of [backupTableFilename(id), backupTableStagingFilename(id)]) {
-                const chunk = await fetchFile(this.log, keys, req, name)
-                if (!chunk.found) {
-                    continue
-                }
-                try {
-                    decryptTableRows(chunk.data, keys.encKey)
-                    data = chunk.data
-                    break
-                } catch (err: any) {
-                    this.log("ignoring undecryptable " + name + ": " + (err.message || err))
-                }
-            }
-            if (!data) {
-                this.log("buffer not found: " + backupTableFilename(id))
+            const name = manifest.tables[id]
+            if (!name) {
+                this.log("manifest has no shard for: " + id)
                 missing.push(id)
                 continue
             }
-            buffers.set(id, data)
+            if (name.includes('/') || name.includes('\\') || name.includes('..')) {
+                throw new Error(`backup ${BACKUP_MANIFEST_FILENAME} names an unsafe shard path for ${id}`)
+            }
+            const chunk = await fetchFile(this.log, keys, req, name)
+            if (!chunk.found) {
+                this.log("buffer not found: " + name)
+                missing.push(name)
+                continue
+            }
+            try {
+                decryptTableRows(chunk.data, keys.encKey)
+            } catch (err: any) {
+                throw new Error(`backup shard ${name} is not decryptable: ${err.message || err}`)
+            }
+            buffers.set(id, chunk.data)
         }
         if (missing.length > 0) {
-            throw new Error(missing.map(id => failureMessage(req.source.type, id)).join('\n'))
+            throw new Error(missing.map(name => failureMessage(req.source.type, name)).join('\n'))
         }
         return buffers
     }
@@ -600,15 +614,14 @@ const downloadFromCloud = async (keys: DerivedKeys, filename: string): Promise<S
     }
 }
 
-export function failureMessage(source: wizardTypes.RestoreRequest_source_type, shard: BackupTableId): string {
-    const name = backupTableFilename(shard)
+export function failureMessage(source: wizardTypes.RestoreRequest_source_type, name: string): string {
     switch (source) {
         case wizardTypes.RestoreRequest_source_type.CLOUD:
-            return `No backup found for this seed on the managed service (missing ${name}). The login succeeded; this shard is not there.`
+            return `No backup found for this seed on the managed service (missing ${name}). The login succeeded; this file is not there.`
         case wizardTypes.RestoreRequest_source_type.FTP_HOST:
             return `No backup file ${name} on the SFTP server. The connection succeeded; verify this account has a backup.`
         case wizardTypes.RestoreRequest_source_type.LOCAL_PATH:
-            return `${name} not found or path is not a readable directory — expected a folder of per-table *.enc shards from backup.`
+            return `${name} not found or path is not a readable directory — expected a folder of per-table backup shards and ${BACKUP_MANIFEST_FILENAME} from backup.`
         default: {
             const _exhaustive: never = source
             throw new Error(`Unknown restore source: ${_exhaustive}`)

@@ -1,9 +1,10 @@
-// BACKUP: SFTP client for uploading/downloading .enc files
+// BACKUP: SFTP client for uploading/downloading versioned shards and the backup manifest.
 //
 // SFTP (SSH-based) was chosen over FTPS because nearly every VPS/NAS already runs an SSH
 // server, so a self-hosted destination is just "create a user".
-// Server is dumb storage — no Lightning.Pub-specific logic. Atomic replace needs
-// OpenSSH posix-rename@openssh.com; a server without it is flagged incompatible.
+// Server is dumb storage — no Lightning.Pub-specific logic. Atomic replace of manifest.json
+// needs OpenSSH posix-rename@openssh.com; a server without it is flagged incompatible.
+// Shards are written once to unique names (sftpUpload); only the manifest is renamed.
 // Cloud managed = Shocknet-hosted (PubFTPService); self-hosters run OpenSSH.
 //
 // Every connect/upload/download is bounded: handshake readyTimeout, a hard deadline that
@@ -299,8 +300,9 @@ function sftpWriteStream(sftp: SFTPWrapper, remotePath: string, data: Buffer, id
                 done(err instanceof Error ? err : new Error(String(err)))
             }
         }
+        // 'finish' fires before the server acknowledges CLOSE. Waiting for it would let
+        // the caller publish a manifest that names a handle the server never closed.
         stream.on('error', (err: Error) => done(new Error(`SFTP write error: ${err.message}`)))
-        stream.on('finish', () => done())
         stream.on('close', () => done())
         writeNext()
     })
@@ -384,10 +386,49 @@ function sftpPosixRename(sftp: SFTPWrapper, from: string, to: string, target: st
     })
 }
 
-/** Write a remote file. Used by sftpAtomicReplace for the staging name. */
+/** Write a remote file. Shards use this directly; sftpAtomicReplace uses it for the staging name. */
 export async function sftpUpload(config: SftpConfig, remotePath: string, data: Buffer): Promise<void> {
     await withSftp(config, (sftp, idle) => sftpWriteStream(sftp, remotePath, data, idle))
     log(`Uploaded ${remotePath} (${data.length} bytes)`)
+}
+
+/** Names in the session directory. Callers use this to drop shards the manifest does not name. */
+export async function sftpList(config: SftpConfig, remoteDir = '.'): Promise<string[]> {
+    const names = await withSftp(config, (sftp, idle) => new Promise<string[]>((resolve, reject) => {
+        idle.touch()
+        sftp.readdir(remoteDir, (err, list) => {
+            if (!err) {
+                idle.touch()
+                return resolve(list.map(entry => entry.filename))
+            }
+            const e = err as { code?: number, message?: string }
+            if (e.code === 2 || e.message?.includes('No such file')) {
+                return resolve([])
+            }
+            reject(new Error(`SFTP list error: ${e.message || err}`))
+        })
+    }))
+    log(`Listed ${remoteDir} (${names.length} names)`)
+    return names
+}
+
+/** Remove a remote file. Missing files are ignored so cleanup can be retried. */
+export async function sftpUnlink(config: SftpConfig, remotePath: string): Promise<void> {
+    await withSftp(config, (sftp, idle) => new Promise<void>((resolve, reject) => {
+        idle.touch()
+        sftp.unlink(remotePath, err => {
+            if (!err) {
+                idle.touch()
+                return resolve()
+            }
+            const e = err as { code?: number, message?: string }
+            if (e.code === 2 || e.message?.includes('No such file')) {
+                return resolve()
+            }
+            reject(new Error(`SFTP unlink error: ${e.message || err}`))
+        })
+    }))
+    log(`Removed ${remotePath}`)
 }
 
 /** Write `dest.tmp` then POSIX-rename over `dest` so the previous dest survives an interrupted write. */

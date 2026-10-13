@@ -1,21 +1,32 @@
 // BACKUP: Orchestrates per-table encrypted uploads and debounced hot paths
 //
-// One .enc file per exported table (see backupTables.ts). Live notifies replace
-// only the tables that changed. Startup, newly enabled destinations, bulk deletes,
-// and shutdown still push every shard so restore has a complete file set.
-// Each replace writes `*.enc.tmp` (or a local `.part`) then renames over `*.enc`, so a
-// failed upload cannot truncate the previous good copy of that table.
-// High-churn tables coalesce into one upload per table; a max-wait caps continuous resets.
+// One versioned shard per exported table (see backupTables.ts), published by an
+// atomically replaced manifest.json. Live notifies upload only the tables that changed;
+// unchanged filenames are copied from that destination's current manifest. Startup,
+// newly enabled destinations, bulk deletes, and shutdown still push every shard so
+// restore has a complete file set.
+// Shards are written once to unique names. Local shard bytes and the directory entry
+// are fsynced before the manifest is published. Only the manifest uses staging-and-rename
+// (local `.part`, SFTP `manifest.json.tmp` + posix-rename). A failed shard is never
+// referenced by the published manifest.
+// Every publish re-reads that destination's manifest and copies unchanged names from
+// that read, so a commit the client missed is not rolled back by a later batch.
+// Shard files the manifest does not name are removed by listing the directory, which
+// still works after a restart. The generation just superseded is kept until the next
+// successful commit. A failed attempt deletes the shards it uploaded only after a
+// re-read shows the published manifest does not name them.
+// High-churn tables coalesce into one batch; a max-wait caps continuous resets.
 // Destinations: managed cloud SFTP, custom SFTP (BACKUP_SFTP_USER/PASS override phrase-derived
 // login when set), optional local dir. Local is written first so a stalled remote cannot
-// block the on-disk copy. Remotes run in parallel. Failed shards retry with backoff.
+// block the on-disk copy. Remotes run in parallel. Failed batches retry with backoff.
 
+import fs from 'fs'
 import path from 'path'
 import { getLogger } from '../helpers/logger.js'
 import { deriveBackupKeys, LATEST_DERIVATION_VERSION, type DerivedKeys } from './derivation.js'
-import { sftpAtomicReplace, cloudSftpConfig, customHostFingerprint, SftpAuthError, SftpIncompatibleError, type SftpConfig } from './sftpClient.js'
+import { sftpAtomicReplace, sftpDownload, sftpList, sftpUnlink, sftpUpload, cloudSftpConfig, customHostFingerprint, SftpAuthError, SftpIncompatibleError, type SftpConfig } from './sftpClient.js'
 import { provisionCloudAccount } from './cloudProvision.js'
-import { atomicWriteFile } from './atomicWrite.js'
+import { atomicWriteFile, fsyncDirectory, writeNewDurableFile } from './atomicWrite.js'
 import Storage from '../storage/index.js'
 import {
     encodeApplicationRow,
@@ -33,7 +44,18 @@ import {
     IndexesRow,
     encodeIndexesRow,
 } from './segments.js'
-import { BACKUP_RESTORE_ORDER, backupTableFilename, type BackupTableId } from './backupTables.js'
+import {
+    BACKUP_MANIFEST_FILENAME,
+    BACKUP_RESTORE_ORDER,
+    backupTableVersionedFilename,
+    manifestShardNames,
+    newBackupGeneration,
+    parseBackupManifest,
+    parseShardFilename,
+    serializeBackupManifest,
+    type BackupManifest,
+    type BackupTableId,
+} from './backupTables.js'
 import SettingsManager from '../main/settingsManager.js'
 
 export type { BackupTableId } from './backupTables.js'
@@ -53,28 +75,39 @@ type BackupDest =
     | { type: 'sftp'; config: SftpConfig }
     | { type: 'local'; dir: string }
 
+type DestPubState = {
+    /** Shard names superseded by the last successful commit. Kept until the next one. */
+    previousNames: Set<string>
+    /** Uploads we could not delete, or could not prove were unreferenced. */
+    orphans: Set<string>
+}
+
+type PushResult = { anyOk: boolean, failures: string[], retryable: boolean }
+
 export class BackupManager {
     log = getLogger({ component: 'backupManager' })
     storage: Storage
     settings: SettingsManager
     keys: DerivedKeys
-    private debounceTimers = new Map<BackupTableId, ReturnType<typeof setTimeout>>()
+    private dirty = new Set<BackupTableId>()
+    private debounceTimer: ReturnType<typeof setTimeout> | undefined
     /** Start of the current coalescing window for max-wait (first notify since last flush). */
-    private debounceWindowStart = new Map<BackupTableId, number>()
-    private debouncedUploadInProgress = new Set<BackupTableId>()
+    private debounceWindowStart: number | null = null
+    private batchInProgress = false
     /**
-     * Tables that got another notify while their upload was still running. Without this, the
-     * timer that fires mid-upload returns early and the newer state is never pushed.
+     * A notify arrived while a batch was still running. Without this, the timer that
+     * fires mid-upload returns early and the newer state is never pushed.
      */
-    private pendingAfterInFlight = new Set<BackupTableId>()
-    /** Serializes replace of a given table so shutdown/full flush cannot overlap a live upload. */
-    private tableUploadTail = new Map<BackupTableId, Promise<void>>()
-    private retryTimers = new Map<BackupTableId, ReturnType<typeof setTimeout>>()
-    private retryAttempt = new Map<BackupTableId, number>()
+    private pendingAfterInFlight = false
+    /** Serializes publication so two batches cannot read-modify-write the same manifest. */
+    private publishTail: Promise<void> = Promise.resolve()
+    private retryTimer: ReturnType<typeof setTimeout> | undefined
+    private retryAttempt = 0
     /** Remotes kicked off during shutdown; awaited with a deadline after local snapshots. */
     private shutdownRemotePushes: Promise<void>[] = []
     /** In-flight cloud sign-up, shared by shard uploads that hit a rejected login together. */
     private cloudSignUp: Promise<void> | null = null
+    private destState = new Map<string, DestPubState>()
     shuttingDown = false
     /** Overridable in tests so retries do not wait the production 30s. */
     retryBaseMs = RETRY_BASE_MS
@@ -123,7 +156,11 @@ export class BackupManager {
     async uploadAllTables(): Promise<void> {
         this.clearAllDebounce()
         await this.waitUntilUploadsIdle(this.waitInFlightMs)
-        await this.uploadTables(BACKUP_RESTORE_ORDER)
+        try {
+            await this.publishBatch(BACKUP_RESTORE_ORDER)
+        } catch (err: any) {
+            this.log(`WARNING: backup upload failed (no destination succeeded): ${err.message}`)
+        }
     }
 
     async AddressUpdate(count: number) {
@@ -154,47 +191,37 @@ export class BackupManager {
     }
 
     private clearAllDebounce() {
-        for (const t of this.debounceTimers.values()) {
-            clearTimeout(t)
+        if (this.debounceTimer) {
+            clearTimeout(this.debounceTimer)
+            this.debounceTimer = undefined
         }
-        this.debounceTimers.clear()
-        this.debounceWindowStart.clear()
-        this.pendingAfterInFlight.clear()
-        this.clearAllRetries()
+        this.debounceWindowStart = null
+        this.pendingAfterInFlight = false
+        this.dirty.clear()
+        this.clearRetry()
     }
 
-    private clearRetry(id: BackupTableId) {
-        const t = this.retryTimers.get(id)
-        if (t) clearTimeout(t)
-        this.retryTimers.delete(id)
-        this.retryAttempt.delete(id)
-    }
-
-    private clearAllRetries() {
-        for (const t of this.retryTimers.values()) {
-            clearTimeout(t)
+    private clearRetry() {
+        if (this.retryTimer) {
+            clearTimeout(this.retryTimer)
+            this.retryTimer = undefined
         }
-        this.retryTimers.clear()
-        this.retryAttempt.clear()
+        this.retryAttempt = 0
     }
 
-    private scheduleRetry(id: BackupTableId) {
-        if (this.shuttingDown || this.retryTimers.has(id) || this.debounceTimers.has(id)) return
-        const attempt = this.retryAttempt.get(id) ?? 0
-        const delay = Math.min(RETRY_MAX_MS, this.retryBaseMs * 2 ** attempt)
-        this.retryAttempt.set(id, attempt + 1)
-        this.retryTimers.set(
-            id,
-            setTimeout(() => {
-                this.retryTimers.delete(id)
-                this.flushDebouncedTable(id).catch(err => {
-                    this.log(`Retry backup upload failed (${id}): ${err.message}`)
-                })
-            }, delay),
-        )
+    private scheduleRetry() {
+        if (this.shuttingDown || this.retryTimer || this.debounceTimer) return
+        const delay = Math.min(RETRY_MAX_MS, this.retryBaseMs * 2 ** this.retryAttempt)
+        this.retryAttempt += 1
+        this.retryTimer = setTimeout(() => {
+            this.retryTimer = undefined
+            this.flushDebounced().catch(err => {
+                this.log(`Retry backup upload failed: ${err.message}`)
+            })
+        }, delay)
     }
 
-    /** Debounced upload for any backup table (coalesces rapid writes per table id). */
+    /** Debounced upload for any backup table (coalesces rapid writes into one batch). */
     private notifyBackupTableDebounced(id: BackupTableId) {
         if (this.shuttingDown) {
             this.log("shutting down, skipping backup table debounced: " + id)
@@ -203,139 +230,148 @@ export class BackupManager {
         const isBackupConfigured = this.isBackupConfigured()
         this.log("notifying backup table debounced: " + id + " isBackupConfigured: " + isBackupConfigured)
         if (!isBackupConfigured) return
-        this.clearRetry(id)
-        if (this.debouncedUploadInProgress.has(id)) {
-            this.pendingAfterInFlight.add(id)
+        this.dirty.add(id)
+        if (this.retryTimer) {
+            clearTimeout(this.retryTimer)
+            this.retryTimer = undefined
         }
-        const existing = this.debounceTimers.get(id)
-        if (existing) clearTimeout(existing)
+        if (this.batchInProgress) {
+            this.pendingAfterInFlight = true
+        }
+        if (this.debounceTimer) {
+            clearTimeout(this.debounceTimer)
+        }
 
-        if (!this.debounceWindowStart.has(id)) {
-            this.debounceWindowStart.set(id, Date.now())
+        if (this.debounceWindowStart === null) {
+            this.debounceWindowStart = Date.now()
         }
-        const windowStart = this.debounceWindowStart.get(id)!
         const debounceAt = Date.now() + TABLE_DEBOUNCE_MS
-        const maxAt = windowStart + TABLE_DEBOUNCE_MAX_MS
+        const maxAt = this.debounceWindowStart + TABLE_DEBOUNCE_MAX_MS
         const nextFire = Math.min(debounceAt, maxAt)
         const delayMs = Math.max(0, Math.ceil(nextFire - Date.now()))
 
-        this.debounceTimers.set(
-            id,
-            setTimeout(() => {
-                this.debounceTimers.delete(id)
-                this.flushDebouncedTable(id).catch(err => {
-                    this.log(`Debounced backup upload failed (${id}): ${err.message}`)
-                })
-            }, delayMs),
-        )
+        this.debounceTimer = setTimeout(() => {
+            this.debounceTimer = undefined
+            this.flushDebounced().catch(err => {
+                this.log(`Debounced backup upload failed: ${err.message}`)
+            })
+        }, delayMs)
     }
 
-    private async flushDebouncedTable(id: BackupTableId) {
-        if (this.debouncedUploadInProgress.has(id)) {
-            this.pendingAfterInFlight.add(id)
+    private async flushDebounced() {
+        if (this.batchInProgress) {
+            this.pendingAfterInFlight = true
             return
         }
-        this.debounceWindowStart.delete(id)
-        this.debouncedUploadInProgress.add(id)
+        this.debounceWindowStart = null
+        this.batchInProgress = true
         try {
-            // Drain notifies that arrive during an upload so the latest snapshot is not dropped.
             do {
-                this.pendingAfterInFlight.delete(id)
-                await this.uploadTable(id)
-            } while (this.pendingAfterInFlight.has(id) && !this.shuttingDown)
-        } finally {
-            this.debouncedUploadInProgress.delete(id)
-        }
-    }
-
-    private async uploadTables(ids: readonly BackupTableId[]): Promise<void> {
-        if (!this.isBackupConfigured()) return
-        const failures: string[] = []
-        let anyOk = false
-        for (const id of ids) {
-            try {
-                if (await this.uploadTable(id)) {
-                    anyOk = true
+                this.pendingAfterInFlight = false
+                const ids = [...this.dirty]
+                this.dirty.clear()
+                if (ids.length === 0) {
+                    continue
                 }
-            } catch (err: any) {
-                failures.push(`${id}: ${err.message}`)
+                await this.publishBatch(ids)
+            } while (this.pendingAfterInFlight && !this.shuttingDown)
+        } finally {
+            this.batchInProgress = false
+            if (!this.shuttingDown && this.dirty.size > 0 && !this.debounceTimer && !this.retryTimer) {
+                this.debounceTimer = setTimeout(() => {
+                    this.debounceTimer = undefined
+                    this.flushDebounced().catch(err => {
+                        this.log(`Debounced backup upload failed: ${err.message}`)
+                    })
+                }, 0)
             }
         }
-        if (!anyOk && failures.length > 0) {
-            // Do not throw: startup awaits uploadAllTables, and settings/user-cleanup
-            // fire-and-forget it. A total remote failure must not block the server.
-            this.log(`WARNING: backup upload failed (no destination succeeded): ${failures.join('; ')}`)
-            return
-        }
-        if (failures.length > 0) {
-            this.log(`Backup upload partial: ${failures.join('; ')}`)
-        }
     }
 
-    /** Returns false when this table was skipped (indexes not snapshotted yet). */
+    /** Returns false when every requested table was skipped (indexes not snapshotted yet). */
     private async uploadTable(id: BackupTableId): Promise<boolean> {
-        const prev = this.tableUploadTail.get(id) ?? Promise.resolve()
-        const run = prev.then(() => this.replaceTable(id), () => this.replaceTable(id))
-        this.tableUploadTail.set(id, run.then(() => undefined, () => undefined))
+        return this.publishBatch([id])
+    }
+
+    private async publishBatch(ids: readonly BackupTableId[]): Promise<boolean> {
+        if (!this.isBackupConfigured() || ids.length === 0) return false
+        const prev = this.publishTail
+        const run = prev.then(() => this.replaceBatch(ids), () => this.replaceBatch(ids))
+        this.publishTail = run.then(() => undefined, () => undefined)
         return run
     }
 
-    private async replaceTable(id: BackupTableId): Promise<boolean> {
-        this.log("uploading table: " + id)
-        const encrypted = await this.exportTable(id)
-        if (!encrypted) {
+    private async replaceBatch(ids: readonly BackupTableId[]): Promise<boolean> {
+        this.log("uploading backup batch: " + ids.join(','))
+        const shards = await this.exportTables(ids)
+        if (shards.size === 0) {
             return false
         }
-        const result = await this.pushEncrypted(backupTableFilename(id), encrypted)
+        const generation = newBackupGeneration()
+        const result = await this.pushBatch(generation, shards)
         if (result.retryable) {
-            this.scheduleRetry(id)
+            for (const id of shards.keys()) this.dirty.add(id)
+            this.scheduleRetry()
         } else {
-            this.clearRetry(id)
+            this.clearRetry()
         }
         if (!result.anyOk && result.failures.length > 0) {
             throw new Error(result.failures.join('; '))
         }
         if (result.failures.length > 0) {
-            this.log(`${backupTableFilename(id)} partial: ${result.failures.join('; ')}`)
+            this.log(`backup batch ${generation} partial: ${result.failures.join('; ')}`)
         }
-        this.log("table uploaded: " + id)
+        this.log("backup batch published: " + generation)
         return true
     }
 
-    private async exportTable(id: BackupTableId): Promise<Buffer | null> {
+    private async exportTables(ids: readonly BackupTableId[]): Promise<Map<BackupTableId, Buffer>> {
+        const out = new Map<BackupTableId, Buffer>()
+        await this.storage.StartTransaction(async tx => {
+            for (const id of ids) {
+                const encrypted = await this.exportTable(id, tx)
+                if (encrypted) {
+                    out.set(id, encrypted)
+                }
+            }
+        }, 'backup-export')
+        return out
+    }
+
+    private async exportTable(id: BackupTableId, txId?: string): Promise<Buffer | null> {
         const encKey = this.keys.encKey
         const encrypt = (rows: Uint8Array[]) => encryptTableRows(rows, encKey)
         switch (id) {
             case 'indexes': {
                 const row = this.indexesRow()
                 if (!row) {
-                    this.log("address count or channel backup not snapshotted yet, leaving indexes.enc unchanged")
+                    this.log("address count or channel backup not snapshotted yet, leaving indexes shard unchanged")
                     return null
                 }
                 return encrypt([encodeIndexesRow(row)])
             }
             case 'applications':
-                return encrypt((await this.storage.applicationStorage.ExportApplications()).map(encodeApplicationRow))
+                return encrypt((await this.storage.applicationStorage.ExportApplications(txId)).map(encodeApplicationRow))
             case 'application_users':
-                return encrypt((await this.storage.applicationStorage.ExportApplicationUsers()).map(encodeApplicationUserRow))
+                return encrypt((await this.storage.applicationStorage.ExportApplicationUsers(txId)).map(encodeApplicationUserRow))
             case 'admin_settings':
-                return encrypt((await this.storage.settingsStorage.ExportSettings()).map(encodeAdminSettingRow))
+                return encrypt((await this.storage.settingsStorage.ExportSettings(txId)).map(encodeAdminSettingRow))
             case 'app_user_devices':
-                return encrypt((await this.storage.applicationStorage.ExportAppUserDevices()).map(encodeAppUserDeviceRow))
+                return encrypt((await this.storage.applicationStorage.ExportAppUserDevices(txId)).map(encodeAppUserDeviceRow))
             case 'user_offers':
-                return encrypt((await this.storage.offerStorage.ExportUserOffers()).map(encodeUserOfferRow))
+                return encrypt((await this.storage.offerStorage.ExportUserOffers(txId)).map(encodeUserOfferRow))
             case 'products':
-                return encrypt((await this.storage.productStorage.ExportProducts()).map(encodeProductRow))
+                return encrypt((await this.storage.productStorage.ExportProducts(txId)).map(encodeProductRow))
             case 'management_grants':
-                return encrypt((await this.storage.managementStorage.ExportManagementGrants()).map(encodeManagementGrantRow))
+                return encrypt((await this.storage.managementStorage.ExportManagementGrants(txId)).map(encodeManagementGrantRow))
             case 'debit_accesses':
-                return encrypt((await this.storage.debitStorage.ExportDebitAccess()).map(encodeDebitAccessRow))
+                return encrypt((await this.storage.debitStorage.ExportDebitAccess(txId)).map(encodeDebitAccessRow))
             case 'invite_tokens':
-                return encrypt((await this.storage.applicationStorage.ExportInviteTokens()).map(encodeInviteTokenRow))
+                return encrypt((await this.storage.applicationStorage.ExportInviteTokens(txId)).map(encodeInviteTokenRow))
             case 'user_balances':
-                return encrypt((await this.storage.userStorage.ExportBalances()).map(encodeBalanceRow))
+                return encrypt((await this.storage.userStorage.ExportBalances(txId)).map(encodeBalanceRow))
             case 'tracked_providers':
-                return encrypt((await this.storage.liquidityStorage.ExportTrackedProviders()).map(encodeTrackedProviderRow))
+                return encrypt((await this.storage.liquidityStorage.ExportTrackedProviders(txId)).map(encodeTrackedProviderRow))
             default: {
                 const _exhaustive: never = id
                 throw new Error(`Unhandled backup table: ${_exhaustive}`)
@@ -368,12 +404,37 @@ export class BackupManager {
         return dests
     }
 
+    private destKey(dest: BackupDest): string {
+        switch (dest.type) {
+            case 'local':
+                return `local:${dest.dir}`
+            case 'cloud':
+                return 'cloud'
+            case 'sftp':
+                return `sftp:${dest.config.host}:${dest.config.port ?? 22}`
+            default: {
+                const _exhaustive: never = dest
+                throw new Error(`Unhandled backup dest: ${_exhaustive}`)
+            }
+        }
+    }
+
+    private stateFor(dest: BackupDest): DestPubState {
+        const key = this.destKey(dest)
+        let state = this.destState.get(key)
+        if (!state) {
+            state = { previousNames: new Set(), orphans: new Set() }
+            this.destState.set(key, state)
+        }
+        return state
+    }
+
     private destFailure(dest: BackupDest, err: unknown): { message: string, retryable: boolean } {
         const message = `${dest.type}: ${err instanceof Error ? err.message : String(err)}`
         return { message, retryable: !(err instanceof SftpIncompatibleError) }
     }
 
-    private async pushEncrypted(filename: string, encrypted: Buffer): Promise<{ anyOk: boolean, failures: string[], retryable: boolean }> {
+    private async pushBatch(generation: string, shards: Map<BackupTableId, Buffer>): Promise<PushResult> {
         const dests = this.configuredDests()
         const locals = dests.filter(d => d.type === 'local')
         const remotes = dests.filter(d => d.type !== 'local')
@@ -383,7 +444,7 @@ export class BackupManager {
 
         for (const dest of locals) {
             try {
-                await this.replaceDest(dest, filename, encrypted)
+                await this.publishDest(dest, generation, shards)
                 anyOk = true
             } catch (err: unknown) {
                 const f = this.destFailure(dest, err)
@@ -392,11 +453,11 @@ export class BackupManager {
             }
         }
 
-        const remoteP = this.replaceRemotes(remotes, filename, encrypted)
+        const remoteP = this.publishRemotes(remotes, generation, shards)
         if (this.shuttingDown && anyOk) {
             this.shutdownRemotePushes.push(remoteP.then(remote => {
                 if (remote.failures.length > 0) {
-                    this.log(`${filename} remote ${remote.anyOk ? 'partial' : 'failed'}: ${remote.failures.join('; ')}`)
+                    this.log(`backup batch ${generation} remote ${remote.anyOk ? 'partial' : 'failed'}: ${remote.failures.join('; ')}`)
                 }
             }))
             return { anyOk, failures, retryable }
@@ -409,11 +470,11 @@ export class BackupManager {
         return { anyOk, failures, retryable }
     }
 
-    private async replaceRemotes(remotes: BackupDest[], filename: string, encrypted: Buffer): Promise<{ anyOk: boolean, failures: string[], retryable: boolean }> {
+    private async publishRemotes(remotes: BackupDest[], generation: string, shards: Map<BackupTableId, Buffer>): Promise<PushResult> {
         if (remotes.length === 0) {
             return { anyOk: false, failures: [], retryable: false }
         }
-        const results = await Promise.allSettled(remotes.map(dest => this.replaceDest(dest, filename, encrypted)))
+        const results = await Promise.allSettled(remotes.map(dest => this.publishDest(dest, generation, shards)))
         const failures: string[] = []
         let anyOk = false
         let retryable = false
@@ -430,18 +491,182 @@ export class BackupManager {
         return { anyOk, failures, retryable }
     }
 
+    private async publishDest(dest: BackupDest, generation: string, shards: Map<BackupTableId, Buffer>) {
+        // Always re-read. A cached manifest can lag a commit whose acknowledgement was lost,
+        // and the next batch would then mix that stale copy with newer shards.
+        const previous = await this.readDestManifest(dest)
+        const state = this.stateFor(dest)
+        const before = this.shardNameSet(previous)
+        for (const name of state.previousNames) before.add(name)
+        await this.gcUnreferenced(dest, before)
+        const tables: Partial<Record<BackupTableId, string>> = { ...(previous?.tables ?? {}) }
+        const uploaded: string[] = []
+        try {
+            for (const [id, encrypted] of shards) {
+                const filename = backupTableVersionedFilename(id, generation)
+                await this.replaceDest(dest, filename, encrypted)
+                uploaded.push(filename)
+                tables[id] = filename
+            }
+            // Shard directory entries must be durable before the manifest names them.
+            if (dest.type === 'local') fsyncDirectory(dest.dir)
+            const manifest: BackupManifest = { generation, tables }
+            await this.replaceDest(dest, BACKUP_MANIFEST_FILENAME, serializeBackupManifest(manifest))
+            const live = this.shardNameSet(manifest)
+            const superseded = new Set([...this.shardNameSet(previous)].filter(name => !live.has(name)))
+            const keep = new Set([...live, ...superseded])
+            await this.gcUnreferenced(dest, keep)
+            state.previousNames = superseded
+        } catch (err) {
+            await this.discardUnreferencedUploads(dest, uploaded)
+            throw err
+        }
+    }
+
+    private shardNameSet(manifest: BackupManifest | null): Set<string> {
+        return new Set(manifest ? manifestShardNames(manifest) : [])
+    }
+
+    /**
+     * Delete shard files outside `keep`. Listing the directory finds leftovers from
+     * a crashed process; `orphans` covers a destination whose listing failed.
+     * Names that fail to delete stay in `orphans` for the next attempt.
+     */
+    private async gcUnreferenced(dest: BackupDest, keep: Set<string>) {
+        const state = this.stateFor(dest)
+        const listed = await this.listDestShards(dest)
+        const names = new Set<string>()
+        if (listed !== null) {
+            for (const name of listed) names.add(name)
+        }
+        for (const name of state.orphans) names.add(name)
+        for (const name of names) {
+            if (keep.has(name)) {
+                state.orphans.delete(name)
+                continue
+            }
+            if (!parseShardFilename(name)) continue
+            if (listed === null && !state.orphans.has(name)) continue
+            try {
+                await this.deleteDestFile(dest, name)
+                state.orphans.delete(name)
+            } catch (err: any) {
+                state.orphans.add(name)
+                this.log(`failed to remove unreferenced shard ${name}: ${err.message || err}`)
+            }
+        }
+    }
+
+    /**
+     * Drop shards from a failed attempt when the published manifest does not name them.
+     * A manifest replace that landed and then threw is left alone; the re-read shows
+     * those names are live.
+     */
+    private async discardUnreferencedUploads(dest: BackupDest, uploaded: string[]) {
+        if (uploaded.length === 0) return
+        const state = this.stateFor(dest)
+        let live: Set<string>
+        try {
+            live = this.shardNameSet(await this.readDestManifest(dest))
+        } catch (err: any) {
+            this.log(`failed to re-read manifest after a failed publish: ${err.message || err}`)
+            for (const name of uploaded) state.orphans.add(name)
+            return
+        }
+        for (const name of uploaded) {
+            if (live.has(name)) continue
+            try {
+                await this.deleteDestFile(dest, name)
+                state.orphans.delete(name)
+            } catch (err: any) {
+                state.orphans.add(name)
+                this.log(`failed to remove unreferenced shard ${name}: ${err.message || err}`)
+            }
+        }
+    }
+
+    private async readDestManifest(dest: BackupDest): Promise<BackupManifest | null> {
+        switch (dest.type) {
+            case 'local': {
+                const file = path.join(dest.dir, BACKUP_MANIFEST_FILENAME)
+                if (!fs.existsSync(file) || !fs.statSync(file).isFile()) {
+                    return null
+                }
+                return parseBackupManifest(fs.readFileSync(file))
+            }
+            case 'cloud':
+            case 'sftp': {
+                const chunk = await this.withCloudAuth(dest, () => sftpDownload(dest.config, BACKUP_MANIFEST_FILENAME))
+                if (!chunk.found) return null
+                return parseBackupManifest(chunk.data)
+            }
+            default: {
+                const _exhaustive: never = dest
+                throw new Error(`Unhandled backup dest: ${_exhaustive}`)
+            }
+        }
+    }
+
+    private async listDestShards(dest: BackupDest): Promise<string[] | null> {
+        try {
+            switch (dest.type) {
+                case 'local': {
+                    if (!fs.existsSync(dest.dir)) return []
+                    return fs.readdirSync(dest.dir)
+                }
+                case 'cloud':
+                case 'sftp':
+                    return await this.withCloudAuth(dest, () => sftpList(dest.config, '.'))
+                default: {
+                    const _exhaustive: never = dest
+                    throw new Error(`Unhandled backup dest: ${_exhaustive}`)
+                }
+            }
+        } catch (err: any) {
+            this.log(`failed to list backup files on ${dest.type}: ${err.message || err}`)
+            return null
+        }
+    }
+
+    private async deleteDestFile(dest: BackupDest, filename: string) {
+        switch (dest.type) {
+            case 'local': {
+                const file = path.join(dest.dir, filename)
+                if (fs.existsSync(file)) {
+                    fs.unlinkSync(file)
+                    this.log(`removed ${file}`)
+                }
+                return
+            }
+            case 'cloud':
+            case 'sftp':
+                await this.withCloudAuth(dest, () => sftpUnlink(dest.config, filename))
+                return
+            default: {
+                const _exhaustive: never = dest
+                throw new Error(`Unhandled backup dest: ${_exhaustive}`)
+            }
+        }
+    }
+
     private async replaceDest(dest: BackupDest, filename: string, encrypted: Buffer) {
         switch (dest.type) {
-            case 'local':
-                atomicWriteFile(path.join(dest.dir, filename), encrypted)
-                this.log(`${filename} written to ${path.join(dest.dir, filename)} (${encrypted.length} bytes)`)
+            case 'local': {
+                const destPath = path.join(dest.dir, filename)
+                if (filename === BACKUP_MANIFEST_FILENAME) {
+                    atomicWriteFile(destPath, encrypted)
+                } else {
+                    writeNewDurableFile(destPath, encrypted)
+                }
+                this.log(`${filename} written to ${destPath} (${encrypted.length} bytes)`)
                 return
+            }
             case 'cloud':
-                await this.replaceOnCloud(filename, encrypted)
+                await this.putOnCloud(filename, encrypted)
                 this.log(`${filename} uploaded to cloud (${encrypted.length} bytes)`)
                 return
             case 'sftp':
-                await sftpAtomicReplace(dest.config, filename, encrypted)
+                await this.putOnSftp(dest.config, filename, encrypted)
                 this.log(`${filename} uploaded to SFTP ${dest.config.host}:${dest.config.port ?? 22} (${encrypted.length} bytes)`)
                 return
             default: {
@@ -451,15 +676,27 @@ export class BackupManager {
         }
     }
 
+    private async putOnSftp(config: SftpConfig, filename: string, encrypted: Buffer) {
+        if (filename === BACKUP_MANIFEST_FILENAME) {
+            await sftpAtomicReplace(config, filename, encrypted)
+            return
+        }
+        await sftpUpload(config, filename, encrypted)
+    }
+
     /** A rejected login means this seed has no cloud account yet: sign up once, then retry. */
-    private async replaceOnCloud(filename: string, encrypted: Buffer) {
+    private async putOnCloud(filename: string, encrypted: Buffer) {
         const config = cloudSftpConfig(this.keys.sftpUser, this.keys.sftpPass)
+        await this.withCloudAuth({ type: 'cloud', config }, () => this.putOnSftp(config, filename, encrypted))
+    }
+
+    private async withCloudAuth<T>(dest: BackupDest, fn: () => Promise<T>): Promise<T> {
         try {
-            await sftpAtomicReplace(config, filename, encrypted)
+            return await fn()
         } catch (err) {
-            if (!(err instanceof SftpAuthError)) throw err
+            if (dest.type !== 'cloud' || !(err instanceof SftpAuthError)) throw err
             await this.signUpForCloud()
-            await sftpAtomicReplace(config, filename, encrypted)
+            return await fn()
         }
     }
 
@@ -475,11 +712,11 @@ export class BackupManager {
 
     private async waitUntilUploadsIdle(timeoutMs: number): Promise<void> {
         const start = Date.now()
-        while (this.debouncedUploadInProgress.size > 0) {
+        while (this.batchInProgress) {
             if (Date.now() - start > timeoutMs) {
                 return
             }
-            await new Promise<void>((resolve) => setTimeout(resolve, 25))
+            await new Promise<void>(resolve => setTimeout(resolve, 25))
         }
     }
 
@@ -507,7 +744,7 @@ export class BackupManager {
         await this.waitUntilUploadsIdle(this.waitInFlightMs)
         try {
             // Local shards must finish; the deadline only covers remotes kicked off above.
-            await this.uploadTables(BACKUP_RESTORE_ORDER)
+            await this.publishBatch(BACKUP_RESTORE_ORDER)
             if (this.shutdownRemotePushes.length > 0) {
                 await this.withTimeout(
                     Promise.allSettled(this.shutdownRemotePushes).then(() => undefined),
