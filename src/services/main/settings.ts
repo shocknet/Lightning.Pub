@@ -159,10 +159,12 @@ export const LoadNostrRelaySettingsFromEnv = (dbEnv: Record<string, string | und
 
 export type WatchdogSettings = {
     maxDiffSats: number // hot setting
+    disabled: boolean // hot setting
 }
 export const LoadWatchdogSettingsFromEnv = (dbEnv: Record<string, string | undefined>, addToDb?: EnvCacher): WatchdogSettings => {
     return {
-        maxDiffSats: chooseEnvInt("WATCHDOG_MAX_DIFF_SATS", dbEnv, 0, addToDb)
+        maxDiffSats: chooseEnvInt("WATCHDOG_MAX_DIFF_SATS", dbEnv, 0, addToDb),
+        disabled: chooseEnvBool("DISABLE_WATCHDOG", dbEnv, false, addToDb)
     }
 }
 
