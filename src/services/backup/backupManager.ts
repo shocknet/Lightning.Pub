@@ -49,6 +49,7 @@ import {
 } from './segments.js'
 import {
     BACKUP_MANIFEST_FILENAME,
+    BACKUP_MANIFEST_VERSION,
     BACKUP_RESTORE_ORDER,
     backupTableVersionedFilename,
     manifestShardNames,
@@ -564,7 +565,7 @@ export class BackupManager {
             }
             // Shard directory entries must be durable before the manifest names them.
             if (dest.type === 'local') fsyncDirectory(dest.dir)
-            const manifest: BackupManifest = { generation, tables }
+            const manifest: BackupManifest = { version: BACKUP_MANIFEST_VERSION, generation, tables }
             await this.replaceDest(dest, BACKUP_MANIFEST_FILENAME, serializeBackupManifest(manifest), session)
             await this.gcUnreferenced(dest, this.shardNameSet(manifest), session)
         } catch (err) {

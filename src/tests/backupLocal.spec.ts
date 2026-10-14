@@ -807,11 +807,30 @@ const testAtomicLocalReplace = async (T: StorageTestBase) => {
 const testParseBackupManifest = (T: StorageTestBase) => {
     T.d('starting testParseBackupManifest')
     const ok = parseBackupManifest(JSON.stringify({
+        version: 1,
         generation: 'abc123',
         tables: { indexes: 'indexes.vabc123.enc', user_balances: 'user_balances.vold.enc' },
     }))
+    T.expect(ok.version).to.equal(1)
     T.expect(ok.generation).to.equal('abc123')
     T.expect(ok.tables.indexes).to.equal('indexes.vabc123.enc')
+    const legacy = parseBackupManifest(JSON.stringify({
+        generation: 'abc123',
+        tables: { indexes: 'indexes.vabc123.enc' },
+    }))
+    T.expect(legacy.version).to.equal(1)
+    let badVersion = false
+    try {
+        parseBackupManifest(JSON.stringify({
+            version: 2,
+            generation: 'abc123',
+            tables: {},
+        }))
+    } catch (err: any) {
+        badVersion = true
+        T.expect(err.message).to.include('unsupported backup manifest version')
+    }
+    T.expect(badVersion).to.equal(true)
     let threw = false
     try {
         parseBackupManifest(JSON.stringify({
