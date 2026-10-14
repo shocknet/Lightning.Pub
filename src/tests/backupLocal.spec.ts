@@ -114,7 +114,7 @@ export default async (T: StorageTestBase) => {
     await testMissingManifestFailsRestore(T)
     await testFailedShardLeavesPreviousManifest(T)
     await testAmbiguousManifestCommitIsReread(T)
-    await testShardGcKeepsOneGenerationThenDropsIt(T)
+    await testShardGcDropsSupersededImmediately(T)
     await testLiveUploadReplacesOnlyThatTable(T)
     await testRefusesWhenLndStarted(T)
     await testResumeAfterDbCommitted(T)
@@ -957,8 +957,8 @@ const testAmbiguousManifestCommitIsReread = async (T: StorageTestBase) => {
     T.d('a manifest commit that threw after landing is re-read by the next publish')
 }
 
-const testShardGcKeepsOneGenerationThenDropsIt = async (T: StorageTestBase) => {
-    T.d('starting testShardGcKeepsOneGenerationThenDropsIt')
+const testShardGcDropsSupersededImmediately = async (T: StorageTestBase) => {
+    T.d('starting testShardGcDropsSupersededImmediately')
     const dir = tempBackupDir()
     const settings = await localBackupSettings(T, dir)
     const backup = new BackupManager(T.storage, settings)
@@ -971,9 +971,10 @@ const testShardGcKeepsOneGenerationThenDropsIt = async (T: StorageTestBase) => {
         const first = readManifest(dir)
         await (backup as any).uploadTable('user_balances')
         const second = readManifest(dir)
-        const grace = first.tables.user_balances!
-        T.expect(second.tables.user_balances).to.not.equal(grace)
-        T.expect(fs.existsSync(path.join(dir, grace))).to.equal(true)
+        const superseded = first.tables.user_balances!
+        T.expect(second.tables.user_balances).to.not.equal(superseded)
+        T.expect(fs.existsSync(path.join(dir, superseded))).to.equal(false)
+        T.expect(listEncFiles(dir)).to.deep.equal(manifestShardNames(second).sort())
         const orphan = 'indexes.vleftover99.enc'
         fs.writeFileSync(path.join(dir, orphan), Buffer.from('orphan'))
         const restarted = new BackupManager(T.storage, settings)
@@ -981,24 +982,14 @@ const testShardGcKeepsOneGenerationThenDropsIt = async (T: StorageTestBase) => {
         await restarted.AddressUpdate(5)
         restarted.ChannelBackupUpdate(SAMPLE_SCB)
         await restarted.uploadAllTables()
-        T.expect(fs.existsSync(path.join(dir, grace))).to.equal(false)
         T.expect(fs.existsSync(path.join(dir, orphan))).to.equal(false)
         const third = readManifest(dir)
-        for (const name of manifestShardNames(third)) {
-            T.expect(fs.existsSync(path.join(dir, name))).to.equal(true)
-        }
-        for (const name of manifestShardNames(second)) {
-            T.expect(fs.existsSync(path.join(dir, name))).to.equal(true)
-        }
-        const keep = new Set([...manifestShardNames(third), ...manifestShardNames(second)])
-        for (const name of listEncFiles(dir)) {
-            T.expect(keep.has(name)).to.equal(true)
-        }
+        T.expect(listEncFiles(dir)).to.deep.equal(manifestShardNames(third).sort())
         await restarted.shutdown()
     } finally {
         fs.rmSync(dir, { recursive: true, force: true })
     }
-    T.d('a restart deletes unreferenced shards and the next commit keeps the previous generation')
+    T.d('a successful commit deletes superseded shards immediately, and a restart still drops leftovers')
 }
 
 const testLiveUploadReplacesOnlyThatTable = async (T: StorageTestBase) => {

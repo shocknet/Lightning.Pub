@@ -12,8 +12,8 @@
 // Every publish re-reads that destination's manifest and copies unchanged names from
 // that read, so a commit the client missed is not rolled back by a later batch.
 // Shard files the manifest does not name are removed by listing the directory, which
-// still works after a restart. The generation just superseded is kept until the next
-// successful commit. A failed attempt deletes the shards it uploaded only after a
+// still works after a restart. After a successful manifest replace, superseded shards
+// are deleted immediately. A failed attempt deletes the shards it uploaded only after a
 // re-read shows the published manifest does not name them.
 // High-churn tables coalesce into one batch; a max-wait caps continuous resets.
 // Destinations: managed cloud SFTP, custom SFTP (BACKUP_SFTP_USER/PASS override phrase-derived
@@ -77,8 +77,6 @@ type BackupDest =
     | { type: 'local'; dir: string }
 
 type DestPubState = {
-    /** Shard names superseded by the last successful commit. Kept until the next one. */
-    previousNames: Set<string>
     /** Uploads we could not delete, or could not prove were unreferenced. */
     orphans: Set<string>
 }
@@ -424,7 +422,7 @@ export class BackupManager {
         const key = this.destKey(dest)
         let state = this.destState.get(key)
         if (!state) {
-            state = { previousNames: new Set(), orphans: new Set() }
+            state = { orphans: new Set() }
             this.destState.set(key, state)
         }
         return state
@@ -506,10 +504,7 @@ export class BackupManager {
         // Always re-read. A cached manifest can lag a commit whose acknowledgement was lost,
         // and the next batch would then mix that stale copy with newer shards.
         const previous = await this.readDestManifest(dest, session)
-        const state = this.stateFor(dest)
-        const before = this.shardNameSet(previous)
-        for (const name of state.previousNames) before.add(name)
-        await this.gcUnreferenced(dest, before, session)
+        await this.gcUnreferenced(dest, this.shardNameSet(previous), session)
         const tables: Partial<Record<BackupTableId, string>> = { ...(previous?.tables ?? {}) }
         const uploaded: string[] = []
         try {
@@ -523,11 +518,7 @@ export class BackupManager {
             if (dest.type === 'local') fsyncDirectory(dest.dir)
             const manifest: BackupManifest = { generation, tables }
             await this.replaceDest(dest, BACKUP_MANIFEST_FILENAME, serializeBackupManifest(manifest), session)
-            const live = this.shardNameSet(manifest)
-            const superseded = new Set([...this.shardNameSet(previous)].filter(name => !live.has(name)))
-            const keep = new Set([...live, ...superseded])
-            await this.gcUnreferenced(dest, keep, session)
-            state.previousNames = superseded
+            await this.gcUnreferenced(dest, this.shardNameSet(manifest), session)
         } catch (err) {
             await this.discardUnreferencedUploads(dest, uploaded, session)
             throw err
