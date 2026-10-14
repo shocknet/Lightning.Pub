@@ -56,8 +56,8 @@ Pub runners keep the Lightning Network decentralized with localized scaling that
 - Bootstrap Peering
   - A pub node may trust another pub node until it can afford a channel
   - Can be disabled via environment variable for full sovereignty
-- Accounts for Applications and Users
-  - Each user has their own balance, and an application is how a wallet or service connects to the node
+- Accounts for Users
+  - Each user has their own balance on the node
   - A service fee (`SERVICE_FEE_BPS`) lets the node operator charge users
 - Encrypted Backups and Restore
   - User balances and channel state, recoverable from the LND seed. See [Backups](#backups)
@@ -107,10 +107,9 @@ This method installs all dependencies and creates user-level services (systemd o
 > **System Requirements:**
 > - **RAM**: Minimum 2GB burstable in headless containers or VPS. 4+GB recommended for full Linux Desktop OS.
 > - **Storage**: 20GB of space for compact blocks.
-> - **Network**: No port forwarding, Tor, or firewall configuration needed! Pub uses Nostr relays for communication to eliminate traditional server networking requirements.
 
 > [!TIP]
-> **Bundled Node**: The Lightning.Pub install script provides a complete Lightning solution. You do NOT need to a full Bitcoin or other node, perfect small devices like Raspberry Pi.
+> **Bundled Node**: The Lightning.Pub install script provides a complete Lightning solution. You do NOT need a full Bitcoin node, which makes it a good fit for small devices like a Raspberry Pi.
 
 To start, run the following command:
 
@@ -249,7 +248,7 @@ npm start
 
 **For Guest Users:**
 - The guest nprofile (without admin token) is stored in `$HOME/lightning_pub/app.nprofile`
-- Share the nprofile string with guests directly, or use invitation links from the "Invite" page in ShockWallet
+- Share the nprofile string with guests directly, or use invitation links from the "Invitations" page in ShockWallet
 - Guests paste the nprofile string into ShockWallet's "Add Source" feature to connect
 
 > [!NOTE]
@@ -276,7 +275,7 @@ nano .env  # or use your preferred editor
 ```
 
 > [!IMPORTANT]
-> A key set in `.env` beats the same key in `admin_settings`. On startup Pub writes the environment value into that table. The dashboard will not change a field while its variable is set; remove it and restart to edit it there.
+> A key set in `.env` overwrites the same key in `admin_settings` on every startup. The dashboard will not change a field while its variable is set; remove it and restart to edit it there. The saved value stays at whatever `.env` last wrote.
 
 ### Custom Nostr Relay
 
@@ -294,14 +293,14 @@ NOSTR_RELAYS="wss://relay1.com wss://relay2.com wss://relay3.com"
 
 By default, Lightning.Pub connects to a bootstrap liquidity provider (another Pub over Nostr) for outbound routing when local LND channel liquidity is low. Pub compares rates from top LSPs and automatically requests a channel when needed.
 
-Settings are loaded from environment variables or the `admin_settings` database table (env wins if both are set). The relevant keys are **`PROVIDER_NPROFILE`** and **`DISABLE_LIQUIDITY_PROVIDER`**
+The relevant keys are **`PROVIDER_NPROFILE`** and **`DISABLE_LIQUIDITY_PROVIDER`**
 
 ```bash
 # Disable upstream provider checks (LND only for outbound payments)
 DISABLE_LIQUIDITY_PROVIDER=true
 
 # Optional: point at a different Pub instance (pubkey + relay are in the nprofile)
-PROVIDER_NPROFILE=nprofile1qyd8wumn8ghj7um5wfn8y7fwwd5x7cmt9ehx2arhdaexkqpqwmk5tuqvafa6ckwc6zmaypyy3af3n4aeds2ql7m0ew42kzsn638q9s9z8p
+PROVIDER_NPROFILE=nprofile1...
 ```
 
 ### Backups
@@ -335,21 +334,24 @@ By default, ShockWallet automatically enrolls your CLINK offer at `@shockwallet.
 
 **Option 1: Run your own [Bridgelet](https://github.com/shocknet/bridgelet)**
 
-A minimalist LNURL-P and Lightning Address bridge service that uses CLINK Offers. This gives you full control over your Lightning Address domain without trusting third-party bridges.
+A minimalist LNURL-P and Lightning Address bridge service that uses CLINK Offers. This gives you full control over your Lightning Address domain without trusting third-party bridges. Once it is running, tell wallets to use it instead of the default:
+
+```bash
+# The bridge wallets are told to enroll with (default: https://shockwallet.app)
+BRIDGE_URL=https://your-bridge.com
+```
 
 **Option 2: Enable LNURL directly on Pub**
 
-```bash
-# Configure which LNURL bridge to suggest to wallets (default: https://shockwallet.app)
-BRIDGE_URL=https://your-bridge.com
+Pub serves the LNURL endpoints itself. This needs a public HTTPS address and an SSL reverse proxy from that domain to Pub's port.
 
-# Enable LNURL callbacks directly on Pub (requires SSL reverse proxy pointing to Pub's port)
+```bash
 SERVICE_URL=https://yourdomain.com
 ```
 
 ### Setup Wizard (Start9 and Umbrel)
 
-The wizard is a web UI for first-run setup: node name, relay, liquidity, backups, and restore. It is intended for appliance UIs like Start9 and Umbrel, which open it on the appliance's own network. The one-line installer does not enable and non-Umbrel/StartOS systems do not need it.
+The wizard is a web UI for first-run setup: node name, relay, liquidity, backups, and restore. It is intended for appliance UIs like Start9 and Umbrel, which open it on the appliance's own network. The one-line installer does not enable it, and a self-hosted node does not need it.
 
 ```bash
 WIZARD=true
