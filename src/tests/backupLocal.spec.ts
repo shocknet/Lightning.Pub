@@ -1240,11 +1240,13 @@ const testBadSettingsDoNotBlockScb = async (T: StorageTestBase) => {
         await writeLocalBackup(sourceT, dir, 4)
         const destSettings = new SettingsManager(dest)
         await destSettings.InitSettings()
+        const bootRouting = destSettings.getSettings().lndSettings.routingFeeLimitBps
         await markDbImported(dest)
         const order: string[] = []
+        const origInit = destSettings.InitSettings.bind(destSettings)
         destSettings.InitSettings = async () => {
             order.push('reload')
-            throw new Error('ROUTING_FEE_LIMIT_BPS (100) must be <= SERVICE_FEE_BPS (50) to ensure Pub keeps a spread')
+            return origInit()
         }
         const unlocker = {
             WalletExists: async () => true,
@@ -1256,22 +1258,47 @@ const testBadSettingsDoNotBlockScb = async (T: StorageTestBase) => {
         fs.mkdirSync(dataDir, { recursive: true })
         fs.writeFileSync(restore.getCheckpointPath(), 'DB_COMMITTED')
         fs.writeFileSync(restore.getPhraseHashPath(), hashRestorePhrase(TEST_PHRASE))
-        const result = await restore.RestoreFromSource({
+        const req: WizardTypes.RestoreRequest = {
             phrase: TEST_PHRASE,
             source: { type: WizardTypes.RestoreRequest_source_type.LOCAL_PATH, local_path: dir },
-        })
+        }
+        process.env.ROUTING_FEE_LIMIT_BPS = '100'
+        const result = await restore.RestoreFromSource(req)
         T.expect(order).to.deep.equal(['scb', 'reload'])
         T.expect(result.success).to.equal(false)
         T.expect(result.error || '').to.contain('ROUTING_FEE_LIMIT_BPS')
+        T.expect(fs.readFileSync(restore.getCheckpointPath(), 'utf8')).to.equal('LND_ACTIVE')
+        T.expect(fs.existsSync(restore.getPhraseHashPath())).to.equal(true)
+        T.expect(restore.HasOngoingRecovery()).to.equal(true)
+        T.expect(restore.IsRecoveryActive()).to.equal(true)
+        T.expect(destSettings.getSettings().lndSettings.routingFeeLimitBps).to.equal(bootRouting)
+
+        const waitDone = restore.WaitForRecoveryCompletion()
+        let waiterSettled = false
+        void waitDone.then(() => { waiterSettled = true })
+        await new Promise(r => setTimeout(r, 50))
+        T.expect(waiterSettled).to.equal(false)
+
+        delete process.env.ROUTING_FEE_LIMIT_BPS
+        const ok = await restore.RestoreFromSource(req)
+        await withTimeout(waitDone, 1000, 'startup waiter stayed blocked after successful settings reload')
+        T.expect(ok.success).to.equal(true)
+        T.expect(order).to.deep.equal(['scb', 'reload', 'scb', 'reload'])
         T.expect(fs.readFileSync(restore.getCheckpointPath(), 'utf8')).to.equal('COMPLETED')
+        T.expect(fs.existsSync(restore.getPhraseHashPath())).to.equal(false)
+        T.expect(fs.existsSync(restore.getWalletPubPath())).to.equal(false)
+        T.expect(restore.HasOngoingRecovery()).to.equal(false)
+        T.expect(restore.IsRecoveryActive()).to.equal(false)
+        T.expect(destSettings.getSettings().lndSettings.routingFeeLimitBps).to.equal(bootRouting)
     } finally {
+        delete process.env.ROUTING_FEE_LIMIT_BPS
         source.Stop()
         dest.Stop()
         fs.rmSync(sourceDataDir, { recursive: true, force: true })
         fs.rmSync(dataDir, { recursive: true, force: true })
         fs.rmSync(dir, { recursive: true, force: true })
     }
-    T.d('a bad restored setting reloads after SCB, so channel recovery is not blocked')
+    T.d('a bad restored setting reloads after SCB; failed reload keeps recovery active until retry succeeds')
 }
 
 const SAMPLE_SCB = Buffer.from('multi-chan-backup'.repeat(40))

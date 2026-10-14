@@ -25,8 +25,9 @@
 //
 // The SCB travels in the indexes shard, so there is no separate fetch. A shard that marks
 // the node as having no channels skips ApplyScb. Otherwise restore fails unless ApplyScb
-// succeeds, and a failed SCB leaves the checkpoint at LND_ACTIVE so the same phrase can
-// retry. After DB_COMMITTED or LND_ACTIVE, resume is allowed only when the checkpoint
+// succeeds, and a failed SCB or settings reload leaves the checkpoint at LND_ACTIVE so the
+// same phrase can retry. COMPLETED is written only after restored settings reload. After
+// DB_COMMITTED or LND_ACTIVE, resume is allowed only when the checkpoint
 // is complete and consistent (phrase binding, LND still has a wallet, this DB is not
 // empty). LND_ACTIVE also requires .restore_wallet_pub from the first PostRestore and
 // refuses a different connected wallet. Incomplete or mismatched state is not resumable:
@@ -73,7 +74,7 @@ enum RestoreCheckpoint {
     LND_RECOVERED = 'LND_RECOVERED', // lnd was recovered, but DB not commit, cannot continue recovery from this state
     DB_COMMITTED = 'DB_COMMITTED', // DB committed, any retry will start from after this checkpoint
     LND_ACTIVE = 'LND_ACTIVE', // LND active, SCB can be restored, or retried
-    COMPLETED = 'COMPLETED', // SCB restored (or the backup has no channels), restore completed
+    COMPLETED = 'COMPLETED', // SCB restored (or no channels) and restored settings reloaded
 }
 
 const normalizeRestorePhrase = (phrase: string) =>
@@ -279,9 +280,13 @@ export class RestoreManager {
         await this.finishRestore(seed, macaroon, scb)
         // Restore writes admin_settings to SQLite; InitSettings already ran at boot with
         // the empty-node values. Reload after channel recovery so a bad restored setting
-        // cannot block SCB retries. This process then uses restored fees, conf tiers,
-        // backup dest, and default-app name instead of creating a second default app.
+        // cannot block SCB retries. COMPLETED waits on this reload: a failed load stays
+        // at LND_ACTIVE so waiters stay blocked and retry can reload without re-importing.
         await this.settings.InitSettings()
+        this.updateCheckpoint(RestoreCheckpoint.COMPLETED)
+        this.clearPhraseBinding()
+        this.clearWalletBinding()
+        this.log("RestoreFromSource completed")
         return { entries_restored: restoredEntries, scb_restored: !!scb, success: true, error: '' }
     }
 
@@ -372,10 +377,6 @@ export class RestoreManager {
         } else {
             this.log("backup has no channels, skipping SCB restore")
         }
-        this.updateCheckpoint(RestoreCheckpoint.COMPLETED)
-        this.clearPhraseBinding()
-        this.clearWalletBinding()
-        this.log("RestoreFromSource completed")
     }
 
     async fetchSegmentsData(req: wizardTypes.RestoreRequest, keys: DerivedKeys) {
