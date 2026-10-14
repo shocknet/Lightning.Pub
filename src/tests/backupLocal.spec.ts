@@ -5,7 +5,7 @@ import crypto from 'crypto'
 import SettingsManager from '../services/main/settingsManager.js'
 import { BackupManager } from '../services/backup/backupManager.js'
 import { failureMessage, hashRestorePhrase, RestoreManager } from '../services/backup/restoreManager.js'
-import { decodeIndexesRow, decryptTableRows, encodeIndexesRow, encryptTableRows } from '../services/backup/segments.js'
+import { decodeBalanceRow, decodeIndexesRow, decryptTableRows, encodeIndexesRow, encryptTableRows } from '../services/backup/segments.js'
 import { encodeTLV, integerToUint8Array } from '../services/helpers/tlv.js'
 import { scbFromSnapshot } from '../services/main/unlocker.js'
 import { Unlocker } from '../services/main/unlocker.js'
@@ -151,6 +151,9 @@ export default async (T: StorageTestBase) => {
     await testStalledRemoteDoesNotBlockLocal(T)
     await testFailedUploadRetries(T)
     await testShutdownDoesNotWaitOnStalledRemote(T)
+    await testShutdownFinalLocalNotBlockedByInFlightRemote(T)
+    await testShutdownRemoteOnlyIsBounded(T)
+    await testShutdownFailedLocalDoesNotWaitOnRemote(T)
     await testUploadAllTablesSurvivesRemoteFailure(T)
 }
 
@@ -1802,6 +1805,84 @@ const testShutdownDoesNotWaitOnStalledRemote = async (T: StorageTestBase) => {
         fs.rmSync(dir, { recursive: true, force: true })
     }
     T.d('shutdown writes local shards and returns even if a remote never completes')
+}
+
+const holdRemotePublishes = (backup: BackupManager) => {
+    let release: () => void = () => {}
+    const hold = new Promise<void>(resolve => { release = resolve })
+    let entered = false
+    ;(backup as any).publishRemotes = async () => {
+        entered = true
+        await hold
+        return { anyOk: false, failures: ['remote stalled'], retryable: true }
+    }
+    return {
+        release,
+        entered: () => entered,
+    }
+}
+
+const testShutdownFinalLocalNotBlockedByInFlightRemote = async (T: StorageTestBase) => {
+    T.d('starting testShutdownFinalLocalNotBlockedByInFlightRemote')
+    const dir = tempBackupDir()
+    const backup = new BackupManager(T.storage, await localAndSftpSettings(T, dir))
+    backup.waitInFlightMs = 50
+    backup.shutdownFlushMs = 200
+    await backup.InitKeys(TEST_SEED)
+    await backup.AddressUpdate(3)
+    backup.ChannelBackupUpdate(SAMPLE_SCB)
+    const { user } = await seedDialtone(T, backup.settings)
+    const remote = holdRemotePublishes(backup)
+    ;(backup as any).dirty.add('admin_settings')
+    const flush = (backup as any).flushDebounced()
+    try {
+        await waitUntil(remote.entered, 2000, 'live remote publish did not start')
+        T.expect(hasManifestTable(dir, 'user_balances')).to.equal(false)
+        await T.storage.userStorage.IncrementUserBalance(user.user.user_id, 50, 'shutdown-snapshot')
+        await withTimeout(backup.shutdown(), 2000, 'shutdown hung behind an in-flight remote upload')
+        await withTimeout(flush, 2000, 'in-flight batch stayed queued behind the remote')
+        const keys = await deriveBackupKeys(TEST_PHRASE)
+        const rows = decryptTableRows(fs.readFileSync(shardPath(dir, 'user_balances')), keys.encKey).map(decodeBalanceRow)
+        T.expect(rows.some(r => r.user_id === user.user.user_id && r.balance_sats === 1284)).to.equal(true)
+    } finally {
+        remote.release()
+        await flush.catch(() => undefined)
+        if (!backup.shuttingDown) await backup.shutdown()
+        fs.rmSync(dir, { recursive: true, force: true })
+    }
+    T.d('an in-flight remote upload does not block the final local balance snapshot')
+}
+
+const testShutdownRemoteOnlyIsBounded = async (T: StorageTestBase) => {
+    T.d('starting testShutdownRemoteOnlyIsBounded')
+    const backup = new BackupManager(T.storage, await sftpOnlySettings(T))
+    backup.waitInFlightMs = 50
+    backup.shutdownFlushMs = 200
+    await backup.InitKeys(TEST_SEED)
+    await backup.AddressUpdate(1)
+    backup.ChannelBackupUpdate(SAMPLE_SCB)
+    ;(backup as any).publishRemotes = () => new Promise(() => { /* stall until process teardown */ })
+    await withTimeout(backup.shutdown(), 2000, 'remote-only shutdown waited on the remote with no deadline')
+    T.d('remote-only shutdown returns within the remote deadline')
+}
+
+const testShutdownFailedLocalDoesNotWaitOnRemote = async (T: StorageTestBase) => {
+    T.d('starting testShutdownFailedLocalDoesNotWaitOnRemote')
+    const dir = tempBackupDir()
+    const backup = new BackupManager(T.storage, await localAndSftpSettings(T, dir))
+    backup.waitInFlightMs = 50
+    backup.shutdownFlushMs = 200
+    await backup.InitKeys(TEST_SEED)
+    await backup.AddressUpdate(1)
+    backup.ChannelBackupUpdate(SAMPLE_SCB)
+    ;(backup as any).publishRemotes = () => new Promise(() => { /* stall until process teardown */ })
+    ;(backup as any).replaceDest = async () => { throw new Error('disk full') }
+    try {
+        await withTimeout(backup.shutdown(), 2000, 'failed local write left shutdown waiting on the remote')
+    } finally {
+        fs.rmSync(dir, { recursive: true, force: true })
+    }
+    T.d('a failed local write does not leave shutdown waiting on a remote')
 }
 
 const sftpOnlySettings = async (T: StorageTestBase) => {
