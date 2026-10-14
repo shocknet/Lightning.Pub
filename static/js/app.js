@@ -1,4 +1,19 @@
 const COMMUNITY_RELAY_URL = 'wss://relay.lightning.pub';
+// Set when restore succeeds. A restored node has saved settings before an admin
+// is enrolled, so a disabled backup must stay manual across reload.
+const RESTORED_SETUP_KEY = 'pub-wizard-restored';
+
+function markRestoredSetup() {
+    try { sessionStorage.setItem(RESTORED_SETUP_KEY, '1'); } catch (e) { /* private mode */ }
+}
+
+function restoredSetupPending() {
+    try { return sessionStorage.getItem(RESTORED_SETUP_KEY) === '1'; } catch (e) { return false; }
+}
+
+function clearRestoredSetup() {
+    try { sessionStorage.removeItem(RESTORED_SETUP_KEY); } catch (e) { /* private mode */ }
+}
 
 window.wizard = function () {
     return {
@@ -80,16 +95,24 @@ window.wizard = function () {
             });
         },
 
-        async refreshServiceState() {
+        async fetchServiceState() {
             const res = await fetch('/wizard/service_state');
             if (!res.ok) throw new Error('Failed to load state');
-            const data = await res.json();
+            return await res.json();
+        },
+
+        async refreshServiceState() {
+            const data = await this.fetchServiceState();
             this.serviceState = data;
 
             this.applyServiceFields(data);
             this.automateLiquidity = data.automate_liquidity;
             this.liquidityChoice = this.automateLiquidity === true ? 'automate' : 'manual';
-            this.loadRemoteBackup(data.remote_backup, !!data.admin_npub);
+            if (data.admin_npub || data.is_db_clean) clearRestoredSetup();
+            // admin_npub is still empty after restore. The session flag keeps a
+            // disabled backup from being shown as the first-run remote default.
+            const configured = !!data.admin_npub || restoredSetupPending();
+            this.loadRemoteBackup(data.remote_backup, configured);
             if (data.has_ongoing_recovery) {
                 this.restoreIntent = 'restore';
             }
@@ -213,7 +236,10 @@ window.wizard = function () {
         },
 
         async saveStatusConfig(updates) {
-            const s = this.serviceState || {};
+            // The request replaces every setting. Read the server first so fields
+            // this save does not change cannot be the snapshot from page load.
+            const s = await this.fetchServiceState();
+            this.serviceState = s;
             const payload = {
                 source_name: updates.source_name ?? (s.source_name !== 'Error' ? (s.source_name || '') : ''),
                 relay_url: updates.relay_url ?? this.savedRelayUrl(),
@@ -462,6 +488,7 @@ window.wizard = function () {
                     throw new Error('Enter your SFTP server host, or pick another option.');
                 }
                 await this.submitWizardConfig();
+                await this.refreshServiceState();
                 this.error = null;
                 document.getElementById('errorTextBackup').textContent = '';
                 this.goTo('connect');
@@ -548,6 +575,13 @@ window.wizard = function () {
 
                 const result = await res.json();
                 if (result.success) {
+                    markRestoredSetup();
+                    try {
+                        await this.refreshServiceState();
+                    } catch (e) {
+                        this.restoreError = 'Restore succeeded, but reloading settings failed. Reload this page before continuing.';
+                        return;
+                    }
                     this.goTo('node');
                 } else {
                     this.restoreError = result.error || 'Restore failed.';

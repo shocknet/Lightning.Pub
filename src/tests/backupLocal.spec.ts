@@ -5,11 +5,11 @@ import crypto from 'crypto'
 import SettingsManager from '../services/main/settingsManager.js'
 import { BackupManager } from '../services/backup/backupManager.js'
 import { failureMessage, hashRestorePhrase, RestoreManager } from '../services/backup/restoreManager.js'
-import { decodeIndexesRow, decryptTableRows, encodeIndexesRow, encryptTableRows } from '../services/backup/segments.js'
+import { decodeBalanceRow, decodeIndexesRow, decryptTableRows, encodeIndexesRow, encryptTableRows } from '../services/backup/segments.js'
 import { encodeTLV, integerToUint8Array } from '../services/helpers/tlv.js'
 import { scbFromSnapshot } from '../services/main/unlocker.js'
 import { Unlocker } from '../services/main/unlocker.js'
-import { BACKUP_TABLE_IDS, backupTableFilename, backupTableStagingFilename, type BackupTableId } from '../services/backup/backupTables.js'
+import { BACKUP_MANIFEST_FILENAME, BACKUP_TABLE_IDS, manifestShardNames, parseBackupManifest, type BackupTableId } from '../services/backup/backupTables.js'
 import { atomicWriteFile } from '../services/backup/atomicWrite.js'
 import { deriveBackupKeys } from '../services/backup/derivation.js'
 import Storage, { GetTestStorageSettings } from '../services/storage/index.js'
@@ -71,6 +71,23 @@ const withTimeout = async <T>(p: Promise<T>, ms: number, msg: string): Promise<T
 const listEncFiles = (dir: string) =>
     fs.existsSync(dir) ? fs.readdirSync(dir).filter(f => f.endsWith('.enc')).sort() : []
 
+const readManifest = (dir: string) =>
+    parseBackupManifest(fs.readFileSync(path.join(dir, BACKUP_MANIFEST_FILENAME), 'utf8'))
+
+const shardPath = (dir: string, id: BackupTableId) => {
+    const name = readManifest(dir).tables[id]
+    if (!name) throw new Error(`manifest has no ${id}`)
+    return path.join(dir, name)
+}
+
+const hasManifestTable = (dir: string, id: BackupTableId) => {
+    try {
+        return !!readManifest(dir).tables[id]
+    } catch {
+        return false
+    }
+}
+
 const openSecondStorage = async () => {
     const settings = GetTestStorageSettings()
     const utils = new Utils({ dataDir: settings.dataDir, allowResetMetricsStorages: true }, new NostrSender())
@@ -92,8 +109,12 @@ export default async (T: StorageTestBase) => {
     await testUploadAllTablesWritesEveryShard(T)
     await testUploadAllTablesWithoutSnapshotsOmitsIndexes(T)
     await testAtomicLocalReplace(T)
-    await testRestorePrefersCommittedEnc(T)
-    await testRestoreFallsBackToStagingIfCommittedMissing(T)
+    testParseBackupManifest(T)
+    await testRestoreFollowsManifestIgnoresUnreferenced(T)
+    await testMissingManifestFailsRestore(T)
+    await testFailedShardLeavesPreviousManifest(T)
+    await testAmbiguousManifestCommitIsReread(T)
+    await testShardGcDropsSupersededImmediately(T)
     await testLiveUploadReplacesOnlyThatTable(T)
     await testRefusesWhenLndStarted(T)
     await testResumeAfterDbCommitted(T)
@@ -130,6 +151,9 @@ export default async (T: StorageTestBase) => {
     await testStalledRemoteDoesNotBlockLocal(T)
     await testFailedUploadRetries(T)
     await testShutdownDoesNotWaitOnStalledRemote(T)
+    await testShutdownFinalLocalNotBlockedByInFlightRemote(T)
+    await testShutdownRemoteOnlyIsBounded(T)
+    await testShutdownFailedLocalDoesNotWaitOnRemote(T)
     await testUploadAllTablesSurvivesRemoteFailure(T)
 }
 
@@ -735,8 +759,9 @@ const testUploadAllTablesWritesEveryShard = async (T: StorageTestBase) => {
         await backup.AddressUpdate(5)
         backup.ChannelBackupUpdate(SAMPLE_SCB)
         await backup.uploadAllTables()
-        const expectedFiles = BACKUP_TABLE_IDS.map(backupTableFilename).sort()
-        T.expect(listEncFiles(dir)).to.deep.equal(expectedFiles)
+        const manifest = readManifest(dir)
+        T.expect(Object.keys(manifest.tables).sort()).to.deep.equal([...BACKUP_TABLE_IDS].sort())
+        T.expect(listEncFiles(dir)).to.deep.equal(manifestShardNames(manifest).sort())
         T.expect(await readAddressCount(dir)).to.equal(5)
         const row = await readIndexesRow(dir)
         T.expect(Buffer.from(row.scb ?? []).equals(SAMPLE_SCB)).to.equal(true)
@@ -754,13 +779,14 @@ const testUploadAllTablesWithoutSnapshotsOmitsIndexes = async (T: StorageTestBas
     try {
         await backup.InitKeys(TEST_SEED)
         await backup.uploadAllTables()
-        T.expect(listEncFiles(dir).includes(backupTableFilename('indexes'))).to.equal(false)
+        T.expect(hasManifestTable(dir, 'indexes')).to.equal(false)
         T.expect(listEncFiles(dir).length).to.be.greaterThan(0)
+        T.expect(hasManifestTable(dir, 'admin_settings')).to.equal(true)
     } finally {
         await backup.shutdown()
         fs.rmSync(dir, { recursive: true, force: true })
     }
-    T.d('a full upload without address/channel state writes other shards and leaves indexes.enc alone')
+    T.d('a full upload without address/channel state writes other shards and leaves indexes out of the manifest')
 }
 
 const testAtomicLocalReplace = async (T: StorageTestBase) => {
@@ -778,43 +804,62 @@ const testAtomicLocalReplace = async (T: StorageTestBase) => {
     T.d('local replace writes a sibling then renames over the dest')
 }
 
-const testRestorePrefersCommittedEnc = async (T: StorageTestBase) => {
-    T.d('starting testRestorePrefersCommittedEnc')
-    const dir = tempBackupDir()
+const testParseBackupManifest = (T: StorageTestBase) => {
+    T.d('starting testParseBackupManifest')
+    const ok = parseBackupManifest(JSON.stringify({
+        version: 1,
+        generation: 'abc123',
+        tables: { indexes: 'indexes.vabc123.enc', user_balances: 'user_balances.vold.enc' },
+    }))
+    T.expect(ok.version).to.equal(1)
+    T.expect(ok.generation).to.equal('abc123')
+    T.expect(ok.tables.indexes).to.equal('indexes.vabc123.enc')
+    const legacy = parseBackupManifest(JSON.stringify({
+        generation: 'abc123',
+        tables: { indexes: 'indexes.vabc123.enc' },
+    }))
+    T.expect(legacy.version).to.equal(1)
+    let badVersion = false
     try {
-        await writeLocalBackup(T, dir, 4)
-        const keys = await deriveBackupKeys(TEST_PHRASE)
-        fs.writeFileSync(
-            path.join(dir, backupTableStagingFilename('indexes')),
-            encryptTableRows([encodeIndexesRow({ addressesCount: 99, scb: SAMPLE_SCB })], keys.encKey),
-        )
-        const settings = new SettingsManager(T.storage)
-        await settings.InitSettings()
-        const restore = new RestoreManager(T.storage, settings, {} as Unlocker)
-        const buffers = await restore.fetchSegmentsData({
-            phrase: TEST_PHRASE,
-            source: { type: WizardTypes.RestoreRequest_source_type.LOCAL_PATH, local_path: dir },
-        }, keys)
-        T.expect(decodeIndexesRow(decryptTableRows(buffers.get('indexes')!, keys.encKey)[0]).addressesCount).to.equal(4)
-    } finally {
-        fs.rmSync(dir, { recursive: true, force: true })
+        parseBackupManifest(JSON.stringify({
+            version: 2,
+            generation: 'abc123',
+            tables: {},
+        }))
+    } catch (err: any) {
+        badVersion = true
+        T.expect(err.message).to.include('unsupported backup manifest version')
     }
-    T.d('restore prefers the committed .enc over a leftover staging file')
+    T.expect(badVersion).to.equal(true)
+    let threw = false
+    try {
+        parseBackupManifest(JSON.stringify({
+            generation: 'abc123',
+            tables: { indexes: '../indexes.vabc123.enc' },
+        }))
+    } catch (err: any) {
+        threw = true
+        T.expect(err.message).to.include('valid shard filename')
+    }
+    T.expect(threw).to.equal(true)
+    T.d('manifest parse accepts versioned shard names and rejects path separators')
 }
 
-const testRestoreFallsBackToStagingIfCommittedMissing = async (T: StorageTestBase) => {
-    T.d('starting testRestoreFallsBackToStagingIfCommittedMissing')
+const testRestoreFollowsManifestIgnoresUnreferenced = async (T: StorageTestBase) => {
+    T.d('starting testRestoreFollowsManifestIgnoresUnreferenced')
     const dir = tempBackupDir()
     try {
         await writeLocalBackup(T, dir, 4)
-        fs.renameSync(
-            path.join(dir, backupTableFilename('indexes')),
-            path.join(dir, backupTableStagingFilename('indexes')),
+        const keys = await deriveBackupKeys(TEST_PHRASE)
+        const publishedIndexes = readManifest(dir).tables.indexes!
+        fs.writeFileSync(
+            path.join(dir, 'indexes.vunreferenced.enc'),
+            encryptTableRows([encodeIndexesRow({ addressesCount: 99, scb: SAMPLE_SCB })], keys.encKey),
         )
+        T.expect(publishedIndexes).to.not.equal('indexes.vunreferenced.enc')
         const settings = new SettingsManager(T.storage)
         await settings.InitSettings()
         const restore = new RestoreManager(T.storage, settings, {} as Unlocker)
-        const keys = await deriveBackupKeys(TEST_PHRASE)
         const buffers = await restore.fetchSegmentsData({
             phrase: TEST_PHRASE,
             source: { type: WizardTypes.RestoreRequest_source_type.LOCAL_PATH, local_path: dir },
@@ -823,7 +868,150 @@ const testRestoreFallsBackToStagingIfCommittedMissing = async (T: StorageTestBas
     } finally {
         fs.rmSync(dir, { recursive: true, force: true })
     }
-    T.d('restore uses the staging file when the committed .enc is missing')
+    T.d('restore follows the manifest and ignores an unreferenced shard')
+}
+
+const testMissingManifestFailsRestore = async (T: StorageTestBase) => {
+    T.d('starting testMissingManifestFailsRestore')
+    const dir = tempBackupDir()
+    try {
+        await writeLocalBackup(T, dir, 4)
+        fs.rmSync(path.join(dir, BACKUP_MANIFEST_FILENAME))
+        const settings = new SettingsManager(T.storage)
+        await settings.InitSettings()
+        const restore = new RestoreManager(T.storage, settings, {} as Unlocker)
+        const keys = await deriveBackupKeys(TEST_PHRASE)
+        let message = ''
+        try {
+            await restore.fetchSegmentsData({
+                phrase: TEST_PHRASE,
+                source: { type: WizardTypes.RestoreRequest_source_type.LOCAL_PATH, local_path: dir },
+            }, keys)
+        } catch (err: any) {
+            message = err.message
+        }
+        T.expect(message).to.equal(failureMessage(WizardTypes.RestoreRequest_source_type.LOCAL_PATH, BACKUP_MANIFEST_FILENAME))
+    } finally {
+        fs.rmSync(dir, { recursive: true, force: true })
+    }
+    T.d('a missing manifest fails restore instead of searching for loose shards')
+}
+
+const testFailedShardLeavesPreviousManifest = async (T: StorageTestBase) => {
+    T.d('starting testFailedShardLeavesPreviousManifest')
+    const dir = tempBackupDir()
+    const backup = new BackupManager(T.storage, await localBackupSettings(T, dir))
+    try {
+        await backup.InitKeys(TEST_SEED)
+        await seedDialtone(T, backup.settings)
+        await backup.AddressUpdate(5)
+        backup.ChannelBackupUpdate(SAMPLE_SCB)
+        await backup.uploadAllTables()
+        const before = readManifest(dir)
+        const orig = (backup as any).replaceDest.bind(backup)
+        let shardPuts = 0
+        ;(backup as any).replaceDest = async (dest: any, filename: string, encrypted: Buffer) => {
+            if (filename.endsWith('.enc')) {
+                shardPuts++
+                if (shardPuts >= 2) throw new Error('second shard failed')
+            }
+            return orig(dest, filename, encrypted)
+        }
+        let threw = false
+        try {
+            await (backup as any).publishBatch(['user_balances', 'application_users'])
+        } catch (err: any) {
+            threw = true
+            T.expect(err.message).to.include('second shard failed')
+        }
+        T.expect(threw).to.equal(true)
+        const after = readManifest(dir)
+        T.expect(after.generation).to.equal(before.generation)
+        T.expect(after.tables).to.deep.equal(before.tables)
+        T.expect(listEncFiles(dir)).to.deep.equal(manifestShardNames(before).sort())
+    } finally {
+        await backup.shutdown()
+        fs.rmSync(dir, { recursive: true, force: true })
+    }
+    T.d('a failed second shard leaves the previous manifest in place')
+}
+
+const testAmbiguousManifestCommitIsReread = async (T: StorageTestBase) => {
+    T.d('starting testAmbiguousManifestCommitIsReread')
+    const dir = tempBackupDir()
+    const backup = new BackupManager(T.storage, await localBackupSettings(T, dir))
+    backup.retryBaseMs = 60_000
+    try {
+        await backup.InitKeys(TEST_SEED)
+        await seedDialtone(T, backup.settings)
+        await backup.AddressUpdate(5)
+        backup.ChannelBackupUpdate(SAMPLE_SCB)
+        await backup.uploadAllTables()
+        const orig = (backup as any).replaceDest.bind(backup)
+        let manifestWrites = 0
+        ;(backup as any).replaceDest = async (dest: any, filename: string, encrypted: Buffer) => {
+            await orig(dest, filename, encrypted)
+            if (filename === BACKUP_MANIFEST_FILENAME) {
+                manifestWrites++
+                if (manifestWrites === 1) throw new Error('rename ack lost')
+            }
+        }
+        let threw = false
+        try {
+            await (backup as any).publishBatch(['user_balances'])
+        } catch (err: any) {
+            threw = true
+            T.expect(err.message).to.include('rename ack lost')
+        }
+        T.expect(threw).to.equal(true)
+        const committed = readManifest(dir)
+        const committedBalances = committed.tables.user_balances!
+        T.expect(fs.existsSync(path.join(dir, committedBalances))).to.equal(true)
+        await (backup as any).uploadTable('admin_settings')
+        const after = readManifest(dir)
+        T.expect(after.tables.user_balances).to.equal(committedBalances)
+        T.expect(fs.existsSync(path.join(dir, committedBalances))).to.equal(true)
+        T.expect(after.tables.admin_settings).to.not.equal(committed.tables.admin_settings)
+    } finally {
+        await backup.shutdown()
+        fs.rmSync(dir, { recursive: true, force: true })
+    }
+    T.d('a manifest commit that threw after landing is re-read by the next publish')
+}
+
+const testShardGcDropsSupersededImmediately = async (T: StorageTestBase) => {
+    T.d('starting testShardGcDropsSupersededImmediately')
+    const dir = tempBackupDir()
+    const settings = await localBackupSettings(T, dir)
+    const backup = new BackupManager(T.storage, settings)
+    try {
+        await backup.InitKeys(TEST_SEED)
+        await seedDialtone(T, backup.settings)
+        await backup.AddressUpdate(5)
+        backup.ChannelBackupUpdate(SAMPLE_SCB)
+        await backup.uploadAllTables()
+        const first = readManifest(dir)
+        await (backup as any).uploadTable('user_balances')
+        const second = readManifest(dir)
+        const superseded = first.tables.user_balances!
+        T.expect(second.tables.user_balances).to.not.equal(superseded)
+        T.expect(fs.existsSync(path.join(dir, superseded))).to.equal(false)
+        T.expect(listEncFiles(dir)).to.deep.equal(manifestShardNames(second).sort())
+        const orphan = 'indexes.vleftover99.enc'
+        fs.writeFileSync(path.join(dir, orphan), Buffer.from('orphan'))
+        const restarted = new BackupManager(T.storage, settings)
+        await restarted.InitKeys(TEST_SEED)
+        await restarted.AddressUpdate(5)
+        restarted.ChannelBackupUpdate(SAMPLE_SCB)
+        await restarted.uploadAllTables()
+        T.expect(fs.existsSync(path.join(dir, orphan))).to.equal(false)
+        const third = readManifest(dir)
+        T.expect(listEncFiles(dir)).to.deep.equal(manifestShardNames(third).sort())
+        await restarted.shutdown()
+    } finally {
+        fs.rmSync(dir, { recursive: true, force: true })
+    }
+    T.d('a successful commit deletes superseded shards immediately, and a restart still drops leftovers')
 }
 
 const testLiveUploadReplacesOnlyThatTable = async (T: StorageTestBase) => {
@@ -836,16 +1024,20 @@ const testLiveUploadReplacesOnlyThatTable = async (T: StorageTestBase) => {
         await backup.AddressUpdate(5)
         backup.ChannelBackupUpdate(SAMPLE_SCB)
         await backup.uploadAllTables()
-        const indexesBefore = fs.readFileSync(path.join(dir, backupTableFilename('indexes')))
-        const balancesBefore = fs.readFileSync(path.join(dir, backupTableFilename('user_balances')))
+        const before = readManifest(dir)
+        const indexesBefore = fs.readFileSync(shardPath(dir, 'indexes'))
+        const balancesBefore = fs.readFileSync(shardPath(dir, 'user_balances'))
         await (backup as any).uploadTable('user_balances')
-        T.expect(fs.readFileSync(path.join(dir, backupTableFilename('indexes'))).equals(indexesBefore)).to.equal(true)
-        T.expect(fs.readFileSync(path.join(dir, backupTableFilename('user_balances'))).equals(balancesBefore)).to.equal(false)
+        const after = readManifest(dir)
+        T.expect(after.tables.indexes).to.equal(before.tables.indexes)
+        T.expect(after.tables.user_balances).to.not.equal(before.tables.user_balances)
+        T.expect(fs.readFileSync(path.join(dir, after.tables.indexes!)).equals(indexesBefore)).to.equal(true)
+        T.expect(fs.readFileSync(path.join(dir, after.tables.user_balances!)).equals(balancesBefore)).to.equal(false)
     } finally {
         await backup.shutdown()
         fs.rmSync(dir, { recursive: true, force: true })
     }
-    T.d('a live table upload replaces only that shard')
+    T.d('a live table upload replaces only that shard and reuses unchanged filenames')
 }
 
 const localBackupSettings = async (T: StorageTestBase, dir: string) => {
@@ -906,8 +1098,9 @@ const testLocalRoundtrip = async (T: StorageTestBase) => {
     backup.ChannelBackupUpdate(SAMPLE_SCB)
     await backup.shutdown()
 
-    const expectedFiles = BACKUP_TABLE_IDS.map(backupTableFilename).sort()
-    T.expect(listEncFiles(dir)).to.deep.equal(expectedFiles)
+    const manifest = readManifest(dir)
+    T.expect(Object.keys(manifest.tables).sort()).to.deep.equal([...BACKUP_TABLE_IDS].sort())
+    T.expect(listEncFiles(dir)).to.deep.equal(manifestShardNames(manifest).sort())
 
     const before = {
         applications: sortBy(await T.storage.applicationStorage.ExportApplications(), r => r.app_id),
@@ -1047,11 +1240,13 @@ const testBadSettingsDoNotBlockScb = async (T: StorageTestBase) => {
         await writeLocalBackup(sourceT, dir, 4)
         const destSettings = new SettingsManager(dest)
         await destSettings.InitSettings()
+        const bootRouting = destSettings.getSettings().lndSettings.routingFeeLimitBps
         await markDbImported(dest)
         const order: string[] = []
+        const origInit = destSettings.InitSettings.bind(destSettings)
         destSettings.InitSettings = async () => {
             order.push('reload')
-            throw new Error('ROUTING_FEE_LIMIT_BPS (100) must be <= SERVICE_FEE_BPS (50) to ensure Pub keeps a spread')
+            return origInit()
         }
         const unlocker = {
             WalletExists: async () => true,
@@ -1063,22 +1258,47 @@ const testBadSettingsDoNotBlockScb = async (T: StorageTestBase) => {
         fs.mkdirSync(dataDir, { recursive: true })
         fs.writeFileSync(restore.getCheckpointPath(), 'DB_COMMITTED')
         fs.writeFileSync(restore.getPhraseHashPath(), hashRestorePhrase(TEST_PHRASE))
-        const result = await restore.RestoreFromSource({
+        const req: WizardTypes.RestoreRequest = {
             phrase: TEST_PHRASE,
             source: { type: WizardTypes.RestoreRequest_source_type.LOCAL_PATH, local_path: dir },
-        })
+        }
+        process.env.ROUTING_FEE_LIMIT_BPS = '100'
+        const result = await restore.RestoreFromSource(req)
         T.expect(order).to.deep.equal(['scb', 'reload'])
         T.expect(result.success).to.equal(false)
         T.expect(result.error || '').to.contain('ROUTING_FEE_LIMIT_BPS')
+        T.expect(fs.readFileSync(restore.getCheckpointPath(), 'utf8')).to.equal('LND_ACTIVE')
+        T.expect(fs.existsSync(restore.getPhraseHashPath())).to.equal(true)
+        T.expect(restore.HasOngoingRecovery()).to.equal(true)
+        T.expect(restore.IsRecoveryActive()).to.equal(true)
+        T.expect(destSettings.getSettings().lndSettings.routingFeeLimitBps).to.equal(bootRouting)
+
+        const waitDone = restore.WaitForRecoveryCompletion()
+        let waiterSettled = false
+        void waitDone.then(() => { waiterSettled = true })
+        await new Promise(r => setTimeout(r, 50))
+        T.expect(waiterSettled).to.equal(false)
+
+        delete process.env.ROUTING_FEE_LIMIT_BPS
+        const ok = await restore.RestoreFromSource(req)
+        await withTimeout(waitDone, 1000, 'startup waiter stayed blocked after successful settings reload')
+        T.expect(ok.success).to.equal(true)
+        T.expect(order).to.deep.equal(['scb', 'reload', 'scb', 'reload'])
         T.expect(fs.readFileSync(restore.getCheckpointPath(), 'utf8')).to.equal('COMPLETED')
+        T.expect(fs.existsSync(restore.getPhraseHashPath())).to.equal(false)
+        T.expect(fs.existsSync(restore.getWalletPubPath())).to.equal(false)
+        T.expect(restore.HasOngoingRecovery()).to.equal(false)
+        T.expect(restore.IsRecoveryActive()).to.equal(false)
+        T.expect(destSettings.getSettings().lndSettings.routingFeeLimitBps).to.equal(bootRouting)
     } finally {
+        delete process.env.ROUTING_FEE_LIMIT_BPS
         source.Stop()
         dest.Stop()
         fs.rmSync(sourceDataDir, { recursive: true, force: true })
         fs.rmSync(dataDir, { recursive: true, force: true })
         fs.rmSync(dir, { recursive: true, force: true })
     }
-    T.d('a bad restored setting reloads after SCB, so channel recovery is not blocked')
+    T.d('a bad restored setting reloads after SCB; failed reload keeps recovery active until retry succeeds')
 }
 
 const SAMPLE_SCB = Buffer.from('multi-chan-backup'.repeat(40))
@@ -1106,8 +1326,7 @@ const writeLocalBackup = async (T: StorageTestBase, dir: string, addressCount?: 
 
 const rewriteTableShard = async (dir: string, id: BackupTableId, rows: Uint8Array[]) => {
     const keys = await deriveBackupKeys(TEST_PHRASE)
-    const file = path.join(dir, backupTableFilename(id))
-    fs.writeFileSync(file, encryptTableRows(rows, keys.encKey))
+    fs.writeFileSync(shardPath(dir, id), encryptTableRows(rows, keys.encKey))
 }
 
 const testMissingShardFailsClosed = async (T: StorageTestBase) => {
@@ -1115,7 +1334,8 @@ const testMissingShardFailsClosed = async (T: StorageTestBase) => {
     const dir = tempBackupDir()
     try {
         await writeLocalBackup(T, dir, 3)
-        fs.rmSync(path.join(dir, backupTableFilename('user_balances')))
+        const missingName = readManifest(dir).tables.user_balances!
+        fs.rmSync(path.join(dir, missingName))
         const settings = new SettingsManager(T.storage)
         await settings.InitSettings()
         const restore = new RestoreManager(T.storage, settings, {} as Unlocker)
@@ -1130,7 +1350,7 @@ const testMissingShardFailsClosed = async (T: StorageTestBase) => {
         } catch (err: any) {
             message = err.message
         }
-        T.expect(message).to.equal(failureMessage(WizardTypes.RestoreRequest_source_type.LOCAL_PATH, 'user_balances'))
+        T.expect(message).to.equal(failureMessage(WizardTypes.RestoreRequest_source_type.LOCAL_PATH, missingName))
         let decodeThrew = false
         try {
             restore.decodeSegmentsData(new Map(), keys)
@@ -1178,7 +1398,8 @@ const testEmptyProductsShardImports = async (T: StorageTestBase) => {
 }
 
 const readAddressCount = async (dir: string) => {
-    const file = path.join(dir, backupTableFilename('indexes'))
+    if (!hasManifestTable(dir, 'indexes')) return undefined
+    const file = shardPath(dir, 'indexes')
     if (!fs.existsSync(file)) return undefined
     const keys = await deriveBackupKeys(TEST_PHRASE)
     const rows = decryptTableRows(fs.readFileSync(file), keys.encKey).map(decodeIndexesRow)
@@ -1190,7 +1411,7 @@ const testIndexesWithoutAddressUpdate = async (T: StorageTestBase) => {
     const dir = tempBackupDir()
     try {
         await writeLocalBackup(T, dir)
-        T.expect(listEncFiles(dir).includes(backupTableFilename('indexes'))).to.equal(false)
+        T.expect(hasManifestTable(dir, 'indexes')).to.equal(false)
         const settings = new SettingsManager(T.storage)
         await settings.InitSettings()
         const restore = new RestoreManager(T.storage, settings, {} as Unlocker)
@@ -1209,7 +1430,7 @@ const testIndexesWithoutAddressUpdate = async (T: StorageTestBase) => {
     } finally {
         fs.rmSync(dir, { recursive: true, force: true })
     }
-    T.d('a backup with no address snapshot omits indexes.enc, so restore fails closed on that shard')
+    T.d('a backup with no address snapshot omits indexes from the manifest, so restore fails closed on that shard')
 }
 
 const testIndexesZeroSnapshot = async (T: StorageTestBase) => {
@@ -1272,7 +1493,7 @@ const testIndexesUnknownDoesNotClobber = async (T: StorageTestBase) => {
 
 const readIndexesRow = async (dir: string) => {
     const keys = await deriveBackupKeys(TEST_PHRASE)
-    const file = path.join(dir, backupTableFilename('indexes'))
+    const file = shardPath(dir, 'indexes')
     return decryptTableRows(fs.readFileSync(file), keys.encKey).map(decodeIndexesRow)[0]
 }
 
@@ -1282,7 +1503,7 @@ const testChannelStateUnknownDoesNotClobber = async (T: StorageTestBase) => {
     try {
         // A known address count alone must not upload: it would replace a stored SCB with "no channels".
         await writeLocalBackup(T, dir, 9, 'unknown')
-        T.expect(fs.existsSync(path.join(dir, backupTableFilename('indexes')))).to.equal(false)
+        T.expect(hasManifestTable(dir, 'indexes')).to.equal(false)
 
         await writeLocalBackup(T, dir, 9, SAMPLE_SCB)
         await writeLocalBackup(T, dir, 12, 'unknown')
@@ -1292,7 +1513,7 @@ const testChannelStateUnknownDoesNotClobber = async (T: StorageTestBase) => {
     } finally {
         fs.rmSync(dir, { recursive: true, force: true })
     }
-    T.d('indexes.enc is only written once both the address count and the channel state are known')
+    T.d('indexes is only written once both the address count and the channel state are known')
 }
 
 const testIndexesScbRoundtrip = (T: StorageTestBase) => {
@@ -1533,6 +1754,12 @@ const testStalledRemoteDoesNotBlockLocal = async (T: StorageTestBase) => {
     let releaseRemote!: () => void
     const remoteHold = new Promise<void>(resolve => { releaseRemote = resolve })
     const orig = (backup as any).replaceDest.bind(backup)
+    const origRead = (backup as any).readDestManifest.bind(backup)
+    const origDel = (backup as any).deleteDestFile.bind(backup)
+    ;(backup as any).readDestManifest = async (dest: any) => dest.type === 'local' ? origRead(dest) : null
+    ;(backup as any).deleteDestFile = async (dest: any, filename: string) => {
+        if (dest.type === 'local') return origDel(dest, filename)
+    }
     ;(backup as any).replaceDest = async (dest: any, filename: string, encrypted: Buffer) => {
         if (dest.type !== 'local') {
             await remoteHold
@@ -1543,7 +1770,7 @@ const testStalledRemoteDoesNotBlockLocal = async (T: StorageTestBase) => {
     try {
         const upload = (backup as any).uploadTable('admin_settings')
         await waitUntil(
-            () => fs.existsSync(path.join(dir, backupTableFilename('admin_settings'))),
+            () => hasManifestTable(dir, 'admin_settings'),
             2000,
             'local shard was not written while SFTP was stalled',
         )
@@ -1581,7 +1808,7 @@ const testFailedUploadRetries = async (T: StorageTestBase) => {
         T.expect(threw).to.equal(true)
         T.expect(attempts).to.equal(1)
         await waitUntil(
-            () => fs.existsSync(path.join(dir, backupTableFilename('admin_settings'))),
+            () => hasManifestTable(dir, 'admin_settings'),
             2000,
             'failed shard was not retried',
         )
@@ -1603,6 +1830,12 @@ const testShutdownDoesNotWaitOnStalledRemote = async (T: StorageTestBase) => {
     await backup.AddressUpdate(3)
     backup.ChannelBackupUpdate(SAMPLE_SCB)
     const orig = (backup as any).replaceDest.bind(backup)
+    const origRead = (backup as any).readDestManifest.bind(backup)
+    const origDel = (backup as any).deleteDestFile.bind(backup)
+    ;(backup as any).readDestManifest = async (dest: any) => dest.type === 'local' ? origRead(dest) : null
+    ;(backup as any).deleteDestFile = async (dest: any, filename: string) => {
+        if (dest.type === 'local') return origDel(dest, filename)
+    }
     ;(backup as any).replaceDest = async (dest: any, filename: string, encrypted: Buffer) => {
         if (dest.type !== 'local') {
             return new Promise(() => { /* stall until process teardown */ })
@@ -1612,12 +1845,90 @@ const testShutdownDoesNotWaitOnStalledRemote = async (T: StorageTestBase) => {
     try {
         await withTimeout(backup.shutdown(), 2000, 'shutdown hung on stalled SFTP')
         T.expect(listEncFiles(dir).length).to.be.greaterThan(0)
-        T.expect(listEncFiles(dir)).to.include(backupTableFilename('admin_settings'))
-        T.expect(listEncFiles(dir)).to.include(backupTableFilename('indexes'))
+        T.expect(hasManifestTable(dir, 'admin_settings')).to.equal(true)
+        T.expect(hasManifestTable(dir, 'indexes')).to.equal(true)
     } finally {
         fs.rmSync(dir, { recursive: true, force: true })
     }
     T.d('shutdown writes local shards and returns even if a remote never completes')
+}
+
+const holdRemotePublishes = (backup: BackupManager) => {
+    let release: () => void = () => {}
+    const hold = new Promise<void>(resolve => { release = resolve })
+    let entered = false
+    ;(backup as any).publishRemotes = async () => {
+        entered = true
+        await hold
+        return { anyOk: false, failures: ['remote stalled'], retryable: true }
+    }
+    return {
+        release,
+        entered: () => entered,
+    }
+}
+
+const testShutdownFinalLocalNotBlockedByInFlightRemote = async (T: StorageTestBase) => {
+    T.d('starting testShutdownFinalLocalNotBlockedByInFlightRemote')
+    const dir = tempBackupDir()
+    const backup = new BackupManager(T.storage, await localAndSftpSettings(T, dir))
+    backup.waitInFlightMs = 50
+    backup.shutdownFlushMs = 200
+    await backup.InitKeys(TEST_SEED)
+    await backup.AddressUpdate(3)
+    backup.ChannelBackupUpdate(SAMPLE_SCB)
+    const { user } = await seedDialtone(T, backup.settings)
+    const remote = holdRemotePublishes(backup)
+    ;(backup as any).dirty.add('admin_settings')
+    const flush = (backup as any).flushDebounced()
+    try {
+        await waitUntil(remote.entered, 2000, 'live remote publish did not start')
+        T.expect(hasManifestTable(dir, 'user_balances')).to.equal(false)
+        await T.storage.userStorage.IncrementUserBalance(user.user.user_id, 50, 'shutdown-snapshot')
+        await withTimeout(backup.shutdown(), 2000, 'shutdown hung behind an in-flight remote upload')
+        await withTimeout(flush, 2000, 'in-flight batch stayed queued behind the remote')
+        const keys = await deriveBackupKeys(TEST_PHRASE)
+        const rows = decryptTableRows(fs.readFileSync(shardPath(dir, 'user_balances')), keys.encKey).map(decodeBalanceRow)
+        T.expect(rows.some(r => r.user_id === user.user.user_id && r.balance_sats === 1284)).to.equal(true)
+    } finally {
+        remote.release()
+        await flush.catch(() => undefined)
+        if (!backup.shuttingDown) await backup.shutdown()
+        fs.rmSync(dir, { recursive: true, force: true })
+    }
+    T.d('an in-flight remote upload does not block the final local balance snapshot')
+}
+
+const testShutdownRemoteOnlyIsBounded = async (T: StorageTestBase) => {
+    T.d('starting testShutdownRemoteOnlyIsBounded')
+    const backup = new BackupManager(T.storage, await sftpOnlySettings(T))
+    backup.waitInFlightMs = 50
+    backup.shutdownFlushMs = 200
+    await backup.InitKeys(TEST_SEED)
+    await backup.AddressUpdate(1)
+    backup.ChannelBackupUpdate(SAMPLE_SCB)
+    ;(backup as any).publishRemotes = () => new Promise(() => { /* stall until process teardown */ })
+    await withTimeout(backup.shutdown(), 2000, 'remote-only shutdown waited on the remote with no deadline')
+    T.d('remote-only shutdown returns within the remote deadline')
+}
+
+const testShutdownFailedLocalDoesNotWaitOnRemote = async (T: StorageTestBase) => {
+    T.d('starting testShutdownFailedLocalDoesNotWaitOnRemote')
+    const dir = tempBackupDir()
+    const backup = new BackupManager(T.storage, await localAndSftpSettings(T, dir))
+    backup.waitInFlightMs = 50
+    backup.shutdownFlushMs = 200
+    await backup.InitKeys(TEST_SEED)
+    await backup.AddressUpdate(1)
+    backup.ChannelBackupUpdate(SAMPLE_SCB)
+    ;(backup as any).publishRemotes = () => new Promise(() => { /* stall until process teardown */ })
+    ;(backup as any).replaceDest = async () => { throw new Error('disk full') }
+    try {
+        await withTimeout(backup.shutdown(), 2000, 'failed local write left shutdown waiting on the remote')
+    } finally {
+        fs.rmSync(dir, { recursive: true, force: true })
+    }
+    T.d('a failed local write does not leave shutdown waiting on a remote')
 }
 
 const sftpOnlySettings = async (T: StorageTestBase) => {
@@ -1644,7 +1955,7 @@ const testUploadAllTablesSurvivesRemoteFailure = async (T: StorageTestBase) => {
     await seedDialtone(T, backup.settings)
     await backup.AddressUpdate(2)
     backup.ChannelBackupUpdate(SAMPLE_SCB)
-    ;(backup as any).replaceDest = async () => {
+    ;(backup as any).publishDest = async () => {
         throw new Error('remote unreachable')
     }
     try {

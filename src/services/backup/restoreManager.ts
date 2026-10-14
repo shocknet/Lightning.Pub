@@ -8,13 +8,16 @@
 // LND_ACTIVE), restore returns immediately. Resume after those checkpoints is
 // allowed only when the leftover state is complete and consistent.
 //
-// Local source: a directory of per-table *.enc shards (see backupTables.ts), same as
-// SFTP / cloud layout, decrypted with the backup phrase — not a raw DB file.
+// Local source: a directory with manifest.json plus the versioned shards it names
+// (see backupTables.ts), same as SFTP / cloud layout, decrypted with the backup phrase
+// — not a raw DB file.
 //
 // Import order matches BACKUP_RESTORE_ORDER in backupTables.ts (balances overlay, then FK order).
-// Every shard file in that list is required. A file that decrypts to zero rows is an empty
+// Restore reads one manifest and uses exactly those files. Every table in
+// BACKUP_RESTORE_ORDER must be present. A file that decrypts to zero rows is an empty
 // table and is imported, except indexes, which must be exactly one row holding the address
-// count and the SCB (or the no-channels marker). A missing file fails the restore.
+// count and the SCB (or the no-channels marker). A missing or corrupt manifest, or a
+// missing shard named by the manifest, fails the restore.
 //
 // ECONOMIC INVARIANT: Pending UserInvoicePayment rows (paid_at_unix = 0) are NOT
 // restored. Restore favors non-inflation over exact replay. This must be stated
@@ -22,8 +25,9 @@
 //
 // The SCB travels in the indexes shard, so there is no separate fetch. A shard that marks
 // the node as having no channels skips ApplyScb. Otherwise restore fails unless ApplyScb
-// succeeds, and a failed SCB leaves the checkpoint at LND_ACTIVE so the same phrase can
-// retry. After DB_COMMITTED or LND_ACTIVE, resume is allowed only when the checkpoint
+// succeeds, and a failed SCB or settings reload leaves the checkpoint at LND_ACTIVE so the
+// same phrase can retry. COMPLETED is written only after restored settings reload. After
+// DB_COMMITTED or LND_ACTIVE, resume is allowed only when the checkpoint
 // is complete and consistent (phrase binding, LND still has a wallet, this DB is not
 // empty). LND_ACTIVE also requires .restore_wallet_pub from the first PostRestore and
 // refuses a different connected wallet. Incomplete or mismatched state is not resumable:
@@ -31,9 +35,9 @@
 // while HasOngoingRecovery() is true (any non-COMPLETED checkpoint file). Recovery
 // waiters are notified only after restoreInFlight is cleared.
 
-import { getLogger, PubLogger } from '../helpers/logger.js'
+import { getLogger } from '../helpers/logger.js'
 import { deriveBackupKeys, LATEST_DERIVATION_VERSION, type DerivedKeys } from './derivation.js'
-import { sftpDownload, cloudSftpConfig, customHostFingerprint, SftpAuthError, type SftpConfig, SFTPFile } from './sftpClient.js'
+import { cloudSftpConfig, customHostFingerprint, SftpAuthError, withSftpSession, type SftpConfig, type SFTPFile } from './sftpClient.js'
 import { DEFAULT_SFTP_PORT } from '../main/adminNodeSettings.js'
 import crypto from 'crypto'
 import fs from 'fs'
@@ -48,7 +52,7 @@ import {
     BackupData,
     decodeIndexesRow,
 } from './segments.js'
-import { BACKUP_RESTORE_ORDER, backupTableFilename, backupTableStagingFilename, type BackupTableId } from './backupTables.js'
+import { BACKUP_MANIFEST_FILENAME, BACKUP_RESTORE_ORDER, parseBackupManifest, type BackupTableId } from './backupTables.js'
 import SettingsManager from '../main/settingsManager.js'
 import { Unlocker } from '../main/unlocker.js'
 
@@ -70,7 +74,7 @@ enum RestoreCheckpoint {
     LND_RECOVERED = 'LND_RECOVERED', // lnd was recovered, but DB not commit, cannot continue recovery from this state
     DB_COMMITTED = 'DB_COMMITTED', // DB committed, any retry will start from after this checkpoint
     LND_ACTIVE = 'LND_ACTIVE', // LND active, SCB can be restored, or retried
-    COMPLETED = 'COMPLETED', // SCB restored (or the backup has no channels), restore completed
+    COMPLETED = 'COMPLETED', // SCB restored (or no channels) and restored settings reloaded
 }
 
 const normalizeRestorePhrase = (phrase: string) =>
@@ -276,9 +280,13 @@ export class RestoreManager {
         await this.finishRestore(seed, macaroon, scb)
         // Restore writes admin_settings to SQLite; InitSettings already ran at boot with
         // the empty-node values. Reload after channel recovery so a bad restored setting
-        // cannot block SCB retries. This process then uses restored fees, conf tiers,
-        // backup dest, and default-app name instead of creating a second default app.
+        // cannot block SCB retries. COMPLETED waits on this reload: a failed load stays
+        // at LND_ACTIVE so waiters stay blocked and retry can reload without re-importing.
         await this.settings.InitSettings()
+        this.updateCheckpoint(RestoreCheckpoint.COMPLETED)
+        this.clearPhraseBinding()
+        this.clearWalletBinding()
+        this.log("RestoreFromSource completed")
         return { entries_restored: restoredEntries, scb_restored: !!scb, success: true, error: '' }
     }
 
@@ -369,42 +377,71 @@ export class RestoreManager {
         } else {
             this.log("backup has no channels, skipping SCB restore")
         }
-        this.updateCheckpoint(RestoreCheckpoint.COMPLETED)
-        this.clearPhraseBinding()
-        this.clearWalletBinding()
-        this.log("RestoreFromSource completed")
     }
 
     async fetchSegmentsData(req: wizardTypes.RestoreRequest, keys: DerivedKeys) {
         this.log("fetching segments data")
-        const buffers = new Map<BackupTableId, Buffer>()
-        const missing: BackupTableId[] = []
-        for (const id of BACKUP_RESTORE_ORDER) {
-            let data: Buffer | undefined
-            for (const name of [backupTableFilename(id), backupTableStagingFilename(id)]) {
-                const chunk = await fetchFile(this.log, keys, req, name)
+        const fetchNamed = async (getFile: (filename: string) => Promise<SFTPFile>) => {
+            const manifestChunk = await getFile(BACKUP_MANIFEST_FILENAME)
+            if (!manifestChunk.found) {
+                throw new Error(failureMessage(req.source.type, BACKUP_MANIFEST_FILENAME))
+            }
+            let manifest
+            try {
+                manifest = parseBackupManifest(manifestChunk.data)
+            } catch (err: any) {
+                throw new Error(`backup ${BACKUP_MANIFEST_FILENAME} is corrupt: ${err.message || err}`)
+            }
+            const buffers = new Map<BackupTableId, Buffer>()
+            const missing: string[] = []
+            for (const id of BACKUP_RESTORE_ORDER) {
+                const name = manifest.tables[id]
+                if (!name) {
+                    this.log("manifest has no shard for: " + id)
+                    missing.push(id)
+                    continue
+                }
+                if (name.includes('/') || name.includes('\\') || name.includes('..')) {
+                    throw new Error(`backup ${BACKUP_MANIFEST_FILENAME} names an unsafe shard path for ${id}`)
+                }
+                this.log("fetching file: " + name, "source: " + req.source.type)
+                const chunk = await getFile(name)
                 if (!chunk.found) {
+                    this.log("buffer not found: " + name)
+                    missing.push(name)
                     continue
                 }
                 try {
                     decryptTableRows(chunk.data, keys.encKey)
-                    data = chunk.data
-                    break
                 } catch (err: any) {
-                    this.log("ignoring undecryptable " + name + ": " + (err.message || err))
+                    throw new Error(`backup shard ${name} is not decryptable: ${err.message || err}`)
                 }
+                buffers.set(id, chunk.data)
             }
-            if (!data) {
-                this.log("buffer not found: " + backupTableFilename(id))
-                missing.push(id)
-                continue
+            if (missing.length > 0) {
+                throw new Error(missing.map(name => failureMessage(req.source.type, name)).join('\n'))
             }
-            buffers.set(id, data)
+            return buffers
         }
-        if (missing.length > 0) {
-            throw new Error(missing.map(id => failureMessage(req.source.type, id)).join('\n'))
+        this.log("fetching file: " + BACKUP_MANIFEST_FILENAME, "source: " + req.source.type)
+        switch (req.source.type) {
+            case wizardTypes.RestoreRequest_source_type.LOCAL_PATH:
+                return fetchNamed(async filename => readLocalRestoreFile(req.source, filename))
+            case wizardTypes.RestoreRequest_source_type.CLOUD:
+                try {
+                    return await withSftpSession(cloudSftpConfig(keys.sftpUser, keys.sftpPass), session =>
+                        fetchNamed(filename => session.download(filename)))
+                } catch (err) {
+                    throw cloudDownloadError(err)
+                }
+            case wizardTypes.RestoreRequest_source_type.FTP_HOST:
+                return withSftpSession(
+                    sftpConfigForFtpRestore(req.source.ftp_host, ftpRestoreCreds(req.creds_override, keys)),
+                    session => fetchNamed(filename => session.download(filename)),
+                )
+            default:
+                throw new Error(`Unknown restore source: ${req.source}`)
         }
-        return buffers
     }
 
     decodeSegmentsData(buffers: Map<BackupTableId, Buffer>, keys: DerivedKeys) {
@@ -544,34 +581,24 @@ export function ftpRestoreCreds(
     }
 }
 
-const fetchFile = async (log: PubLogger, keys: DerivedKeys, opts: wizardTypes.RestoreRequest, filename: string): Promise<SFTPFile> => {
-    log("fetching file: " + filename, "source: " + opts.source.type)
-    switch (opts.source.type) {
-        case wizardTypes.RestoreRequest_source_type.CLOUD:
-            return downloadFromCloud(keys, filename)
-        case wizardTypes.RestoreRequest_source_type.FTP_HOST:
-            return sftpDownload(sftpConfigForFtpRestore(opts.source.ftp_host, ftpRestoreCreds(opts.creds_override, keys)), filename)
-
-        case wizardTypes.RestoreRequest_source_type.LOCAL_PATH: {
-            const dir = opts.source.local_path
-            if (!dir) throw new Error('Local path is required for source=local')
-            if (!fs.existsSync(dir)) {
-                return { found: false }
-            }
-            const stat = fs.statSync(dir)
-            if (!stat.isDirectory()) {
-                return { found: false }
-            }
-            const filePath = path.join(dir, filename)
-            if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
-                return { found: false }
-            }
-            return { found: true, data: fs.readFileSync(filePath) }
-        }
-
-        default:
-            throw new Error(`Unknown restore source: ${opts.source}`)
+const readLocalRestoreFile = (source: wizardTypes.RestoreRequest['source'], filename: string): SFTPFile => {
+    if (source.type !== wizardTypes.RestoreRequest_source_type.LOCAL_PATH) {
+        throw new Error('Local path is required for source=local')
     }
+    const dir = source.local_path
+    if (!dir) throw new Error('Local path is required for source=local')
+    if (!fs.existsSync(dir)) {
+        return { found: false }
+    }
+    const stat = fs.statSync(dir)
+    if (!stat.isDirectory()) {
+        return { found: false }
+    }
+    const filePath = path.join(dir, filename)
+    if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
+        return { found: false }
+    }
+    return { found: true, data: fs.readFileSync(filePath) }
 }
 
 /**
@@ -592,23 +619,14 @@ export function cloudDownloadError(err: unknown): Error {
     return new Error(`Cloud backup download failed: ${String(err)}`)
 }
 
-const downloadFromCloud = async (keys: DerivedKeys, filename: string): Promise<SFTPFile> => {
-    try {
-        return await sftpDownload(cloudSftpConfig(keys.sftpUser, keys.sftpPass), filename)
-    } catch (err) {
-        throw cloudDownloadError(err)
-    }
-}
-
-export function failureMessage(source: wizardTypes.RestoreRequest_source_type, shard: BackupTableId): string {
-    const name = backupTableFilename(shard)
+export function failureMessage(source: wizardTypes.RestoreRequest_source_type, name: string): string {
     switch (source) {
         case wizardTypes.RestoreRequest_source_type.CLOUD:
-            return `No backup found for this seed on the managed service (missing ${name}). The login succeeded; this shard is not there.`
+            return `No backup found for this seed on the managed service (missing ${name}). The login succeeded; this file is not there.`
         case wizardTypes.RestoreRequest_source_type.FTP_HOST:
             return `No backup file ${name} on the SFTP server. The connection succeeded; verify this account has a backup.`
         case wizardTypes.RestoreRequest_source_type.LOCAL_PATH:
-            return `${name} not found or path is not a readable directory — expected a folder of per-table *.enc shards from backup.`
+            return `${name} not found or path is not a readable directory — expected a folder of per-table backup shards and ${BACKUP_MANIFEST_FILENAME} from backup.`
         default: {
             const _exhaustive: never = source
             throw new Error(`Unknown restore source: ${_exhaustive}`)

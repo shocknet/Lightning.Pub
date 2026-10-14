@@ -120,7 +120,7 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
         try {
             await unlocker.SyncChannelBackup()
         } catch (err: any) {
-            // The channel state stays unknown, so indexes.enc is not replaced until a snapshot arrives.
+            // The channel state stays unknown, so the indexes shard is not replaced until a snapshot arrives.
             log("failed to snapshot channel backup", err.message || err)
         }
         try {
@@ -152,7 +152,7 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
         }
     }))
     // Every shard, including empty tables, so a newly enabled destination is restorable.
-    // indexes.enc is included only when both the address count and channel backup were snapshotted.
+    // indexes is included only when both the address count and channel backup were snapshotted.
     await backupManager.uploadAllTables()
     const localProviderClient = pickDefaultApp(apps, defaultAppName)
     if (!localProviderClient) {
