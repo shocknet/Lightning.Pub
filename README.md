@@ -1,29 +1,32 @@
-# Lightning.Pub
-
-![Lightning.Pub](https://github.com/shocknet/Lightning.Pub/raw/master/pub_logo.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="readme/lightning-pub-dark.svg">
+  <img src="readme/lightning-pub-light.svg" alt="Lightning.Pub" width="420">
+</picture>
 
 ![GitHub last commit](https://img.shields.io/github/last-commit/shocknet/Lightning.Pub?style=flat-square)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com) 
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](https://github.com/shocknet/Lightning.Pub/pulls)
 [![Chat](https://img.shields.io/badge/chat-on%20Telegram-blue?style=flat-square)](https://t.me/ShockBTC)
-![Xitter](https://img.shields.io/twitter/follow/ShockBTC?style=flat-square&logo=bitcoin)
+[![X @ShockBTC](https://img.shields.io/badge/follow-%40ShockBTC-black?style=flat-square&logo=x&logoColor=white)](https://x.com/ShockBTC)
 
 ### Don't just run a Lightning Node, run a Lightning Pub.
 
 "Pub" is a [Nostr](https://nostr.info)-native account system designed to make running Lightning infrastructure for your friends/family/customers easier than previously thought possible.
 
-Lightning payments open the door to a new internet, but because of UX challenges with sovereignty we've seen a much slower uptake than we should for something so amazing.
+Lightning payments open the door to a new internet, but because of UX challenges with sovereignty we've seen a much slower uptake than we should for something so profound.
 
-It may come as a surprise that the biggest hurdle to more adoption via Family and SMB Lightning nodes hasn't been with Bitcoin/Lightning node management itself, as we've seen that liquidity is easily automated, but rather the legacy baggage of traditional Client-Server web infrastructure. Things like IP4, Reverse Proxies, DNS, Firewalls and SSL certificates, all require a personal configuration that is a hurdle for most.
+It may come as a surprise that the biggest hurdle to more adoption via Family and entrepreneurial Lightning nodes hasn't been with Bitcoin/Lightning node management itself, as we've seen that liquidity is easily automated, but rather the legacy baggage of traditional Client-Server web infrastructure. Things like IPv4, Reverse Proxies, DNS, Firewalls and SSL certificates, all require a personal configuration that is a hurdle for most.
 
-Tor as a workaround has proven too slow and unreliable, and a dead-end for clearnet-web usecases. 
+Tor as a workaround has proven too slow and unreliable, and a dead-end for clearnet-web usecases.
 
-Mobile nodes are easy to use for spending, but channels for every device is expensive and unscalable. UX suffers from the limitations of the node not being an always-online server, which also makes them largely useless for merchants and routing services that earn revenue while you sleep.
+Mobile nodes are easy to use for spending, but channels for every device is expensive and unscalable. Their utility suffers from the limitations of the node not being an always-online server. Not earning revenue while you sleep is  how Lightning becomes an act of ideological charity that loses you money.
 
 Pub solves these challenges with a P2P-like design that is also web-friendly, by implementing a full RPC that is Nostr-native. Being Nostr-native eliminates the complexity of configuring your node like a server by using commodity Nostr relays. These relays, unlike LNURL proxies, are trustless by nature of Nostr's own encryption spec (NIP44).
 
-Additionally, support for optional services are integrated into Pub for operators seeking backward compatibility with legacy LNURLs and Lightning Addresses.
+Pub is also the reference server for the [CLINK](https://clinkme.dev) protocol, a Nostr-native successor to LNURL for Zaps, product and service sales, and an OAuth-style connection between a wallet and an app. Operators who still need LNURL or a Lightning Address can use a bridge, or put a reverse proxy in front of Pub's own HTTP endpoints.
 
-By solving the networking and programability hurdles, Pub provides Lightning with a 3rd Layer that enables node-runners, Busineses, and Uncle Jims to more easily bring their personal network into Bitcoin's permissionless economy. In doing so, Pub runners can keep the Lightning Network decentralized, with custodial scaling that is free of fiat rails, large banks, and other forms of high-time-preference shitcoinery.
+By solving the networking and programmability hurdles, Pub provides Lightning with a 3rd layer that enables Node-Runners, Businesses, and Uncle Jims to easily onboard their personal network into Bitcoin's permissionless economy. 
+
+Pub runners keep the Lightning Network decentralized with localized scaling that replaces large faceless custodians and centralized crypto-theater.
 
 ## Table of Contents
 - [Features](#features)
@@ -38,42 +41,52 @@ By solving the networking and programability hurdles, Pub provides Lightning wit
 - [Advanced Configuration](#advanced-configuration)
   - [Custom Nostr Relay](#custom-nostr-relay)
   - [Bootstrap Liquidity Provider](#bootstrap-liquidity-provider)
+  - [Backups](#backups)
   - [Custom Lightning Address Domain](#custom-lightning-address-domain)
+  - [Setup Wizard (Start9 and Umbrel)](#setup-wizard-start9-and-umbrel)
 - [Support Development](#support-development)
 
 ## Features
 
 - **Zero Network Configuration Required** - No port forwarding, Tor setup, firewall rules, or DNS configuration needed! Pub uses Nostr relays for all communication, making it perfect for users who want sovereignty without networking complexity.
 - Wrapper for [`LND`](https://github.com/lightningnetwork/lnd/releases) that can serve accounts over LNURL and NOSTR
-- A growing number of [methods](https://github.com/shocknet/Lightning.Pub/blob/master/proto/autogenerated/client.md)
+- A growing number of [methods](proto/autogenerated/client.md)
 - Automated Channels
-  - Receives quotes from multiple LSPs including Zeus, Voltage, and Flashsats
+  - Receives quotes from multiple LSPs including Zeus and Flashsats
 - Bootstrap Peering
-  - A pub node may trust another pub node until it can afford a channel 
+  - A pub node may trust another pub node until it can afford a channel
   - Can be disabled via environment variable for full sovereignty
-- Accounting SubLayers for Application Pools and Users 
-  - A fee regime allows applications owners to monetize users, or node operators to host distinctly monetized applications.
-- **Complete Lightning Solution** - No additional LN node or Bitcoin full node required (uses Neutrino)   
-
-![Accounts](https://github.com/shocknet/Lightning.Pub/raw/master/accounting_layers.png) 
+- Accounts for Applications and Users
+  - Each user has their own balance, and an application is how a wallet or service connects to the node
+  - A service fee (`SERVICE_FEE_BPS`) lets the node operator charge users
+- Encrypted Backups and Restore
+  - User balances and channel state, recoverable from the LND seed. See [Backups](#backups)
+- **Complete Lightning Solution** - No additional LN node or Bitcoin full node required (The installer bundles LND configured with Neutrino)
 
 - Connecting via ShockWallet is as easy as pasting an nprofile
 - Or use a link to share your nprofile with friends and family
 
-<img src="https://cdn.shockwallet.app/add_source2.png" height="20%" alt="Connect Wallet"> <img src="https://cdn.shockwallet.app/invites2.png" height="20%" alt="Invite Guests">
+<img src="readme/add-source.png" width="260" alt="Connect Wallet">
 
 ## Planned Features
 
-- [x] A management dashboard is actively being integrated into [ShockWallet](https://github.com/shocknet/wallet2)
+- [x] A node management dashboard in [ShockWallet](https://github.com/shocknet/wallet2)
 - [x] Nostr native [CLINK](https://clinkme.dev) "offers"
 - [x] Encrypted Push Notifications
-- [-] Swap integration (Partial, via admin dashboard only, quotes from Zeus LSP and Boltz)
+- [x] Encrypted Backups and Restore
+- [-] Swap integration (Disabled for now)
 - [ ] P2P "LSP" coordination for channel batching over Nostr
-- [ ] High-Availabilty / Clustering
+- [ ] High-Availability / Clustering
 
-Dashboard Wireframe:
+The dashboard opens after you pair the admin string (see [Connecting to ShockWallet](#connecting-to-shockwallet)).
 
-<img src="https://shockwallet.b-cdn.net/pub_home_ss.png" alt="Pub Dashboard" width="240">
+**Overview** shows what the node earned over a period, which channels are up, and the latest events:
+
+<img src="readme/dashboard-overview.png" alt="ShockWallet node dashboard, Overview" width="720">
+
+**Channels** lists each channel's inbound and outbound balance. An offline channel stays on the list with its local balance locked:
+
+<img src="readme/dashboard-channels.png" alt="ShockWallet node dashboard, Channels" width="720">
 
 ## Installation
 
@@ -111,29 +124,22 @@ wget -qO- https://deploy.lightning.pub | bash
 curl -fsSL https://deploy.lightning.pub | bash
 ```
 
-It should look like this in a minute or so
+It should look like this when it finishes (the admin string is redacted):
 
-![One-Line Deployment](https://raw.githubusercontent.com/shocknet/Lightning.Pub/master/one-liner.png)
+<img src="readme/install.png" alt="Install log. The admin string is redacted." width="720">
 
-**Note:** The installation is now confined to user-space, meaning:
+**Note:** The installation is confined to user-space, meaning:
 - No sudo required for installation
-- All data stored in `$HOME/lightning_pub/`
+- Pub's files are in `$HOME/lightning_pub/`. LND is in `$HOME/.lnd`. On Linux, a root install puts Pub in `/opt/lightning_pub/` instead; LND is still `$HOME/.lnd`
 - **Linux**: Services managed via systemd (user-level)
 - **macOS**: Services managed via launchd with convenient aliases
 
 **After Installation:**
 - The installer will display an admin connection string (nprofile and secret separated by a colon) and a **terminal QR code** for easy mobile setup
-- The QR code is displayed directly in your terminal - simply scan it with ShockWallet's node connetion flows
+- The QR code is displayed directly in your terminal - simply scan it with ShockWallet's node connection flows
 - You can also copy/paste the connection string into ShockWallet if you prefer
+- The same string is saved to `~/lightning_pub/admin.connect`, and Pub deletes that file once a wallet has enrolled as admin
 - Connection info is also available via web browser on Start9 and Umbrel appliances (releases forthcoming)
-
-**⚠️ Migration from Previous Versions:**
-Previous system-wide installations (as of 8.27.2025) need some manual intervention:
-1. Stop existing services: `sudo systemctl stop lnd lightning_pub`
-2. Disable services: `sudo systemctl disable lnd lightning_pub`
-3. Remove old systemd units: `sudo rm /etc/systemd/system/lnd.service /etc/systemd/system/lightning_pub.service`
-4. Reload systemd: `sudo systemctl daemon-reload`
-5. Run the new installer: `wget -qO- https://deploy.lightning.pub | bash`
 
 Please report any issues to the [issue tracker](https://github.com/shocknet/Lightning.Pub/issues).
 
@@ -210,25 +216,25 @@ See the [Docker Installation Guide](DOCKER.md).
 
 1. Run [LND](https://github.com/lightningnetwork/lnd/releases) if you aren't already:
 
-```ssh
+```bash
 ./lnd --bitcoin.active --bitcoin.mainnet --bitcoin.node=neutrino --neutrino.addpeer=neutrino.shock.network --feeurl=https://nodes.lightning.computer/fees/v1/btc-fee-estimates.json
 ```
 
-2. Download and Install Lightning.Pub:
+2. Download and Install Lightning.Pub (Node.js 24 or newer):
 
-```ssh 
+```bash
 git clone https://github.com/shocknet/Lightning.Pub && cd Lightning.Pub && npm i
 ```
 
 3. Configure values in the env file:
 
-```ssh
+```bash
 cp env.example .env && nano .env
 ```
 
 4. Start the service:
 
-```ssh
+```bash
 npm start
 ```
 
@@ -259,7 +265,7 @@ When you run your own Lightning Pub, obtaining a Lightning Address is fully auto
 > [!TIP]
 > **CLINK Integration**: Your Pub's CLINK offers enable ShockWallet to connect to CLINK-compatible services, like [Stacker News](https://stacker.news), allowing you to send and receive payments without additional setup.
 
-For custom Lightning Address domains, see the [Advanced Configuration](#advanced-configuration) section.
+For custom Lightning Address domains, see the [Advanced Configuration](#custom-lightning-address-domain) section.
 
 ## Advanced Configuration
 
@@ -270,7 +276,7 @@ nano .env  # or use your preferred editor
 ```
 
 > [!IMPORTANT]
-> Environment variables set in `.env` will override any settings configured via the wizard or stored in the settings database table.
+> A key set in `.env` beats the same key in `admin_settings`. On startup Pub writes the environment value into that table. The dashboard will not change a field while its variable is set; remove it and restart to edit it there.
 
 ### Custom Nostr Relay
 
@@ -283,8 +289,6 @@ NOSTR_RELAYS=wss://your-relay-url.com
 # Multiple relays (space-separated)
 NOSTR_RELAYS="wss://relay1.com wss://relay2.com wss://relay3.com"
 ```
-
-The wizard interface (coming soon for Start9/Umbrel) will make this graphical.
 
 ### Bootstrap Liquidity Provider
 
@@ -299,6 +303,31 @@ DISABLE_LIQUIDITY_PROVIDER=true
 # Optional: point at a different Pub instance (pubkey + relay are in the nprofile)
 PROVIDER_NPROFILE=nprofile1qyd8wumn8ghj7um5wfn8y7fwwd5x7cmt9ehx2arhdaexkqpqwmk5tuqvafa6ckwc6zmaypyy3af3n4aeds2ql7m0ew42kzsn638q9s9z8p
 ```
+
+### Backups
+
+Pub backs up user balances and channel state with one secret, the LND seed. Each table is encrypted on the node before it is uploaded, so the server that stores it cannot read it. Choose where the files go:
+
+- **Managed backup server**: nothing to set up. The login is derived from the seed, so the same 24 words find the backup on restore.
+- **Your own SFTP server**: a host and, if you have it, the server's host-key fingerprint (`ssh-keygen -lf` on that machine).
+- **A folder on this machine**: `BACKUP_LOCAL_PATH` (environment only).
+
+With none of these set, every file stays on this disk, and a dead disk can take channel funds and user balances with it.
+
+```bash
+# Managed backup server
+BACKUP_CLOUD_ENABLED=true
+
+# Or your own SFTP server
+BACKUP_SFTP_ENABLED=true
+BACKUP_SFTP_HOST=sftp.example.com
+BACKUP_SFTP_HOST_FINGERPRINT=SHA256:...
+
+# And/or a local folder
+BACKUP_LOCAL_PATH=/var/backups/lightning-pub
+```
+
+The seed phrase by itself restores on-chain funds. Channel funds and Pub balances also need a current backup. Restore from the CLI. See [BACKUPS.md](BACKUPS.md) for the file layout and commands.
 
 ### Custom Lightning Address Domain
 
@@ -318,6 +347,16 @@ BRIDGE_URL=https://your-bridge.com
 SERVICE_URL=https://yourdomain.com
 ```
 
+### Setup Wizard (Start9 and Umbrel)
+
+The wizard is a web UI for first-run setup: node name, relay, liquidity, backups, and restore. It is intended for appliance UIs like Start9 and Umbrel, which open it on the appliance's own network. The one-line installer does not enable and non-Umbrel/StartOS systems do not need it.
+
+```bash
+WIZARD=true
+```
+
+It listens on every interface at `PORT + 1` (1777 by default) and has no password, so only enable it on a trusted network where that port is not reachable from the internet.
+
 ### Complete Reference
 
 See `env.example` for complete documentation of all available settings.
@@ -326,12 +365,12 @@ For additional documentation, guides, and FAQs, visit [docs.shock.network](https
 
 ## Support Development
 
-> [!IMPORTANT]  
+> [!IMPORTANT]
 > ShockWallet and Lightning.Pub are free software. If you would like to see continued development, please show your [**support**](https://github.com/sponsors/shocknet) 😊
 
-<img src="https://www.gnu.org/graphics/agplv3-with-text-162x68.png" alt="License">
+<img src="https://www.gnu.org/graphics/agplv3-with-text-162x68.png" alt="AGPL-3.0">
 
 ## Warning
 
-> [!WARNING]  
+> [!WARNING]
 > While this software has been used in a high-profile production environment for several years, it should still be considered bleeding edge. Special care has been taken to mitigate the risk of drainage attacks, which is a common risk to all Lightning APIs. An integrated Watchdog service will terminate spends if it detects a discrepancy between LND and the database, for this reason **IT IS NOT RECOMMENDED TO USE PUB ALONGSIDE OTHER ACCOUNT SYSTEMS** such as AlbyHub, LNBits, or BTCPay - this watchdog may however be disabled. While we give the utmost care and attention to security, **the internet is an adversarial environment and SECURITY/RELIABILITY ARE NOT GUARANTEED- USE AT YOUR OWN RISK**.
