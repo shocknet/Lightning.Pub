@@ -34,9 +34,9 @@
 // while HasOngoingRecovery() is true (any non-COMPLETED checkpoint file). Recovery
 // waiters are notified only after restoreInFlight is cleared.
 
-import { getLogger, PubLogger } from '../helpers/logger.js'
+import { getLogger } from '../helpers/logger.js'
 import { deriveBackupKeys, LATEST_DERIVATION_VERSION, type DerivedKeys } from './derivation.js'
-import { sftpDownload, cloudSftpConfig, customHostFingerprint, SftpAuthError, type SftpConfig, SFTPFile } from './sftpClient.js'
+import { cloudSftpConfig, customHostFingerprint, SftpAuthError, withSftpSession, type SftpConfig, type SFTPFile } from './sftpClient.js'
 import { DEFAULT_SFTP_PORT } from '../main/adminNodeSettings.js'
 import crypto from 'crypto'
 import fs from 'fs'
@@ -380,45 +380,67 @@ export class RestoreManager {
 
     async fetchSegmentsData(req: wizardTypes.RestoreRequest, keys: DerivedKeys) {
         this.log("fetching segments data")
-        const manifestChunk = await fetchFile(this.log, keys, req, BACKUP_MANIFEST_FILENAME)
-        if (!manifestChunk.found) {
-            throw new Error(failureMessage(req.source.type, BACKUP_MANIFEST_FILENAME))
-        }
-        let manifest
-        try {
-            manifest = parseBackupManifest(manifestChunk.data)
-        } catch (err: any) {
-            throw new Error(`backup ${BACKUP_MANIFEST_FILENAME} is corrupt: ${err.message || err}`)
-        }
-        const buffers = new Map<BackupTableId, Buffer>()
-        const missing: string[] = []
-        for (const id of BACKUP_RESTORE_ORDER) {
-            const name = manifest.tables[id]
-            if (!name) {
-                this.log("manifest has no shard for: " + id)
-                missing.push(id)
-                continue
+        const fetchNamed = async (getFile: (filename: string) => Promise<SFTPFile>) => {
+            const manifestChunk = await getFile(BACKUP_MANIFEST_FILENAME)
+            if (!manifestChunk.found) {
+                throw new Error(failureMessage(req.source.type, BACKUP_MANIFEST_FILENAME))
             }
-            if (name.includes('/') || name.includes('\\') || name.includes('..')) {
-                throw new Error(`backup ${BACKUP_MANIFEST_FILENAME} names an unsafe shard path for ${id}`)
-            }
-            const chunk = await fetchFile(this.log, keys, req, name)
-            if (!chunk.found) {
-                this.log("buffer not found: " + name)
-                missing.push(name)
-                continue
-            }
+            let manifest
             try {
-                decryptTableRows(chunk.data, keys.encKey)
+                manifest = parseBackupManifest(manifestChunk.data)
             } catch (err: any) {
-                throw new Error(`backup shard ${name} is not decryptable: ${err.message || err}`)
+                throw new Error(`backup ${BACKUP_MANIFEST_FILENAME} is corrupt: ${err.message || err}`)
             }
-            buffers.set(id, chunk.data)
+            const buffers = new Map<BackupTableId, Buffer>()
+            const missing: string[] = []
+            for (const id of BACKUP_RESTORE_ORDER) {
+                const name = manifest.tables[id]
+                if (!name) {
+                    this.log("manifest has no shard for: " + id)
+                    missing.push(id)
+                    continue
+                }
+                if (name.includes('/') || name.includes('\\') || name.includes('..')) {
+                    throw new Error(`backup ${BACKUP_MANIFEST_FILENAME} names an unsafe shard path for ${id}`)
+                }
+                this.log("fetching file: " + name, "source: " + req.source.type)
+                const chunk = await getFile(name)
+                if (!chunk.found) {
+                    this.log("buffer not found: " + name)
+                    missing.push(name)
+                    continue
+                }
+                try {
+                    decryptTableRows(chunk.data, keys.encKey)
+                } catch (err: any) {
+                    throw new Error(`backup shard ${name} is not decryptable: ${err.message || err}`)
+                }
+                buffers.set(id, chunk.data)
+            }
+            if (missing.length > 0) {
+                throw new Error(missing.map(name => failureMessage(req.source.type, name)).join('\n'))
+            }
+            return buffers
         }
-        if (missing.length > 0) {
-            throw new Error(missing.map(name => failureMessage(req.source.type, name)).join('\n'))
+        this.log("fetching file: " + BACKUP_MANIFEST_FILENAME, "source: " + req.source.type)
+        switch (req.source.type) {
+            case wizardTypes.RestoreRequest_source_type.LOCAL_PATH:
+                return fetchNamed(async filename => readLocalRestoreFile(req.source, filename))
+            case wizardTypes.RestoreRequest_source_type.CLOUD:
+                try {
+                    return await withSftpSession(cloudSftpConfig(keys.sftpUser, keys.sftpPass), session =>
+                        fetchNamed(filename => session.download(filename)))
+                } catch (err) {
+                    throw cloudDownloadError(err)
+                }
+            case wizardTypes.RestoreRequest_source_type.FTP_HOST:
+                return withSftpSession(
+                    sftpConfigForFtpRestore(req.source.ftp_host, ftpRestoreCreds(req.creds_override, keys)),
+                    session => fetchNamed(filename => session.download(filename)),
+                )
+            default:
+                throw new Error(`Unknown restore source: ${req.source}`)
         }
-        return buffers
     }
 
     decodeSegmentsData(buffers: Map<BackupTableId, Buffer>, keys: DerivedKeys) {
@@ -558,34 +580,24 @@ export function ftpRestoreCreds(
     }
 }
 
-const fetchFile = async (log: PubLogger, keys: DerivedKeys, opts: wizardTypes.RestoreRequest, filename: string): Promise<SFTPFile> => {
-    log("fetching file: " + filename, "source: " + opts.source.type)
-    switch (opts.source.type) {
-        case wizardTypes.RestoreRequest_source_type.CLOUD:
-            return downloadFromCloud(keys, filename)
-        case wizardTypes.RestoreRequest_source_type.FTP_HOST:
-            return sftpDownload(sftpConfigForFtpRestore(opts.source.ftp_host, ftpRestoreCreds(opts.creds_override, keys)), filename)
-
-        case wizardTypes.RestoreRequest_source_type.LOCAL_PATH: {
-            const dir = opts.source.local_path
-            if (!dir) throw new Error('Local path is required for source=local')
-            if (!fs.existsSync(dir)) {
-                return { found: false }
-            }
-            const stat = fs.statSync(dir)
-            if (!stat.isDirectory()) {
-                return { found: false }
-            }
-            const filePath = path.join(dir, filename)
-            if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
-                return { found: false }
-            }
-            return { found: true, data: fs.readFileSync(filePath) }
-        }
-
-        default:
-            throw new Error(`Unknown restore source: ${opts.source}`)
+const readLocalRestoreFile = (source: wizardTypes.RestoreRequest['source'], filename: string): SFTPFile => {
+    if (source.type !== wizardTypes.RestoreRequest_source_type.LOCAL_PATH) {
+        throw new Error('Local path is required for source=local')
     }
+    const dir = source.local_path
+    if (!dir) throw new Error('Local path is required for source=local')
+    if (!fs.existsSync(dir)) {
+        return { found: false }
+    }
+    const stat = fs.statSync(dir)
+    if (!stat.isDirectory()) {
+        return { found: false }
+    }
+    const filePath = path.join(dir, filename)
+    if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
+        return { found: false }
+    }
+    return { found: true, data: fs.readFileSync(filePath) }
 }
 
 /**
@@ -604,14 +616,6 @@ export function cloudDownloadError(err: unknown): Error {
     if (err instanceof SftpAuthError) return new CloudLoginRejectedError(err.message)
     if (err instanceof Error) return err
     return new Error(`Cloud backup download failed: ${String(err)}`)
-}
-
-const downloadFromCloud = async (keys: DerivedKeys, filename: string): Promise<SFTPFile> => {
-    try {
-        return await sftpDownload(cloudSftpConfig(keys.sftpUser, keys.sftpPass), filename)
-    } catch (err) {
-        throw cloudDownloadError(err)
-    }
 }
 
 export function failureMessage(source: wizardTypes.RestoreRequest_source_type, name: string): string {

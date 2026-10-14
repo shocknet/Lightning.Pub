@@ -18,13 +18,14 @@
 // High-churn tables coalesce into one batch; a max-wait caps continuous resets.
 // Destinations: managed cloud SFTP, custom SFTP (BACKUP_SFTP_USER/PASS override phrase-derived
 // login when set), optional local dir. Local is written first so a stalled remote cannot
-// block the on-disk copy. Remotes run in parallel. Failed batches retry with backoff.
+// block the on-disk copy. Remotes run in parallel and keep one SSH session for the whole
+// publish (read, list, uploads, rename, deletes). Failed batches retry with backoff.
 
 import fs from 'fs'
 import path from 'path'
 import { getLogger } from '../helpers/logger.js'
 import { deriveBackupKeys, LATEST_DERIVATION_VERSION, type DerivedKeys } from './derivation.js'
-import { sftpAtomicReplace, sftpDownload, sftpList, sftpUnlink, sftpUpload, cloudSftpConfig, customHostFingerprint, SftpAuthError, SftpIncompatibleError, type SftpConfig } from './sftpClient.js'
+import { sftpAtomicReplace, sftpDownload, sftpList, sftpUnlink, sftpUpload, withSftpSession, cloudSftpConfig, customHostFingerprint, SftpAuthError, SftpIncompatibleError, type SftpConfig, type SftpSession } from './sftpClient.js'
 import { provisionCloudAccount } from './cloudProvision.js'
 import { atomicWriteFile, fsyncDirectory, writeNewDurableFile } from './atomicWrite.js'
 import Storage from '../storage/index.js'
@@ -492,33 +493,43 @@ export class BackupManager {
     }
 
     private async publishDest(dest: BackupDest, generation: string, shards: Map<BackupTableId, Buffer>) {
+        if (dest.type === 'local') {
+            await this.publishToDest(dest, generation, shards)
+            return
+        }
+        await this.withCloudAuth(dest, () =>
+            withSftpSession(dest.config, session => this.publishToDest(dest, generation, shards, session)),
+        )
+    }
+
+    private async publishToDest(dest: BackupDest, generation: string, shards: Map<BackupTableId, Buffer>, session?: SftpSession) {
         // Always re-read. A cached manifest can lag a commit whose acknowledgement was lost,
         // and the next batch would then mix that stale copy with newer shards.
-        const previous = await this.readDestManifest(dest)
+        const previous = await this.readDestManifest(dest, session)
         const state = this.stateFor(dest)
         const before = this.shardNameSet(previous)
         for (const name of state.previousNames) before.add(name)
-        await this.gcUnreferenced(dest, before)
+        await this.gcUnreferenced(dest, before, session)
         const tables: Partial<Record<BackupTableId, string>> = { ...(previous?.tables ?? {}) }
         const uploaded: string[] = []
         try {
             for (const [id, encrypted] of shards) {
                 const filename = backupTableVersionedFilename(id, generation)
-                await this.replaceDest(dest, filename, encrypted)
+                await this.replaceDest(dest, filename, encrypted, session)
                 uploaded.push(filename)
                 tables[id] = filename
             }
             // Shard directory entries must be durable before the manifest names them.
             if (dest.type === 'local') fsyncDirectory(dest.dir)
             const manifest: BackupManifest = { generation, tables }
-            await this.replaceDest(dest, BACKUP_MANIFEST_FILENAME, serializeBackupManifest(manifest))
+            await this.replaceDest(dest, BACKUP_MANIFEST_FILENAME, serializeBackupManifest(manifest), session)
             const live = this.shardNameSet(manifest)
             const superseded = new Set([...this.shardNameSet(previous)].filter(name => !live.has(name)))
             const keep = new Set([...live, ...superseded])
-            await this.gcUnreferenced(dest, keep)
+            await this.gcUnreferenced(dest, keep, session)
             state.previousNames = superseded
         } catch (err) {
-            await this.discardUnreferencedUploads(dest, uploaded)
+            await this.discardUnreferencedUploads(dest, uploaded, session)
             throw err
         }
     }
@@ -532,9 +543,9 @@ export class BackupManager {
      * a crashed process; `orphans` covers a destination whose listing failed.
      * Names that fail to delete stay in `orphans` for the next attempt.
      */
-    private async gcUnreferenced(dest: BackupDest, keep: Set<string>) {
+    private async gcUnreferenced(dest: BackupDest, keep: Set<string>, session?: SftpSession) {
         const state = this.stateFor(dest)
-        const listed = await this.listDestShards(dest)
+        const listed = await this.listDestShards(dest, session)
         const names = new Set<string>()
         if (listed !== null) {
             for (const name of listed) names.add(name)
@@ -548,7 +559,7 @@ export class BackupManager {
             if (!parseShardFilename(name)) continue
             if (listed === null && !state.orphans.has(name)) continue
             try {
-                await this.deleteDestFile(dest, name)
+                await this.deleteDestFile(dest, name, session)
                 state.orphans.delete(name)
             } catch (err: any) {
                 state.orphans.add(name)
@@ -562,12 +573,12 @@ export class BackupManager {
      * A manifest replace that landed and then threw is left alone; the re-read shows
      * those names are live.
      */
-    private async discardUnreferencedUploads(dest: BackupDest, uploaded: string[]) {
+    private async discardUnreferencedUploads(dest: BackupDest, uploaded: string[], session?: SftpSession) {
         if (uploaded.length === 0) return
         const state = this.stateFor(dest)
         let live: Set<string>
         try {
-            live = this.shardNameSet(await this.readDestManifest(dest))
+            live = this.shardNameSet(await this.readDestManifest(dest, session))
         } catch (err: any) {
             this.log(`failed to re-read manifest after a failed publish: ${err.message || err}`)
             for (const name of uploaded) state.orphans.add(name)
@@ -576,7 +587,7 @@ export class BackupManager {
         for (const name of uploaded) {
             if (live.has(name)) continue
             try {
-                await this.deleteDestFile(dest, name)
+                await this.deleteDestFile(dest, name, session)
                 state.orphans.delete(name)
             } catch (err: any) {
                 state.orphans.add(name)
@@ -585,7 +596,7 @@ export class BackupManager {
         }
     }
 
-    private async readDestManifest(dest: BackupDest): Promise<BackupManifest | null> {
+    private async readDestManifest(dest: BackupDest, session?: SftpSession): Promise<BackupManifest | null> {
         switch (dest.type) {
             case 'local': {
                 const file = path.join(dest.dir, BACKUP_MANIFEST_FILENAME)
@@ -596,7 +607,9 @@ export class BackupManager {
             }
             case 'cloud':
             case 'sftp': {
-                const chunk = await this.withCloudAuth(dest, () => sftpDownload(dest.config, BACKUP_MANIFEST_FILENAME))
+                const chunk = session
+                    ? await session.download(BACKUP_MANIFEST_FILENAME)
+                    : await this.withCloudAuth(dest, () => sftpDownload(dest.config, BACKUP_MANIFEST_FILENAME))
                 if (!chunk.found) return null
                 return parseBackupManifest(chunk.data)
             }
@@ -607,7 +620,7 @@ export class BackupManager {
         }
     }
 
-    private async listDestShards(dest: BackupDest): Promise<string[] | null> {
+    private async listDestShards(dest: BackupDest, session?: SftpSession): Promise<string[] | null> {
         try {
             switch (dest.type) {
                 case 'local': {
@@ -616,7 +629,9 @@ export class BackupManager {
                 }
                 case 'cloud':
                 case 'sftp':
-                    return await this.withCloudAuth(dest, () => sftpList(dest.config, '.'))
+                    return session
+                        ? await session.list('.')
+                        : await this.withCloudAuth(dest, () => sftpList(dest.config, '.'))
                 default: {
                     const _exhaustive: never = dest
                     throw new Error(`Unhandled backup dest: ${_exhaustive}`)
@@ -628,7 +643,7 @@ export class BackupManager {
         }
     }
 
-    private async deleteDestFile(dest: BackupDest, filename: string) {
+    private async deleteDestFile(dest: BackupDest, filename: string, session?: SftpSession) {
         switch (dest.type) {
             case 'local': {
                 const file = path.join(dest.dir, filename)
@@ -640,7 +655,11 @@ export class BackupManager {
             }
             case 'cloud':
             case 'sftp':
-                await this.withCloudAuth(dest, () => sftpUnlink(dest.config, filename))
+                if (session) {
+                    await session.unlink(filename)
+                } else {
+                    await this.withCloudAuth(dest, () => sftpUnlink(dest.config, filename))
+                }
                 return
             default: {
                 const _exhaustive: never = dest
@@ -649,7 +668,7 @@ export class BackupManager {
         }
     }
 
-    private async replaceDest(dest: BackupDest, filename: string, encrypted: Buffer) {
+    private async replaceDest(dest: BackupDest, filename: string, encrypted: Buffer, session?: SftpSession) {
         switch (dest.type) {
             case 'local': {
                 const destPath = path.join(dest.dir, filename)
@@ -662,13 +681,24 @@ export class BackupManager {
                 return
             }
             case 'cloud':
-                await this.putOnCloud(filename, encrypted)
-                this.log(`${filename} uploaded to cloud (${encrypted.length} bytes)`)
+            case 'sftp': {
+                if (session) {
+                    if (filename === BACKUP_MANIFEST_FILENAME) {
+                        await session.atomicReplace(filename, encrypted)
+                    } else {
+                        await session.upload(filename, encrypted)
+                    }
+                } else if (dest.type === 'cloud') {
+                    await this.putOnCloud(filename, encrypted)
+                } else {
+                    await this.putOnSftp(dest.config, filename, encrypted)
+                }
+                const where = dest.type === 'cloud'
+                    ? 'cloud'
+                    : `SFTP ${dest.config.host}:${dest.config.port ?? 22}`
+                this.log(`${filename} uploaded to ${where} (${encrypted.length} bytes)`)
                 return
-            case 'sftp':
-                await this.putOnSftp(dest.config, filename, encrypted)
-                this.log(`${filename} uploaded to SFTP ${dest.config.host}:${dest.config.port ?? 22} (${encrypted.length} bytes)`)
-                return
+            }
             default: {
                 const _exhaustive: never = dest
                 throw new Error(`Unhandled backup dest: ${_exhaustive}`)
