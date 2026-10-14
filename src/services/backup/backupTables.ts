@@ -26,10 +26,14 @@ export const BACKUP_RESTORE_ORDER: readonly BackupTableId[] = BACKUP_TABLE_IDS
 
 export const BACKUP_MANIFEST_FILENAME = 'manifest.json'
 
+/** Manifest schema version. Missing versions in older files are read as this. */
+export const BACKUP_MANIFEST_VERSION = 1
+
 const TABLE_ID_SET = new Set<string>(BACKUP_TABLE_IDS)
 const GENERATION_RE = /^[0-9a-z]+$/
 
 export type BackupManifest = {
+    version: number
     generation: string
     tables: Partial<Record<BackupTableId, string>>
 }
@@ -67,7 +71,11 @@ export function serializeBackupManifest(manifest: BackupManifest): Buffer {
         const name = manifest.tables[id]
         if (name) tables[id] = name
     }
-    return Buffer.from(JSON.stringify({ generation: manifest.generation, tables }), 'utf8')
+    return Buffer.from(JSON.stringify({
+        version: manifest.version,
+        generation: manifest.generation,
+        tables,
+    }), 'utf8')
 }
 
 export function parseBackupManifest(raw: string | Buffer): BackupManifest {
@@ -80,7 +88,11 @@ export function parseBackupManifest(raw: string | Buffer): BackupManifest {
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
         throw new Error('backup manifest must be an object')
     }
-    const obj = parsed as { generation?: unknown, tables?: unknown }
+    const obj = parsed as { version?: unknown, generation?: unknown, tables?: unknown }
+    const version = obj.version === undefined ? BACKUP_MANIFEST_VERSION : obj.version
+    if (version !== BACKUP_MANIFEST_VERSION) {
+        throw new Error(`unsupported backup manifest version: ${typeof version === 'number' ? version : typeof version}`)
+    }
     if (typeof obj.generation !== 'string' || !GENERATION_RE.test(obj.generation)) {
         throw new Error('backup manifest generation is missing or invalid')
     }
@@ -101,7 +113,7 @@ export function parseBackupManifest(raw: string | Buffer): BackupManifest {
         }
         tables[key] = value
     }
-    return { generation: obj.generation, tables }
+    return { version: BACKUP_MANIFEST_VERSION, generation: obj.generation, tables }
 }
 
 export function manifestShardNames(manifest: BackupManifest): string[] {

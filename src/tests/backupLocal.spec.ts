@@ -5,7 +5,7 @@ import crypto from 'crypto'
 import SettingsManager from '../services/main/settingsManager.js'
 import { BackupManager } from '../services/backup/backupManager.js'
 import { failureMessage, hashRestorePhrase, RestoreManager } from '../services/backup/restoreManager.js'
-import { decodeIndexesRow, decryptTableRows, encodeIndexesRow, encryptTableRows } from '../services/backup/segments.js'
+import { decodeBalanceRow, decodeIndexesRow, decryptTableRows, encodeIndexesRow, encryptTableRows } from '../services/backup/segments.js'
 import { encodeTLV, integerToUint8Array } from '../services/helpers/tlv.js'
 import { scbFromSnapshot } from '../services/main/unlocker.js'
 import { Unlocker } from '../services/main/unlocker.js'
@@ -151,6 +151,9 @@ export default async (T: StorageTestBase) => {
     await testStalledRemoteDoesNotBlockLocal(T)
     await testFailedUploadRetries(T)
     await testShutdownDoesNotWaitOnStalledRemote(T)
+    await testShutdownFinalLocalNotBlockedByInFlightRemote(T)
+    await testShutdownRemoteOnlyIsBounded(T)
+    await testShutdownFailedLocalDoesNotWaitOnRemote(T)
     await testUploadAllTablesSurvivesRemoteFailure(T)
 }
 
@@ -804,11 +807,30 @@ const testAtomicLocalReplace = async (T: StorageTestBase) => {
 const testParseBackupManifest = (T: StorageTestBase) => {
     T.d('starting testParseBackupManifest')
     const ok = parseBackupManifest(JSON.stringify({
+        version: 1,
         generation: 'abc123',
         tables: { indexes: 'indexes.vabc123.enc', user_balances: 'user_balances.vold.enc' },
     }))
+    T.expect(ok.version).to.equal(1)
     T.expect(ok.generation).to.equal('abc123')
     T.expect(ok.tables.indexes).to.equal('indexes.vabc123.enc')
+    const legacy = parseBackupManifest(JSON.stringify({
+        generation: 'abc123',
+        tables: { indexes: 'indexes.vabc123.enc' },
+    }))
+    T.expect(legacy.version).to.equal(1)
+    let badVersion = false
+    try {
+        parseBackupManifest(JSON.stringify({
+            version: 2,
+            generation: 'abc123',
+            tables: {},
+        }))
+    } catch (err: any) {
+        badVersion = true
+        T.expect(err.message).to.include('unsupported backup manifest version')
+    }
+    T.expect(badVersion).to.equal(true)
     let threw = false
     try {
         parseBackupManifest(JSON.stringify({
@@ -1218,11 +1240,13 @@ const testBadSettingsDoNotBlockScb = async (T: StorageTestBase) => {
         await writeLocalBackup(sourceT, dir, 4)
         const destSettings = new SettingsManager(dest)
         await destSettings.InitSettings()
+        const bootRouting = destSettings.getSettings().lndSettings.routingFeeLimitBps
         await markDbImported(dest)
         const order: string[] = []
+        const origInit = destSettings.InitSettings.bind(destSettings)
         destSettings.InitSettings = async () => {
             order.push('reload')
-            throw new Error('ROUTING_FEE_LIMIT_BPS (100) must be <= SERVICE_FEE_BPS (50) to ensure Pub keeps a spread')
+            return origInit()
         }
         const unlocker = {
             WalletExists: async () => true,
@@ -1234,22 +1258,47 @@ const testBadSettingsDoNotBlockScb = async (T: StorageTestBase) => {
         fs.mkdirSync(dataDir, { recursive: true })
         fs.writeFileSync(restore.getCheckpointPath(), 'DB_COMMITTED')
         fs.writeFileSync(restore.getPhraseHashPath(), hashRestorePhrase(TEST_PHRASE))
-        const result = await restore.RestoreFromSource({
+        const req: WizardTypes.RestoreRequest = {
             phrase: TEST_PHRASE,
             source: { type: WizardTypes.RestoreRequest_source_type.LOCAL_PATH, local_path: dir },
-        })
+        }
+        process.env.ROUTING_FEE_LIMIT_BPS = '100'
+        const result = await restore.RestoreFromSource(req)
         T.expect(order).to.deep.equal(['scb', 'reload'])
         T.expect(result.success).to.equal(false)
         T.expect(result.error || '').to.contain('ROUTING_FEE_LIMIT_BPS')
+        T.expect(fs.readFileSync(restore.getCheckpointPath(), 'utf8')).to.equal('LND_ACTIVE')
+        T.expect(fs.existsSync(restore.getPhraseHashPath())).to.equal(true)
+        T.expect(restore.HasOngoingRecovery()).to.equal(true)
+        T.expect(restore.IsRecoveryActive()).to.equal(true)
+        T.expect(destSettings.getSettings().lndSettings.routingFeeLimitBps).to.equal(bootRouting)
+
+        const waitDone = restore.WaitForRecoveryCompletion()
+        let waiterSettled = false
+        void waitDone.then(() => { waiterSettled = true })
+        await new Promise(r => setTimeout(r, 50))
+        T.expect(waiterSettled).to.equal(false)
+
+        delete process.env.ROUTING_FEE_LIMIT_BPS
+        const ok = await restore.RestoreFromSource(req)
+        await withTimeout(waitDone, 1000, 'startup waiter stayed blocked after successful settings reload')
+        T.expect(ok.success).to.equal(true)
+        T.expect(order).to.deep.equal(['scb', 'reload', 'scb', 'reload'])
         T.expect(fs.readFileSync(restore.getCheckpointPath(), 'utf8')).to.equal('COMPLETED')
+        T.expect(fs.existsSync(restore.getPhraseHashPath())).to.equal(false)
+        T.expect(fs.existsSync(restore.getWalletPubPath())).to.equal(false)
+        T.expect(restore.HasOngoingRecovery()).to.equal(false)
+        T.expect(restore.IsRecoveryActive()).to.equal(false)
+        T.expect(destSettings.getSettings().lndSettings.routingFeeLimitBps).to.equal(bootRouting)
     } finally {
+        delete process.env.ROUTING_FEE_LIMIT_BPS
         source.Stop()
         dest.Stop()
         fs.rmSync(sourceDataDir, { recursive: true, force: true })
         fs.rmSync(dataDir, { recursive: true, force: true })
         fs.rmSync(dir, { recursive: true, force: true })
     }
-    T.d('a bad restored setting reloads after SCB, so channel recovery is not blocked')
+    T.d('a bad restored setting reloads after SCB; failed reload keeps recovery active until retry succeeds')
 }
 
 const SAMPLE_SCB = Buffer.from('multi-chan-backup'.repeat(40))
@@ -1802,6 +1851,84 @@ const testShutdownDoesNotWaitOnStalledRemote = async (T: StorageTestBase) => {
         fs.rmSync(dir, { recursive: true, force: true })
     }
     T.d('shutdown writes local shards and returns even if a remote never completes')
+}
+
+const holdRemotePublishes = (backup: BackupManager) => {
+    let release: () => void = () => {}
+    const hold = new Promise<void>(resolve => { release = resolve })
+    let entered = false
+    ;(backup as any).publishRemotes = async () => {
+        entered = true
+        await hold
+        return { anyOk: false, failures: ['remote stalled'], retryable: true }
+    }
+    return {
+        release,
+        entered: () => entered,
+    }
+}
+
+const testShutdownFinalLocalNotBlockedByInFlightRemote = async (T: StorageTestBase) => {
+    T.d('starting testShutdownFinalLocalNotBlockedByInFlightRemote')
+    const dir = tempBackupDir()
+    const backup = new BackupManager(T.storage, await localAndSftpSettings(T, dir))
+    backup.waitInFlightMs = 50
+    backup.shutdownFlushMs = 200
+    await backup.InitKeys(TEST_SEED)
+    await backup.AddressUpdate(3)
+    backup.ChannelBackupUpdate(SAMPLE_SCB)
+    const { user } = await seedDialtone(T, backup.settings)
+    const remote = holdRemotePublishes(backup)
+    ;(backup as any).dirty.add('admin_settings')
+    const flush = (backup as any).flushDebounced()
+    try {
+        await waitUntil(remote.entered, 2000, 'live remote publish did not start')
+        T.expect(hasManifestTable(dir, 'user_balances')).to.equal(false)
+        await T.storage.userStorage.IncrementUserBalance(user.user.user_id, 50, 'shutdown-snapshot')
+        await withTimeout(backup.shutdown(), 2000, 'shutdown hung behind an in-flight remote upload')
+        await withTimeout(flush, 2000, 'in-flight batch stayed queued behind the remote')
+        const keys = await deriveBackupKeys(TEST_PHRASE)
+        const rows = decryptTableRows(fs.readFileSync(shardPath(dir, 'user_balances')), keys.encKey).map(decodeBalanceRow)
+        T.expect(rows.some(r => r.user_id === user.user.user_id && r.balance_sats === 1284)).to.equal(true)
+    } finally {
+        remote.release()
+        await flush.catch(() => undefined)
+        if (!backup.shuttingDown) await backup.shutdown()
+        fs.rmSync(dir, { recursive: true, force: true })
+    }
+    T.d('an in-flight remote upload does not block the final local balance snapshot')
+}
+
+const testShutdownRemoteOnlyIsBounded = async (T: StorageTestBase) => {
+    T.d('starting testShutdownRemoteOnlyIsBounded')
+    const backup = new BackupManager(T.storage, await sftpOnlySettings(T))
+    backup.waitInFlightMs = 50
+    backup.shutdownFlushMs = 200
+    await backup.InitKeys(TEST_SEED)
+    await backup.AddressUpdate(1)
+    backup.ChannelBackupUpdate(SAMPLE_SCB)
+    ;(backup as any).publishRemotes = () => new Promise(() => { /* stall until process teardown */ })
+    await withTimeout(backup.shutdown(), 2000, 'remote-only shutdown waited on the remote with no deadline')
+    T.d('remote-only shutdown returns within the remote deadline')
+}
+
+const testShutdownFailedLocalDoesNotWaitOnRemote = async (T: StorageTestBase) => {
+    T.d('starting testShutdownFailedLocalDoesNotWaitOnRemote')
+    const dir = tempBackupDir()
+    const backup = new BackupManager(T.storage, await localAndSftpSettings(T, dir))
+    backup.waitInFlightMs = 50
+    backup.shutdownFlushMs = 200
+    await backup.InitKeys(TEST_SEED)
+    await backup.AddressUpdate(1)
+    backup.ChannelBackupUpdate(SAMPLE_SCB)
+    ;(backup as any).publishRemotes = () => new Promise(() => { /* stall until process teardown */ })
+    ;(backup as any).replaceDest = async () => { throw new Error('disk full') }
+    try {
+        await withTimeout(backup.shutdown(), 2000, 'failed local write left shutdown waiting on the remote')
+    } finally {
+        fs.rmSync(dir, { recursive: true, force: true })
+    }
+    T.d('a failed local write does not leave shutdown waiting on a remote')
 }
 
 const sftpOnlySettings = async (T: StorageTestBase) => {

@@ -18,8 +18,10 @@
 // High-churn tables coalesce into one batch; a max-wait caps continuous resets.
 // Destinations: managed cloud SFTP, custom SFTP (BACKUP_SFTP_USER/PASS override phrase-derived
 // login when set), optional local dir. Local is written first so a stalled remote cannot
-// block the on-disk copy. Remotes run in parallel and keep one SSH session for the whole
-// publish (read, list, uploads, rename, deletes). Failed batches retry with backoff.
+// block the on-disk copy. Shutdown stops waiting on a remote already in flight so the final
+// local snapshot can run, and bounds every remote, including remote-only and a failed local
+// write. Remotes run in parallel and keep one SSH session for the whole publish (read, list,
+// uploads, rename, deletes). Failed batches retry with backoff.
 
 import fs from 'fs'
 import path from 'path'
@@ -47,6 +49,7 @@ import {
 } from './segments.js'
 import {
     BACKUP_MANIFEST_FILENAME,
+    BACKUP_MANIFEST_VERSION,
     BACKUP_RESTORE_ORDER,
     backupTableVersionedFilename,
     manifestShardNames,
@@ -102,8 +105,18 @@ export class BackupManager {
     private publishTail: Promise<void> = Promise.resolve()
     private retryTimer: ReturnType<typeof setTimeout> | undefined
     private retryAttempt = 0
-    /** Remotes kicked off during shutdown; awaited with a deadline after local snapshots. */
+    /** Remotes already running or started during shutdown; awaited with a deadline after local snapshots. */
     private shutdownRemotePushes: Promise<void>[] = []
+    /**
+     * Remote publishes stay in order so a detached upload cannot read-modify-write the same
+     * manifest as the next one. This chain is not the publish lock: local snapshots do not wait on it.
+     */
+    private remoteTail: Promise<void> = Promise.resolve()
+    /** Resolved from shutdown() so a live `await` of a remote publish releases the publish lock. */
+    private releaseShutdownWait: () => void = () => {}
+    private shutdownWait: Promise<void> = new Promise(resolve => {
+        this.releaseShutdownWait = resolve
+    })
     /** In-flight cloud sign-up, shared by shard uploads that hit a rejected login together. */
     private cloudSignUp: Promise<void> | null = null
     private destState = new Map<string, DestPubState>()
@@ -452,21 +465,57 @@ export class BackupManager {
             }
         }
 
-        const remoteP = this.publishRemotes(remotes, generation, shards)
-        if (this.shuttingDown && anyOk) {
-            this.shutdownRemotePushes.push(remoteP.then(remote => {
-                if (remote.failures.length > 0) {
-                    this.log(`backup batch ${generation} remote ${remote.anyOk ? 'partial' : 'failed'}: ${remote.failures.join('; ')}`)
-                }
-            }))
+        if (remotes.length === 0) {
             return { anyOk, failures, retryable }
         }
-
-        const remote = await remoteP
-        if (remote.anyOk) anyOk = true
-        failures.push(...remote.failures)
-        if (remote.retryable) retryable = true
+        const remoteP = this.enqueueRemote(() => this.publishRemotes(remotes, generation, shards))
+        // A failed local write leaves anyOk false. Remote-only configs never set it.
+        // Both still have to take the bounded path, and so does a remote that started
+        // before shutdown flipped the flag.
+        if (!this.shuttingDown) {
+            const outcome = await this.remoteResultOrShutdown(remoteP)
+            if (outcome !== 'shutdown') {
+                if (outcome.anyOk) anyOk = true
+                failures.push(...outcome.failures)
+                if (outcome.retryable) retryable = true
+                return { anyOk, failures, retryable }
+            }
+        }
+        this.trackShutdownRemote(generation, remoteP)
         return { anyOk, failures, retryable }
+    }
+
+    private enqueueRemote(work: () => Promise<PushResult>): Promise<PushResult> {
+        const run = this.remoteTail.then(work, work)
+        this.remoteTail = run.then(() => undefined, () => undefined)
+        return run
+    }
+
+    private trackShutdownRemote(generation: string, remoteP: Promise<PushResult>) {
+        this.shutdownRemotePushes.push(remoteP.then(remote => {
+            if (remote.failures.length > 0) {
+                this.log(`backup batch ${generation} remote ${remote.anyOk ? 'partial' : 'failed'}: ${remote.failures.join('; ')}`)
+            }
+        }, err => {
+            const message = err instanceof Error ? err.message : String(err)
+            this.log(`backup batch ${generation} remote failed: ${message}`)
+        }))
+    }
+
+    /** Resolves to 'shutdown' once exit has been requested, without cancelling `remoteP`. */
+    private async remoteResultOrShutdown(remoteP: Promise<PushResult>): Promise<PushResult | 'shutdown'> {
+        const observed = remoteP.then(
+            remote => remote,
+            (err: unknown): PushResult => ({
+                anyOk: false,
+                failures: [err instanceof Error ? err.message : String(err)],
+                retryable: true,
+            }),
+        )
+        return Promise.race([
+            observed,
+            this.shutdownWait.then(() => 'shutdown' as const),
+        ])
     }
 
     private async publishRemotes(remotes: BackupDest[], generation: string, shards: Map<BackupTableId, Buffer>): Promise<PushResult> {
@@ -516,7 +565,7 @@ export class BackupManager {
             }
             // Shard directory entries must be durable before the manifest names them.
             if (dest.type === 'local') fsyncDirectory(dest.dir)
-            const manifest: BackupManifest = { generation, tables }
+            const manifest: BackupManifest = { version: BACKUP_MANIFEST_VERSION, generation, tables }
             await this.replaceDest(dest, BACKUP_MANIFEST_FILENAME, serializeBackupManifest(manifest), session)
             await this.gcUnreferenced(dest, this.shardNameSet(manifest), session)
         } catch (err) {
@@ -756,23 +805,27 @@ export class BackupManager {
     }
 
     /**
-     * Run before DB/storage teardown: clear debounce timers, let in-flight shard uploads finish,
-     * then snapshot every table locally. Remotes are started but cannot block the deadline.
+     * Run before DB/storage teardown: clear debounce timers, release any in-flight remote
+     * wait, then snapshot every table locally. Remotes already running and remotes started
+     * for this flush are bounded by shutdownFlushMs.
      */
     async shutdown(): Promise<void> {
         this.shuttingDown = true
+        this.releaseShutdownWait()
         this.clearAllDebounce()
         await this.waitUntilUploadsIdle(this.waitInFlightMs)
         try {
-            // Local shards must finish; the deadline only covers remotes kicked off above.
             await this.publishBatch(BACKUP_RESTORE_ORDER)
-            if (this.shutdownRemotePushes.length > 0) {
-                await this.withTimeout(
-                    Promise.allSettled(this.shutdownRemotePushes).then(() => undefined),
-                    this.shutdownFlushMs,
-                    `Shutdown backup flush timed out after ${this.shutdownFlushMs}ms`,
-                )
-            }
+        } catch (err: any) {
+            this.log(`Shutdown backup failed: ${err.message}`)
+        }
+        if (this.shutdownRemotePushes.length === 0) return
+        try {
+            await this.withTimeout(
+                Promise.allSettled(this.shutdownRemotePushes).then(() => undefined),
+                this.shutdownFlushMs,
+                `Shutdown backup flush timed out after ${this.shutdownFlushMs}ms`,
+            )
         } catch (err: any) {
             this.log(`Shutdown backup failed: ${err.message}`)
         }
