@@ -59,7 +59,11 @@ export default class SettingsManager {
         const addToDb = (key: string, value: string) => {
             toAdd[key] = value
         }
-        this.settings = this.loadEnvs(dbSettings, addToDb)
+        const next = this.loadEnvs(dbSettings, addToDb)
+        // Validate before publishing or persisting so a failed restore reload cannot
+        // expose invalid settings or write dest env overrides into the restored DB.
+        this.validateFeeSettings(next)
+        this.validateOnchainConfTiers(next)
         this.log("adding", Object.keys(toAdd).length, "settings to db")
         let changed = false
         for (const key in toAdd) {
@@ -69,9 +73,7 @@ export default class SettingsManager {
         if (changed) {
             this.backupManager?.notifyBackupTable('admin_settings')
         }
-        // Validate fee configuration: routing fee limit must be <= service fee
-        this.validateFeeSettings(this.settings)
-        this.validateOnchainConfTiers(this.settings)
+        this.settings = next
         return this.settings
     }
 

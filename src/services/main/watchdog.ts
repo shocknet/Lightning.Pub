@@ -65,6 +65,9 @@ export class Watchdog {
             return
         }
         this.log("Starting watchdog")
+        if (this.locksDisabled()) {
+            this.log("DISABLE_WATCHDOG enabled, checks will run but outgoing operations will not be locked")
+        }
         this.startedAtUnix = Math.floor(Date.now() / 1000)
         const info = await this.lnd.GetInfo()
         this.lndPubKey = info.identityPubkey
@@ -256,9 +259,13 @@ export class Watchdog {
         const historyMismatch = newLatest > knownMaxIndex
         const deny = await this.checkBalanceUpdate(deltaLnd, deltaUsers)
         if (historyMismatch) {
-            getLogger({ component: 'bark' })("History mismatch detected in absolute update, locking outgoing operations")
-            this.lnd.LockOutgoingOperations()
-            return
+            if (this.locksDisabled()) {
+                getLogger({ component: 'bark' })("History mismatch detected in absolute update, DISABLE_WATCHDOG set so outgoing operations stay unlocked")
+            } else {
+                getLogger({ component: 'bark' })("History mismatch detected in absolute update, locking outgoing operations")
+                this.lnd.LockOutgoingOperations()
+                return
+            }
         }
         if (deny) {
             this.log("Balance mismatch detected in absolute update, but history is ok")
@@ -298,6 +305,8 @@ export class Watchdog {
             }
         }
     }
+
+    locksDisabled = () => this.settings.getSettings().watchDogSettings.disabled
 
     getTracker = async () => {
         const tracker = await this.storage.liquidityStorage.GetTrackedProvider('lnd', this.lndPubKey)
