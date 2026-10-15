@@ -148,7 +148,7 @@ export class Unlocker {
         const ln = this.GetLightningClient(lndCert, m)
         const pub = await this.waitForNodePub(state, ln)
         if (expectedPub && pub.toLowerCase() !== expectedPub.trim().toLowerCase()) {
-            throw new Error('LND wallet does not match the wallet this restore started. This restore cannot continue. Delete .restore_checkpoint, .restore_phrase_hash, and .restore_wallet_pub, reset LND and the database, then retry from a clean node.')
+            throw new Error('LND wallet does not match the wallet this restore started. This restore cannot continue. Delete .restore_checkpoint, .restore_phrase_hash, .restore_wallet_pub, and .restore_scb, reset LND and the database, then retry from a clean node.')
         }
         const encryptedSeed = this.EncryptWalletSeed(seed)
         this.nodePub = await this.saveSeed(state, ln, encryptedSeed.encryptedData)

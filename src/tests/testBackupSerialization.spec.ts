@@ -117,11 +117,11 @@ const generateAdminSettingRow = (base: number): AdminSettingRow => {
 
 const generateUserOfferRow = (base: number): UserOfferRow => {
     return {
-        app_user_id: randomHex,
-        offer_id: randomHex,
+        app_user_id: base === 0 ? 'alice' : randomHex,
+        offer_id: base === 0 ? 'alice' : randomHex,
         management_pubkey: randomHex,
         label: `test-user-offer-${base}`,
-        price_sats: 1000,
+        price_sats: base === 0 ? 1.5 : 1000,
         callback_url: ``,
         bearer_token: "random-bearer-token",
         rejectUnauthorized: true,
@@ -135,7 +135,7 @@ const generateProductRow = (base: number): ProductRow => {
         product_id: crypto.randomUUID(),
         owner_user_id: randomHex,
         name: `test-product-${base}`,
-        price_sats: 1000,
+        price_sats: base === 0 ? 1.5 : 1000,
     }
 }
 
@@ -169,8 +169,8 @@ const generateInviteTokenRow = (base: number): InviteTokenRow => {
 
 const generateAppUserDeviceRow = (base: number): AppUserDeviceRow => {
     return {
-        app_user_id: randomHex,
-        device_id: randomHex,
+        app_user_id: base === 0 ? 'alice' : randomHex,
+        device_id: crypto.randomUUID(),
         firebase_messaging_token: `fcm-token-${base}`,
     }
 }

@@ -9,6 +9,7 @@ import {
     customHostFingerprint,
     fingerprintOf,
     hostFingerprintMatches,
+    pinnedFingerprint,
     sftpAtomicReplace,
     sftpDownload,
     sftpUpload,
@@ -43,6 +44,7 @@ export default async (T: StorageTestBase) => {
     await testSolvePowAcceptsLowDifficulty(T)
     await testHostFingerprintMatch(T)
     await testCustomHostPin(T)
+    await testMalformedFingerprintRefused(T)
     await testFtpRestoreConfigPinsPortAndFingerprint(T)
     await testFtpRestoreCredsFallBackPerField(T)
     await testParseRestoreFtpFlags(T)
@@ -144,6 +146,41 @@ const testCustomHostPin = async (T: StorageTestBase) => {
     T.expect(customHostFingerprint('backup.lightning.pub', 2222, '')).to.equal(undefined)
     T.expect(customHostFingerprint('example.test', 22, '')).to.equal(undefined)
     T.d('managed host is pinned unless the operator set a fingerprint')
+}
+
+const testMalformedFingerprintRefused = async (T: StorageTestBase) => {
+    T.d('starting testMalformedFingerprintRefused')
+    T.expect(pinnedFingerprint(undefined)).to.equal(undefined)
+    T.expect(pinnedFingerprint('')).to.equal(undefined)
+    T.expect(pinnedFingerprint('SHA256:abc')).to.equal('abc')
+    const malformed = ['SHA256:', '===', 'SHA256:===']
+    for (const fp of malformed) {
+        let threw = false
+        try {
+            pinnedFingerprint(fp)
+        } catch (err: any) {
+            threw = true
+            T.expect(err.message).to.include('malformed')
+        }
+        T.expect(threw).to.equal(true)
+    }
+    let connectThrew = false
+    try {
+        await sftpDownload({ ...sftpCfg(1), hostFingerprint: 'SHA256:' }, 'manifest.json')
+    } catch (err: any) {
+        connectThrew = true
+        T.expect(err.message).to.include('malformed')
+    }
+    T.expect(connectThrew).to.equal(true)
+    let restoreThrew = false
+    try {
+        sftpConfigForFtpRestore({ host: 'sftp.example.com', port: 22, host_fingerprint: 'SHA256:' }, { username: 'u', password: 'p' })
+    } catch (err: any) {
+        restoreThrew = true
+        T.expect(err.message).to.include('malformed')
+    }
+    T.expect(restoreThrew).to.equal(true)
+    T.d('a malformed host fingerprint is refused rather than treated as unpinned')
 }
 
 const testFtpRestoreConfigPinsPortAndFingerprint = async (T: StorageTestBase) => {

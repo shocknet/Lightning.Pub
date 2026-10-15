@@ -26,18 +26,19 @@
 // The SCB travels in the indexes shard, so there is no separate fetch. A shard that marks
 // the node as having no channels skips ApplyScb. Otherwise restore fails unless ApplyScb
 // succeeds, and a failed SCB or settings reload leaves the checkpoint at LND_ACTIVE so the
-// same phrase can retry. COMPLETED is written only after restored settings reload. After
-// DB_COMMITTED or LND_ACTIVE, resume is allowed only when the checkpoint
-// is complete and consistent (phrase binding, LND still has a wallet, this DB is not
-// empty). LND_ACTIVE also requires .restore_wallet_pub from the first PostRestore and
-// refuses a different connected wallet. Incomplete or mismatched state is not resumable:
-// restore returns a cleanup error instead of continuing. Normal startup must not proceed
-// while HasOngoingRecovery() is true (any non-COMPLETED checkpoint file). Recovery
-// waiters are notified only after restoreInFlight is cleared.
+// same phrase can retry. The SCB bytes from the first successful fetch are stored in
+// .restore_scb so a later retry cannot apply a different (older) channel backup. COMPLETED
+// is written only after restored settings reload. After DB_COMMITTED or LND_ACTIVE, resume
+// is allowed only when the checkpoint is complete and consistent (phrase binding, LND still
+// has a wallet, this DB is not empty). LND_ACTIVE also requires .restore_wallet_pub from
+// the first PostRestore and refuses a different connected wallet. Incomplete or mismatched
+// state is not resumable: restore returns a cleanup error instead of continuing. Normal
+// startup must not proceed while HasOngoingRecovery() is true (any non-COMPLETED checkpoint
+// file). Recovery waiters are notified only after restoreInFlight is cleared.
 
 import { getLogger } from '../helpers/logger.js'
 import { deriveBackupKeys, LATEST_DERIVATION_VERSION, type DerivedKeys } from './derivation.js'
-import { cloudSftpConfig, customHostFingerprint, SftpAuthError, withSftpSession, type SftpConfig, type SFTPFile } from './sftpClient.js'
+import { cloudSftpConfig, customHostFingerprint, pinnedFingerprint, SftpAuthError, withSftpSession, type SftpConfig, type SFTPFile } from './sftpClient.js'
 import { DEFAULT_SFTP_PORT } from '../main/adminNodeSettings.js'
 import crypto from 'crypto'
 import fs from 'fs'
@@ -51,6 +52,7 @@ import {
     decryptTableRows,
     BackupData,
     decodeIndexesRow,
+    NO_CHANNELS_SCB,
 } from './segments.js'
 import { BACKUP_MANIFEST_FILENAME, BACKUP_RESTORE_ORDER, parseBackupManifest, type BackupTableId } from './backupTables.js'
 import SettingsManager from '../main/settingsManager.js'
@@ -67,7 +69,8 @@ export type RestoreResult = {
 const CHECKPOINT_FILE = ".restore_checkpoint"
 const PHRASE_HASH_FILE = ".restore_phrase_hash"
 const WALLET_PUB_FILE = ".restore_wallet_pub"
-const ABANDON_RESTORE = 'Delete .restore_checkpoint, .restore_phrase_hash, and .restore_wallet_pub, reset LND and the database, then retry from a clean node.'
+const SCB_FILE = ".restore_scb"
+const ABANDON_RESTORE = 'Delete .restore_checkpoint, .restore_phrase_hash, .restore_wallet_pub, and .restore_scb, reset LND and the database, then retry from a clean node.'
 const cannotResume = (why: string) => `${why} This restore cannot continue. ${ABANDON_RESTORE}`
 enum RestoreCheckpoint {
     STARTED = 'STARTED', // backup fetched and decrypted, phrase bound, about to import DB and init LND
@@ -116,6 +119,11 @@ export class RestoreManager {
     getWalletPubPath = () => {
         const dataDir = this.settings.getStorageSettings().dataDir
         return dataDir ? path.join(dataDir, WALLET_PUB_FILE) : WALLET_PUB_FILE
+    }
+
+    getScbPath = () => {
+        const dataDir = this.settings.getStorageSettings().dataDir
+        return dataDir ? path.join(dataDir, SCB_FILE) : SCB_FILE
     }
 
     updateCheckpoint = (current: RestoreCheckpoint) => {
@@ -219,6 +227,27 @@ export class RestoreManager {
         this.unlinkIfExists(this.getWalletPubPath())
     }
 
+    bindRestoreScb = (scb: Uint8Array | null) => {
+        fs.writeFileSync(this.getScbPath(), Buffer.from(scb ?? NO_CHANNELS_SCB))
+    }
+
+    /** Bound SCB from the first fetch. undefined if this restore never stored one. */
+    getBoundScb = (): Uint8Array | null | undefined => {
+        const scbPath = this.getScbPath()
+        if (!fs.existsSync(scbPath)) {
+            return undefined
+        }
+        const stored = new Uint8Array(fs.readFileSync(scbPath))
+        if (stored.length === NO_CHANNELS_SCB.length && stored[0] === NO_CHANNELS_SCB[0]) {
+            return null
+        }
+        return stored
+    }
+
+    clearScbBinding = () => {
+        this.unlinkIfExists(this.getScbPath())
+    }
+
     private unlinkIfExists = (filePath: string) => {
         try {
             fs.unlinkSync(filePath)
@@ -265,12 +294,19 @@ export class RestoreManager {
         }
         const seed = normalizeRestorePhrase(req.phrase).split(' ')
         const backupData = await this.loadBackup(req)
-        const { addressesCount, scb } = backupData.indexes[0]
+        const { addressesCount } = backupData.indexes[0]
+        let { scb } = backupData.indexes[0]
         this.log("addresses count: " + addressesCount)
         let restoredEntries = 0
         let macaroon: string | undefined
         if (resumable) {
             this.log("LND already recovered and DB already committed, skipping to SCB restore")
+            const boundScb = this.getBoundScb()
+            if (boundScb !== undefined) {
+                scb = boundScb
+            } else {
+                this.bindRestoreScb(scb)
+            }
         } else {
             const recoveryWindow = Math.max(1000, addressesCount * 10)
             const imported = await this.importAndRecoverLnd(req.phrase, backupData, seed, recoveryWindow)
@@ -286,6 +322,7 @@ export class RestoreManager {
         this.updateCheckpoint(RestoreCheckpoint.COMPLETED)
         this.clearPhraseBinding()
         this.clearWalletBinding()
+        this.clearScbBinding()
         this.log("RestoreFromSource completed")
         return { entries_restored: restoredEntries, scb_restored: !!scb, success: true, error: '' }
     }
@@ -350,6 +387,7 @@ export class RestoreManager {
         // phrase or set the node up fresh. A local folder or FTP login does not prove the phrase,
         // only decryption does.
         this.bindRestorePhrase(phrase)
+        this.bindRestoreScb(backupData.indexes[0].scb)
         this.clearWalletBinding()
         this.updateCheckpoint(RestoreCheckpoint.STARTED)
         const imported = await this.storage.StartTransaction(async tx => {
@@ -561,6 +599,7 @@ export function sftpConfigForFtpRestore(
             'Set host_fingerprint (SHA256:...) after verifying it on the server with: ssh-keygen -lf <host key>.pub',
         )
     }
+    pinnedFingerprint(hostFingerprint)
     return {
         host,
         port,

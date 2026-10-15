@@ -107,6 +107,21 @@ export function normalizeFingerprint(fp: string): string {
     return fp.trim().replace(/^SHA256:/, '').replace(/=+$/, '')
 }
 
+/**
+ * Fingerprint to pin, or undefined when the operator left it unset.
+ * A configured value that normalizes to empty (e.g. "SHA256:") used to be treated as
+ * unpinned and accepted any host key. That is a misconfiguration, not an open pin.
+ */
+export function pinnedFingerprint(configured: string | undefined): string | undefined {
+    const trimmed = configured?.trim() || ''
+    if (!trimmed) return undefined
+    const normalized = normalizeFingerprint(trimmed)
+    if (!normalized) {
+        throw new Error('malformed SFTP host key fingerprint')
+    }
+    return normalized
+}
+
 export function fingerprintOf(hostKey: Buffer): string {
     return crypto.createHash('sha256').update(hostKey).digest('base64').replace(/=+$/, '')
 }
@@ -156,7 +171,7 @@ function closeClient(client: Client | undefined, force: boolean) {
 function connectSftp(config: SftpConfig, onClient?: (client: Client) => void): Promise<{ client: Client, sftp: SFTPWrapper }> {
     const port = config.port ?? 22
     const target = `${config.host}:${port}`
-    const expected = config.hostFingerprint ? normalizeFingerprint(config.hostFingerprint) : undefined
+    const expected = pinnedFingerprint(config.hostFingerprint)
     let mismatchedKey: string | undefined
     const readyTimeoutMs = config.readyTimeoutMs ?? SFTP_READY_TIMEOUT_MS
 

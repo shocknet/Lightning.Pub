@@ -127,6 +127,7 @@ export default async (T: StorageTestBase) => {
     await testWrongPhraseLeavesNoCheckpoint(T)
     await testScbFailureKeepsCheckpoint(T)
     await testScbRetryCompletes(T)
+    await testScbRetryLocksFirstBackup(T)
     await testCompletedDoesNotHangStartupWaiter(T)
     await testHasOngoingRecovery(T)
     await testConcurrentRestoreRejected(T)
@@ -423,7 +424,7 @@ const testResumeWalletMismatch = async (T: StorageTestBase) => {
             Restore: async () => { movedOn = true; return { adminMacaroon: '' } },
             PostRestore: async (_seed: string[], _mac: string | undefined, expectedPub?: string | null) => {
                 if (expectedPub && expectedPub !== OTHER_WALLET_PUB) {
-                    throw new Error('LND wallet does not match the wallet this restore started. This restore cannot continue. Delete .restore_checkpoint, .restore_phrase_hash, and .restore_wallet_pub, reset LND and the database, then retry from a clean node.')
+                    throw new Error('LND wallet does not match the wallet this restore started. This restore cannot continue. Delete .restore_checkpoint, .restore_phrase_hash, .restore_wallet_pub, and .restore_scb, reset LND and the database, then retry from a clean node.')
                 }
                 movedOn = true
                 return OTHER_WALLET_PUB
@@ -519,6 +520,7 @@ const testScbFailureKeepsCheckpoint = async (T: StorageTestBase) => {
         T.expect(result.error || '').to.contain('ApplyScb failed')
         T.expect(fs.readFileSync(restore.getCheckpointPath(), 'utf8')).to.equal('LND_ACTIVE')
         T.expect(fs.existsSync(restore.getPhraseHashPath())).to.equal(true)
+        T.expect(fs.existsSync(restore.getScbPath())).to.equal(true)
         T.expect(fs.readFileSync(restore.getWalletPubPath(), 'utf8').trim()).to.equal(TEST_WALLET_PUB)
         T.expect(restore.HasOngoingRecovery()).to.equal(true)
         T.expect(restore.IsRecoveryActive()).to.equal(true)
@@ -579,6 +581,7 @@ const testScbRetryCompletes = async (T: StorageTestBase) => {
         T.expect(fs.readFileSync(restore.getCheckpointPath(), 'utf8')).to.equal('COMPLETED')
         T.expect(fs.existsSync(restore.getPhraseHashPath())).to.equal(false)
         T.expect(fs.existsSync(restore.getWalletPubPath())).to.equal(false)
+        T.expect(fs.existsSync(restore.getScbPath())).to.equal(false)
         T.expect(restore.HasOngoingRecovery()).to.equal(false)
         T.expect(restore.IsRecoveryActive()).to.equal(false)
     } finally {
@@ -586,6 +589,59 @@ const testScbRetryCompletes = async (T: StorageTestBase) => {
         fs.rmSync(dataDir, { recursive: true, force: true })
         fs.rmSync(dir, { recursive: true, force: true })
     }
+}
+
+const testScbRetryLocksFirstBackup = async (T: StorageTestBase) => {
+    T.d('starting testScbRetryLocksFirstBackup')
+    const dir = tempBackupDir()
+    const dest = await openSecondStorage()
+    const dataDir = dest.getStorageSettings().dataDir
+    const olderScb = Buffer.from('older-channel-backup'.repeat(40))
+    try {
+        const sourceSettings = new SettingsManager(T.storage)
+        await sourceSettings.InitSettings()
+        await seedDialtone(T, sourceSettings)
+        await writeLocalBackup(T, dir, 4, SAMPLE_SCB)
+        const settings = new SettingsManager(dest)
+        await settings.InitSettings()
+        await markDbImported(dest)
+        const applied: Buffer[] = []
+        const unlocker = {
+            WalletExists: async () => true,
+            Restore: async () => { throw new Error('should not Restore on resume') },
+            PostRestore: async () => TEST_WALLET_PUB,
+            ApplyScb: async (scb: Buffer) => {
+                applied.push(Buffer.from(scb))
+                if (applied.length <= 2) {
+                    throw new Error('ApplyScb failed')
+                }
+            },
+        } as unknown as Unlocker
+        const restore = new RestoreManager(dest, settings, unlocker)
+        fs.mkdirSync(dataDir, { recursive: true })
+        fs.writeFileSync(restore.getCheckpointPath(), 'DB_COMMITTED')
+        fs.writeFileSync(restore.getPhraseHashPath(), hashRestorePhrase(TEST_PHRASE))
+        const failed = await restore.RestoreFromSource({
+            phrase: TEST_PHRASE,
+            source: { type: WizardTypes.RestoreRequest_source_type.LOCAL_PATH, local_path: dir },
+        })
+        T.expect(failed.success).to.equal(false)
+        await rewriteTableShard(dir, 'indexes', [encodeIndexesRow({ addressesCount: 4, scb: olderScb })])
+        const ok = await restore.RestoreFromSource({
+            phrase: TEST_PHRASE,
+            source: { type: WizardTypes.RestoreRequest_source_type.LOCAL_PATH, local_path: dir },
+        })
+        T.expect(ok.success).to.equal(true)
+        T.expect(applied.length).to.be.greaterThan(2)
+        T.expect(applied[applied.length - 1].equals(SAMPLE_SCB)).to.equal(true)
+        T.expect(applied.some(scb => scb.equals(olderScb))).to.equal(false)
+        T.expect(fs.existsSync(restore.getScbPath())).to.equal(false)
+    } finally {
+        dest.Stop()
+        fs.rmSync(dataDir, { recursive: true, force: true })
+        fs.rmSync(dir, { recursive: true, force: true })
+    }
+    T.d('a retry keeps the SCB from the first attempt even if the source later has an older one')
 }
 
 const testCompletedDoesNotHangStartupWaiter = async (T: StorageTestBase) => {

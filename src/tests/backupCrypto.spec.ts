@@ -1,7 +1,14 @@
 import crypto from 'crypto'
 import { deriveBackupKeys, LATEST_DERIVATION_VERSION } from '../services/backup/derivation.js'
 import { encryptPayload, decryptPayload } from '../services/backup/encryption.js'
-import { encryptTableRows, decryptTableRows, encodeBalanceRow, decodeBalanceRow, BalanceRow } from '../services/backup/segments.js'
+import { concatUint8Arrays, encodeTLbV, parseTLbV } from '../services/helpers/tlv.js'
+import {
+    encryptTableRows, decryptTableRows,
+    encodeBalanceRow, decodeBalanceRow, BalanceRow,
+    encodeUserOfferRow, decodeUserOfferRow, UserOfferRow,
+    encodeAppUserDeviceRow, decodeAppUserDeviceRow,
+    encodeProductRow, decodeProductRow,
+} from '../services/backup/segments.js'
 import { StorageTestBase } from './testBase.js'
 
 export const ignore = false
@@ -17,6 +24,8 @@ export default async (T: StorageTestBase) => {
     await testEncryptDecryptRejectsWrongKey(T)
     await testEncryptDecryptTableRows(T)
     await testLargeBackupIntegersRoundTrip(T)
+    await testNonHexIdsAndFractionalPriceRoundTrip(T)
+    await testLargeTableDoesNotOverflow(T)
 }
 
 const testDeriveKeysStable = async (T: StorageTestBase) => {
@@ -91,4 +100,48 @@ const testLargeBackupIntegersRoundTrip = async (T: StorageTestBase) => {
     const enc = encryptTableRows(rows.map(encodeBalanceRow), keys.encKey)
     T.expect(decryptTableRows(enc, keys.encKey).map(decodeBalanceRow)).to.deep.equal(rows)
     T.d('balances above 2^32 round-trip')
+}
+
+const testNonHexIdsAndFractionalPriceRoundTrip = async (T: StorageTestBase) => {
+    T.d('starting testNonHexIdsAndFractionalPriceRoundTrip')
+    const keys = await deriveBackupKeys(TEST_PHRASE)
+    const offer: UserOfferRow = {
+        app_user_id: 'alice',
+        offer_id: 'alice',
+        management_pubkey: 'aa'.repeat(16),
+        label: 'coffee',
+        price_sats: 1.5,
+        callback_url: '',
+        bearer_token: '',
+        rejectUnauthorized: true,
+        blind: false,
+        payer_data: null,
+    }
+    const device = {
+        app_user_id: 'alice',
+        device_id: crypto.randomUUID(),
+        firebase_messaging_token: 'token',
+    }
+    const product = {
+        product_id: crypto.randomUUID(),
+        owner_user_id: 'alice',
+        name: 'sticker',
+        price_sats: 1.5,
+    }
+    T.expect(decodeUserOfferRow(encodeUserOfferRow(offer))).to.deep.equal(offer)
+    T.expect(decodeAppUserDeviceRow(encodeAppUserDeviceRow(device))).to.deep.equal(device)
+    T.expect(decodeProductRow(encodeProductRow(product))).to.deep.equal(product)
+    const enc = encryptTableRows([encodeUserOfferRow(offer)], keys.encKey)
+    T.expect(decryptTableRows(enc, keys.encKey).map(decodeUserOfferRow)).to.deep.equal([offer])
+    T.d('non-hex IDs and fractional prices round-trip')
+}
+
+const testLargeTableDoesNotOverflow = async (T: StorageTestBase) => {
+    T.d('starting testLargeTableDoesNotOverflow')
+    const rows = Array.from({ length: 160_000 }, () => new Uint8Array([1]))
+    const encoded = encodeTLbV({ 3: rows })
+    const parsed = parseTLbV(encoded)
+    T.expect(parsed[3].length).to.equal(160_000)
+    T.expect(concatUint8Arrays(rows).length).to.equal(160_000)
+    T.d('a 160k-row TLbV payload encodes without overflowing')
 }
