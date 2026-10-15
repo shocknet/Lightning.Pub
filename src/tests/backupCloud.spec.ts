@@ -54,6 +54,7 @@ export default async (T: StorageTestBase) => {
     await testSftpStalledDownloadTimesOut(T)
     await testSftpStalledUploadTimesOut(T)
     await testSftpSlowUploadSurvivesIdle(T)
+    await testSftpSlowUploadHitsOpDeadline(T)
     await testSftpDownloadSizeBound(T)
     await testSftpSessionReusesConnection(T)
     await testSftpSessionSurvivesFailedUpload(T)
@@ -493,6 +494,29 @@ const testSftpSlowUploadSurvivesIdle = async (T: StorageTestBase) => {
         await stop()
     }
     T.d('a slow upload that keeps moving is not killed by the idle timeout')
+}
+
+const testSftpSlowUploadHitsOpDeadline = async (T: StorageTestBase) => {
+    T.d('starting testSftpSlowUploadHitsOpDeadline')
+    const { port, stop } = await startSlowWriteSftp(80)
+    try {
+        const start = Date.now()
+        let err: unknown
+        try {
+            await sftpUpload(
+                sftpCfg(port, { idleTimeoutMs: 2000, opTimeoutMs: 200 }),
+                'applications.enc',
+                Buffer.alloc(64 * 1024, 9),
+            )
+        } catch (e) {
+            err = e
+        }
+        T.expect(err).to.be.instanceOf(SftpTimeoutError)
+        T.expect(Date.now() - start).to.be.lessThan(1500)
+    } finally {
+        await stop()
+    }
+    T.d('a slow upload that exceeds the operation deadline is cancelled')
 }
 
 const testSftpDownloadSizeBound = async (T: StorageTestBase) => {

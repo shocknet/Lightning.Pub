@@ -13,9 +13,10 @@
 // connection destroys the socket and fails later calls on that session immediately,
 // but the callback is still awaited so publish cleanup finishes before the next batch.
 // Every connect/upload/download is bounded: handshake readyTimeout, a hard deadline that
-// covers connect, then an idle timeout while bytes are moving (uploads and downloads),
-// and a max download size. A server that authenticates then stalls is destroyed rather
-// than left hanging. Idle resets on real transfer progress so large slow links can finish.
+// covers the whole session (connect plus transfer), an idle timeout while bytes are
+// moving, and a max download size. A server that authenticates then stalls is destroyed
+// rather than left hanging. Idle resets on transfer progress so a slow link can finish
+// unless it hits the session deadline, which cancels the operation as a failure.
 
 import crypto from 'crypto'
 import { Client, SFTPWrapper } from 'ssh2'
@@ -25,7 +26,7 @@ const log = getLogger({ component: 'sftpBackup' })
 
 /** SSH handshake + auth. ssh2's readyTimeout. */
 export const SFTP_READY_TIMEOUT_MS = 15_000
-/** Hard deadline covering connect; cleared once the SFTP session is ready (idle bounds the transfer). */
+/** Hard deadline for one SFTP session (connect plus transfer). Cancelled as a failure. */
 export const SFTP_OP_TIMEOUT_MS = 60_000
 /** Abort a transfer that has stopped sending or receiving bytes. */
 export const SFTP_IDLE_TIMEOUT_MS = 20_000
@@ -62,7 +63,7 @@ export class SftpAuthError extends Error { }
 /** Handshake or transfer did not finish before the deadline; the client was destroyed. */
 export class SftpTimeoutError extends Error {
     constructor(target: string, ms: number) {
-        super(`SFTP operation timed out after ${ms}ms connecting to ${target}`)
+        super(`SFTP operation timed out after ${ms}ms for ${target}`)
         this.name = 'SftpTimeoutError'
     }
 }
@@ -309,11 +310,11 @@ function abortFallback(): Error {
 }
 
 /**
- * Open one SSH login, run `fn`, then close. Connect is bounded by opTimeout; after that
- * idle progress bounds the session so a multi-file publish is not killed by wall clock.
- * A timeout or socket error fails the in-flight call and every later call on this session,
- * then waits for `fn` to return. Cleanup inside `fn` therefore finishes before the caller
- * starts another publish.
+ * Open one SSH login, run `fn`, then close. The session is bounded by opTimeout for
+ * connect and transfer; idle progress still aborts a stall sooner. A timeout or socket
+ * error fails the in-flight call and every later call on this session, then waits for
+ * `fn` to return. Cleanup inside `fn` therefore finishes before the caller starts another
+ * publish.
  */
 export async function withSftpSession<T>(config: SftpConfig, fn: (session: SftpSession) => Promise<T>): Promise<T> {
     const target = sftpTarget(config)
@@ -373,11 +374,6 @@ export async function withSftpSession<T>(config: SftpConfig, fn: (session: SftpS
                         client = undefined
                         done(aborted.err)
                         return
-                    }
-                    // Transfer length is bounded by idle progress, not a wall clock that kills slow links.
-                    if (opTimer) {
-                        clearTimeout(opTimer)
-                        opTimer = undefined
                     }
                     idle!.touch()
                     client.on('error', (err: Error) => {
