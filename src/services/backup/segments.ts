@@ -7,7 +7,6 @@
 // included. Restore favors non-inflation over exact replay. Balance is already
 // debited at send time; after SCB restore LND's payment DB is gone so payment
 // status cannot be verified. Refunding on restore would be gameable.
-import { concatBytes } from '@noble/hashes/utils'
 import type { User } from '../storage/entity/User.js'
 import type { Application } from '../storage/entity/Application.js'
 import type { ApplicationUser } from '../storage/entity/ApplicationUser.js'
@@ -20,7 +19,7 @@ import type { DebitAccess } from '../storage/entity/DebitAccess.js'
 import type { InviteToken } from '../storage/entity/InviteToken.js'
 import type { AppUserDevice } from '../storage/entity/AppUserDevice.js'
 import { encryptPayload, decryptPayload } from './encryption.js'
-import { encodeTLbV, encodeTLV, integerFromUint8Array, parseTLbV, parseTLV, uintToBytes, utf8Decoder, utf8Encoder, type TLV } from '../helpers/tlv.js'
+import { concatUint8Arrays, encodeTLbV, encodeTLV, integerFromUint8Array, parseTLbV, parseTLV, uintToBytes, utf8Decoder, utf8Encoder, type TLV } from '../helpers/tlv.js'
 
 // admin_settings keys to strip — machine-local, wizard re-configures on restore
 export const STRIPPED_SETTINGS_KEYS = [
@@ -40,13 +39,6 @@ const numberFromBytes = (data: Uint8Array): number => integerFromUint8Array(data
 const stringToBytes = (value: string): Uint8Array => utf8Encoder.encode(value)
 const stringFromBytes = (data: Uint8Array): string => utf8Decoder.decode(data)
 
-const hexToBytes = (value: string): Uint8Array => {
-    return new Uint8Array(Buffer.from(value, 'hex'))
-}
-const hexFromBytes = (data: Uint8Array): string => {
-    return Buffer.from(data).toString('hex')
-}
-
 const splitChunk = (data: Uint8Array, chunkSize: number): Uint8Array[] => {
     const chunks: Uint8Array[] = []
     for (let i = 0; i < data.length; i += chunkSize) {
@@ -59,8 +51,27 @@ const joinChunks = (chunks: Uint8Array[] | undefined): Uint8Array => {
     if (!chunks) {
         return new Uint8Array()
     }
-    return concatBytes(...chunks)
+    return concatUint8Arrays(chunks)
 }
+
+const backupIdToBytes = (value: string): Uint8Array[] => splitChunk(stringToBytes(value), 255)
+const backupIdFromBytes = (chunks: Uint8Array[] | undefined): string => stringFromBytes(joinChunks(chunks))
+
+const priceToBytes = (value: number): Uint8Array => {
+    if (!Number.isFinite(value)) {
+        throw new Error(`price out of range: ${value}`)
+    }
+    return stringToBytes(String(value))
+}
+const priceFromBytes = (data: Uint8Array): number => {
+    const n = Number(stringFromBytes(data))
+    if (!Number.isFinite(n)) {
+        throw new Error(`invalid price: ${stringFromBytes(data)}`)
+    }
+    return n
+}
+
+const PER_TABLE_PAYLOAD_VERSION = 1
 
 export type BackupData = {
     indexes: IndexesRow[]
@@ -130,7 +141,7 @@ export const mapBalanceBackupRow = (user: User): BalanceRow => ({
 
 export const encodeBalanceRow = (row: BalanceRow): Uint8Array => {
     const tlv: TLV = {
-        2: [hexToBytes(row.user_id)],
+        2: backupIdToBytes(row.user_id),
         3: [numberToBytes(row.balance_sats)],
         4: [boolToBytes(row.locked)],
     }
@@ -140,7 +151,7 @@ export const encodeBalanceRow = (row: BalanceRow): Uint8Array => {
 export const decodeBalanceRow = (data: Uint8Array): BalanceRow => {
     const tlv = parseTLV(data)
     return {
-        user_id: hexFromBytes(tlv[2][0]),
+        user_id: backupIdFromBytes(tlv[2]),
         balance_sats: numberFromBytes(tlv[3][0]),
         locked: boolFromBytes(tlv[4][0]),
     }
@@ -167,7 +178,7 @@ export const mapTrackedProviderBackupRow = (provider: TrackedProvider): TrackedP
 export const encodeTrackedProviderRow = (row: TrackedProviderRow): Uint8Array => {
     const tlv: TLV = {
         2: splitChunk(stringToBytes(row.provider_type), 255),
-        3: [hexToBytes(row.provider_pubkey)],
+        3: backupIdToBytes(row.provider_pubkey),
         4: [numberToBytes(row.latest_balance)],
         5: [numberToBytes(row.latest_distruption_at_unix)],
         6: [numberToBytes(row.latest_checked_height)],
@@ -179,16 +190,14 @@ export const decodeTrackedProviderRow = (data: Uint8Array): TrackedProviderRow =
     const tlv = parseTLV(data)
     return {
         provider_type: stringFromBytes(joinChunks(tlv[2])),
-        provider_pubkey: hexFromBytes(tlv[3][0]),
+        provider_pubkey: backupIdFromBytes(tlv[3]),
         latest_balance: numberFromBytes(tlv[4][0]),
         latest_distruption_at_unix: numberFromBytes(tlv[5][0]),
         latest_checked_height: numberFromBytes(tlv[6][0]),
     }
 }
 
-// --- Per-table .enc framing (v1): version byte + repeated row blobs (same TLV shape as identity list fields) ---
-
-const PER_TABLE_PAYLOAD_VERSION = 1
+// --- Per-table .enc framing: version byte + repeated row blobs ---
 
 export const encryptTableRows = (rowEncodings: Uint8Array[], encKey: Buffer): Buffer => {
     const tlv: TLV = {
@@ -229,17 +238,17 @@ export const mapAppBackupRow = (app: Application): ApplicationRow => ({
 
 export const encodeApplicationRow = (row: ApplicationRow): Uint8Array => {
     const tlv: TLV = {
-        2: [hexToBytes(row.app_id)],
+        2: backupIdToBytes(row.app_id),
         3: splitChunk(stringToBytes(row.name), 255),
-        4: [hexToBytes(row.owner_user_id)],
+        4: backupIdToBytes(row.owner_user_id),
         5: [boolToBytes(row.allow_user_creation)],
     }
 
     if (row.nostr_private_key) {
-        tlv[6] = [hexToBytes(row.nostr_private_key)]
+        tlv[6] = backupIdToBytes(row.nostr_private_key)
     }
     if (row.nostr_public_key) {
-        tlv[7] = [hexToBytes(row.nostr_public_key)]
+        tlv[7] = backupIdToBytes(row.nostr_public_key)
     }
     return encodeTLV(tlv)
 }
@@ -247,12 +256,12 @@ export const encodeApplicationRow = (row: ApplicationRow): Uint8Array => {
 export const decodeApplicationRow = (data: Uint8Array): ApplicationRow => {
     const tlv = parseTLV(data)
     return {
-        app_id: hexFromBytes(tlv[2][0]),
+        app_id: backupIdFromBytes(tlv[2]),
         name: stringFromBytes(joinChunks(tlv[3])),
-        owner_user_id: hexFromBytes(tlv[4][0]),
+        owner_user_id: backupIdFromBytes(tlv[4]),
         allow_user_creation: boolFromBytes(tlv[5][0]),
-        nostr_private_key: tlv[6] ? hexFromBytes(tlv[6][0]) : null,
-        nostr_public_key: tlv[7] ? hexFromBytes(tlv[7][0]) : null,
+        nostr_private_key: tlv[6] ? backupIdFromBytes(tlv[6]) : null,
+        nostr_public_key: tlv[7] ? backupIdFromBytes(tlv[7]) : null,
     }
 }
 
@@ -279,14 +288,14 @@ export const mapAppUserBackupRow = (appUser: ApplicationUser): ApplicationUserRo
 
 export const encodeApplicationUserRow = (row: ApplicationUserRow): Uint8Array => {
     const tlv: TLV = {
-        2: [hexToBytes(row.user_id)],
-        3: [hexToBytes(row.app_id)],
+        2: backupIdToBytes(row.user_id),
+        3: backupIdToBytes(row.app_id),
         4: splitChunk(stringToBytes(row.identifier), 255),
         5: splitChunk(stringToBytes(row.callback_url), 255),
-        6: [hexToBytes(row.topic_id)],
+        6: backupIdToBytes(row.topic_id),
     }
     if (row.nostr_public_key) {
-        tlv[7] = [hexToBytes(row.nostr_public_key)]
+        tlv[7] = backupIdToBytes(row.nostr_public_key)
     }
     // TLV 8 is omitted when false so backups from before this field still decode.
     if (row.owner_only_clink) {
@@ -298,12 +307,12 @@ export const encodeApplicationUserRow = (row: ApplicationUserRow): Uint8Array =>
 export const decodeApplicationUserRow = (data: Uint8Array): ApplicationUserRow => {
     const tlv = parseTLV(data)
     return {
-        user_id: hexFromBytes(tlv[2][0]),
-        app_id: hexFromBytes(tlv[3][0]),
+        user_id: backupIdFromBytes(tlv[2]),
+        app_id: backupIdFromBytes(tlv[3]),
         identifier: stringFromBytes(joinChunks(tlv[4])),
         callback_url: stringFromBytes(joinChunks(tlv[5])),
-        topic_id: hexFromBytes(tlv[6][0]),
-        nostr_public_key: tlv[7] ? hexFromBytes(tlv[7][0]) : null,
+        topic_id: backupIdFromBytes(tlv[6]),
+        nostr_public_key: tlv[7] ? backupIdFromBytes(tlv[7]) : null,
         owner_only_clink: tlv[8] ? boolFromBytes(tlv[8][0]) : false,
     }
 }
@@ -367,11 +376,11 @@ export const mapUserOfferBackupRow = (userOffer: UserOffer): UserOfferRow => ({
 
 export const encodeUserOfferRow = (row: UserOfferRow): Uint8Array => {
     const tlv: TLV = {
-        2: [hexToBytes(row.app_user_id)],
-        3: [hexToBytes(row.offer_id)],
-        4: [hexToBytes(row.management_pubkey)],
+        2: backupIdToBytes(row.app_user_id),
+        3: backupIdToBytes(row.offer_id),
+        4: backupIdToBytes(row.management_pubkey),
         5: splitChunk(stringToBytes(row.label), 255),
-        6: [numberToBytes(row.price_sats)],
+        6: [priceToBytes(row.price_sats)],
         7: splitChunk(stringToBytes(row.callback_url), 255),
         8: splitChunk(stringToBytes(row.bearer_token), 255),
         9: [boolToBytes(row.rejectUnauthorized)],
@@ -387,11 +396,11 @@ export const encodeUserOfferRow = (row: UserOfferRow): Uint8Array => {
 export const decodeUserOfferRow = (data: Uint8Array): UserOfferRow => {
     const tlv = parseTLV(data)
     return {
-        app_user_id: hexFromBytes(tlv[2][0]),
-        offer_id: hexFromBytes(tlv[3][0]),
-        management_pubkey: hexFromBytes(tlv[4][0]),
+        app_user_id: backupIdFromBytes(tlv[2]),
+        offer_id: backupIdFromBytes(tlv[3]),
+        management_pubkey: backupIdFromBytes(tlv[4]),
         label: stringFromBytes(joinChunks(tlv[5])),
-        price_sats: numberFromBytes(tlv[6][0]),
+        price_sats: priceFromBytes(tlv[6][0]),
         callback_url: stringFromBytes(joinChunks(tlv[7])),
         bearer_token: stringFromBytes(joinChunks(tlv[8])),
         rejectUnauthorized: boolFromBytes(tlv[9][0]),
@@ -418,9 +427,9 @@ export const encodeProductRow = (row: ProductRow): Uint8Array => {
     const tlv: TLV = {
         // product_id is a TypeORM uuid (hyphenated), not raw hex
         2: splitChunk(stringToBytes(row.product_id), 255),
-        3: [hexToBytes(row.owner_user_id)],
+        3: backupIdToBytes(row.owner_user_id),
         4: splitChunk(stringToBytes(row.name), 255),
-        5: [numberToBytes(row.price_sats)],
+        5: [priceToBytes(row.price_sats)],
     }
     return encodeTLV(tlv)
 }
@@ -429,9 +438,9 @@ export const decodeProductRow = (data: Uint8Array): ProductRow => {
     const tlv = parseTLV(data)
     return {
         product_id: stringFromBytes(joinChunks(tlv[2])),
-        owner_user_id: hexFromBytes(tlv[3][0]),
+        owner_user_id: backupIdFromBytes(tlv[3]),
         name: stringFromBytes(joinChunks(tlv[4])),
-        price_sats: numberFromBytes(tlv[5][0]),
+        price_sats: priceFromBytes(tlv[5][0]),
     }
 }
 
@@ -451,8 +460,8 @@ export const mapManagementGrantBackupRow = (managementGrant: ManagementGrant): M
 
 export const encodeManagementGrantRow = (row: ManagementGrantRow): Uint8Array => {
     const tlv: TLV = {
-        2: [hexToBytes(row.app_user_id)],
-        3: [hexToBytes(row.app_pubkey)],
+        2: backupIdToBytes(row.app_user_id),
+        3: backupIdToBytes(row.app_pubkey),
         4: [numberToBytes(row.expires_at_unix)],
         5: [boolToBytes(row.banned)],
     }
@@ -462,8 +471,8 @@ export const encodeManagementGrantRow = (row: ManagementGrantRow): Uint8Array =>
 export const decodeManagementGrantRow = (data: Uint8Array): ManagementGrantRow => {
     const tlv = parseTLV(data)
     return {
-        app_user_id: hexFromBytes(tlv[2][0]),
-        app_pubkey: hexFromBytes(tlv[3][0]),
+        app_user_id: backupIdFromBytes(tlv[2]),
+        app_pubkey: backupIdFromBytes(tlv[3]),
         expires_at_unix: numberFromBytes(tlv[4][0]),
         banned: boolFromBytes(tlv[5][0]),
     }
@@ -486,8 +495,8 @@ export const mapDebitAccessBackupRow = (debitAccess: DebitAccess): DebitAccessRo
 
 export const encodeDebitAccessRow = (row: DebitAccessRow): Uint8Array => {
     const tlv: TLV = {
-        2: [hexToBytes(row.app_user_id)],
-        3: [hexToBytes(row.npub)],
+        2: backupIdToBytes(row.app_user_id),
+        3: backupIdToBytes(row.npub),
         4: [boolToBytes(row.authorized)],
         5: [numberToBytes(row.total_debits)],
     }
@@ -501,8 +510,8 @@ export const encodeDebitAccessRow = (row: DebitAccessRow): Uint8Array => {
 export const decodeDebitAccessRow = (data: Uint8Array): DebitAccessRow => {
     const tlv = parseTLV(data)
     return {
-        app_user_id: hexFromBytes(tlv[2][0]),
-        npub: hexFromBytes(tlv[3][0]),
+        app_user_id: backupIdFromBytes(tlv[2]),
+        npub: backupIdFromBytes(tlv[3]),
         authorized: boolFromBytes(tlv[4][0]),
         total_debits: numberFromBytes(tlv[5][0]),
         rules: tlv[6] ? JSON.parse(stringFromBytes(joinChunks(tlv[6]))) : null,
@@ -525,8 +534,8 @@ export const mapInviteTokenBackupRow = (inviteToken: InviteToken): InviteTokenRo
 
 export const encodeInviteTokenRow = (row: InviteTokenRow): Uint8Array => {
     const tlv: TLV = {
-        2: [hexToBytes(row.inviteToken)],
-        3: [hexToBytes(row.app_id)],
+        2: backupIdToBytes(row.inviteToken),
+        3: backupIdToBytes(row.app_id),
         4: [boolToBytes(row.used)],
     }
     if (row.sats) {
@@ -538,8 +547,8 @@ export const encodeInviteTokenRow = (row: InviteTokenRow): Uint8Array => {
 export const decodeInviteTokenRow = (data: Uint8Array): InviteTokenRow => {
     const tlv = parseTLV(data)
     return {
-        inviteToken: hexFromBytes(tlv[2][0]),
-        app_id: hexFromBytes(tlv[3][0]),
+        inviteToken: backupIdFromBytes(tlv[2]),
+        app_id: backupIdFromBytes(tlv[3]),
         used: boolFromBytes(tlv[4][0]),
         sats: tlv[5] ? numberFromBytes(tlv[5][0]) : null,
     }
@@ -560,8 +569,8 @@ export const mapAppUserDeviceBackupRow = (appUserDevice: AppUserDevice): AppUser
 
 export const encodeAppUserDeviceRow = (row: AppUserDeviceRow): Uint8Array => {
     const tlv: TLV = {
-        2: [hexToBytes(row.app_user_id)],
-        3: [hexToBytes(row.device_id)],
+        2: backupIdToBytes(row.app_user_id),
+        3: backupIdToBytes(row.device_id),
         4: splitChunk(stringToBytes(row.firebase_messaging_token), 255),
     }
     return encodeTLV(tlv)
@@ -570,8 +579,8 @@ export const encodeAppUserDeviceRow = (row: AppUserDeviceRow): Uint8Array => {
 export const decodeAppUserDeviceRow = (data: Uint8Array): AppUserDeviceRow => {
     const tlv = parseTLV(data)
     return {
-        app_user_id: hexFromBytes(tlv[2][0]),
-        device_id: hexFromBytes(tlv[3][0]),
+        app_user_id: backupIdFromBytes(tlv[2]),
+        device_id: backupIdFromBytes(tlv[3]),
         firebase_messaging_token: stringFromBytes(joinChunks(tlv[4])),
     }
 }

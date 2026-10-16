@@ -9,6 +9,7 @@ import {
     customHostFingerprint,
     fingerprintOf,
     hostFingerprintMatches,
+    pinnedFingerprint,
     sftpAtomicReplace,
     sftpDownload,
     sftpUpload,
@@ -43,6 +44,7 @@ export default async (T: StorageTestBase) => {
     await testSolvePowAcceptsLowDifficulty(T)
     await testHostFingerprintMatch(T)
     await testCustomHostPin(T)
+    await testMalformedFingerprintRefused(T)
     await testFtpRestoreConfigPinsPortAndFingerprint(T)
     await testFtpRestoreCredsFallBackPerField(T)
     await testParseRestoreFtpFlags(T)
@@ -52,6 +54,7 @@ export default async (T: StorageTestBase) => {
     await testSftpStalledDownloadTimesOut(T)
     await testSftpStalledUploadTimesOut(T)
     await testSftpSlowUploadSurvivesIdle(T)
+    await testSftpSlowUploadHitsOpDeadline(T)
     await testSftpDownloadSizeBound(T)
     await testSftpSessionReusesConnection(T)
     await testSftpSessionSurvivesFailedUpload(T)
@@ -144,6 +147,41 @@ const testCustomHostPin = async (T: StorageTestBase) => {
     T.expect(customHostFingerprint('backup.lightning.pub', 2222, '')).to.equal(undefined)
     T.expect(customHostFingerprint('example.test', 22, '')).to.equal(undefined)
     T.d('managed host is pinned unless the operator set a fingerprint')
+}
+
+const testMalformedFingerprintRefused = async (T: StorageTestBase) => {
+    T.d('starting testMalformedFingerprintRefused')
+    T.expect(pinnedFingerprint(undefined)).to.equal(undefined)
+    T.expect(pinnedFingerprint('')).to.equal(undefined)
+    T.expect(pinnedFingerprint('SHA256:abc')).to.equal('abc')
+    const malformed = ['SHA256:', '===', 'SHA256:===']
+    for (const fp of malformed) {
+        let threw = false
+        try {
+            pinnedFingerprint(fp)
+        } catch (err: any) {
+            threw = true
+            T.expect(err.message).to.include('malformed')
+        }
+        T.expect(threw).to.equal(true)
+    }
+    let connectThrew = false
+    try {
+        await sftpDownload({ ...sftpCfg(1), hostFingerprint: 'SHA256:' }, 'manifest.json')
+    } catch (err: any) {
+        connectThrew = true
+        T.expect(err.message).to.include('malformed')
+    }
+    T.expect(connectThrew).to.equal(true)
+    let restoreThrew = false
+    try {
+        sftpConfigForFtpRestore({ host: 'sftp.example.com', port: 22, host_fingerprint: 'SHA256:' }, { username: 'u', password: 'p' })
+    } catch (err: any) {
+        restoreThrew = true
+        T.expect(err.message).to.include('malformed')
+    }
+    T.expect(restoreThrew).to.equal(true)
+    T.d('a malformed host fingerprint is refused rather than treated as unpinned')
 }
 
 const testFtpRestoreConfigPinsPortAndFingerprint = async (T: StorageTestBase) => {
@@ -456,6 +494,29 @@ const testSftpSlowUploadSurvivesIdle = async (T: StorageTestBase) => {
         await stop()
     }
     T.d('a slow upload that keeps moving is not killed by the idle timeout')
+}
+
+const testSftpSlowUploadHitsOpDeadline = async (T: StorageTestBase) => {
+    T.d('starting testSftpSlowUploadHitsOpDeadline')
+    const { port, stop } = await startSlowWriteSftp(80)
+    try {
+        const start = Date.now()
+        let err: unknown
+        try {
+            await sftpUpload(
+                sftpCfg(port, { idleTimeoutMs: 2000, opTimeoutMs: 200 }),
+                'applications.enc',
+                Buffer.alloc(64 * 1024, 9),
+            )
+        } catch (e) {
+            err = e
+        }
+        T.expect(err).to.be.instanceOf(SftpTimeoutError)
+        T.expect(Date.now() - start).to.be.lessThan(1500)
+    } finally {
+        await stop()
+    }
+    T.d('a slow upload that exceeds the operation deadline is cancelled')
 }
 
 const testSftpDownloadSizeBound = async (T: StorageTestBase) => {
