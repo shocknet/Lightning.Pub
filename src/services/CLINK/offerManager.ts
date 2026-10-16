@@ -14,6 +14,9 @@ import { assertValidOfferPriceSats, defaultOfferWebhookRejection, DEFAULT_OFFER_
 import { NofferError } from "./offerTypes.js";
 import { ClinkCtx } from "./clinkTypes.js";
 
+const isPayableOfferAmount = (amount: number | undefined, remote: number): amount is number =>
+    typeof amount === "number" && Number.isSafeInteger(amount) && amount >= 10 && amount <= remote
+
 const mapToOfferConfig = (appUserId: string, offer: UserOffer, { pubkey, relay }: { pubkey: string, relay: string }): Types.OfferConfig => {
     const offerStr = offer.offer_id
     const priceType: OfferPriceType = offer.price_sats === 0 ? OfferPriceType.Spontaneous : OfferPriceType.Fixed
@@ -193,7 +196,7 @@ export class OfferManager {
 
     async HandleDefaultUserOffer(offerReq: NofferData, appId: string, remote: number, { memo, expiry }: { memo?: string, expiry?: number }, clinkRequester?: { pub: string, eventId: string }): Promise<string> {
         const { amount_sats: amount, offer } = offerReq
-        if (!amount || isNaN(amount) || amount < 10 || amount > remote) {
+        if (!isPayableOfferAmount(amount, remote)) {
             throw new NofferError({ code: 5, opts: { maxSats: remote } })
         }
         const app = await this.storage.applicationStorage.GetApplication(appId)
@@ -213,6 +216,9 @@ export class OfferManager {
     async HandleUserOffer(offerReq: NofferData, appId: string, remote: number, clinkRequester?: { pub: string, eventId: string }): Promise<string> {
         const { amount_sats: amount, offer } = offerReq
         const userOffer = await this.storage.offerStorage.GetOffer(offer)
+        if (offerReq.expires_in_seconds !== undefined && (!Number.isSafeInteger(offerReq.expires_in_seconds) || offerReq.expires_in_seconds < 0)) {
+            throw new NofferError({ code: 1, message: "invalid expires_in_seconds" })
+        }
         const expiry = offerReq.expires_in_seconds ? offerReq.expires_in_seconds : undefined
 
         if (!userOffer) {
@@ -220,11 +226,11 @@ export class OfferManager {
         }
         let amt = userOffer.price_sats
         if (userOffer.price_sats === 0) {
-            if (!amount || isNaN(amount) || amount < 10 || amount > remote) {
+            if (!isPayableOfferAmount(amount, remote)) {
                 throw new NofferError({ code: 5, opts: { maxSats: remote } })
             }
             amt = amount
-        } else if (userOffer.price_sats < 0) {
+        } else if (!Number.isSafeInteger(userOffer.price_sats) || userOffer.price_sats < 0) {
             throw new NofferError({ code: 5, opts: { maxSats: remote } })
         }
         const dataCheck = this.ValidateExpectedData(userOffer, offerReq.payer_data)

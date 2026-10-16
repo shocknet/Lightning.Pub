@@ -41,6 +41,9 @@ export default class {
     }
 
     async AddUser(balance: number, txId: string): Promise<User> {
+        if (!Number.isSafeInteger(balance) || balance < 0) {
+            throw new Error("balance must be a non-negative integer number of sats")
+        }
         if (balance && process.env.ALLOW_BALANCE_MIGRATION !== 'true') {
             throw new Error("balance migration is not allowed")
         }

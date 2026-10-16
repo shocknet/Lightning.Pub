@@ -28,6 +28,7 @@ import { PaymentSideEffects } from './paymentSideEffects.js'
 import { BackupManager } from '../backup/backupManager.js'
 import { AssertDebitFrequency } from '../CLINK/debitTypes.js'
 import { InvoiceAlreadyFailedError, InvoiceAlreadyPaidError, InvoicePaymentInProgressError, UserBannedError } from './invoicePaymentErrors.js'
+import { assertIntegerSats } from '../helpers/sats.js'
 
 const canonicalBolt11 = (invoice: string) => invoice.toLowerCase()
 
@@ -454,12 +455,20 @@ export default class {
         if (!this.settings.getSettings().lndSettings.mockLnd) {
             throw new Error("mock disabled, cannot set invoice as paid")
         }
+        assertIntegerSats(req.amount, "amount")
+        if (req.amount < 0) {
+            throw new Error("amount cannot be negative")
+        }
         await this.lnd.SetMockInvoiceAsPaid(req.invoice, req.amount)
     }
 
     async SetMockUserBalance(userId: string, balance: number) {
         if (!this.settings.getSettings().lndSettings.mockLnd) {
             throw new Error("mock disabled, cannot set invoice as paid")
+        }
+        assertIntegerSats(balance, "balance")
+        if (balance < 0) {
+            throw new Error("balance cannot be negative")
         }
         getLogger({})("setting mock balance...")
         await this.storage.userStorage.UpdateUser(userId, { balance_sats: balance })
@@ -486,6 +495,10 @@ export default class {
         const user = await this.storage.userStorage.GetUser(userId)
         if (user.locked) {
             throw new Error("user is banned, cannot generate invoice")
+        }
+        assertIntegerSats(req.amountSats, "amount")
+        if (!Number.isSafeInteger(options.expiry)) {
+            throw new Error("expiry must be an integer number of seconds")
         }
         if (req.amountSats <= 0) {
             throw new Error("amount cannot be zero or negative")
@@ -575,6 +588,8 @@ export default class {
             if (decoded.numSatoshis < 0 || req.amount < 0) {
                 throw new Error("amount cannot be negative")
             }
+            assertIntegerSats(decoded.numSatoshis, "amount")
+            assertIntegerSats(req.amount, "amount")
             if (decoded.numSatoshis === 0) {
                 throw new Error("invoice has no amount")
             }
@@ -717,6 +732,11 @@ export default class {
     }
 
     async PayInternalInvoice(userId: string, internalInvoice: UserReceivingInvoice, amounts: { payAmount: number, serviceFee: number }, linkedApplication: Application, optionals: { debitNpub?: string, assertDebitFrequency?: AssertDebitFrequency, onPaymentAccepted?: (txId: string) => Promise<void> } = {}) {
+        assertIntegerSats(amounts.payAmount, "amount")
+        assertIntegerSats(amounts.serviceFee, "service fee")
+        if (amounts.serviceFee < 0) {
+            throw new Error("service fee cannot be negative")
+        }
         if (amounts.payAmount <= 0) {
             throw new Error("amount cannot be zero or negative")
         }
@@ -755,6 +775,7 @@ export default class {
 
 
     async CreditIncomingInvoice(invoice: string, amount: number, internal: boolean, txId: string) {
+        assertIntegerSats(amount, "amount")
         if (amount <= 0) {
             throw new Error("amount cannot be zero or negative")
         }
@@ -839,6 +860,7 @@ export default class {
                 amount = swap.transaction_amount - swap.chain_fee_sats
             }
         }
+        assertIntegerSats(amount, "amount")
         if (amount <= 0) {
             throw new Error("invalid tx amount")
         }
@@ -881,6 +903,10 @@ export default class {
     }
 
     async CreditAddress(address: string, txOutput: TxOutput, amount: number, internal: boolean, txBroadcastHeight: number, dbTxId: string) {
+        assertIntegerSats(amount, "amount")
+        if (amount <= 0) {
+            throw new Error("amount cannot be zero or negative")
+        }
         const userAddress = await this.storage.paymentStorage.GetAddressOwner(address, dbTxId)
         if (!userAddress) {
             throw new Error("address not found")
@@ -1094,7 +1120,7 @@ export default class {
             throw new Error("invalid lnurl pay to handle")
         }
         const amountMillis = +ctx.amount
-        if (isNaN(amountMillis)) {
+        if (!Number.isSafeInteger(amountMillis) || amountMillis <= 0) {
             throw new Error("invalid amount in lnurl pay to handle")
         }
         const { maxSendable, minSendable } = await this.GetMinAndMaxSendable()
@@ -1110,7 +1136,7 @@ export default class {
         }
         const key = await this.storage.paymentStorage.UseUserEphemeralKey(ctx.k1, 'pay', true)
         const sats = amountMillis / 1000
-        if (!Number.isInteger(sats)) {
+        if (!Number.isSafeInteger(sats) || sats <= 0) {
             throw new Error("millisats amount must be integer sats amount")
         }
         if (!key.linkedApplication) {
@@ -1247,6 +1273,10 @@ export default class {
     }
 
     async SendUserToUserPayment(fromUserId: string, toUserId: string, amount: number, linkedApplication: Application): Promise<{ amount: number, fees: number }> {
+        assertIntegerSats(amount, "amount")
+        if (amount <= 0) {
+            throw new Error("amount cannot be zero or negative")
+        }
         const payment = await this.storage.StartTransaction(async tx => {
             const fromUser = await this.storage.userStorage.GetUser(fromUserId, tx)
             const toUser = await this.storage.userStorage.GetUser(toUserId, tx)

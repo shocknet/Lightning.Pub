@@ -11,8 +11,11 @@ export const validateOfferReq = (req: unknown): NofferData => {
     if (typeof offerReq.offer !== "string" || offerReq.offer === "") {
         throw new NofferError({ code: 1, message: "missing offer" })
     }
-    if (offerReq.amount_sats !== undefined && (typeof offerReq.amount_sats !== "number" || !Number.isFinite(offerReq.amount_sats))) {
+    if (offerReq.amount_sats !== undefined && (typeof offerReq.amount_sats !== "number" || !Number.isSafeInteger(offerReq.amount_sats))) {
         throw new NofferError({ code: 1, message: "invalid amount_sats" })
+    }
+    if (offerReq.expires_in_seconds !== undefined && (typeof offerReq.expires_in_seconds !== "number" || !Number.isSafeInteger(offerReq.expires_in_seconds) || offerReq.expires_in_seconds < 0)) {
+        throw new NofferError({ code: 1, message: "invalid expires_in_seconds" })
     }
     return offerReq as NofferData
 }

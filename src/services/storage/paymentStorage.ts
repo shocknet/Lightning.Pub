@@ -88,6 +88,12 @@ export default class {
     }
 
     async FlagInvoiceAsPaid(invoice: UserReceivingInvoice, amount: number, serviceFee: number, internal: boolean, txId: string): Promise<UserReceivingInvoice> {
+        if (!Number.isSafeInteger(amount)) {
+            throw new Error("amount must be an integer number of sats")
+        }
+        if (!Number.isSafeInteger(serviceFee) || serviceFee < 0) {
+            throw new Error("service fee must be a non-negative integer number of sats")
+        }
         if (amount <= 0) {
             throw new Error("amount cannot be zero or negative")
         }
