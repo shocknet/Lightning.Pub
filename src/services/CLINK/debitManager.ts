@@ -688,7 +688,7 @@ export class DebitManager {
     validateAccessRules = async (access: DebitAccess, app: Application, appUser: ApplicationUser, bolt11: string): Promise<void> => {
         const decoded = await this.lnd.DecodeInvoice(bolt11)
         const amt = decoded.numSatoshis
-        if (amt <= 0) {
+        if (!Number.isSafeInteger(amt) || amt <= 0) {
             this.fail(5)
         }
         const { rules } = access

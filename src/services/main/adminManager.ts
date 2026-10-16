@@ -18,6 +18,7 @@ import { NodeInfo } from "../lnd/settings.js";
 import { Channel, Invoice, Payment, OutputDetail, Transaction, Payment_PaymentStatus, Invoice_InvoiceState } from "../../../proto/lnd/lightning.js";
 import { LiquidityProvider } from "./liquidityProvider.js";
 import { BackupManager } from "../backup/backupManager.js";
+import { isNonNegativeIndex, isNonNegativeSats, isOptionalNonNegativeSats, isPositiveSats, isTcpPort } from "../helpers/sats.js";
 import { clampPageLimit, DEFAULT_LND_PAGE_SIZE, DEFAULT_PAGE_SIZE, MAX_LIQUIDITY_PAGE_SIZE, MAX_PAGE_SIZE } from "../helpers/pageLimit.js";
 import { aliasByRemotePubkey } from "../helpers/channelAliases.js";
 import {
@@ -260,6 +261,9 @@ export class AdminManager {
         const adminAppUser = await this.storage.applicationStorage.FindNostrAppUser(adminNpub)
         if (!adminAppUser) {
             throw new Error("Admin user expected but not found!!!");
+        }
+        if (!isOptionalNonNegativeSats(sats)) {
+            throw new Error("sats must be a non-negative integer number of sats")
         }
         const newInviteToken = await this.storage.applicationStorage.AddInviteToken(adminAppUser.application, sats);
         void this.backupManager?.notifyBackupTable('invite_tokens')
@@ -559,10 +563,22 @@ export class AdminManager {
 
 
     async AddPeer(req: Types.AddPeerRequest) {
+        if (!isTcpPort(req.port)) {
+            throw new Error("port must be an integer between 1 and 65535")
+        }
         await this.lnd.AddPeer(req.pubkey, req.host, req.port)
     }
 
     async OpenChannel(req: Types.OpenChannelRequest): Promise<Types.OpenChannelResponse> {
+        if (!isPositiveSats(req.local_funding_amount)) {
+            throw new Error("local funding amount must be a positive integer number of sats")
+        }
+        if (!isPositiveSats(req.sat_per_v_byte)) {
+            throw new Error("sat per v byte must be a positive integer")
+        }
+        if (!isOptionalNonNegativeSats(req.push_sat)) {
+            throw new Error("push_sat must be a non-negative integer number of sats")
+        }
         let closeAddr = req.close_address
         if (!closeAddr) {
             const addr = await this.lnd.NewAddress(Types.AddressType.WITNESS_PUBKEY_HASH, { useProvider: false, from: 'system' })
@@ -575,6 +591,12 @@ export class AdminManager {
     }
 
     async CloseChannel(req: Types.CloseChannelRequest): Promise<Types.CloseChannelResponse> {
+        if (!isNonNegativeIndex(req.output_index)) {
+            throw new Error("output index must be a non-negative integer")
+        }
+        if (!isNonNegativeSats(req.sat_per_v_byte)) {
+            throw new Error("sat per v byte must be a non-negative integer")
+        }
         const res = await this.lnd.CloseChannel(req.funding_txid, req.output_index, req.force, req.sat_per_v_byte)
         return {
             closing_txid: Buffer.from(res.txid).toString('hex')
@@ -586,6 +608,9 @@ export class AdminManager {
     }
 
     async GetAdminInvoiceSwapQuotes(req: Types.InvoiceSwapRequest): Promise<Types.InvoiceSwapQuoteList> {
+        if (!isPositiveSats(req.amount_sats)) {
+            throw new Error("amount_sats must be a positive integer number of sats")
+        }
         const invoice = await this.lnd.NewInvoice(req.amount_sats, "Admin Swap", defaultInvoiceExpiry, { useProvider: false, from: 'system' })
         const quotes = await this.swaps.GetInvoiceSwapQuotes("admin", invoice.payRequest, req.fees_req)
         return { quotes }
@@ -1005,6 +1030,12 @@ export class AdminManager {
     }
 
     async BumpTx(req: Types.BumpTx): Promise<void> {
+        if (!isNonNegativeIndex(req.output_index)) {
+            throw new Error("output index must be a non-negative integer")
+        }
+        if (!isPositiveSats(req.sat_per_vbyte)) {
+            throw new Error("sat per v byte must be a positive integer")
+        }
         await this.lnd.BumpFee(req.txid, req.output_index, req.sat_per_vbyte)
     }
 

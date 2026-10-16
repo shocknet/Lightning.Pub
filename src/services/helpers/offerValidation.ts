@@ -1,3 +1,5 @@
+import { assertIntegerSats } from "./sats.js"
+
 export const DEFAULT_OFFER_LABEL = "Default CLINK Offer"
 export const DEFAULT_OFFER_WEBHOOK_ONLY = "the default offer only accepts a webhook change"
 export const DEFAULT_OFFER_NO_DELETE = "the default offer cannot be deleted"
@@ -6,6 +8,7 @@ export const assertValidOfferPriceSats = (priceSats: number): void => {
     if (priceSats < 0) {
         throw new Error("price_sats cannot be negative")
     }
+    assertIntegerSats(priceSats, "price_sats")
 }
 
 export const isDefaultUserOffer = (appUserId: string, offerId: string): boolean =>

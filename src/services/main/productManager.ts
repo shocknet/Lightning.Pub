@@ -7,6 +7,7 @@ import { defaultInvoiceExpiry } from '../storage/paymentStorage.js'
 import { nofferEncode, OfferPriceType } from '@shocknet/clink-sdk'
 import SettingsManager from './settingsManager.js'
 import { BackupManager } from '../backup/backupManager.js'
+import { assertValidOfferPriceSats } from '../helpers/offerValidation.js'
 
 export default class {
     storage: Storage
@@ -22,6 +23,7 @@ export default class {
     }
 
     async AddProduct(userId: string, req: Types.AddProductRequest): Promise<Types.Product> {
+        assertValidOfferPriceSats(req.price_sats)
         const user = await this.storage.userStorage.GetUser(userId)
         const newProduct = await this.storage.productStorage.AddProduct(req.name, req.price_sats, user)
         this.backupManager.notifyBackupTable('products')
