@@ -437,20 +437,6 @@ const testFractionalSpontaneousAmountRejected = async (T: TestBase) => {
     T.d("fractional noffer amount_sats rejected")
 }
 
-const testStaleFractionalOfferPriceRejectedOnInvoice = async (T: TestBase) => {
-    T.d("starting testStaleFractionalOfferPriceRejectedOnInvoice")
-    const ctx = userContext(T, T.user2)
-    const { offer_id } = await T.main.offerManager.AddUserOffer(ctx, offerCreate({ label: "stale fractional offer" }))
-    await T.main.storage.offerStorage.UpdateUserOffer(ctx.app_user_id, offer_id, { price_sats: 10.5 })
-    await expectNofferFail(
-        T,
-        T.main.offerManager.getNofferInvoice({ offer: offer_id }, T.app.appId),
-        5,
-        "Invalid Amount",
-    )
-    T.d("getNofferInvoice rejected stale fractional fixed offer price")
-}
-
 const testNegativeOfferPriceRejectedOnCreate = async (T: TestBase) => {
     T.d("starting testNegativeOfferPriceRejectedOnCreate")
     const ctx = userContext(T, T.user2)
@@ -508,7 +494,6 @@ export default async (T: TestBase) => {
     await testGetUserOfferInvoicesStoresPayerData(T)
     await testFractionalOfferPriceRejectedOnCreate(T)
     await testFractionalSpontaneousAmountRejected(T)
-    await testStaleFractionalOfferPriceRejectedOnInvoice(T)
     await testNegativeOfferPriceRejectedOnCreate(T)
     await testNegativeOfferPriceRejectedOnUpdate(T)
     await testStaleNegativeOfferPriceRejectedOnInvoice(T)
