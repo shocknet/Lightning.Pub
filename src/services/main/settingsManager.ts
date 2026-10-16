@@ -5,17 +5,30 @@ import {
     LiquiditySettings, LndNodeSettings, LndSettings, LoadLiquiditySettingsFromEnv,
     LoadLSPSettingsFromEnv, LSPSettings, ServiceFeeSettings, ServiceSettings, LoadServiceFeeSettingsFromEnv,
     LoadNostrRelaySettingsFromEnv, LoadServiceSettingsFromEnv, LoadWatchdogSettingsFromEnv,
-    LoadLndNodeSettingsFromEnv, LoadLndSettingsFromEnv, NostrRelaySettings, WatchdogSettings, SwapsSettings, LoadSwapsSettingsFromEnv
+    LoadLndNodeSettingsFromEnv, LoadLndSettingsFromEnv, NostrRelaySettings, WatchdogSettings, SwapsSettings, LoadSwapsSettingsFromEnv,
+    BackupSettings,
+    LoadBackupSettingsFromEnv
 
 } from "./settings.js"
+import { BackupManager } from "../backup/backupManager.js"
+import {
+    assertOnchainConfSettings, assertRemoteBackup, backupSettingsFromRemote, changedRemoteBackupSettings,
+    isRemoteBackupEnvLocked, OnchainConfTiers, RemoteBackupConfig,
+} from "./adminNodeSettings.js"
+export type SettingOverrideFunction = (s: FullSettings) => FullSettings
 export default class SettingsManager {
     storage: Storage
     private settings: FullSettings | null = null
+    private backupManager: BackupManager | null = null
 
     log: PubLogger
     constructor(storage: Storage) {
         this.storage = storage
         this.log = getLogger({ component: "SettingsManager" })
+    }
+
+    setBackupManager(backupManager: BackupManager) {
+        this.backupManager = backupManager
     }
 
     loadEnvs(dbEnv: Record<string, string | undefined>, addToDb?: EnvCacher): FullSettings {
@@ -29,10 +42,11 @@ export default class SettingsManager {
             serviceSettings: LoadServiceSettingsFromEnv(dbEnv, addToDb),
             watchDogSettings: LoadWatchdogSettingsFromEnv(dbEnv, addToDb),
             swapsSettings: LoadSwapsSettingsFromEnv(dbEnv, addToDb),
+            backupSettings: LoadBackupSettingsFromEnv(dbEnv, addToDb),
         }
     }
 
-    OverrideTestSettings(f: (s: FullSettings) => FullSettings) {
+    OverrideTestSettings(f: SettingOverrideFunction) {
         if (!this.settings) {
             throw new Error("Settings not initialized")
         }
@@ -45,14 +59,26 @@ export default class SettingsManager {
         const addToDb = (key: string, value: string) => {
             toAdd[key] = value
         }
-        this.settings = this.loadEnvs(dbSettings, addToDb)
+        const next = this.loadEnvs(dbSettings, addToDb)
+        // Validate before publishing or persisting so a failed restore reload cannot
+        // expose invalid settings or write dest env overrides into the restored DB.
+        this.validateFeeSettings(next)
+        this.validateOnchainConfTiers(next)
         this.log("adding", Object.keys(toAdd).length, "settings to db")
+        let changed = false
         for (const key in toAdd) {
             await this.storage.settingsStorage.setDbEnvIFNeeded(key, toAdd[key])
+            changed = true
         }
-        // Validate fee configuration: routing fee limit must be <= service fee
-        this.validateFeeSettings(this.settings)
+        if (changed) {
+            this.backupManager?.notifyBackupTable('admin_settings')
+        }
+        this.settings = next
         return this.settings
+    }
+
+    private validateOnchainConfTiers(settings: FullSettings): void {
+        assertOnchainConfSettings(settings.lndSettings)
     }
 
     private validateFeeSettings(settings: FullSettings): void {
@@ -81,7 +107,7 @@ export default class SettingsManager {
         return this.settings
     }
 
-    async updateDefaultAppName(name: string): Promise<boolean> {
+    async updateDefaultAppName(name: string, txId?: string): Promise<boolean> {
         if (!this.settings) {
             throw new Error("Settings not initialized")
         }
@@ -91,8 +117,11 @@ export default class SettingsManager {
         if (!!process.env.DEFAULT_APP_NAME) {
             return false
         }
-        await this.storage.settingsStorage.setDbEnvIFNeeded("DEFAULT_APP_NAME", name)
-        this.settings.serviceSettings.defaultAppName = name
+        await this.storage.settingsStorage.setDbEnvIFNeeded("DEFAULT_APP_NAME", name, txId)
+        if (!txId) {
+            this.settings.serviceSettings.defaultAppName = name
+        }
+        void this.backupManager?.notifyBackupTable('admin_settings')
         return true
     }
 
@@ -108,6 +137,7 @@ export default class SettingsManager {
         }
         await this.storage.settingsStorage.setDbEnvIFNeeded("NOSTR_RELAYS", url)
         this.settings.nostrRelaySettings.relays = [url]
+        void this.backupManager?.notifyBackupTable('admin_settings')
         return true
     }
 
@@ -123,23 +153,49 @@ export default class SettingsManager {
         }
         await this.storage.settingsStorage.setDbEnvIFNeeded("DISABLE_LIQUIDITY_PROVIDER", disable ? "true" : "false")
         this.settings.liquiditySettings.disableLiquidityProvider = disable
+        void this.backupManager?.notifyBackupTable('admin_settings')
+        return true
+    }
+
+    async updateLspChannelThreshold(threshold: number): Promise<boolean> {
+        if (!this.settings) {
+            throw new Error("Settings not initialized")
+        }
+        if (threshold === this.settings.lspSettings.channelThreshold) {
+            return false
+        }
+        if (!!process.env.LSP_CHANNEL_THRESHOLD) {
+            return false
+        }
+        await this.storage.settingsStorage.setDbEnvIFNeeded("LSP_CHANNEL_THRESHOLD", String(threshold))
+        this.settings.lspSettings.channelThreshold = threshold
+        void this.backupManager?.notifyBackupTable('admin_settings')
         return true
     }
 
 
 
-    async updatePushBackupsToNostr(push: boolean): Promise<boolean> {
+    async updateRemoteBackup(remote: RemoteBackupConfig): Promise<boolean> {
         if (!this.settings) {
             throw new Error("Settings not initialized")
         }
-        if (push === this.settings.serviceSettings.pushBackupsToNostr) {
+        assertRemoteBackup(remote)
+        if (isRemoteBackupEnvLocked()) {
             return false
         }
-        if (!!process.env.PUSH_BACKUPS_TO_NOSTR) {
+        const current = this.settings.backupSettings
+        const next = backupSettingsFromRemote(current, remote)
+        const changed = changedRemoteBackupSettings(current, next)
+        if (changed.length === 0) {
             return false
         }
-        await this.storage.settingsStorage.setDbEnvIFNeeded("PUSH_BACKUPS_TO_NOSTR", push ? "true" : "false")
-        this.settings.serviceSettings.pushBackupsToNostr = push
+        for (const { env, field } of changed) {
+            await this.storage.settingsStorage.setDbEnvIFNeeded(env, String(next[field]))
+        }
+        this.settings.backupSettings = next
+        if (next.cloudEnabled || next.sftpEnabled) {
+            void this.backupManager?.uploadAllTables()
+        }
         return true
     }
 
@@ -155,7 +211,39 @@ export default class SettingsManager {
         }
         await this.storage.settingsStorage.setDbEnvIFNeeded("SKIP_SANITY_CHECK", skip ? "true" : "false")
         this.settings.serviceSettings.skipSanityCheck = skip
+        void this.backupManager?.notifyBackupTable('admin_settings')
         return true
+    }
+
+    async updateOnchainConfTiers(tiers: OnchainConfTiers): Promise<boolean> {
+        if (!this.settings) {
+            throw new Error("Settings not initialized")
+        }
+        assertOnchainConfSettings(tiers)
+        const current = this.settings.lndSettings
+        const updates: { envKey: string, field: keyof OnchainConfTiers, value: number }[] = [
+            { envKey: "ONCHAIN_TIER1_LIMIT_SATS", field: "tier1LimitSats", value: tiers.tier1LimitSats },
+            { envKey: "ONCHAIN_TIER1_CONFS", field: "tier1Confs", value: tiers.tier1Confs },
+            { envKey: "ONCHAIN_TIER2_LIMIT_SATS", field: "tier2LimitSats", value: tiers.tier2LimitSats },
+            { envKey: "ONCHAIN_TIER2_CONFS", field: "tier2Confs", value: tiers.tier2Confs },
+            { envKey: "ONCHAIN_TIER3_CONFS", field: "tier3Confs", value: tiers.tier3Confs },
+        ]
+        let changed = false
+        for (const { envKey, field, value } of updates) {
+            if (value === current[field]) {
+                continue
+            }
+            if (!!process.env[envKey]) {
+                continue
+            }
+            await this.storage.settingsStorage.setDbEnvIFNeeded(envKey, String(value))
+            current[field] = value
+            changed = true
+        }
+        if (changed) {
+            void this.backupManager?.notifyBackupTable('admin_settings')
+        }
+        return changed
     }
 }
 
@@ -168,5 +256,6 @@ type FullSettings = {
     serviceFeeSettings: ServiceFeeSettings,
     serviceSettings: ServiceSettings,
     lspSettings: LSPSettings,
-    swapsSettings: SwapsSettings
+    swapsSettings: SwapsSettings,
+    backupSettings: BackupSettings
 }

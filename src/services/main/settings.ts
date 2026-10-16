@@ -1,4 +1,5 @@
 import { EnvCacher, EnvMustBeNonEmptyString, EnvMustBeInteger, chooseEnv, chooseEnvBool, chooseEnvInt } from '../helpers/envParser.js'
+import { DEFAULT_ENROLL_POW_BITS, ENROLL_MAX_DELTA_MS } from '../CLINK/clinkConstants.js'
 import os from 'os'
 import path from 'path'
 import { nip19 } from '@shocknet/clink-sdk'
@@ -30,13 +31,13 @@ export type ServiceSettings = {
     recordPerformance: boolean
     skipSanityCheck: boolean
     wizard: boolean
+    wizardNonBlocking: boolean
     bridgeUrl: string,
     shockPushBaseUrl: string
 
     serviceUrl: string
     disableExternalPayments: boolean
     defaultAppName: string
-    pushBackupsToNostr: boolean
     lnurlMetaText: string,
     allowHttpUpgrade: boolean
 
@@ -52,8 +53,8 @@ export const LoadServiceSettingsFromEnv = (dbEnv: Record<string, string | undefi
         skipSanityCheck: chooseEnvBool("SKIP_SANITY_CHECK", dbEnv, false, addToDb),
         disableExternalPayments: chooseEnvBool("DISABLE_EXTERNAL_PAYMENTS", dbEnv, false, addToDb),
         wizard: chooseEnvBool("WIZARD", dbEnv, false, addToDb),
+        wizardNonBlocking: chooseEnvBool("WIZARD_NON_BLOCKING", dbEnv, false, addToDb),
         defaultAppName: chooseEnv("DEFAULT_APP_NAME", dbEnv, "wallet", addToDb),
-        pushBackupsToNostr: chooseEnvBool("PUSH_BACKUPS_TO_NOSTR", dbEnv, false, addToDb),
         lnurlMetaText: chooseEnv("LNURL_META_TEXT", dbEnv, "LNURL via Lightning.pub", addToDb),
         bridgeUrl: chooseEnv("BRIDGE_URL", dbEnv, "https://shockwallet.app", addToDb),
         allowHttpUpgrade: chooseEnvBool("ALLOW_HTTP_UPGRADE", dbEnv, false, addToDb),
@@ -75,9 +76,14 @@ export type LndNodeSettings = {
 const networks = ['mainnet', 'testnet', 'regtest'] as const
 export type BTCNetwork = (typeof networks)[number]
 export type LndSettings = {
-    lndLogDir: string
+
     routingFeeLimitBps: number
     routingFeeFloor: number
+    tier1LimitSats: number
+    tier1Confs: number
+    tier2LimitSats: number
+    tier2Confs: number
+    tier3Confs: number
     mockLnd: boolean
     network: BTCNetwork
 }
@@ -113,9 +119,13 @@ export const LoadLndSettingsFromEnv = (dbEnv: Record<string, string | undefined>
     const routingFeeFloor = chooseEnvInt('ROUTING_FEE_FLOOR_SATS', dbEnv, oldRoutingFeeFloor, addToDb)
     const routingFeeLimitBps = chooseEnvInt('ROUTING_FEE_LIMIT_BPS', dbEnv, 50, addToDb)
     return {
-        lndLogDir: chooseEnv('LND_LOG_DIR', dbEnv, resolveHome("/.lnd/logs/bitcoin/mainnet/lnd.log"), addToDb),
         routingFeeLimitBps,
         routingFeeFloor,
+        tier1LimitSats: chooseEnvInt('ONCHAIN_TIER1_LIMIT_SATS', dbEnv, 1_000_000, addToDb),
+        tier1Confs: chooseEnvInt('ONCHAIN_TIER1_CONFS', dbEnv, 1, addToDb),
+        tier2LimitSats: chooseEnvInt('ONCHAIN_TIER2_LIMIT_SATS', dbEnv, 100_000_000, addToDb),
+        tier2Confs: chooseEnvInt('ONCHAIN_TIER2_CONFS', dbEnv, 2, addToDb),
+        tier3Confs: chooseEnvInt('ONCHAIN_TIER3_CONFS', dbEnv, 3, addToDb),
         mockLnd: false,
         network: networks.includes(network) ? network : 'mainnet'
     }
@@ -124,23 +134,37 @@ export const LoadLndSettingsFromEnv = (dbEnv: Record<string, string | undefined>
 export type NostrRelaySettings = {
     relays: string[],
     maxEventContentLength: number
+    enrollPowBits: number
+    enrollMaxDeltaMs: number
+    beaconWebsite: string
+    beaconDescription: string
+    operatorNpub: string
 }
 
 export const LoadNostrRelaySettingsFromEnv = (dbEnv: Record<string, string | undefined>, addToDb?: EnvCacher): NostrRelaySettings => {
     const relaysEnv = chooseEnv("NOSTR_RELAYS", dbEnv, "wss://relay.lightning.pub", addToDb);
     const maxEventContentLength = chooseEnvInt("NOSTR_MAX_EVENT_CONTENT_LENGTH", dbEnv, 40000, addToDb)
+    const enrollPowBits = chooseEnvInt("ENROLL_POW_BITS", dbEnv, DEFAULT_ENROLL_POW_BITS, addToDb)
+    const enrollMaxDeltaMs = chooseEnvInt("ENROLL_MAX_DELTA_MS", dbEnv, ENROLL_MAX_DELTA_MS, addToDb)
     return {
         relays: relaysEnv.split(' '),
-        maxEventContentLength
+        maxEventContentLength,
+        enrollPowBits: Math.min(32, Math.max(0, enrollPowBits)),
+        enrollMaxDeltaMs: Math.min(300_000, Math.max(1_000, enrollMaxDeltaMs)),
+        beaconWebsite: chooseEnv("BEACON_WEBSITE", dbEnv, "", addToDb).trim(),
+        beaconDescription: chooseEnv("BEACON_DESCRIPTION", dbEnv, "", addToDb).trim(),
+        operatorNpub: chooseEnv("OPERATOR_NPUB", dbEnv, "", addToDb).trim(),
     }
 }
 
 export type WatchdogSettings = {
     maxDiffSats: number // hot setting
+    disabled: boolean // hot setting
 }
 export const LoadWatchdogSettingsFromEnv = (dbEnv: Record<string, string | undefined>, addToDb?: EnvCacher): WatchdogSettings => {
     return {
-        maxDiffSats: chooseEnvInt("WATCHDOG_MAX_DIFF_SATS", dbEnv, 0, addToDb)
+        maxDiffSats: chooseEnvInt("WATCHDOG_MAX_DIFF_SATS", dbEnv, 0, addToDb),
+        disabled: chooseEnvBool("DISABLE_WATCHDOG", dbEnv, false, addToDb)
     }
 }
 
@@ -207,37 +231,76 @@ export const LoadSwapsSettingsFromEnv = (dbEnv: Record<string, string | undefine
         boltzWebSocketUrl: chooseEnv("BOLTZ_WEBSOCKET_URL", dbEnv, "wss://swaps.zeuslsp.com/api", addToDb),
         boltsHttpUrlAlt: chooseEnv("BOLTZ_HTTP_URL_ALT", dbEnv, "https://api.boltz.exchange/", addToDb),
         boltsWebSocketUrlAlt: chooseEnv("BOLTZ_WEBSOCKET_URL_ALT", dbEnv, "wss://api.boltz.exchange/", addToDb),
-        enableSwaps: chooseEnvBool("ENABLE_SWAPS", dbEnv, false, addToDb)
+        enableSwaps: false, // hard-disabled; Boltz providers are unsafe. ENABLE_SWAPS is ignored.
+    }
+}
+
+export type BackupSettings = {
+    cloudEnabled: boolean
+    sftpEnabled: boolean
+    sftpHost: string
+    sftpUser: string
+    sftpPass: string
+    sftpPort: number
+    sftpHostFingerprint: string
+    localPath: string
+}
+
+export const LoadBackupSettingsFromEnv = (dbEnv: Record<string, string | undefined>, addToDb?: EnvCacher): BackupSettings => {
+    return {
+        cloudEnabled: chooseEnvBool("BACKUP_CLOUD_ENABLED", dbEnv, false, addToDb),
+        sftpEnabled: chooseEnvBool("BACKUP_SFTP_ENABLED", dbEnv, false, addToDb),
+        sftpHost: chooseEnv("BACKUP_SFTP_HOST", dbEnv, "backup.lightning.pub", addToDb),
+        sftpUser: chooseEnv("BACKUP_SFTP_USER", dbEnv, "", addToDb),
+        sftpPass: chooseEnv("BACKUP_SFTP_PASS", dbEnv, "", addToDb),
+        sftpPort: chooseEnvInt("BACKUP_SFTP_PORT", dbEnv, 22, addToDb),
+        sftpHostFingerprint: chooseEnv("BACKUP_SFTP_HOST_FINGERPRINT", dbEnv, "", addToDb),
+        localPath: chooseEnv("BACKUP_LOCAL_PATH", dbEnv, "", addToDb),
     }
 }
 
 
 
 
-export const LoadSecondLndSettingsFromEnv = (): LndNodeSettings => {
+export const LoadBobLndSettingsFromEnv = (): LndNodeSettings => {
     return {
-        lndAddr: EnvMustBeNonEmptyString("LND_OTHER_ADDR"),
-        lndCertPath: EnvMustBeNonEmptyString("LND_OTHER_CERT_PATH"),
-        lndMacaroonPath: EnvMustBeNonEmptyString("LND_OTHER_MACAROON_PATH")
+        lndAddr: EnvMustBeNonEmptyString("LND_BOB_ADDR"),
+        lndCertPath: EnvMustBeNonEmptyString("LND_BOB_CERT_PATH"),
+        lndMacaroonPath: EnvMustBeNonEmptyString("LND_BOB_MACAROON_PATH"),
     }
 }
 
-export const LoadThirdLndSettingsFromEnv = (): LndNodeSettings => {
+export const LoadCarolLndSettingsFromEnv = (): LndNodeSettings => {
 
     return {
-        lndAddr: EnvMustBeNonEmptyString("LND_THIRD_ADDR"),
-        lndCertPath: EnvMustBeNonEmptyString("LND_THIRD_CERT_PATH"),
-        lndMacaroonPath: EnvMustBeNonEmptyString("LND_THIRD_MACAROON_PATH")
+        lndAddr: EnvMustBeNonEmptyString("LND_CAROL_ADDR"),
+        lndCertPath: EnvMustBeNonEmptyString("LND_CAROL_CERT_PATH"),
+        lndMacaroonPath: EnvMustBeNonEmptyString("LND_CAROL_MACAROON_PATH"),
     }
 }
 
-export const LoadFourthLndSettingsFromEnv = (): LndNodeSettings => {
+export const LoadDaveLndSettingsFromEnv = (): LndNodeSettings => {
 
     return {
-        lndAddr: EnvMustBeNonEmptyString("LND_FOURTH_ADDR"),
-        lndCertPath: EnvMustBeNonEmptyString("LND_FOURTH_CERT_PATH"),
-        lndMacaroonPath: EnvMustBeNonEmptyString("LND_FOURTH_MACAROON_PATH")
+        lndAddr: EnvMustBeNonEmptyString("LND_DAVE_ADDR"),
+        lndCertPath: EnvMustBeNonEmptyString("LND_DAVE_CERT_PATH"),
+        lndMacaroonPath: EnvMustBeNonEmptyString("LND_DAVE_MACAROON_PATH"),
     }
+}
+
+export const LoadEliotLndSettingsFromEnv = (): [LndNodeSettings, LndNodeSettings] => {
+    return [
+        {
+            lndAddr: EnvMustBeNonEmptyString("LND_ELIOT_ADDR"),
+            lndCertPath: EnvMustBeNonEmptyString("LND_ELIOT_CERT_PATH"),
+            lndMacaroonPath: EnvMustBeNonEmptyString("LND_ELIOT_MACAROON_PATH"),
+        },
+        {
+            lndAddr: EnvMustBeNonEmptyString("LND_ELIOT2_ADDR"),
+            lndCertPath: EnvMustBeNonEmptyString("LND_ELIOT2_CERT_PATH"),
+            lndMacaroonPath: EnvMustBeNonEmptyString("LND_ELIOT2_MACAROON_PATH"),
+        }
+    ]
 }
 
 export const LoadBitcoinCoreSettingsFromEnv = (): BitcoinCoreSettings => {
