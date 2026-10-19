@@ -21,8 +21,11 @@
 // login when set), optional local dir. Local is written first so a stalled remote cannot
 // block the on-disk copy. Shutdown stops waiting on a remote already in flight so the final
 // local snapshot can run, and bounds every remote, including remote-only and a failed local
-// write. Remotes run in parallel and keep one SSH session for the whole publish (read, list,
-// uploads, rename, deletes). Failed batches retry with backoff.
+// write. Destinations that share host, port, and username are one physical destination: env
+// can enable managed cloud and custom SFTP against the same account, and cleanup must not
+// treat another active publication's shards as abandoned. Remotes to distinct identities run
+// in parallel and keep one SSH session for the whole publish (read, list, uploads, rename,
+// deletes). Failed batches retry with backoff.
 
 import fs from 'fs'
 import path from 'path'
@@ -114,6 +117,8 @@ export class BackupManager {
      * manifest as the next one. This chain is not the publish lock: local snapshots do not wait on it.
      */
     private remoteTail: Promise<void> = Promise.resolve()
+    /** One in-flight publish per physical destination so alias cleanup cannot delete live shards. */
+    private destPublishTail = new Map<string, Promise<void>>()
     /** Resolved from shutdown() so a live `await` of a remote publish releases the publish lock. */
     private releaseShutdownWait: () => void = () => {}
     private shutdownWait: Promise<void> = new Promise(resolve => {
@@ -416,22 +421,47 @@ export class BackupManager {
         if (localDir) {
             dests.push({ type: 'local', dir: localDir })
         }
-        return dests
+        // Keep the first of each physical identity. Cloud is pushed before custom SFTP so
+        // an alias still uses cloud sign-up rather than a second writer to the same account.
+        return this.uniqueDests(dests)
     }
 
+    /**
+     * Identity of the storage this dest writes. Cloud and custom SFTP that share host,
+     * port, and username are the same account; dest.type is not.
+     */
     private destKey(dest: BackupDest): string {
         switch (dest.type) {
             case 'local':
                 return `local:${dest.dir}`
             case 'cloud':
-                return 'cloud'
             case 'sftp':
-                return `sftp:${dest.config.host}:${dest.config.port ?? 22}`
+                return `sftp:${dest.config.host}:${dest.config.port ?? 22}:${dest.config.username}`
             default: {
                 const _exhaustive: never = dest
                 throw new Error(`Unhandled backup dest: ${_exhaustive}`)
             }
         }
+    }
+
+    private uniqueDests(dests: BackupDest[]): BackupDest[] {
+        const seen = new Set<string>()
+        const unique: BackupDest[] = []
+        for (const dest of dests) {
+            const key = this.destKey(dest)
+            if (seen.has(key)) continue
+            seen.add(key)
+            unique.push(dest)
+        }
+        return unique
+    }
+
+    private enqueueDest(dest: BackupDest, work: () => Promise<void>): Promise<void> {
+        const key = this.destKey(dest)
+        const prev = this.destPublishTail.get(key) ?? Promise.resolve()
+        const run = prev.then(work, work)
+        this.destPublishTail.set(key, run.then(() => undefined, () => undefined))
+        return run
     }
 
     private stateFor(dest: BackupDest): DestPubState {
@@ -522,6 +552,7 @@ export class BackupManager {
     }
 
     private async publishRemotes(remotes: BackupDest[], generation: string, shards: Map<BackupTableId, Buffer>): Promise<PushResult> {
+        remotes = this.uniqueDests(remotes)
         if (remotes.length === 0) {
             return { anyOk: false, failures: [], retryable: false }
         }
@@ -553,6 +584,10 @@ export class BackupManager {
     }
 
     private async publishToDest(dest: BackupDest, generation: string, shards: Map<BackupTableId, Buffer>, session?: SftpSession) {
+        await this.enqueueDest(dest, () => this.replaceDestSnapshot(dest, generation, shards, session))
+    }
+
+    private async replaceDestSnapshot(dest: BackupDest, generation: string, shards: Map<BackupTableId, Buffer>, session?: SftpSession) {
         // Always re-read. A cached manifest can lag a commit whose acknowledgement was lost,
         // and the next batch would then mix that stale copy with newer shards.
         const previous = await this.readDestManifest(dest, session)
