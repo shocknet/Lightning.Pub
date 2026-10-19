@@ -1,7 +1,9 @@
 // BACKUP: One encrypted shard per exported table, published by an atomically replaced manifest.
 // Shards are immutable: `<table>.v<generation>.enc`. Restore reads `manifest.json` and
 // downloads exactly those files. `BACKUP_RESTORE_ORDER` is the dialtone import order
-// (must match FK / overlay semantics).
+// (must match FK / overlay semantics). Live batches expand through
+// `expandBackupTableDependencies` so a snapshot of a child table always republishes
+// the parent shards restore will join against.
 
 import crypto from 'crypto'
 
@@ -23,6 +25,42 @@ export const BACKUP_TABLE_IDS = [
 export type BackupTableId = (typeof BACKUP_TABLE_IDS)[number]
 
 export const BACKUP_RESTORE_ORDER: readonly BackupTableId[] = BACKUP_TABLE_IDS
+
+/**
+ * Direct restore parents for each shard. A live snapshot of a child can include
+ * rows that committed after that child was dirtied; those rows still need their
+ * parent shards from the same snapshot or restore cannot join them.
+ */
+const BACKUP_TABLE_PARENTS: { readonly [K in BackupTableId]: readonly BackupTableId[] } = {
+    indexes: [],
+    user_balances: [],
+    tracked_providers: [],
+    applications: ['user_balances'],
+    application_users: ['user_balances', 'applications'],
+    admin_settings: [],
+    app_user_devices: ['application_users'],
+    user_offers: ['application_users'],
+    products: ['user_balances'],
+    management_grants: ['application_users'],
+    debit_accesses: ['application_users'],
+    invite_tokens: ['applications'],
+}
+
+/** Include every restore parent of `ids`, in `BACKUP_RESTORE_ORDER`. */
+export function expandBackupTableDependencies(ids: readonly BackupTableId[]): BackupTableId[] {
+    const out = new Set<BackupTableId>(ids)
+    const stack = [...ids]
+    while (stack.length > 0) {
+        const id = stack.pop()!
+        for (const parent of BACKUP_TABLE_PARENTS[id]) {
+            if (!out.has(parent)) {
+                out.add(parent)
+                stack.push(parent)
+            }
+        }
+    }
+    return BACKUP_RESTORE_ORDER.filter(id => out.has(id))
+}
 
 export const BACKUP_MANIFEST_FILENAME = 'manifest.json'
 

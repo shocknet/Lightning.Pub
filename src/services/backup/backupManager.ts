@@ -1,10 +1,11 @@
 // BACKUP: Orchestrates per-table encrypted uploads and debounced hot paths
 //
 // One versioned shard per exported table (see backupTables.ts), published by an
-// atomically replaced manifest.json. Live notifies upload only the tables that changed;
-// unchanged filenames are copied from that destination's current manifest. Startup,
-// newly enabled destinations, bulk deletes, and shutdown still push every shard so
-// restore has a complete file set.
+// atomically replaced manifest.json. Live notifies upload the tables that changed
+// plus their restore parents, so a snapshot cannot name a child shard whose join
+// targets are still the previous generation. Unchanged filenames are copied from
+// that destination's current manifest. Startup, newly enabled destinations, bulk
+// deletes, and shutdown still push every shard so restore has a complete file set.
 // Shards are written once to unique names. Local shard bytes and the directory entry
 // are fsynced before the manifest is published. Only the manifest uses staging-and-rename
 // (local `.part`, SFTP `manifest.json.tmp` + posix-rename). A failed shard is never
@@ -52,6 +53,7 @@ import {
     BACKUP_MANIFEST_VERSION,
     BACKUP_RESTORE_ORDER,
     backupTableVersionedFilename,
+    expandBackupTableDependencies,
     manifestShardNames,
     newBackupGeneration,
     parseBackupManifest,
@@ -314,8 +316,9 @@ export class BackupManager {
     }
 
     private async replaceBatch(ids: readonly BackupTableId[]): Promise<boolean> {
-        this.log("uploading backup batch: " + ids.join(','))
-        const shards = await this.exportTables(ids)
+        const toExport = expandBackupTableDependencies(ids)
+        this.log("uploading backup batch: " + toExport.join(','))
+        const shards = await this.exportTables(toExport)
         if (shards.size === 0) {
             return false
         }

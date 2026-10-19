@@ -5,11 +5,11 @@ import crypto from 'crypto'
 import SettingsManager from '../services/main/settingsManager.js'
 import { BackupManager } from '../services/backup/backupManager.js'
 import { failureMessage, hashRestorePhrase, RestoreManager } from '../services/backup/restoreManager.js'
-import { decodeBalanceRow, decodeIndexesRow, decryptTableRows, encodeIndexesRow, encryptTableRows } from '../services/backup/segments.js'
+import { decodeApplicationUserRow, decodeBalanceRow, decodeIndexesRow, decryptTableRows, encodeIndexesRow, encryptTableRows } from '../services/backup/segments.js'
 import { encodeTLV, integerToUint8Array } from '../services/helpers/tlv.js'
 import { scbFromSnapshot } from '../services/main/unlocker.js'
 import { Unlocker } from '../services/main/unlocker.js'
-import { BACKUP_MANIFEST_FILENAME, BACKUP_TABLE_IDS, manifestShardNames, parseBackupManifest, type BackupTableId } from '../services/backup/backupTables.js'
+import { BACKUP_MANIFEST_FILENAME, BACKUP_RESTORE_ORDER, BACKUP_TABLE_IDS, expandBackupTableDependencies, manifestShardNames, parseBackupManifest, type BackupTableId } from '../services/backup/backupTables.js'
 import { atomicWriteFile } from '../services/backup/atomicWrite.js'
 import { deriveBackupKeys } from '../services/backup/derivation.js'
 import Storage, { GetTestStorageSettings } from '../services/storage/index.js'
@@ -110,12 +110,14 @@ export default async (T: StorageTestBase) => {
     await testUploadAllTablesWithoutSnapshotsOmitsIndexes(T)
     await testAtomicLocalReplace(T)
     testParseBackupManifest(T)
+    testExpandBackupTableDependencies(T)
     await testRestoreFollowsManifestIgnoresUnreferenced(T)
     await testMissingManifestFailsRestore(T)
     await testFailedShardLeavesPreviousManifest(T)
     await testAmbiguousManifestCommitIsReread(T)
     await testShardGcDropsSupersededImmediately(T)
     await testLiveUploadReplacesOnlyThatTable(T)
+    await testDirtyMembershipExpandsParentsBeforeSnapshot(T)
     await testRefusesWhenLndStarted(T)
     await testResumeAfterDbCommitted(T)
     await testResumePhraseMismatch(T)
@@ -901,6 +903,32 @@ const testParseBackupManifest = (T: StorageTestBase) => {
     T.d('manifest parse accepts versioned shard names and rejects path separators')
 }
 
+const testExpandBackupTableDependencies = (T: StorageTestBase) => {
+    T.d('starting testExpandBackupTableDependencies')
+    T.expect(expandBackupTableDependencies(['admin_settings'])).to.deep.equal(['admin_settings'])
+    T.expect(expandBackupTableDependencies(['user_balances'])).to.deep.equal(['user_balances'])
+    T.expect(expandBackupTableDependencies(['indexes'])).to.deep.equal(['indexes'])
+    T.expect(expandBackupTableDependencies(['application_users'])).to.deep.equal([
+        'user_balances',
+        'applications',
+        'application_users',
+    ])
+    T.expect(expandBackupTableDependencies(['app_user_devices'])).to.deep.equal([
+        'user_balances',
+        'applications',
+        'application_users',
+        'app_user_devices',
+    ])
+    T.expect(expandBackupTableDependencies(['invite_tokens'])).to.deep.equal([
+        'user_balances',
+        'applications',
+        'invite_tokens',
+    ])
+    T.expect(expandBackupTableDependencies(['products'])).to.deep.equal(['user_balances', 'products'])
+    T.expect(expandBackupTableDependencies(BACKUP_RESTORE_ORDER)).to.deep.equal([...BACKUP_RESTORE_ORDER])
+    T.d('child table exports expand to restore parents in restore order')
+}
+
 const testRestoreFollowsManifestIgnoresUnreferenced = async (T: StorageTestBase) => {
     T.d('starting testRestoreFollowsManifestIgnoresUnreferenced')
     const dir = tempBackupDir()
@@ -1094,6 +1122,59 @@ const testLiveUploadReplacesOnlyThatTable = async (T: StorageTestBase) => {
         fs.rmSync(dir, { recursive: true, force: true })
     }
     T.d('a live table upload replaces only that shard and reuses unchanged filenames')
+}
+
+const testDirtyMembershipExpandsParentsBeforeSnapshot = async (T: StorageTestBase) => {
+    T.d('starting testDirtyMembershipExpandsParentsBeforeSnapshot')
+    const dir = tempBackupDir()
+    const backup = new BackupManager(T.storage, await localBackupSettings(T, dir))
+    const origStart = T.storage.StartTransaction.bind(T.storage)
+    let releaseExport = () => {}
+    try {
+        await backup.InitKeys(TEST_SEED)
+        const { app } = await seedDialtone(T, backup.settings)
+        await backup.AddressUpdate(5)
+        backup.ChannelBackupUpdate(SAMPLE_SCB)
+        await backup.uploadAllTables()
+        const before = readManifest(dir)
+        let exportWaiting = false
+        const exportHold = new Promise<void>(resolve => { releaseExport = resolve })
+        T.storage.StartTransaction = (async (exec: any, description?: string) => {
+            if (description === 'backup-export') {
+                exportWaiting = true
+                await exportHold
+            }
+            return origStart(exec, description)
+        }) as typeof origStart
+        ;(backup as any).dirty.add('application_users')
+        const flush = (backup as any).flushDebounced()
+        await waitUntil(() => exportWaiting, 2000, 'backup export did not wait on gated transaction acquisition')
+        const created = await T.storage.applicationStorage.AddApplicationUser(
+            app,
+            `lag-${crypto.randomBytes(8).toString('hex')}`,
+            77,
+        )
+        releaseExport()
+        await flush
+        const after = readManifest(dir)
+        T.expect(after.tables.application_users).to.not.equal(before.tables.application_users)
+        T.expect(after.tables.user_balances).to.not.equal(before.tables.user_balances)
+        T.expect(after.tables.applications).to.not.equal(before.tables.applications)
+        T.expect(after.tables.indexes).to.equal(before.tables.indexes)
+        T.expect(after.tables.admin_settings).to.equal(before.tables.admin_settings)
+        const keys = await deriveBackupKeys(TEST_PHRASE)
+        const userId = created.user.user_id
+        const appUsers = decryptTableRows(fs.readFileSync(shardPath(dir, 'application_users')), keys.encKey).map(decodeApplicationUserRow)
+        const balances = decryptTableRows(fs.readFileSync(shardPath(dir, 'user_balances')), keys.encKey).map(decodeBalanceRow)
+        T.expect(appUsers.some(r => r.user_id === userId)).to.equal(true)
+        T.expect(balances.some(r => r.user_id === userId && r.balance_sats === 77)).to.equal(true)
+    } finally {
+        releaseExport()
+        T.storage.StartTransaction = origStart
+        await backup.shutdown()
+        fs.rmSync(dir, { recursive: true, force: true })
+    }
+    T.d('a child-only dirty capture still publishes parent shards from the same snapshot')
 }
 
 const localBackupSettings = async (T: StorageTestBase, dir: string) => {
