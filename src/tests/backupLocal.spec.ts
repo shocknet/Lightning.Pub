@@ -125,6 +125,8 @@ export default async (T: StorageTestBase) => {
     await testLiveUploadReplacesOnlyThatTable(T)
     await testDirtyMembershipExpandsParentsBeforeSnapshot(T)
     await testParentDeleteWaitsForLiveSnapshot(T)
+    await testFailedExclusiveExportKeepsFullRefresh(T)
+    await testQueuedPartialAfterFailedFullRefreshStaysComplete(T)
     await testRefusesWhenLndStarted(T)
     await testResumeAfterDbCommitted(T)
     await testResumePhraseMismatch(T)
@@ -1242,6 +1244,126 @@ const testParentDeleteWaitsForLiveSnapshot = async (T: StorageTestBase) => {
         fs.rmSync(dir, { recursive: true, force: true })
     }
     T.d('a parent deletion waits for an in-flight live snapshot, then republishes every child shard')
+}
+
+const expectMembershipsJoinBalances = (T: StorageTestBase, dir: string, keys: { encKey: Buffer }, userId: string, present: boolean) => {
+    const memberships = decryptTableRows(fs.readFileSync(shardPath(dir, 'application_users')), keys.encKey).map(decodeApplicationUserRow)
+    const balances = decryptTableRows(fs.readFileSync(shardPath(dir, 'user_balances')), keys.encKey).map(decodeBalanceRow)
+    T.expect(memberships.some(r => r.user_id === userId)).to.equal(present)
+    T.expect(balances.some(r => r.user_id === userId)).to.equal(present)
+    const userIds = new Set(balances.map(r => r.user_id))
+    for (const row of memberships) {
+        T.expect(userIds.has(row.user_id)).to.equal(true)
+    }
+}
+
+const testFailedExclusiveExportKeepsFullRefresh = async (T: StorageTestBase) => {
+    T.d('starting testFailedExclusiveExportKeepsFullRefresh')
+    const dir = tempBackupDir()
+    const backup = new BackupManager(T.storage, await localBackupSettings(T, dir))
+    backup.retryBaseMs = 60_000
+    const appUsers = new AppUserManager(T.storage, backup.settings, {} as never, backup)
+    try {
+        await backup.InitKeys(TEST_SEED)
+        const { app } = await seedDialtone(T, backup.settings)
+        const doomed = await T.storage.applicationStorage.AddApplicationUser(
+            app,
+            `gone-export-${crypto.randomBytes(8).toString('hex')}`,
+            0,
+        )
+        const userId = doomed.user.user_id
+        await backup.AddressUpdate(5)
+        backup.ChannelBackupUpdate(SAMPLE_SCB)
+        await backup.uploadAllTables()
+        const before = readManifest(dir)
+        const origExport = (backup as any).exportTables.bind(backup)
+        let failExport = true
+        ;(backup as any).exportTables = async (ids: BackupTableId[]) => {
+            if (failExport) {
+                failExport = false
+                throw new Error('export failed')
+            }
+            return origExport(ids)
+        }
+        await appUsers.RemoveUsers([{ userId, appUserIds: [doomed.identifier] }])
+        T.expect(await T.storage.userStorage.FindUser(userId)).to.equal(null)
+        T.expect((backup as any).fullRefreshRequired).to.equal(true)
+        T.expect(readManifest(dir).generation).to.equal(before.generation)
+        ;(backup as any).clearRetry()
+        ;(backup as any).dirty.clear()
+        ;(backup as any).dirty.add('products')
+        await (backup as any).flushDebounced()
+        T.expect((backup as any).fullRefreshRequired).to.equal(false)
+        const after = readManifest(dir)
+        T.expect(after.tables.application_users).to.not.equal(before.tables.application_users)
+        T.expect(after.tables.user_balances).to.not.equal(before.tables.user_balances)
+        const keys = await deriveBackupKeys(TEST_PHRASE)
+        expectMembershipsJoinBalances(T, dir, keys, userId, false)
+    } finally {
+        await backup.shutdown()
+        fs.rmSync(dir, { recursive: true, force: true })
+    }
+    T.d('a failed exclusive export keeps a full-refresh obligation so a later products batch republishes memberships')
+}
+
+const testQueuedPartialAfterFailedFullRefreshStaysComplete = async (T: StorageTestBase) => {
+    T.d('starting testQueuedPartialAfterFailedFullRefreshStaysComplete')
+    const dir = tempBackupDir()
+    const backup = new BackupManager(T.storage, await localBackupSettings(T, dir))
+    backup.retryBaseMs = 60_000
+    const appUsers = new AppUserManager(T.storage, backup.settings, {} as never, backup)
+    const origStart = T.storage.StartTransaction.bind(T.storage)
+    const origReplace = (backup as any).replaceDest.bind(backup)
+    let flush: Promise<void> | undefined
+    try {
+        await backup.InitKeys(TEST_SEED)
+        const { app } = await seedDialtone(T, backup.settings)
+        const doomed = await T.storage.applicationStorage.AddApplicationUser(
+            app,
+            `gone-queued-${crypto.randomBytes(8).toString('hex')}`,
+            0,
+        )
+        const userId = doomed.user.user_id
+        await backup.AddressUpdate(5)
+        backup.ChannelBackupUpdate(SAMPLE_SCB)
+        await backup.uploadAllTables()
+        const before = readManifest(dir)
+        let failNextPut = false
+        ;(backup as any).replaceDest = async (dest: unknown, filename: string, encrypted: Buffer) => {
+            if (failNextPut) {
+                failNextPut = false
+                throw new Error('dest down')
+            }
+            return origReplace(dest, filename, encrypted)
+        }
+        let queuedNarrow = false
+        T.storage.StartTransaction = (async (exec: any, description?: string) => {
+            if (description !== 'backup-export' && !queuedNarrow) {
+                queuedNarrow = true
+                failNextPut = true
+                ;(backup as any).dirty.add('products')
+                flush = (backup as any).flushDebounced()
+                await waitUntil(() => (backup as any).batchInProgress, 2000, 'narrow flush did not start behind the exclusive lock')
+            }
+            return origStart(exec, description)
+        }) as typeof origStart
+        await appUsers.RemoveUsers([{ userId, appUserIds: [doomed.identifier] }])
+        T.expect(await T.storage.userStorage.FindUser(userId)).to.equal(null)
+        T.expect(!!flush).to.equal(true)
+        await flush
+        const after = readManifest(dir)
+        T.expect(after.tables.application_users).to.not.equal(before.tables.application_users)
+        T.expect(after.tables.user_balances).to.not.equal(before.tables.user_balances)
+        T.expect(after.tables.products).to.not.equal(before.tables.products)
+        T.expect((backup as any).fullRefreshRequired).to.equal(false)
+        const keys = await deriveBackupKeys(TEST_PHRASE)
+        expectMembershipsJoinBalances(T, dir, keys, userId, false)
+    } finally {
+        T.storage.StartTransaction = origStart
+        await backup.shutdown()
+        fs.rmSync(dir, { recursive: true, force: true })
+    }
+    T.d('a products batch queued during a failed exclusive full upload still republishes every child shard')
 }
 
 const localBackupSettings = async (T: StorageTestBase, dir: string) => {

@@ -5,9 +5,12 @@
 // plus their restore parents, so a snapshot cannot name a child shard whose join
 // targets are still the previous generation. Parent-row deletions take the same
 // publish lock, then push every shard, so a live parent snapshot cannot drop rows
-// that retained child shards still name. Unchanged filenames are copied from
-// that destination's current manifest. Startup, newly enabled destinations, bulk
-// deletes, and shutdown still push every shard so restore has a complete file set.
+// that retained child shards still name. A destination that missed that full
+// refresh keeps the obligation until a later batch exports every table: a queued
+// partial must not mix post-delete parents with retained pre-delete children.
+// Unchanged filenames are copied from that destination's current manifest.
+// Startup, newly enabled destinations, bulk deletes, and shutdown still push
+// every shard so restore has a complete file set.
 // Shards are written once to unique names. Local shard bytes and the directory entry
 // are fsynced before the manifest is published. Only the manifest uses staging-and-rename
 // (local `.part`, SFTP `manifest.json.tmp` + posix-rename). A failed shard is never
@@ -129,6 +132,13 @@ export class BackupManager {
     /** In-flight cloud sign-up, shared by shard uploads that hit a rejected login together. */
     private cloudSignUp: Promise<void> | null = null
     private destState = new Map<string, DestPubState>()
+    /**
+     * After a parent-row delete, no destination may take a partial until a full
+     * snapshot has landed. Queued batches check this when they execute; capturing
+     * every table into `dirty` is not enough if a narrow list is already waiting
+     * on the publish lock. `clearAllDebounce` must not clear this.
+     */
+    private fullRefreshRequired = false
     shuttingDown = false
     /** Overridable in tests so retries do not wait the production 30s. */
     retryBaseMs = RETRY_BASE_MS
@@ -190,7 +200,8 @@ export class BackupManager {
      * In-flight live batches finish first (they still see the pre-delete rows).
      * Later live batches wait until the full snapshot is published, so a parent
      * removal cannot land in a new parent shard while retained child shards
-     * still name the removed rows.
+     * still name the removed rows. If that full publish fails, `fullRefreshRequired`
+     * stays set so a queued partial cannot commit first.
      */
     async runExclusiveFullBackup(work: () => Promise<void>): Promise<void> {
         if (!this.isBackupConfigured()) {
@@ -208,6 +219,7 @@ export class BackupManager {
         try {
             await work()
         } finally {
+            this.fullRefreshRequired = true
             try {
                 await this.replaceBatch(BACKUP_RESTORE_ORDER)
             } catch (err: any) {
@@ -252,6 +264,7 @@ export class BackupManager {
         this.pendingAfterInFlight = false
         this.dirty.clear()
         this.clearRetry()
+        // Keep `fullRefreshRequired`: a later exclusive or live batch still owes a full snapshot.
     }
 
     private clearRetry() {
@@ -355,19 +368,29 @@ export class BackupManager {
     }
 
     private async replaceBatch(ids: readonly BackupTableId[]): Promise<boolean> {
-        const toExport = expandBackupTableDependencies(ids)
+        const forceFull = this.fullRefreshRequired
+        const toExport = forceFull ? [...BACKUP_RESTORE_ORDER] : expandBackupTableDependencies(ids)
         this.log("uploading backup batch: " + toExport.join(','))
-        const shards = await this.exportTables(toExport)
+        let shards: Map<BackupTableId, Buffer>
+        try {
+            shards = await this.exportTables(toExport)
+        } catch (err) {
+            this.requeueForRetry(forceFull ? BACKUP_RESTORE_ORDER : toExport)
+            throw err
+        }
         if (shards.size === 0) {
+            if (forceFull) this.requeueForRetry(BACKUP_RESTORE_ORDER)
             return false
         }
         const generation = newBackupGeneration()
         const result = await this.pushBatch(generation, shards)
         if (result.retryable) {
-            for (const id of shards.keys()) this.dirty.add(id)
-            this.scheduleRetry()
+            this.requeueForRetry(forceFull ? BACKUP_RESTORE_ORDER : [...shards.keys()])
         } else {
             this.clearRetry()
+            if (forceFull && result.anyOk) {
+                this.fullRefreshRequired = false
+            }
         }
         if (!result.anyOk && result.failures.length > 0) {
             throw new Error(result.failures.join('; '))
@@ -377,6 +400,11 @@ export class BackupManager {
         }
         this.log("backup batch published: " + generation)
         return true
+    }
+
+    private requeueForRetry(ids: readonly BackupTableId[]) {
+        for (const id of ids) this.dirty.add(id)
+        this.scheduleRetry()
     }
 
     private async exportTables(ids: readonly BackupTableId[]): Promise<Map<BackupTableId, Buffer>> {
