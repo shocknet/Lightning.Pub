@@ -5,17 +5,20 @@
 
 /* --- from styles.css --- */
 :root {
-    --background-color: #16191c;
-    --color: #ffffff;
-    --color-marked: #ff7700;
+    --background-color: #111213;
+    --color: #f1f1f1;
+    --color-muted: #8a8a8a;
+    --color-surface: #212325;
+    --color-border: #3c3c3c;
+    --color-marked: #ff8a00;
     --color-linked: #2aabe9;
-    --gradient: linear-gradient(60deg, #ff7700 0%, #c740c7 100%);
-    --font-size-h2: 36px;
-    --font-size-p: 16px;
+    --gradient: linear-gradient(90deg, #ff8a00, #f040f5);
+    --font-size-h2: 24px;
+    --font-size-p: 14px;
 }
 
 body {
-    font-family: 'Montserrat', sans-serif;
+    font-family: 'Inter', system-ui, sans-serif;
     background-color: var(--background-color);
     color: var(--color);
     text-align: center;
@@ -25,7 +28,7 @@ body {
     margin: 0;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
+    justify-content: flex-start;
     min-height: 100vh;
 }
 
@@ -69,9 +72,9 @@ h3,
 h4,
 h5,
 h6 {
-    font-family: 'Inter', sans-serif;
-    /* Legacy used Inter for headers inside wizard */
-    color: #fff;
+    font-family: "DM Mono", "Courier New", monospace;
+    font-weight: 300;
+    color: #f1f1f1;
 }
 
 h2 {
@@ -81,8 +84,7 @@ h2 {
 
 p {
     font-size: var(--font-size-p);
-    color: #a3a3a3;
-    /* Default gray from legacy p rules often had specifics */
+    color: var(--color-muted);
 }
 
 a {
@@ -157,54 +159,12 @@ header {
     justify-content: flex-start;
 }
 
-/* ... (images unchanged) ... */
-
-/* Welcome Actions - specific sizing */
-.welcome-actions .wizard-cta {
-    margin: 0;
-    flex-shrink: 0;
-    height: 42px;
-}
-
-.welcome-actions .wizard-cta--gradient-border {
-    width: 160px;
-    border-radius: 12px;
-    background-image: linear-gradient(#16191C, #16191C), linear-gradient(135deg, #FF7700 0%, #C740C7 100%);
-    background-origin: padding-box, border-box;
-    background-clip: padding-box, border-box;
-    border: 1px solid transparent;
-    color: #fff;
-}
-
-.welcome-actions .wizard-cta--gradient-border:hover {
-    background-image: linear-gradient(135deg, #FF7700 0%, #EA624A 33%, #DC547C 66%, #C740C7 100%);
-    background-clip: unset;
-    background-origin: unset;
-    border-color: transparent;
-}
-
-.welcome-actions .wizard-cta--ghost {
-    width: auto;
-    min-width: 120px;
-    padding: 0 1rem;
-    background: transparent;
-    border: none;
-    color: #9ca3af;
-}
-
-.welcome-actions .wizard-cta--ghost:hover {
-    color: #fff;
-    background: rgba(255, 255, 255, 0.08);
-    border-radius: 10px;
-}
-
-img.logo-symbol {
-    width: 38px;
-    height: auto;
-}
-
-img.logo-text {
+/* Header logo */
+img.logo-wordmark {
     height: 26px;
+    width: auto;
+    max-width: 240px;
+    display: block;
 }
 
 
@@ -212,12 +172,12 @@ img.logo-text {
 
 /* Wizard layout: shared content width so progress bar, rules, and cards align */
 main.wizard {
-    text-align: center;
+    text-align: left;
     width: 100%;
-    max-width: min(900px, 92vw);
+    max-width: min(720px, 92vw);
     margin: 0 auto;
-    padding: 1rem;
-    --wizard-content-width: min(100%, clamp(469px, 50vw, 640px));
+    padding: 1rem 1rem 2rem;
+    --wizard-content-width: min(100%, 640px);
 }
 
 /* Reset Pico spacing inside wizard so our layout controls alignment/sizing */
@@ -242,13 +202,11 @@ main.wizard h6 {
 main.wizard p {
     margin-top: 0;
     margin-bottom: 0;
-    color: #D9D9D9;
+    color: var(--color-muted);
 }
 
-/* Restore spacing for elements that need it (override reset) */
-main.wizard .welcome-terms {
-    margin: 1.25rem auto 1.75rem;
-}
+/* Welcome spacing lives with the welcome rules. This reset would glue
+   the pitch and the terms to the feature card. */
 
 main.wizard p + p {
     margin-top: 0.75rem;
@@ -277,14 +235,6 @@ main.wizard ul {
 }
 
 main.wizard li {
-    margin-bottom: 0;
-}
-
-main.wizard .welcome-features .welcome-feature {
-    margin-bottom: 1.25em;
-}
-
-main.wizard .welcome-features .welcome-feature:last-child {
     margin-bottom: 0;
 }
 
@@ -334,7 +284,7 @@ main.wizard .progress-indicator {
     right: 0;
     height: 1px;
     margin-top: -1px;
-    background: linear-gradient(90deg, #FF7700 0%, #EA624A 33%, #DC547C 66%, #C740C7 100%);
+    background: var(--color-border);
     z-index: 0;
 }
 
@@ -359,59 +309,32 @@ main.wizard .progress-indicator {
     width: var(--step-size);
     height: var(--step-size);
     border-radius: 50%;
-    background-color: #16191C;
-    border: 1px solid #C740C7;
-    color: #CACBCD;
+    background-color: var(--background-color);
+    border: 1px solid var(--color-border);
+    color: var(--color-muted);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 14px;
-    font-weight: 500;
-    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 400;
+    font-family: "DM Mono", "Courier New", monospace;
     position: relative;
     z-index: 1;
 }
 
-.progress-step-circle[data-step="1"] {
-    border-color: #FF7700;
-}
-
-.progress-step-circle[data-step="2"] {
-    border-color: #EA624A;
-}
-
-.progress-step-circle[data-step="3"] {
-    border-color: #DC547C;
-}
-
-.progress-step-circle[data-step="4"] {
-    border-color: #C740C7;
-}
-
-.progress-step-circle.active {
-    background: linear-gradient(135deg, #FF7700 0%, #EA624A 50%, #DC547C 100%);
-    border-color: transparent;
-    color: #16191C;
-    font-weight: 700;
-}
-
-/* Specific active states for gradients */
-.progress-step-circle.active[data-step="2"] {
-    background: linear-gradient(135deg, #EA624A 0%, #DC547C 50%, #C740C7 100%);
-}
-
-.progress-step-circle.active[data-step="3"] {
-    background: linear-gradient(135deg, #DC547C 0%, #C740C7 100%);
-}
-
+.progress-step-circle.active,
+.progress-step-circle.active[data-step="2"],
+.progress-step-circle.active[data-step="3"],
 .progress-step-circle.active[data-step="4"] {
-    background: #C740C7;
+    background: var(--color-marked);
+    border-color: var(--color-marked);
+    color: #111213;
+    font-weight: 400;
 }
-
 
 .progress-step-circle.completed {
-    background-color: #FF7700;
-    border-color: #FF7700;
+    background-color: var(--color-marked);
+    border-color: var(--color-marked);
     color: transparent;
 }
 
@@ -421,56 +344,56 @@ main.wizard .progress-indicator {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    color: #16191C;
+    color: #111213;
     font-size: 14px;
-    font-weight: 700;
+    font-weight: 400;
 }
 
 /* Setup Header (Back button + Title) - match wizard.css */
 .setup-header {
-    text-align: center;
+    text-align: left;
     position: relative;
-    margin-bottom: 0;
-    min-height: 25px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 8px 0 20px;
+    min-height: 32px;
 }
 
 .setup-header .icon-button.back-button {
-    position: absolute;
-    top: 2px;
-    left: 0;
+    position: static;
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
     padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     background: transparent;
-    border: none;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
     cursor: pointer;
-    z-index: 10;
+}
+
+.setup-header .icon-button.back-button:hover {
+    border-color: var(--color-muted);
 }
 
 .setup-header .icon-button.back-button img {
-    width: 24px;
-    height: 24px;
+    width: 16px;
+    height: 16px;
     display: block;
 }
 
-@media (min-width: 640px) {
-    .setup-header>.back-button {
-        top: 10px;
-        left: -20px;
-    }
-}
-
 .setup-header h2 {
-    font-family: 'Inter', sans-serif;
-    font-size: 21px;
-    font-weight: 400;
-    letter-spacing: -0.025em;
-    line-height: 25px;
-    color: #FFFFFF;
-    text-align: center;
+    font-family: "DM Mono", "Courier New", monospace;
+    font-size: 24px;
+    font-weight: 300;
+    letter-spacing: -0.014em;
+    line-height: 1.15;
+    color: #f1f1f1;
+    text-align: left;
     margin: 0;
-}
-
-.setup-header:first-of-type h2 {
-    margin-bottom: 1rem;
 }
 
 /* Content Area */
@@ -537,9 +460,9 @@ main.wizard .setup-description .header-title {
     font-family: 'Inter', sans-serif;
     font-weight: 400;
     font-size: 14px;
-    line-height: 17px;
-    letter-spacing: -0.025em;
-    color: #FFFFFF;
+    line-height: 1.45;
+    letter-spacing: 0;
+    color: var(--color-muted);
 }
 
 main.wizard .setup-content {
@@ -585,32 +508,61 @@ main.wizard section#page-node .input-group .field-hint {
     line-height: 17px;
 }
 
-main.wizard section#page-node .setup-content .input-group .input-text {
-    height: 42px;
-    min-height: 42px;
-    padding: 11px 0 !important;
-    border: none !important;
-    border-bottom: 1px solid #5F5F5F !important;
-    border-radius: 0 !important;
+main.wizard section#page-node .setup-content .input-group .input-text,
+main.wizard section#page-node .avatar-input-group input {
+    height: 40px;
+    min-height: 40px;
+    padding: 8px 12px !important;
+    border: 1px solid var(--color-border) !important;
+    border-radius: 6px !important;
+    background: var(--background-color) !important;
     box-sizing: border-box;
-    line-height: 19px;
+    line-height: 1.3;
 }
 
-main.wizard section#page-node .avatar-input-group input {
-    height: 42px;
-    min-height: 42px;
-    padding: 11px 0 !important;
-    border: none !important;
-    border-bottom: 1px solid #5F5F5F !important;
-    border-radius: 0 !important;
-    box-sizing: border-box;
-    line-height: 19px;
+main.wizard section#page-node .avatar-input-group {
+    align-items: center;
 }
 
 main.wizard section#page-node .avatar-input-group img {
     width: 42px;
     height: 42px;
     flex-shrink: 0;
+}
+
+.avatar-upload-btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 40px;
+    padding: 0 14px;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    color: #f1f1f1;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    cursor: pointer;
+    flex-shrink: 0;
+    background: transparent;
+}
+
+.avatar-upload-btn:hover {
+    border-color: var(--color-muted);
+}
+
+main.wizard section#page-node .avatar-upload-btn input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    margin: 0;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    cursor: pointer;
 }
 
 /* Input Groups - match wizard.css */
@@ -629,20 +581,19 @@ main.wizard section#page-node .avatar-input-group img {
 
 .input-group h3 {
     font-family: 'Inter', sans-serif;
-    font-weight: 700;
-    font-size: 18px;
+    font-weight: 500;
+    font-size: 14px;
     line-height: 1.3;
-    color: #fff;
-    margin: 0 0 0.5rem;
+    color: #f1f1f1;
+    margin: 0;
     text-align: left;
-    letter-spacing: -0.025em;
 }
 
 .input-group .field-hint {
-    font-size: 14px;
-    line-height: 1.5;
-    color: #D9D9D9;
-    margin: 0 0 0.75rem;
+    font-size: 13px;
+    line-height: 1.4;
+    color: var(--color-muted);
+    margin: 0;
     text-align: left;
 }
 
@@ -703,20 +654,20 @@ main.wizard section#page-node .avatar-input-group img {
     padding: 4px;
 }
 
-/* Wizard Buttons */
+/* Wizard Buttons — dashboard primary (gradient edge) and ghost */
 .wizard-cta {
-    width: 131px;
-    min-width: 131px;
-    height: 42px;
-    background: #16191C;
-    border-radius: 10px;
-    /* Gradient Border Trick */
-    background: linear-gradient(#16191C, #16191C) padding-box,
-        linear-gradient(to right, #FF7700 0%, #C740C7 100%) border-box;
-    border: 1px solid transparent;
-    color: #fff;
+    width: auto;
+    min-width: 0;
+    height: 36px;
+    padding: 0 16px;
+    border-radius: 8px;
+    border: 2px solid transparent;
+    background: linear-gradient(var(--background-color), var(--background-color)) padding-box,
+        var(--gradient) border-box;
+    color: #f1f1f1;
     font-family: 'Inter', sans-serif;
-    font-size: 16px;
+    font-size: 14px;
+    font-weight: 500;
     cursor: pointer;
     display: inline-flex;
     align-items: center;
@@ -726,18 +677,43 @@ main.wizard section#page-node .avatar-input-group img {
 }
 
 .wizard-cta:hover {
-    opacity: 0.9;
+    background: var(--gradient) padding-box, var(--gradient) border-box;
+    color: #111213;
+}
+
+.wizard-cta:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
 }
 
 .wizard-cta--wide {
-    width: 100%;
+    width: auto;
+    min-width: 220px;
 }
 
 .wizard-cta--gradient-fill {
-    /* Some buttons in legacy were filled? wizard.css implies background-image override */
-    background: linear-gradient(to right, #FF7700 0%, #C740C7 100%);
-    color: #fff;
-    border: none;
+    background: linear-gradient(var(--background-color), var(--background-color)) padding-box,
+        var(--gradient) border-box;
+    color: #f1f1f1;
+    border: 2px solid transparent;
+}
+
+.wizard-cta--gradient-fill:hover {
+    background: var(--gradient) padding-box, var(--gradient) border-box;
+    color: #111213;
+    opacity: 1;
+}
+
+.wizard-cta--ghost {
+    background: transparent;
+    border: 1px solid var(--color-border);
+    color: #f1f1f1;
+}
+
+.wizard-cta--ghost:hover {
+    background: transparent;
+    border-color: var(--color-muted);
+    color: #f1f1f1;
 }
 
 /* Footer Actions */
@@ -762,9 +738,9 @@ main.wizard .page-footer-actions {
 
 .page-separator {
     width: 100%;
-    height: 1px;
-    background: linear-gradient(90deg, #FF7700 0%, #C740C7 100%);
-    margin: 2rem 0 1.5rem;
+    height: 0;
+    background: none;
+    margin: 1.25rem 0 0.75rem;
 }
 
 main.wizard .page-separator {
@@ -782,95 +758,81 @@ main.wizard .error-message {
     color: #ff6b6b;
 }
 
-/* Welcome Page: typography scales with viewport so spacing stays proportional */
+/* Welcome Page */
 main.wizard .welcome-page {
     text-align: center;
-    align-items: center;
-    font-size: clamp(14px, 0.9rem + 0.35vw, 17px);
+    align-items: stretch;
+    max-width: 640px;
+    margin: 0 auto;
 }
 
-/* Welcome content: same width as progress bar and step content */
 main.wizard .welcome-page > * {
-    width: var(--wizard-content-width);
+    width: 100%;
     max-width: 100%;
-    margin-left: auto;
-    margin-right: auto;
+    margin-left: 0;
+    margin-right: 0;
     box-sizing: border-box;
 }
 
-main.wizard .welcome-page .welcome-line {
-    width: var(--wizard-content-width);
-    max-width: 100%;
-}
-
-.welcome-header {
-    margin-bottom: 0.5em;
-}
-
-.welcome-title {
-    font-family: 'Inter', sans-serif;
-    font-weight: 400;
-    font-size: 1.3125em;
-    line-height: 1.2;
-    letter-spacing: -0.025em;
-    color: #fff;
-    margin: 0;
-}
-
-.welcome-line {
-    width: 100%;
-    max-width: 469px;
-    height: 1px;
-    margin: 1.25em auto;
-    background: linear-gradient(90deg, #FF7700 0%, #C740C7 100%);
-}
-
-.welcome-page .welcome-line:last-of-type {
-    margin-bottom: 1.75em;
-}
-
-.welcome-page .welcome-terms {
-    margin-top: 1.25em;
-}
-
-.welcome-headline {
-    font-family: 'Inter', sans-serif;
-    font-weight: 700;
-    font-size: 1em;
-    line-height: 1.21;
-    color: #fff;
-    margin: 0 0 0.5em;
+main.wizard .welcome-page .pub-status-heading,
+main.wizard .welcome-page .pub-status-heading h1 {
     text-align: center;
 }
 
-.welcome-intro {
+main.wizard .welcome-page .pub-status-heading {
+    margin: 4px 0 28px;
+}
+
+main.wizard .welcome-page .welcome-headline {
     font-family: 'Inter', sans-serif;
-    font-weight: 400;
-    font-size: 1em;
-    line-height: 1.21;
-    letter-spacing: -0.025em;
-    color: #D9D9D9;
-    margin: 0 auto 0;
+    font-weight: 500;
+    font-size: 18px;
+    line-height: 1.4;
+    color: #f1f1f1;
+    margin: 0 0 10px;
     text-align: center;
 }
 
-.welcome-features {
+main.wizard .welcome-page .welcome-intro {
+    font-family: 'Inter', sans-serif;
+    font-weight: 400;
+    font-size: 15px;
+    line-height: 1.55;
+    color: var(--color-muted);
+    margin: 0 0 40px;
+    text-align: center;
+}
+
+main.wizard .welcome-page .welcome-features {
     list-style: none;
-    padding: 1.5em 0 0;
-    margin: 0 auto 1.75em;
+    padding: 8px 20px;
+    margin: 0;
     text-align: left;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
 }
 
-.welcome-feature {
+main.wizard .welcome-page .welcome-feature {
     display: flex;
     align-items: flex-start;
-    gap: 0.625em;
+    gap: 14px;
     font-family: 'Inter', sans-serif;
     font-weight: 400;
-    font-size: 1em;
-    line-height: 1.21;
-    letter-spacing: -0.025em;
-    color: #D9D9D9;
+    font-size: 14px;
+    line-height: 1.5;
+    color: #f1f1f1;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--color-border);
+}
+
+main.wizard .welcome-features .welcome-feature {
+    margin-bottom: 0;
+}
+
+main.wizard .welcome-page .welcome-feature:last-child {
+    border-bottom: 0;
+    padding-bottom: 16px;
 }
 
 .welcome-feature > span:not(.welcome-feature-icon) {
@@ -880,73 +842,60 @@ main.wizard .welcome-page .welcome-line {
 
 .welcome-feature-icon {
     flex-shrink: 0;
-    width: 1.5em;
-    height: 1.5em;
+    width: 20px;
+    height: 20px;
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: center;
-    color: #757575;
-    line-height: 1.21;
-    padding-top: 0.12em;
+    color: var(--color-muted);
 }
 
 .welcome-feature-icon svg {
-    width: 1.5em;
-    height: 1.5em;
+    width: 18px;
+    height: 18px;
     display: block;
 }
 
-.welcome-terms {
-    margin: 1.25em auto 1.75em;
+main.wizard .welcome-page .welcome-terms {
+    margin: 36px 0 32px;
     text-align: center;
     font-family: 'Inter', sans-serif;
-    font-size: 0.714em;
-    line-height: 1.2;
-    letter-spacing: -0.025em;
-    color: #777777;
+    font-size: 12px;
+    line-height: 1.55;
+    color: #6a6a6a;
 }
 
 .welcome-terms .marked {
-    color: #FF7700;
+    color: var(--color-marked);
     text-decoration: underline;
 }
 
 .welcome-actions {
-    display: inline-flex;
+    display: flex;
     flex-direction: row;
-    flex-wrap: nowrap;
-    gap: 0.25em;
-    align-items: stretch;
-    margin: 0 auto 1em;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
     justify-content: center;
+    margin: 0 0 12px;
 }
 
-.welcome-actions .wizard-cta {
-    margin: 0;
-    flex-shrink: 0;
-    height: 42px;
-}
-
+.welcome-actions .wizard-cta,
+.welcome-actions .wizard-cta--ghost,
+.welcome-actions .wizard-cta--gradient-fill,
 .welcome-actions .wizard-cta--gradient-border {
-    width: 160px;
-    border-radius: 12px;
-}
-
-.wizard-cta--ghost {
-    background: transparent;
-    border: none;
-    color: #9ca3af;
-}
-
-.welcome-actions .wizard-cta--ghost {
     width: auto;
-    min-width: 120px;
-    padding: 0 1rem;
+    min-width: 0;
+    height: 36px;
+    margin: 0;
+    border-radius: 8px;
 }
 
 .welcome-need-help {
-    display: inline-block;
-    font-size: 14px;
+    display: block;
+    text-align: center;
+    font-size: 13px;
+    color: var(--color-muted);
 }
 
 /* Relay Page: cards same width as progress bar; force content column */
@@ -1027,8 +976,8 @@ main.wizard section#page-relay .custom-relay-input-wrap {
 }
 
 .relay-option input[type="radio"]:checked {
-    background: radial-gradient(circle, #FF7700 46%, #16191C 46%);
-    border: 1px solid #CACBCD;
+    background: radial-gradient(circle, #ff8a00 46%, #111213 46%);
+    border: 1px solid #8a8a8a;
 }
 
 .relay-option-content {
@@ -1271,25 +1220,11 @@ main.wizard input.relay-custom-input {
     opacity: 0.8;
 }
 
-/* Gradient Fill Next Button */
-.wizard-cta--gradient-fill {
-    background-image: linear-gradient(135deg, #FF7700 0%, #EA624A 33%, #DC547C 66%, #C740C7 100%) !important;
-    background-origin: border-box;
-    background-clip: border-box;
-    border-color: transparent;
-    color: #fff;
-    border: none;
-}
-
-.wizard-cta--gradient-fill:hover {
-    opacity: 0.9;
-}
-
 .warning-text {
     font-family: 'Inter', sans-serif;
     font-size: 13px;
-    color: #FF7700;
-    line-height: 1.6;
+    color: var(--color-marked);
+    line-height: 1.5;
     text-align: left;
     margin: 1rem 0;
 }
@@ -1299,17 +1234,20 @@ main.wizard input.relay-custom-input {
 /* Radio options (wizard kit) */
 .radio-option {
     position: relative;
-    margin: 1.5rem 0;
-    padding-left: 36px;
+    margin: 0;
+    padding: 14px 16px 14px 48px;
     min-height: 24px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
 }
 
 .radio-option input[type="radio"] {
     position: absolute;
-    left: 0;
-    top: 2px;
-    width: 20px;
-    height: 20px;
+    left: 16px;
+    top: 16px;
+    width: 18px;
+    height: 18px;
     margin: 0;
     opacity: 0;
     cursor: pointer;
@@ -1318,121 +1256,167 @@ main.wizard input.relay-custom-input {
 
 .radio-option label {
     display: block;
-    font-size: 16px;
-    color: #a3a3a3;
+    font-size: 14px;
+    color: #f1f1f1;
     text-align: left;
     cursor: pointer;
-    transition: color 0.3s ease;
     position: relative;
     width: 100%;
-    line-height: 1.5;
+    line-height: 1.45;
 }
 
-.radio-option input[type="radio"]:checked + label {
-    color: var(--color);
+.radio-option label strong {
+    font-weight: 500;
 }
 
 .radio-option label::before {
     content: '';
     position: absolute;
-    left: -36px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 20px;
-    height: 20px;
-    border: 2px solid #a3a3a3;
+    left: -32px;
+    top: 2px;
+    transform: none;
+    width: 18px;
+    height: 18px;
+    border: 1px solid var(--color-muted);
     border-radius: 50%;
-    background-color: transparent;
-    transition: all 0.3s ease;
+    background-color: var(--background-color);
     box-sizing: border-box;
-    z-index: 0;
 }
 
 .radio-option input[type="radio"]:checked + label::before {
     border-color: var(--color-marked);
-    background-color: transparent;
+    background-color: var(--background-color);
 }
 
 .radio-option label::after {
     content: '';
     position: absolute;
-    left: -26px;
-    top: 50%;
+    left: -23px;
+    top: 11px;
     transform: translate(-50%, -50%);
-    width: 11px;
-    height: 11px;
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
     background-color: transparent;
     box-sizing: border-box;
-    transition: all 0.3s ease;
-    z-index: 1;
 }
 
 .radio-option input[type="radio"]:checked + label::after {
     background-color: var(--color-marked);
 }
 
+.radio-option .automate-label {
+    display: inline;
+}
+
 .radio-option .question-box {
-    cursor: pointer;
-    display: inline-block;
     position: relative;
+    display: inline-flex;
+    align-items: center;
     vertical-align: middle;
     margin-left: 4px;
 }
 
+.radio-option:has(.question-box) {
+    z-index: 2;
+}
+
 .radio-option .automate {
     position: relative;
-    display: inline;
+    display: block;
 }
 
-.automate .question-content {
+main.wizard .question-box button.icon-button {
+    width: 16px;
+    height: 16px;
+    min-width: 16px;
+    margin: 0;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    cursor: pointer;
+    line-height: 0;
+}
+
+main.wizard .question-box button.icon-button img {
+    width: 16px;
+    height: 16px;
+    display: block;
+}
+
+main.wizard .question-box button.icon-button:hover,
+main.wizard .question-box button.icon-button:focus {
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+}
+
+main.wizard .automate .question-content {
     position: absolute;
-    min-width: 280px;
-    background-color: var(--background-color);
-    color: #a3a3a3;
-    padding: 12px;
-    border: 2px solid #c423e0;
-    border-radius: 4px;
+    top: calc(100% + 10px);
+    left: 0;
+    width: 18rem;
+    max-width: min(18rem, 70vw);
+    margin: 0;
+    padding: 16px;
+    box-sizing: border-box;
+    background: #2b3238;
+    color: #cacbcd;
+    border: 0;
+    border-radius: 12px;
+    box-shadow:
+        0 1px 0 0 rgba(255, 255, 255, 0.03),
+        0 1px 3px 0 rgba(0, 0, 0, 0.28),
+        0 1px 2px -1px rgba(0, 0, 0, 0.22);
     font-size: 14px;
-    transform: translate(-50%, -50%);
-    padding-top: 28px;
-    z-index: 200;
-    left: 65%;
+    line-height: 1.45;
+    text-align: left;
+    z-index: 5;
 }
 
-.question-content .close-button {
+main.wizard .automate .question-content::before {
+    content: "";
     position: absolute;
-    top: 4px;
-    right: 0;
+    top: -6px;
+    left: 4px;
+    border: 6px solid transparent;
+    border-top: 0;
+    border-bottom-color: #2b3238;
 }
 
-.question-content .question-more {
-    position: absolute;
-    bottom: 4px;
-    right: 6px;
+main.wizard .automate .question-content p {
+    margin: 0;
+    color: #cacbcd;
+}
+
+main.wizard .question-content .question-more {
+    position: static;
+    display: inline;
+    margin: 0;
+    color: var(--color-marked);
+    white-space: nowrap;
     text-decoration: underline;
-}
-
-@media screen and (max-width: 450px) {
-    .automate > .question-content {
-        left: 50%;
-    }
 }
 
 /* Description box */
 .description-box {
-    background-color: rgba(199, 64, 199, 0.1);
-    border: 1px solid rgba(199, 64, 199, 0.3);
-    border-radius: 8px;
-    padding: 1rem;
-    margin: 1rem 0;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin: 0;
     text-align: left;
 }
 
 .description-box .description {
     font-size: 14px;
-    color: #a3a3a3;
-    line-height: 1.6;
+    color: var(--color-muted);
+    line-height: 1.45;
     margin: 0.75rem 0;
 }
 
@@ -1447,28 +1431,27 @@ main.wizard input.relay-custom-input {
 /* Connect page */
 .connect-instructions {
     font-size: 14px;
-    color: #a3a3a3;
-    margin: 1rem 0;
-    text-align: center;
+    color: var(--color-muted);
+    margin: 0 0 8px;
+    text-align: left;
 }
 
 .qrcode-container {
     display: flex;
-    justify-content: center;
-    margin: 2rem 0;
+    justify-content: flex-start;
+    margin: 8px 0 0;
 }
 
 .qrcode-box {
     position: relative;
     width: 100%;
-    max-width: 280px;
+    max-width: 320px;
     min-height: 280px;
-    padding: 1.5rem;
-    background-color: rgba(199, 64, 199, 0.1);
-    border: 2px solid rgba(199, 64, 199, 0.3);
-    border-radius: 12px;
+    padding: 16px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
     cursor: pointer;
-    transition: all 0.3s ease;
 }
 
 .qrcode-box.revealed {
@@ -1480,18 +1463,18 @@ main.wizard input.relay-custom-input {
 }
 
 .qrcode-warning {
-    font-size: 11px;
-    color: #a3a3a3;
-    text-align: center;
-    margin: 0.25rem 0;
+    font-size: 13px;
+    color: var(--color-muted);
+    text-align: left;
+    margin: 0;
 }
 
 .qrcode-reveal-hint {
-    font-size: 11px;
-    color: #c434e0;
-    text-align: center;
-    margin: 0.25rem 0;
-    font-weight: 600;
+    font-size: 13px;
+    color: var(--color-marked);
+    text-align: left;
+    margin: 6px 0 0;
+    font-weight: 500;
 }
 
 .qrcode-viewport {
@@ -1532,8 +1515,8 @@ main.wizard input.relay-custom-input {
 }
 
 .qr-veil span {
-    color: #c434e0;
-    font-weight: 600;
+    color: #f1f1f1;
+    font-weight: 500;
     font-size: 14px;
 }
 
@@ -1561,56 +1544,60 @@ main.wizard input.relay-custom-input {
     display: block;
 }
 
-/* Status page */
-.status-title {
-    font-family: 'Inter', sans-serif;
-    font-weight: 400;
-    font-size: 21px;
-    line-height: 25px;
-    text-align: center;
-    letter-spacing: -0.025em;
-    color: #FFFFFF;
-    margin: 0;
-    padding: 0 14px;
+/* Status page — same surfaces as the wallet dashboard */
+#page-status.pub-status {
+    text-align: left;
+    max-width: 640px;
+    margin: 0 auto;
 }
 
-.status-line {
-    width: 100%;
-    max-width: 469px;
-    height: 1px;
-    margin: 20px auto;
-    background: linear-gradient(90deg, #FF7700 0%, #C740C7 100%);
+.pub-status-heading {
+    margin: 8px 0 20px;
+}
+
+.pub-status-heading h1 {
+    margin: 0;
+    font-family: "DM Mono", "Courier New", monospace;
+    font-size: 24px;
+    font-weight: 300;
+    letter-spacing: -0.014em;
+    line-height: 1.15;
+    color: #f1f1f1;
+    text-align: left;
 }
 
 .status-content {
-    max-width: 600px;
-    margin: 0 auto;
-    padding: 0 14px;
+    background: #212325;
+    border: 1px solid #3c3c3c;
+    border-radius: 10px;
+    padding: 4px 16px;
 }
 
 .status-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    margin-bottom: 21px;
-    min-height: 17px;
+    display: grid;
+    grid-template-columns: minmax(128px, 180px) minmax(0, 1fr);
+    gap: 12px;
+    align-items: center;
+    margin: 0;
+    padding: 14px 0;
+    border-bottom: 1px solid #3c3c3c;
+}
+
+.status-row:last-child {
+    border-bottom: 0;
 }
 
 .status-label {
     font-family: 'Inter', sans-serif;
     font-weight: 400;
-    font-size: 14px;
-    line-height: 17px;
-    letter-spacing: -0.025em;
-    color: #FFFFFF;
-    opacity: 0.5;
-    flex: 0 0 auto;
-    min-width: 191px;
+    font-size: 13px;
+    line-height: 1.3;
+    color: #8a8a8a;
     text-align: left;
 }
 
 .status-value-group {
-    flex: 1;
+    min-width: 0;
     display: flex;
     justify-content: flex-end;
     align-items: center;
@@ -1619,7 +1606,7 @@ main.wizard input.relay-custom-input {
 .status-value-wrapper {
     position: relative;
     width: 100%;
-    max-width: 244px;
+    min-width: 0;
 }
 
 .status-value-container {
@@ -1628,24 +1615,24 @@ main.wizard input.relay-custom-input {
     justify-content: flex-end;
     gap: 8px;
     flex-wrap: nowrap;
+    min-width: 0;
 }
 
 .status-value {
     font-family: 'Inter', sans-serif;
     font-weight: 400;
     font-size: 14px;
-    line-height: 17px;
+    line-height: 1.3;
     text-align: right;
-    letter-spacing: -0.025em;
-    color: #FFFFFF;
+    color: #f1f1f1;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 200px;
+    min-width: 0;
 }
 
 .status-link {
-    color: #FFFFFF;
+    color: #f1f1f1;
     text-decoration: none;
 }
 
@@ -1661,8 +1648,8 @@ main.wizard input.relay-custom-input {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 14px;
-    height: 14px;
+    width: 16px;
+    height: 16px;
     flex-shrink: 0;
 }
 
@@ -1672,38 +1659,57 @@ main.wizard input.relay-custom-input {
 }
 
 .status-dot {
-    width: 11px;
-    height: 11px;
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
     flex-shrink: 0;
     display: inline-block;
 }
 
 .status-dot-green {
-    background: #32A852;
+    background: #25e673;
 }
 
 .status-dot-orange {
-    background: #FF7700;
+    background: #ff8a00;
 }
 
 .status-dot-red {
-    background: #ff4444;
+    background: #ff0050;
 }
 
 .avatar-image {
-    width: 16px;
-    height: 16px;
-    border-radius: 3px;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
     object-fit: cover;
-    box-shadow: 0 0 1px rgba(0,0,0,1);
-    margin-left: 4px;
     flex-shrink: 0;
     display: none;
 }
 
 .avatar-image.show {
     display: block;
+}
+
+.pub-status-actions {
+    display: flex;
+    justify-content: flex-start;
+    margin-top: 16px;
+}
+
+.pub-status-edit {
+    background: transparent;
+    border: 1px solid #3c3c3c;
+    color: #f1f1f1;
+    border-radius: 8px;
+    padding: 8px 18px;
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.pub-status-edit:hover {
+    border-color: #8a8a8a;
 }
 
 /* Reset box (status overlay) */

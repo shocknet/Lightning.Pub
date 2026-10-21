@@ -8,6 +8,7 @@ import { AdminManager } from '../main/adminManager.js';
 import { assertRemoteBackup, DEFAULT_SFTP_PORT, pickDefaultApp, remoteBackupFromSettings } from '../main/adminNodeSettings.js'
 import { RestoreManager } from '../backup/restoreManager.js'
 import { applyWizardDefaultApp } from './defaultApp.js'
+import { registerAvatarUploadRoute } from './avatarUploadRoute.js'
 const defaultProviderPub = ""
 export class Wizard {
     log = getLogger({ component: "wizard" })
@@ -35,8 +36,23 @@ export class Wizard {
             GetAdminConnectInfo: async () => { return this.GetAdminConnectInfo() },
             GetServiceState: async () => { return this.GetServiceState() },
             WizardRestore: async ({ req }) => { return this.WizardRestore(req) }
-        }, { GuestAuthGuard: async () => "", metricsCallback: () => { }, staticFiles: 'static' })
+        }, {
+            GuestAuthGuard: async () => "",
+            metricsCallback: () => { },
+            staticFiles: 'static',
+            configureApp: (app) => registerAvatarUploadRoute(app, () => this.nodeAvatarKey()),
+        })
         wizardServer.Listen(settings.getSettings().serviceSettings.servicePort + 1)
+    }
+
+    nodeAvatarKey = async (): Promise<Uint8Array> => {
+        const apps = await this.storage.applicationStorage.GetApplications()
+        const app = pickDefaultApp(apps, this.settings.getSettings().serviceSettings.defaultAppName) || apps[0]
+        const hex = app?.nostr_private_key || ""
+        if (!/^[0-9a-fA-F]{64}$/.test(hex)) {
+            throw new Error("This node cannot sign an upload yet")
+        }
+        return Buffer.from(hex, "hex")
     }
 
     GetServiceState = async (): Promise<WizardTypes.ServiceStateResponse> => {

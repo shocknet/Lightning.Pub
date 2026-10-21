@@ -25,6 +25,8 @@ window.wizard = function () {
         // Form Data
         nodeName: '',
         avatarUrl: '',
+        avatarUploading: false,
+        avatarUploadError: '',
         relayUrl: '',
 
         // Relay Data
@@ -377,16 +379,47 @@ window.wizard = function () {
                 : 'img/pub_logo.png';
         },
 
+        async uploadAvatar(event) {
+            const file = event.target.files && event.target.files[0];
+            event.target.value = '';
+            if (!file) return;
+            this.avatarUploading = true;
+            this.avatarUploadError = '';
+            try {
+                const response = await fetch('/wizard/avatar_upload', {
+                    method: 'POST',
+                    headers: { 'Content-Type': file.type || 'application/octet-stream' },
+                    body: file,
+                });
+                const data = await response.json();
+                if (!response.ok || !data.url) {
+                    throw new Error(data.reason || 'Upload failed');
+                }
+                this.avatarUrl = data.url;
+            } catch (err) {
+                this.avatarUploadError = err.message || 'Upload failed';
+            } finally {
+                this.avatarUploading = false;
+            }
+        },
+
         get connectStringDisplay() {
             return this.qrRevealed ? this.connectStringRaw : '';
         },
 
         get lndStatusText() {
-            if (!this.serviceState) return '—';
-            const s = this.serviceState;
-            if (s.lnd_status) return s.lnd_status;
-            if (s.lnd_ready) return 'Active';
-            return 'Disconnected';
+            const state = this.serviceState && this.serviceState.lnd_state;
+            if (state === 'ONLINE') return 'Online';
+            if (state === 'SYNCING') return 'Syncing';
+            if (state === 'OFFLINE') return 'Offline';
+            return '—';
+        },
+
+        get lndStatusDot() {
+            const state = this.serviceState && this.serviceState.lnd_state;
+            if (state === 'ONLINE') return 'status-dot-green';
+            if (state === 'SYNCING') return 'status-dot-orange';
+            return 'status-dot-red';
         },
 
         async loadConnectInfo() {

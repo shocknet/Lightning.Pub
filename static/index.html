@@ -5,32 +5,30 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Montserrat" />
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400&family=Inter:wght@400;600;700&display=swap" />
   <link rel="stylesheet" href="vendor/pico.min.css" />
   <link rel="stylesheet" href="vendor/pico.colors.min.css" />
   <link rel="stylesheet" href="css/pico-theme.css" />
-  <link rel="stylesheet" href="css/custom.css?v=20260213" />
+  <link rel="stylesheet" href="css/custom.css?v=20261021d" />
 
-  <script src="js/app.js" defer></script>
+  <script src="js/app.js?v=20261019j" defer></script>
   <script src="vendor/alpine.min.js" defer></script>
 
   <title>Lightning.Pub</title>
   <meta name="description" content="Lightning for Everyone" />
-  <link rel="icon" type="image/png" href="img/pub_logo.png" />
+  <link rel="icon" type="image/svg+xml" href="img/lightning-pub-mark.svg" />
 </head>
 
 <body x-data="wizard()" x-cloak :class="{ 'wizard-on-welcome': step === 'welcome' }">
   <header>
-    <img src="img/pub_logo.png" class="logo-symbol" alt="Lightning Pub logo" />
-    <img src="img/LightningPub.png" class="logo-text" alt="Lightning Pub logo" />
+    <img src="img/lightning-pub-wordmark.svg" class="logo-wordmark" alt="Lightning.Pub" />
   </header>
 
   <main class="wizard">
     <!-- STEP: WELCOME -->
     <section id="page-welcome" class="welcome-page" x-show="step === 'welcome'" x-transition.opacity>
-      <div class="welcome-header">
-        <h1 class="welcome-title">Welcome</h1>
-        <div class="welcome-line"></div>
+      <div class="pub-status-heading">
+        <h1>Welcome</h1>
       </div>
       <p class="welcome-headline">Share your node with friends, family, and customers.</p>
       <p class="welcome-intro">Lightning.Pub makes it simple—connect over Nostr, issue accounts, and automate the
@@ -77,7 +75,6 @@
           <span>Encrypted push notifications alert you of payments, admin alerts, and debit requests.</span>
         </li>
       </ul>
-      <div class="welcome-line"></div>
       <p class="welcome-terms">By using this bleeding-edge software you acknowledge and agree to its <a
           href="https://docs.shock.network/" target="_blank" rel="noopener" class="marked">terms</a> regarding any
         services herein.</p>
@@ -322,11 +319,16 @@
 
         <div class="input-group">
           <h3>Image</h3>
-          <p class="field-hint">Add a logo or an image to make your node spark among others.</p>
+          <p class="field-hint">Upload a picture, or paste a link. Uploads go to nostrcheck and can take a minute.</p>
           <div class="avatar-input-group">
             <input type="text" class="input-text" placeholder="https://lightning.pub/favicon.png" x-model="avatarUrl" />
+            <label class="avatar-upload-btn">
+              <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" @change="uploadAvatar($event)" :disabled="avatarUploading" />
+              <span x-text="avatarUploading ? 'Uploading…' : 'Upload'"></span>
+            </label>
             <img :src="avatarPreview" alt="avatar" />
           </div>
+          <p class="error-message" x-show="avatarUploadError" x-text="avatarUploadError"></p>
         </div>
       </div>
 
@@ -477,19 +479,17 @@
         <div class="radio-option">
           <input type="radio" id="automate" name="service" value="automate" x-model="liquidityChoice" />
           <label for="automate" class="automate">
-            Use automation service
-            <span class="question-box">
-              <button type="button" class="icon-button" @click="showLiquidityQuestion = !showLiquidityQuestion" aria-label="Help">
-                <img src="img/question.svg" alt="" />
-              </button>
+            <span class="automate-label">
+              Use automation service
+              <span class="question-box" @click.outside="showLiquidityQuestion = false">
+                <button type="button" class="icon-button" @click.stop="showLiquidityQuestion = !showLiquidityQuestion" aria-label="What is the automation service?" :aria-expanded="showLiquidityQuestion">
+                  <img src="img/question.svg" alt="" />
+                </button>
+                <div class="question-content" x-show="showLiquidityQuestion" x-cloak @click.stop>
+                  <p>Automation helps reduce the fees you pay by trusting peers temporarily, until your node balance is sufficient to open a balanced Lightning channel. <a href="https://docs.shock.network/" target="_blank" rel="noopener" class="question-more" @click.stop>Learn more.</a></p>
+                </div>
+              </span>
             </span>
-            <div class="question-content" x-show="showLiquidityQuestion" x-cloak style="display: none;">
-              Automation helps reduce the fees you pay by trusting peers temporarily, until your node balance is sufficient to open a balanced Lightning channel.
-              <button type="button" class="icon-button close-button" @click="showLiquidityQuestion = false">
-                <img src="img/close.svg" alt="" />
-              </button>
-              <a href="https://docs.shock.network/" target="_blank" rel="noopener" class="marked question-more">Learn more.</a>
-            </div>
           </label>
         </div>
         <div class="radio-option">
@@ -634,11 +634,10 @@
     </section>
 
     <!-- STEP: STATUS -->
-    <section id="page-status" x-show="step === 'status'" x-cloak x-transition.opacity>
-      <div class="setup-header">
-        <h2 class="status-title">Node Status</h2>
+    <section id="page-status" class="pub-status" x-show="step === 'status'" x-cloak x-transition.opacity>
+      <div class="pub-status-heading">
+        <h1>Node Status</h1>
       </div>
-      <div class="status-line"></div>
       <section class="node-status">
         <p id="statusErrorText" x-show="error" x-text="error" style="color:red;"></p>
         <div class="status-content">
@@ -748,7 +747,7 @@
             <div class="status-value-group">
               <div class="status-value-container">
                 <span id="lndStatus" class="status-value" x-text="lndStatusText"></span>
-                <span class="status-dot status-dot-orange"></span>
+                <span class="status-dot" :class="lndStatusDot"></span>
               </div>
             </div>
           </div>
@@ -762,8 +761,8 @@
             </div>
           </div>
         </div>
-        <div style="margin-top: 30px; display: flex; justify-content: center;">
-          <button type="button" class="wizard-cta wizard-cta--gradient-fill" @click="goTo('welcome')">Edit</button>
+        <div class="pub-status-actions">
+          <button type="button" class="pub-status-edit" @click="goTo('welcome')">Edit</button>
         </div>
         <div id="reset-box" x-show="showResetBox" x-cloak>
           <div style="width: 100%; position: relative;">

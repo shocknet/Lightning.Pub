@@ -33,3 +33,4 @@ bundler_events/
 metric_events/
 plans
 .npmrc
+db.sqlite.instance.lock-journal
