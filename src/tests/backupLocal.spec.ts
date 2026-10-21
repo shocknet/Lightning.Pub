@@ -3,6 +3,7 @@ import os from 'os'
 import path from 'path'
 import crypto from 'crypto'
 import SettingsManager from '../services/main/settingsManager.js'
+import AppUserManager from '../services/main/appUserManager.js'
 import { BackupManager } from '../services/backup/backupManager.js'
 import { failureMessage, hashRestorePhrase, RestoreManager } from '../services/backup/restoreManager.js'
 import { decodeApplicationUserRow, decodeBalanceRow, decodeIndexesRow, decryptTableRows, encodeIndexesRow, encryptTableRows } from '../services/backup/segments.js'
@@ -47,6 +48,10 @@ const makeSpyBackup = (): SpyBackup => {
             notified.push(...ids)
         },
         uploadAllTables: async () => {
+            spy.fullUploads++
+        },
+        runExclusiveFullBackup: async (work: () => Promise<void>) => {
+            await work()
             spy.fullUploads++
         },
     }
@@ -119,6 +124,7 @@ export default async (T: StorageTestBase) => {
     await testShardGcDropsSupersededImmediately(T)
     await testLiveUploadReplacesOnlyThatTable(T)
     await testDirtyMembershipExpandsParentsBeforeSnapshot(T)
+    await testParentDeleteWaitsForLiveSnapshot(T)
     await testRefusesWhenLndStarted(T)
     await testResumeAfterDbCommitted(T)
     await testResumePhraseMismatch(T)
@@ -1179,6 +1185,62 @@ const testDirtyMembershipExpandsParentsBeforeSnapshot = async (T: StorageTestBas
         fs.rmSync(dir, { recursive: true, force: true })
     }
     T.d('a child-only dirty capture still publishes parent shards from the same snapshot')
+}
+
+const testParentDeleteWaitsForLiveSnapshot = async (T: StorageTestBase) => {
+    T.d('starting testParentDeleteWaitsForLiveSnapshot')
+    const dir = tempBackupDir()
+    const backup = new BackupManager(T.storage, await localBackupSettings(T, dir))
+    const appUsers = new AppUserManager(T.storage, backup.settings, {} as never, backup)
+    const origStart = T.storage.StartTransaction.bind(T.storage)
+    let releaseExport = () => {}
+    try {
+        await backup.InitKeys(TEST_SEED)
+        const { app } = await seedDialtone(T, backup.settings)
+        const doomed = await T.storage.applicationStorage.AddApplicationUser(
+            app,
+            `gone-${crypto.randomBytes(8).toString('hex')}`,
+            0,
+        )
+        const userId = doomed.user.user_id
+        await backup.AddressUpdate(5)
+        backup.ChannelBackupUpdate(SAMPLE_SCB)
+        await backup.uploadAllTables()
+        let exportWaiting = false
+        const exportHold = new Promise<void>(resolve => { releaseExport = resolve })
+        T.storage.StartTransaction = (async (exec: any, description?: string) => {
+            if (description === 'backup-export') {
+                exportWaiting = true
+                await exportHold
+            }
+            return origStart(exec, description)
+        }) as typeof origStart
+        ;(backup as any).dirty.add('products')
+        const flush = (backup as any).flushDebounced()
+        await waitUntil(() => exportWaiting, 2000, 'backup export did not wait on gated transaction acquisition')
+        const removeP = appUsers.RemoveUsers([{ userId, appUserIds: [doomed.identifier] }])
+        await new Promise<void>(resolve => setTimeout(resolve, 150))
+        T.expect(await T.storage.userStorage.FindUser(userId)).to.not.equal(null)
+        releaseExport()
+        await flush
+        await removeP
+        T.expect(await T.storage.userStorage.FindUser(userId)).to.equal(null)
+        const keys = await deriveBackupKeys(TEST_PHRASE)
+        const memberships = decryptTableRows(fs.readFileSync(shardPath(dir, 'application_users')), keys.encKey).map(decodeApplicationUserRow)
+        const balances = decryptTableRows(fs.readFileSync(shardPath(dir, 'user_balances')), keys.encKey).map(decodeBalanceRow)
+        T.expect(memberships.some(r => r.user_id === userId)).to.equal(false)
+        T.expect(balances.some(r => r.user_id === userId)).to.equal(false)
+        const userIds = new Set(balances.map(r => r.user_id))
+        for (const row of memberships) {
+            T.expect(userIds.has(row.user_id)).to.equal(true)
+        }
+    } finally {
+        releaseExport()
+        T.storage.StartTransaction = origStart
+        await backup.shutdown()
+        fs.rmSync(dir, { recursive: true, force: true })
+    }
+    T.d('a parent deletion waits for an in-flight live snapshot, then republishes every child shard')
 }
 
 const localBackupSettings = async (T: StorageTestBase, dir: string) => {

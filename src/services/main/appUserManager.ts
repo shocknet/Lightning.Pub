@@ -246,42 +246,43 @@ export default class {
 
     async RemoveUsers(toDelete: { userId: string, appUserIds: string[] }[]) {
         this.log("Deleting", toDelete.length, "inactive users")
-        for (let i = 0; i < toDelete.length; i++) {
-            const { userId, appUserIds } = toDelete[i]
-            const user = await this.storage.userStorage.FindUser(userId)
-            if (!user || user.balance_sats > 0) {
-                if (user) this.log("Skipping user", userId, "has balance", user.balance_sats)
-                continue
-            }
-            this.log("Deleting user", userId, "progress", i + 1, "/", toDelete.length)
-            await this.storage.StartTransaction(async tx => {
-                for (let j = 0; j < appUserIds.length; j++) {
-                    const appUserId = appUserIds[j]
-                    this.log("Deleting app user", appUserId, "progress", j + 1, "/", appUserIds.length)
-                    this.log("Removing user grants")
-                    await this.storage.managementStorage.removeUserGrants(appUserId, tx)
-                    this.log("Removing user offers")
-                    await this.storage.offerStorage.DeleteUserOffers(appUserId, tx)
-                    this.log("Removing user debit access")
-                    await this.storage.debitStorage.RemoveUserDebitAccess(appUserId, tx)
-                    this.log("Removing user devices")
-                    await this.storage.applicationStorage.RemoveAppUserDevices(appUserId, tx)
+        await this.backupManager.runExclusiveFullBackup(async () => {
+            for (let i = 0; i < toDelete.length; i++) {
+                const { userId, appUserIds } = toDelete[i]
+                const user = await this.storage.userStorage.FindUser(userId)
+                if (!user || user.balance_sats > 0) {
+                    if (user) this.log("Skipping user", userId, "has balance", user.balance_sats)
+                    continue
                 }
-                this.log("Removing user invoices")
-                await this.storage.paymentStorage.RemoveUserInvoices(userId, tx)
-                this.log("Removing user products")
-                await this.storage.productStorage.RemoveUserProducts(userId, tx)
-                this.log("Removing user ephemeral keys")
-                await this.storage.paymentStorage.RemoveUserEphemeralKeys(userId, tx)
-                await this.storage.paymentStorage.RemoveUserInvoicePayments(userId, tx)
-                await this.storage.paymentStorage.RemoveUserTransactionPayments(userId, tx)
-                await this.storage.paymentStorage.RemoveUserToUserPayments(userId, tx)
-                await this.storage.paymentStorage.RemoveUserReceivingAddresses(userId, tx)
-                await this.storage.userStorage.DeleteUserAccess(userId, tx)
-                await this.storage.applicationStorage.RemoveAppUsersAndBaseUsers(appUserIds, userId, tx)
-            })
-        }
-        void this.backupManager.uploadAllTables()
+                this.log("Deleting user", userId, "progress", i + 1, "/", toDelete.length)
+                await this.storage.StartTransaction(async tx => {
+                    for (let j = 0; j < appUserIds.length; j++) {
+                        const appUserId = appUserIds[j]
+                        this.log("Deleting app user", appUserId, "progress", j + 1, "/", appUserIds.length)
+                        this.log("Removing user grants")
+                        await this.storage.managementStorage.removeUserGrants(appUserId, tx)
+                        this.log("Removing user offers")
+                        await this.storage.offerStorage.DeleteUserOffers(appUserId, tx)
+                        this.log("Removing user debit access")
+                        await this.storage.debitStorage.RemoveUserDebitAccess(appUserId, tx)
+                        this.log("Removing user devices")
+                        await this.storage.applicationStorage.RemoveAppUserDevices(appUserId, tx)
+                    }
+                    this.log("Removing user invoices")
+                    await this.storage.paymentStorage.RemoveUserInvoices(userId, tx)
+                    this.log("Removing user products")
+                    await this.storage.productStorage.RemoveUserProducts(userId, tx)
+                    this.log("Removing user ephemeral keys")
+                    await this.storage.paymentStorage.RemoveUserEphemeralKeys(userId, tx)
+                    await this.storage.paymentStorage.RemoveUserInvoicePayments(userId, tx)
+                    await this.storage.paymentStorage.RemoveUserTransactionPayments(userId, tx)
+                    await this.storage.paymentStorage.RemoveUserToUserPayments(userId, tx)
+                    await this.storage.paymentStorage.RemoveUserReceivingAddresses(userId, tx)
+                    await this.storage.userStorage.DeleteUserAccess(userId, tx)
+                    await this.storage.applicationStorage.RemoveAppUsersAndBaseUsers(appUserIds, userId, tx)
+                })
+            }
+        })
         this.log("Cleaned up inactive users")
     }
 }

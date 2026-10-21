@@ -3,7 +3,9 @@
 // One versioned shard per exported table (see backupTables.ts), published by an
 // atomically replaced manifest.json. Live notifies upload the tables that changed
 // plus their restore parents, so a snapshot cannot name a child shard whose join
-// targets are still the previous generation. Unchanged filenames are copied from
+// targets are still the previous generation. Parent-row deletions take the same
+// publish lock, then push every shard, so a live parent snapshot cannot drop rows
+// that retained child shards still name. Unchanged filenames are copied from
 // that destination's current manifest. Startup, newly enabled destinations, bulk
 // deletes, and shutdown still push every shard so restore has a complete file set.
 // Shards are written once to unique names. Local shard bytes and the directory entry
@@ -168,9 +170,10 @@ export class BackupManager {
     }
 
     /**
-     * Immediate upload of every backup shard (startup, newly enabled destination, bulk deletes).
+     * Immediate upload of every backup shard (startup, newly enabled destination).
      * Empty tables are still written so restore has a complete file set. Cancels pending
-     * debounce so this flush is not followed by a duplicate timer fire.
+     * debounce so this flush is not followed by a duplicate timer fire. Bulk deletes use
+     * `runExclusiveFullBackup` so they cannot interleave with a live parent snapshot.
      */
     async uploadAllTables(): Promise<void> {
         this.clearAllDebounce()
@@ -179,6 +182,37 @@ export class BackupManager {
             await this.publishBatch(BACKUP_RESTORE_ORDER)
         } catch (err: any) {
             this.log(`WARNING: backup upload failed (no destination succeeded): ${err.message}`)
+        }
+    }
+
+    /**
+     * Run `work` with no concurrent backup snapshot, then upload every table.
+     * In-flight live batches finish first (they still see the pre-delete rows).
+     * Later live batches wait until the full snapshot is published, so a parent
+     * removal cannot land in a new parent shard while retained child shards
+     * still name the removed rows.
+     */
+    async runExclusiveFullBackup(work: () => Promise<void>): Promise<void> {
+        if (!this.isBackupConfigured()) {
+            await work()
+            return
+        }
+        this.clearAllDebounce()
+        const prev = this.publishTail
+        const run = prev.then(() => this.runExclusiveLocked(work), () => this.runExclusiveLocked(work))
+        this.publishTail = run.then(() => undefined, () => undefined)
+        await run
+    }
+
+    private async runExclusiveLocked(work: () => Promise<void>): Promise<void> {
+        try {
+            await work()
+        } finally {
+            try {
+                await this.replaceBatch(BACKUP_RESTORE_ORDER)
+            } catch (err: any) {
+                this.log(`WARNING: backup upload failed (no destination succeeded): ${err.message}`)
+            }
         }
     }
 
