@@ -462,7 +462,9 @@ export class BackupManager {
 
     /**
      * Identity of the storage this dest writes. Cloud and custom SFTP that share host,
-     * port, and username are the same account; dest.type is not.
+     * port, and username are the same account; dest.type is not. DNS hostnames are
+     * compared case-insensitively so BACKUP.LIGHTNING.PUB and backup.lightning.pub
+     * cannot take two locks on the same storage.
      */
     private destKey(dest: BackupDest): string {
         switch (dest.type) {
@@ -470,7 +472,7 @@ export class BackupManager {
                 return `local:${dest.dir}`
             case 'cloud':
             case 'sftp':
-                return `sftp:${dest.config.host}:${dest.config.port ?? 22}:${dest.config.username}`
+                return `sftp:${dest.config.host.toLowerCase()}:${dest.config.port ?? 22}:${dest.config.username}`
             default: {
                 const _exhaustive: never = dest
                 throw new Error(`Unhandled backup dest: ${_exhaustive}`)
