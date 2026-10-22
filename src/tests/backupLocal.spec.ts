@@ -14,7 +14,9 @@ import { BACKUP_MANIFEST_FILENAME, BACKUP_RESTORE_ORDER, BACKUP_TABLE_IDS, expan
 import { CLOUD_SFTP_HOST, cloudSftpConfig } from '../services/backup/sftpClient.js'
 import { atomicWriteFile } from '../services/backup/atomicWrite.js'
 import { deriveBackupKeys } from '../services/backup/derivation.js'
-import Storage, { GetTestStorageSettings } from '../services/storage/index.js'
+import { initSettings } from '../services/main/init.js'
+import Storage, { GetTestStorageSettings, type StorageSettings } from '../services/storage/index.js'
+import { releasePubInstanceLock } from '../services/storage/instanceLock.js'
 import { Utils } from '../services/helpers/utilsWrapper.js'
 import { NostrSender } from '../services/nostr/sender.js'
 import { AdminManager } from '../services/main/adminManager.js'
@@ -145,6 +147,7 @@ export default async (T: StorageTestBase) => {
     await testLocalRoundtrip(T)
     await testRestoreReloadsLiveSettings(T)
     await testBadSettingsDoNotBlockScb(T)
+    await testInvalidSettingsAllowRecoveryBoot(T)
     await testMissingShardFailsClosed(T)
     await testEmptyProductsShardImports(T)
     await testIndexesWithoutAddressUpdate(T)
@@ -1625,6 +1628,85 @@ const testBadSettingsDoNotBlockScb = async (T: StorageTestBase) => {
         fs.rmSync(dir, { recursive: true, force: true })
     }
     T.d('a bad restored setting reloads after SCB; failed reload keeps recovery active until retry succeeds')
+}
+
+const testInvalidSettingsAllowRecoveryBoot = async (T: StorageTestBase) => {
+    T.d('starting testInvalidSettingsAllowRecoveryBoot')
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pub-restore-boot-'))
+    const dataDir = path.join(dir, 'data')
+    const storageSettings: StorageSettings = {
+        dbSettings: { databaseFile: path.join(dir, 'pub.sqlite'), metricsDatabaseFile: ':memory:', migrate: true },
+        eventLogPath: path.join(dir, 'eventLog.csv'),
+        dataDir,
+        allowResetMetricsStorages: true,
+        walletSecretPath: path.join(dataDir, '.wallet_secret'),
+        walletPasswordPath: path.join(dataDir, '.wallet_password'),
+        jwtSecret: 'restore-boot-test',
+    }
+    const prevRouting = process.env.ROUTING_FEE_LIMIT_BPS
+    const prevService = process.env.SERVICE_FEE_BPS
+    process.env.SERVICE_FEE_BPS = '60'
+    process.env.ROUTING_FEE_LIMIT_BPS = '100'
+    let booted: Awaited<ReturnType<typeof initSettings>> | undefined
+    const restoreEnv = (name: 'ROUTING_FEE_LIMIT_BPS' | 'SERVICE_FEE_BPS', prev: string | undefined) => {
+        if (prev === undefined) delete process.env[name]
+        else process.env[name] = prev
+    }
+    try {
+        fs.mkdirSync(dataDir, { recursive: true })
+        const seedUtils = new Utils({ dataDir, allowResetMetricsStorages: true }, new NostrSender())
+        const seed = new Storage(storageSettings, seedUtils)
+        await seed.Connect(console.log)
+        await seed.settingsStorage.setDbEnvIFNeeded('SERVICE_FEE_BPS', '80')
+        await seed.settingsStorage.setDbEnvIFNeeded('ROUTING_FEE_LIMIT_BPS', '40')
+        const before = await seed.settingsStorage.getAllDbEnvs()
+        seed.Stop()
+        fs.writeFileSync(path.join(dataDir, '.restore_checkpoint'), 'LND_ACTIVE')
+
+        booted = await initSettings(console.log, storageSettings)
+        if (!booted) throw new Error('recovery boot exited')
+        T.expect(booted.restore.HasOngoingRecovery()).to.equal(true)
+        T.expect(booted.settingsManager.getSettings().lndSettings.routingFeeLimitBps).to.equal(100)
+        T.expect(booted.settingsManager.getSettings().serviceFeeSettings.serviceFeeBps).to.equal(60)
+        let retryRejected = false
+        try {
+            await booted.settingsManager.InitSettings()
+        } catch (err: any) {
+            retryRejected = true
+            T.expect(err.message).to.contain('ROUTING_FEE_LIMIT_BPS')
+        }
+        T.expect(retryRejected).to.equal(true)
+        T.expect(booted.settingsManager.getSettings().lndSettings.routingFeeLimitBps).to.equal(100)
+        T.expect(await booted.settingsManager.storage.settingsStorage.getAllDbEnvs()).to.deep.equal(before)
+        T.expect(fs.readFileSync(path.join(dataDir, '.restore_checkpoint'), 'utf8')).to.equal('LND_ACTIVE')
+        booted.settingsManager.storage.Stop()
+        booted = undefined
+        releasePubInstanceLock()
+
+        fs.unlinkSync(path.join(dataDir, '.restore_checkpoint'))
+        let bootRejected = false
+        try {
+            await initSettings(console.log, storageSettings)
+        } catch (err: any) {
+            bootRejected = true
+            T.expect(err.message).to.contain('ROUTING_FEE_LIMIT_BPS')
+        } finally {
+            releasePubInstanceLock()
+        }
+        T.expect(bootRejected).to.equal(true)
+
+        const check = new Storage(storageSettings, new Utils({ dataDir, allowResetMetricsStorages: true }, new NostrSender()))
+        await check.Connect(console.log)
+        T.expect(await check.settingsStorage.getAllDbEnvs()).to.deep.equal(before)
+        check.Stop()
+    } finally {
+        releasePubInstanceLock()
+        booted?.settingsManager.storage.Stop()
+        restoreEnv('ROUTING_FEE_LIMIT_BPS', prevRouting)
+        restoreEnv('SERVICE_FEE_BPS', prevService)
+        fs.rmSync(dir, { recursive: true, force: true })
+    }
+    T.d('invalid settings do not block recovery boot, and a normal boot still refuses them')
 }
 
 const SAMPLE_SCB = Buffer.from('multi-chan-backup'.repeat(40))
