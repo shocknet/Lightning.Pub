@@ -100,7 +100,7 @@ export function cloudSftpConfig(sftpUser: string, sftpPass: string): SftpConfig 
 /** Custom hosts use the operator's fingerprint; pointing a custom host at the cloud still pins. */
 export function customHostFingerprint(host: string, port: number, configured: string): string | undefined {
     if (configured.trim()) return configured.trim()
-    if (host === CLOUD_SFTP_HOST && port === CLOUD_SFTP_PORT) return CLOUD_SFTP_HOST_FINGERPRINT
+    if (host.toLowerCase() === CLOUD_SFTP_HOST && port === CLOUD_SFTP_PORT) return CLOUD_SFTP_HOST_FINGERPRINT
     return undefined
 }
 

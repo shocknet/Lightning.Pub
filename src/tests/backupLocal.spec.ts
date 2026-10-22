@@ -3,6 +3,7 @@ import os from 'os'
 import path from 'path'
 import crypto from 'crypto'
 import SettingsManager from '../services/main/settingsManager.js'
+import AppUserManager from '../services/main/appUserManager.js'
 import { BackupManager } from '../services/backup/backupManager.js'
 import { failureMessage, hashRestorePhrase, RestoreManager } from '../services/backup/restoreManager.js'
 import { decodeApplicationUserRow, decodeBalanceRow, decodeIndexesRow, decryptTableRows, encodeIndexesRow, encryptTableRows } from '../services/backup/segments.js'
@@ -13,7 +14,9 @@ import { BACKUP_MANIFEST_FILENAME, BACKUP_RESTORE_ORDER, BACKUP_TABLE_IDS, expan
 import { CLOUD_SFTP_HOST, cloudSftpConfig } from '../services/backup/sftpClient.js'
 import { atomicWriteFile } from '../services/backup/atomicWrite.js'
 import { deriveBackupKeys } from '../services/backup/derivation.js'
-import Storage, { GetTestStorageSettings } from '../services/storage/index.js'
+import { initSettings } from '../services/main/init.js'
+import Storage, { GetTestStorageSettings, type StorageSettings } from '../services/storage/index.js'
+import { releasePubInstanceLock } from '../services/storage/instanceLock.js'
 import { Utils } from '../services/helpers/utilsWrapper.js'
 import { NostrSender } from '../services/nostr/sender.js'
 import { AdminManager } from '../services/main/adminManager.js'
@@ -47,6 +50,10 @@ const makeSpyBackup = (): SpyBackup => {
             notified.push(...ids)
         },
         uploadAllTables: async () => {
+            spy.fullUploads++
+        },
+        runExclusiveFullBackup: async (work: () => Promise<void>) => {
+            await work()
             spy.fullUploads++
         },
     }
@@ -119,6 +126,9 @@ export default async (T: StorageTestBase) => {
     await testShardGcDropsSupersededImmediately(T)
     await testLiveUploadReplacesOnlyThatTable(T)
     await testDirtyMembershipExpandsParentsBeforeSnapshot(T)
+    await testParentDeleteWaitsForLiveSnapshot(T)
+    await testFailedExclusiveExportKeepsFullRefresh(T)
+    await testQueuedPartialAfterFailedFullRefreshStaysComplete(T)
     await testRefusesWhenLndStarted(T)
     await testResumeAfterDbCommitted(T)
     await testResumePhraseMismatch(T)
@@ -137,6 +147,7 @@ export default async (T: StorageTestBase) => {
     await testLocalRoundtrip(T)
     await testRestoreReloadsLiveSettings(T)
     await testBadSettingsDoNotBlockScb(T)
+    await testInvalidSettingsAllowRecoveryBoot(T)
     await testMissingShardFailsClosed(T)
     await testEmptyProductsShardImports(T)
     await testIndexesWithoutAddressUpdate(T)
@@ -162,6 +173,7 @@ export default async (T: StorageTestBase) => {
     await testConfiguredDestsDedupsCloudSftpAlias(T)
     await testConfiguredDestsKeepsDistinctRemotes(T)
     await testAliasedRemotesDoNotDropInFlightShards(T)
+    await testHostnameCaseAliasKeepsCiphertext(T)
 }
 
 const testRefusesWhenLndStarted = async (T: StorageTestBase) => {
@@ -1181,6 +1193,182 @@ const testDirtyMembershipExpandsParentsBeforeSnapshot = async (T: StorageTestBas
     T.d('a child-only dirty capture still publishes parent shards from the same snapshot')
 }
 
+const testParentDeleteWaitsForLiveSnapshot = async (T: StorageTestBase) => {
+    T.d('starting testParentDeleteWaitsForLiveSnapshot')
+    const dir = tempBackupDir()
+    const backup = new BackupManager(T.storage, await localBackupSettings(T, dir))
+    const appUsers = new AppUserManager(T.storage, backup.settings, {} as never, backup)
+    const origStart = T.storage.StartTransaction.bind(T.storage)
+    let releaseExport = () => {}
+    try {
+        await backup.InitKeys(TEST_SEED)
+        const { app } = await seedDialtone(T, backup.settings)
+        const doomed = await T.storage.applicationStorage.AddApplicationUser(
+            app,
+            `gone-${crypto.randomBytes(8).toString('hex')}`,
+            0,
+        )
+        const userId = doomed.user.user_id
+        await backup.AddressUpdate(5)
+        backup.ChannelBackupUpdate(SAMPLE_SCB)
+        await backup.uploadAllTables()
+        let exportWaiting = false
+        const exportHold = new Promise<void>(resolve => { releaseExport = resolve })
+        T.storage.StartTransaction = (async (exec: any, description?: string) => {
+            if (description === 'backup-export') {
+                exportWaiting = true
+                await exportHold
+            }
+            return origStart(exec, description)
+        }) as typeof origStart
+        ;(backup as any).dirty.add('products')
+        const flush = (backup as any).flushDebounced()
+        await waitUntil(() => exportWaiting, 2000, 'backup export did not wait on gated transaction acquisition')
+        const removeP = appUsers.RemoveUsers([{ userId, appUserIds: [doomed.identifier] }])
+        await new Promise<void>(resolve => setTimeout(resolve, 150))
+        T.expect(await T.storage.userStorage.FindUser(userId)).to.not.equal(null)
+        releaseExport()
+        await flush
+        await removeP
+        T.expect(await T.storage.userStorage.FindUser(userId)).to.equal(null)
+        const keys = await deriveBackupKeys(TEST_PHRASE)
+        const memberships = decryptTableRows(fs.readFileSync(shardPath(dir, 'application_users')), keys.encKey).map(decodeApplicationUserRow)
+        const balances = decryptTableRows(fs.readFileSync(shardPath(dir, 'user_balances')), keys.encKey).map(decodeBalanceRow)
+        T.expect(memberships.some(r => r.user_id === userId)).to.equal(false)
+        T.expect(balances.some(r => r.user_id === userId)).to.equal(false)
+        const userIds = new Set(balances.map(r => r.user_id))
+        for (const row of memberships) {
+            T.expect(userIds.has(row.user_id)).to.equal(true)
+        }
+    } finally {
+        releaseExport()
+        T.storage.StartTransaction = origStart
+        await backup.shutdown()
+        fs.rmSync(dir, { recursive: true, force: true })
+    }
+    T.d('a parent deletion waits for an in-flight live snapshot, then republishes every child shard')
+}
+
+const expectMembershipsJoinBalances = (T: StorageTestBase, dir: string, keys: { encKey: Buffer }, userId: string, present: boolean) => {
+    const memberships = decryptTableRows(fs.readFileSync(shardPath(dir, 'application_users')), keys.encKey).map(decodeApplicationUserRow)
+    const balances = decryptTableRows(fs.readFileSync(shardPath(dir, 'user_balances')), keys.encKey).map(decodeBalanceRow)
+    T.expect(memberships.some(r => r.user_id === userId)).to.equal(present)
+    T.expect(balances.some(r => r.user_id === userId)).to.equal(present)
+    const userIds = new Set(balances.map(r => r.user_id))
+    for (const row of memberships) {
+        T.expect(userIds.has(row.user_id)).to.equal(true)
+    }
+}
+
+const testFailedExclusiveExportKeepsFullRefresh = async (T: StorageTestBase) => {
+    T.d('starting testFailedExclusiveExportKeepsFullRefresh')
+    const dir = tempBackupDir()
+    const backup = new BackupManager(T.storage, await localBackupSettings(T, dir))
+    backup.retryBaseMs = 60_000
+    const appUsers = new AppUserManager(T.storage, backup.settings, {} as never, backup)
+    try {
+        await backup.InitKeys(TEST_SEED)
+        const { app } = await seedDialtone(T, backup.settings)
+        const doomed = await T.storage.applicationStorage.AddApplicationUser(
+            app,
+            `gone-export-${crypto.randomBytes(8).toString('hex')}`,
+            0,
+        )
+        const userId = doomed.user.user_id
+        await backup.AddressUpdate(5)
+        backup.ChannelBackupUpdate(SAMPLE_SCB)
+        await backup.uploadAllTables()
+        const before = readManifest(dir)
+        const origExport = (backup as any).exportTables.bind(backup)
+        let failExport = true
+        ;(backup as any).exportTables = async (ids: BackupTableId[]) => {
+            if (failExport) {
+                failExport = false
+                throw new Error('export failed')
+            }
+            return origExport(ids)
+        }
+        await appUsers.RemoveUsers([{ userId, appUserIds: [doomed.identifier] }])
+        T.expect(await T.storage.userStorage.FindUser(userId)).to.equal(null)
+        T.expect((backup as any).fullRefreshRequired).to.equal(true)
+        T.expect(readManifest(dir).generation).to.equal(before.generation)
+        ;(backup as any).clearRetry()
+        ;(backup as any).dirty.clear()
+        ;(backup as any).dirty.add('products')
+        await (backup as any).flushDebounced()
+        T.expect((backup as any).fullRefreshRequired).to.equal(false)
+        const after = readManifest(dir)
+        T.expect(after.tables.application_users).to.not.equal(before.tables.application_users)
+        T.expect(after.tables.user_balances).to.not.equal(before.tables.user_balances)
+        const keys = await deriveBackupKeys(TEST_PHRASE)
+        expectMembershipsJoinBalances(T, dir, keys, userId, false)
+    } finally {
+        await backup.shutdown()
+        fs.rmSync(dir, { recursive: true, force: true })
+    }
+    T.d('a failed exclusive export keeps a full-refresh obligation so a later products batch republishes memberships')
+}
+
+const testQueuedPartialAfterFailedFullRefreshStaysComplete = async (T: StorageTestBase) => {
+    T.d('starting testQueuedPartialAfterFailedFullRefreshStaysComplete')
+    const dir = tempBackupDir()
+    const backup = new BackupManager(T.storage, await localBackupSettings(T, dir))
+    backup.retryBaseMs = 60_000
+    const appUsers = new AppUserManager(T.storage, backup.settings, {} as never, backup)
+    const origStart = T.storage.StartTransaction.bind(T.storage)
+    const origReplace = (backup as any).replaceDest.bind(backup)
+    let flush: Promise<void> | undefined
+    try {
+        await backup.InitKeys(TEST_SEED)
+        const { app } = await seedDialtone(T, backup.settings)
+        const doomed = await T.storage.applicationStorage.AddApplicationUser(
+            app,
+            `gone-queued-${crypto.randomBytes(8).toString('hex')}`,
+            0,
+        )
+        const userId = doomed.user.user_id
+        await backup.AddressUpdate(5)
+        backup.ChannelBackupUpdate(SAMPLE_SCB)
+        await backup.uploadAllTables()
+        const before = readManifest(dir)
+        let failNextPut = false
+        ;(backup as any).replaceDest = async (dest: unknown, filename: string, encrypted: Buffer) => {
+            if (failNextPut) {
+                failNextPut = false
+                throw new Error('dest down')
+            }
+            return origReplace(dest, filename, encrypted)
+        }
+        let queuedNarrow = false
+        T.storage.StartTransaction = (async (exec: any, description?: string) => {
+            if (description !== 'backup-export' && !queuedNarrow) {
+                queuedNarrow = true
+                failNextPut = true
+                ;(backup as any).dirty.add('products')
+                flush = (backup as any).flushDebounced()
+                await waitUntil(() => (backup as any).batchInProgress, 2000, 'narrow flush did not start behind the exclusive lock')
+            }
+            return origStart(exec, description)
+        }) as typeof origStart
+        await appUsers.RemoveUsers([{ userId, appUserIds: [doomed.identifier] }])
+        T.expect(await T.storage.userStorage.FindUser(userId)).to.equal(null)
+        T.expect(!!flush).to.equal(true)
+        await flush
+        const after = readManifest(dir)
+        T.expect(after.tables.application_users).to.not.equal(before.tables.application_users)
+        T.expect(after.tables.user_balances).to.not.equal(before.tables.user_balances)
+        T.expect(after.tables.products).to.not.equal(before.tables.products)
+        T.expect((backup as any).fullRefreshRequired).to.equal(false)
+        const keys = await deriveBackupKeys(TEST_PHRASE)
+        expectMembershipsJoinBalances(T, dir, keys, userId, false)
+    } finally {
+        T.storage.StartTransaction = origStart
+        await backup.shutdown()
+        fs.rmSync(dir, { recursive: true, force: true })
+    }
+    T.d('a products batch queued during a failed exclusive full upload still republishes every child shard')
+}
+
 const localBackupSettings = async (T: StorageTestBase, dir: string) => {
     const settings = new SettingsManager(T.storage)
     await settings.InitSettings()
@@ -1440,6 +1628,85 @@ const testBadSettingsDoNotBlockScb = async (T: StorageTestBase) => {
         fs.rmSync(dir, { recursive: true, force: true })
     }
     T.d('a bad restored setting reloads after SCB; failed reload keeps recovery active until retry succeeds')
+}
+
+const testInvalidSettingsAllowRecoveryBoot = async (T: StorageTestBase) => {
+    T.d('starting testInvalidSettingsAllowRecoveryBoot')
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pub-restore-boot-'))
+    const dataDir = path.join(dir, 'data')
+    const storageSettings: StorageSettings = {
+        dbSettings: { databaseFile: path.join(dir, 'pub.sqlite'), metricsDatabaseFile: ':memory:', migrate: true },
+        eventLogPath: path.join(dir, 'eventLog.csv'),
+        dataDir,
+        allowResetMetricsStorages: true,
+        walletSecretPath: path.join(dataDir, '.wallet_secret'),
+        walletPasswordPath: path.join(dataDir, '.wallet_password'),
+        jwtSecret: 'restore-boot-test',
+    }
+    const prevRouting = process.env.ROUTING_FEE_LIMIT_BPS
+    const prevService = process.env.SERVICE_FEE_BPS
+    process.env.SERVICE_FEE_BPS = '60'
+    process.env.ROUTING_FEE_LIMIT_BPS = '100'
+    let booted: Awaited<ReturnType<typeof initSettings>> | undefined
+    const restoreEnv = (name: 'ROUTING_FEE_LIMIT_BPS' | 'SERVICE_FEE_BPS', prev: string | undefined) => {
+        if (prev === undefined) delete process.env[name]
+        else process.env[name] = prev
+    }
+    try {
+        fs.mkdirSync(dataDir, { recursive: true })
+        const seedUtils = new Utils({ dataDir, allowResetMetricsStorages: true }, new NostrSender())
+        const seed = new Storage(storageSettings, seedUtils)
+        await seed.Connect(console.log)
+        await seed.settingsStorage.setDbEnvIFNeeded('SERVICE_FEE_BPS', '80')
+        await seed.settingsStorage.setDbEnvIFNeeded('ROUTING_FEE_LIMIT_BPS', '40')
+        const before = await seed.settingsStorage.getAllDbEnvs()
+        seed.Stop()
+        fs.writeFileSync(path.join(dataDir, '.restore_checkpoint'), 'LND_ACTIVE')
+
+        booted = await initSettings(console.log, storageSettings)
+        if (!booted) throw new Error('recovery boot exited')
+        T.expect(booted.restore.HasOngoingRecovery()).to.equal(true)
+        T.expect(booted.settingsManager.getSettings().lndSettings.routingFeeLimitBps).to.equal(100)
+        T.expect(booted.settingsManager.getSettings().serviceFeeSettings.serviceFeeBps).to.equal(60)
+        let retryRejected = false
+        try {
+            await booted.settingsManager.InitSettings()
+        } catch (err: any) {
+            retryRejected = true
+            T.expect(err.message).to.contain('ROUTING_FEE_LIMIT_BPS')
+        }
+        T.expect(retryRejected).to.equal(true)
+        T.expect(booted.settingsManager.getSettings().lndSettings.routingFeeLimitBps).to.equal(100)
+        T.expect(await booted.settingsManager.storage.settingsStorage.getAllDbEnvs()).to.deep.equal(before)
+        T.expect(fs.readFileSync(path.join(dataDir, '.restore_checkpoint'), 'utf8')).to.equal('LND_ACTIVE')
+        booted.settingsManager.storage.Stop()
+        booted = undefined
+        releasePubInstanceLock()
+
+        fs.unlinkSync(path.join(dataDir, '.restore_checkpoint'))
+        let bootRejected = false
+        try {
+            await initSettings(console.log, storageSettings)
+        } catch (err: any) {
+            bootRejected = true
+            T.expect(err.message).to.contain('ROUTING_FEE_LIMIT_BPS')
+        } finally {
+            releasePubInstanceLock()
+        }
+        T.expect(bootRejected).to.equal(true)
+
+        const check = new Storage(storageSettings, new Utils({ dataDir, allowResetMetricsStorages: true }, new NostrSender()))
+        await check.Connect(console.log)
+        T.expect(await check.settingsStorage.getAllDbEnvs()).to.deep.equal(before)
+        check.Stop()
+    } finally {
+        releasePubInstanceLock()
+        booted?.settingsManager.storage.Stop()
+        restoreEnv('ROUTING_FEE_LIMIT_BPS', prevRouting)
+        restoreEnv('SERVICE_FEE_BPS', prevService)
+        fs.rmSync(dir, { recursive: true, force: true })
+    }
+    T.d('invalid settings do not block recovery boot, and a normal boot still refuses them')
 }
 
 const SAMPLE_SCB = Buffer.from('multi-chan-backup'.repeat(40))
@@ -2125,26 +2392,28 @@ const cloudAndAliasSettings = async (T: StorageTestBase, sftpHost: string, sftpU
 
 const testConfiguredDestsDedupsCloudSftpAlias = async (T: StorageTestBase) => {
     T.d('starting testConfiguredDestsDedupsCloudSftpAlias')
-    const backup = new BackupManager(T.storage, await cloudAndAliasSettings(T, CLOUD_SFTP_HOST))
-    await backup.InitKeys(TEST_SEED)
-    try {
-        const dests = (backup as any).configuredDests() as { type: string, config: { host: string, username: string } }[]
-        T.expect(dests.map(d => d.type)).to.deep.equal(['cloud'])
-        T.expect(dests[0].config.host).to.equal(CLOUD_SFTP_HOST)
-        const alias = {
-            type: 'sftp' as const,
-            config: {
-                host: CLOUD_SFTP_HOST,
-                port: 22,
-                username: (backup as any).keys.sftpUser,
-                password: (backup as any).keys.sftpPass,
-            },
+    for (const sftpHost of [CLOUD_SFTP_HOST, CLOUD_SFTP_HOST.toUpperCase()]) {
+        const backup = new BackupManager(T.storage, await cloudAndAliasSettings(T, sftpHost))
+        await backup.InitKeys(TEST_SEED)
+        try {
+            const dests = (backup as any).configuredDests() as { type: string, config: { host: string, username: string } }[]
+            T.expect(dests.map(d => d.type)).to.deep.equal(['cloud'])
+            T.expect(dests[0].config.host).to.equal(CLOUD_SFTP_HOST)
+            const alias = {
+                type: 'sftp' as const,
+                config: {
+                    host: sftpHost,
+                    port: 22,
+                    username: (backup as any).keys.sftpUser,
+                    password: (backup as any).keys.sftpPass,
+                },
+            }
+            T.expect((backup as any).destKey(dests[0])).to.equal((backup as any).destKey(alias))
+            T.expect((backup as any).uniqueDests([dests[0], alias])).to.have.length(1)
+        } finally {
+            ;(backup as any).publishDest = async () => {}
+            await backup.shutdown()
         }
-        T.expect((backup as any).destKey(dests[0])).to.equal((backup as any).destKey(alias))
-        T.expect((backup as any).uniqueDests([dests[0], alias])).to.have.length(1)
-    } finally {
-        ;(backup as any).publishDest = async () => {}
-        await backup.shutdown()
     }
     T.d('managed cloud plus custom SFTP to the same account is one destination')
 }
@@ -2167,7 +2436,26 @@ const testConfiguredDestsKeepsDistinctRemotes = async (T: StorageTestBase) => {
     T.d('cloud and custom SFTP stay separate when host or username differs')
 }
 
-const bindMemoryDestIo = (backup: BackupManager, files: Map<string, Buffer>, failDest?: { type: string }) => {
+const expectLiveCiphertext = (T: StorageTestBase, files: Map<string, Buffer>, shards: Map<string, Buffer>) => {
+    const manifestBuf = files.get(BACKUP_MANIFEST_FILENAME)
+    T.expect(!!manifestBuf).to.equal(true)
+    const manifest = parseBackupManifest(manifestBuf!)
+    for (const [id, encrypted] of shards) {
+        const name = manifest.tables[id as BackupTableId]
+        T.expect(!!name).to.equal(true)
+        const live = files.get(name!)
+        T.expect(!!live).to.equal(true)
+        T.expect(live!.equals(encrypted)).to.equal(true)
+    }
+}
+
+const bindMemoryDestIo = (backup: BackupManager, files: Map<string, Buffer>, opts?: {
+    failDest?: { type: string }
+    truncateLiveOnOverlap?: boolean
+}) => {
+    let shardWriters = 0
+    let overlappingCommitted = Promise.resolve()
+    let resolveOverlappingCommitted: (() => void) | undefined
     ;(backup as any).readDestManifest = async () => {
         const data = files.get(BACKUP_MANIFEST_FILENAME)
         return data ? parseBackupManifest(data) : null
@@ -2177,10 +2465,27 @@ const bindMemoryDestIo = (backup: BackupManager, files: Map<string, Buffer>, fai
         files.delete(filename)
     }
     ;(backup as any).replaceDest = async (dest: { type: string }, filename: string, encrypted: Buffer) => {
-        if (failDest && dest === failDest && filename === BACKUP_MANIFEST_FILENAME) {
+        if (opts?.failDest && dest === opts.failDest && filename === BACKUP_MANIFEST_FILENAME) {
             throw new Error('alias failed after gc')
         }
+        if (opts?.truncateLiveOnOverlap && filename !== BACKUP_MANIFEST_FILENAME) {
+            shardWriters++
+            try {
+                if (shardWriters === 1) {
+                    overlappingCommitted = new Promise(resolve => { resolveOverlappingCommitted = resolve })
+                    files.set(filename, Buffer.from(encrypted))
+                    await new Promise<void>(resolve => setImmediate(resolve))
+                    return
+                }
+                await overlappingCommitted
+                files.set(filename, Buffer.from(encrypted.subarray(0, Math.max(1, encrypted.length >> 1))))
+                throw new Error('overlapping upload truncated live shard')
+            } finally {
+                shardWriters--
+            }
+        }
         files.set(filename, Buffer.from(encrypted))
+        if (filename === BACKUP_MANIFEST_FILENAME) resolveOverlappingCommitted?.()
     }
     ;(backup as any).publishDest = async (dest: unknown, generation: string, shards: Map<string, Buffer>) => {
         await (backup as any).publishToDest(dest, generation, shards)
@@ -2203,7 +2508,7 @@ const testAliasedRemotesDoNotDropInFlightShards = async (T: StorageTestBase) => 
             password: (backup as any).keys.sftpPass,
         },
     }
-    bindMemoryDestIo(backup, files, alias)
+    bindMemoryDestIo(backup, files, { failDest: alias })
     try {
         const shards = await (backup as any).exportTables(['user_balances']) as Map<string, Buffer>
         T.expect(shards.size).to.equal(1)
@@ -2211,10 +2516,7 @@ const testAliasedRemotesDoNotDropInFlightShards = async (T: StorageTestBase) => 
         const unique = await (backup as any).publishRemotes([cloud, alias], generation, shards)
         T.expect(unique.anyOk).to.equal(true)
         T.expect(unique.failures).to.deep.equal([])
-        const afterUnique = parseBackupManifest(files.get(BACKUP_MANIFEST_FILENAME)!)
-        for (const name of manifestShardNames(afterUnique)) {
-            T.expect(files.has(name)).to.equal(true)
-        }
+        expectLiveCiphertext(T, files, shards)
 
         files.clear()
         const overlapping = await withTimeout(Promise.allSettled([
@@ -2226,11 +2528,51 @@ const testAliasedRemotesDoNotDropInFlightShards = async (T: StorageTestBase) => 
         T.expect(!!manifestBuf).to.equal(true)
         const manifest = parseBackupManifest(manifestBuf!)
         T.expect(!!manifest.tables.user_balances).to.equal(true)
-        for (const name of manifestShardNames(manifest)) {
-            T.expect(files.has(name)).to.equal(true)
-        }
+        expectLiveCiphertext(T, files, shards)
     } finally {
         await backup.shutdown()
     }
     T.d('an alias that fails after cleanup cannot drop the other dest\'s published shards')
+}
+
+const testHostnameCaseAliasKeepsCiphertext = async (T: StorageTestBase) => {
+    T.d('starting testHostnameCaseAliasKeepsCiphertext')
+    const mixedHost = CLOUD_SFTP_HOST.toUpperCase()
+    const backup = new BackupManager(T.storage, await cloudAndAliasSettings(T, mixedHost))
+    backup.retryBaseMs = 60_000
+    await backup.InitKeys(TEST_SEED)
+    const files = new Map<string, Buffer>()
+    const cloud = { type: 'cloud' as const, config: cloudSftpConfig((backup as any).keys.sftpUser, (backup as any).keys.sftpPass) }
+    const alias = {
+        type: 'sftp' as const,
+        config: {
+            host: mixedHost,
+            port: 22,
+            username: (backup as any).keys.sftpUser,
+            password: (backup as any).keys.sftpPass,
+        },
+    }
+    bindMemoryDestIo(backup, files, { truncateLiveOnOverlap: true })
+    try {
+        T.expect((backup as any).configuredDests().map((d: { type: string }) => d.type)).to.deep.equal(['cloud'])
+        T.expect((backup as any).destKey(cloud)).to.equal((backup as any).destKey(alias))
+        const shards = await (backup as any).exportTables(['user_balances']) as Map<string, Buffer>
+        T.expect(shards.size).to.equal(1)
+        const generation = newBackupGeneration()
+        const unique = await (backup as any).publishRemotes([cloud, alias], generation, shards)
+        T.expect(unique.anyOk).to.equal(true)
+        T.expect(unique.failures).to.deep.equal([])
+        expectLiveCiphertext(T, files, shards)
+
+        files.clear()
+        const overlapping = await withTimeout(Promise.allSettled([
+            (backup as any).publishToDest(cloud, generation, shards),
+            (backup as any).publishToDest(alias, generation, shards),
+        ]), 5000, 'mixed-case dest publish hung')
+        T.expect(overlapping.every(r => r.status === 'fulfilled')).to.equal(true)
+        expectLiveCiphertext(T, files, shards)
+    } finally {
+        await backup.shutdown()
+    }
+    T.d('mixed-case cloud alias is one destination and keeps shard ciphertext')
 }
