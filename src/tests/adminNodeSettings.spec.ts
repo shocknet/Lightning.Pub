@@ -5,6 +5,7 @@ import { Swaps } from "../services/lnd/swaps/swaps.js"
 import {
     ADMIN_AUTOMATION_ENV,
     ADMIN_LSP_THRESHOLD_ENV,
+    ADMIN_RELAY_ENV,
     DEFAULT_LSP_CHANNEL_THRESHOLD,
     DEFAULT_SFTP_PORT,
     MAX_NODE_NAME_LEN,
@@ -153,6 +154,38 @@ const testEnvLockRefusesDisable = async (h: Harness) => {
         delete process.env[ADMIN_AUTOMATION_ENV]
     }
     h.T.d("env DISABLE_LIQUIDITY_PROVIDER blocks turning automation off")
+}
+
+const testRelayEnvLock = async (h: Harness) => {
+    h.T.d("starting testRelayEnvLock")
+    const original = h.settings.getSettings().nostrRelaySettings.relays[0]
+    const next = "wss://relay.example.test"
+    // CI copies src/tests/.env.test onto .env, which sets NOSTR_RELAYS. The lock
+    // under test is process.env, so clear it first or the unlocked update never runs.
+    const prevNostrRelays = process.env[ADMIN_RELAY_ENV]
+    delete process.env[ADMIN_RELAY_ENV]
+    try {
+        process.env.RELAY_URL = "wss://ignored.example.test"
+        try {
+            const updated = await h.settings.updateRelayUrl(next)
+            h.T.expect(updated).to.equal(true)
+            h.T.expect(h.settings.getSettings().nostrRelaySettings.relays[0]).to.equal(next)
+        } finally {
+            delete process.env.RELAY_URL
+        }
+        process.env[ADMIN_RELAY_ENV] = original
+        const refused = await h.settings.updateRelayUrl("wss://other.example.test")
+        h.T.expect(refused).to.equal(false)
+        h.T.expect(h.settings.getSettings().nostrRelaySettings.relays[0]).to.equal(next)
+        delete process.env[ADMIN_RELAY_ENV]
+        const restored = await h.settings.updateRelayUrl(original)
+        h.T.expect(restored).to.equal(true)
+        h.T.expect(h.settings.getSettings().nostrRelaySettings.relays[0]).to.equal(original)
+    } finally {
+        if (prevNostrRelays === undefined) delete process.env[ADMIN_RELAY_ENV]
+        else process.env[ADMIN_RELAY_ENV] = prevNostrRelays
+    }
+    h.T.d("NOSTR_RELAYS locks the relay, RELAY_URL does not")
 }
 
 const testLspThresholdToggle = async (h: Harness) => {
@@ -407,6 +440,7 @@ export default async (T: StorageTestBase) => {
     await testDefaultAutomationOn(h)
     await testToggleAutomationPersists(h)
     await testEnvLockRefusesDisable(h)
+    await testRelayEnvLock(h)
     await testLspThresholdToggle(h)
     await testLspThresholdEnvLock(h)
     await testLspThresholdZeroReloads(h)

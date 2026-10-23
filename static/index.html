@@ -736,7 +736,7 @@
             <div class="status-label">Invite link:</div>
             <div class="status-value-group">
               <div class="status-value-container">
-                <a href="#" target="_blank" rel="noopener" id="inviteLinkHttp" class="status-value status-link" x-text="serviceState?.invite_link_http || '—'" :href="serviceState?.invite_link_http || '#'"></a>
+                <a href="#" target="_blank" rel="noopener" id="inviteLinkHttp" class="status-value status-link" x-text="inviteLinkHttp || '—'" :href="inviteLinkHttp || '#'"></a>
                 <button type="button" class="status-icon-button status-copy-btn" data-copy-target="inviteLinkHttp" aria-label="Copy">
                   <img src="img/copy.svg" alt="copy" />
                 </button>
@@ -748,7 +748,7 @@
             <div class="status-value-group">
               <div class="status-value-container">
                 <span id="lndStatus" class="status-value" x-text="lndStatusText"></span>
-                <span class="status-dot status-dot-orange"></span>
+                <span class="status-dot" :class="lndStatusDotClass"></span>
               </div>
             </div>
           </div>
