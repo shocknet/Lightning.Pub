@@ -1026,62 +1026,14 @@ main.wizard section#page-relay .custom-relay-input-wrap {
     box-sizing: border-box;
 }
 
-.relay-info-icon {
-    position: relative;
-    font-size: 16px;
-    color: #D9D9D9;
-    cursor: default;
-    flex-shrink: 0;
-}
-
-.relay-info-tooltip {
-    display: none;
-    position: absolute;
-    bottom: calc(100% + 10px);
-    right: 0;
-    left: auto;
-    width: 193px;
-    background: #2E302F;
-    border: 1px solid #8F9299;
-    border-radius: 6px;
-    padding: 6px 8px;
-    font-family: 'Inter', sans-serif;
-    font-size: 10px;
-    font-weight: 400;
-    line-height: 12px;
-    text-align: left;
-    letter-spacing: -0.025em;
-    color: #FFFFFF;
-    z-index: 1000;
-    pointer-events: none;
-    white-space: normal;
-}
-
-/* Let tooltip escape card and sit above the previous card */
-.relay-card:has(.relay-info-icon) {
+.relay-card:has(.question-box) {
     overflow: visible;
     position: relative;
-    z-index: 1;
-}
-.relay-card:has(.relay-info-icon:hover) {
     z-index: 2;
 }
 
-.relay-info-tooltip::after {
-    content: '';
-    position: absolute;
-    top: 100%;
-    right: 8px;
-    transform: translateY(-50%) rotate(135deg);
-    width: 10px;
-    height: 10px;
-    background: #2E302F;
-    border-right: 1px solid #8F9299;
-    border-bottom: 1px solid #8F9299;
-}
-
-.relay-info-icon:hover .relay-info-tooltip {
-    display: block;
+.relay-option-title .question-box {
+    margin-left: 6px;
 }
 
 /* Custom Relay Inputs - same scale as setup page, stay inside card */
@@ -1309,7 +1261,7 @@ main.wizard input.relay-custom-input {
     display: inline;
 }
 
-.radio-option .question-box {
+main.wizard .question-box {
     position: relative;
     display: inline-flex;
     align-items: center;
@@ -1356,7 +1308,7 @@ main.wizard .question-box button.icon-button:focus {
     box-shadow: none;
 }
 
-main.wizard .automate .question-content {
+main.wizard .question-content {
     position: absolute;
     top: calc(100% + 10px);
     left: 0;
@@ -1373,13 +1325,15 @@ main.wizard .automate .question-content {
         0 1px 0 0 rgba(255, 255, 255, 0.03),
         0 1px 3px 0 rgba(0, 0, 0, 0.28),
         0 1px 2px -1px rgba(0, 0, 0, 0.22);
+    font-family: 'Inter', system-ui, sans-serif;
     font-size: 14px;
+    font-weight: 400;
     line-height: 1.45;
     text-align: left;
     z-index: 5;
 }
 
-main.wizard .automate .question-content::before {
+main.wizard .question-content::before {
     content: "";
     position: absolute;
     top: -6px;
@@ -1389,9 +1343,10 @@ main.wizard .automate .question-content::before {
     border-bottom-color: #2b3238;
 }
 
-main.wizard .automate .question-content p {
+main.wizard .question-content p {
     margin: 0;
     color: #cacbcd;
+    font-weight: 400;
 }
 
 main.wizard .question-content .question-more {

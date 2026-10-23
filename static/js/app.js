@@ -44,6 +44,7 @@ window.wizard = function () {
         backupPass: '',
         backupFingerprint: '',
         showLiquidityQuestion: false,
+        showRelayQuestion: false,
 
         // Connect
         connectStringRaw: '',

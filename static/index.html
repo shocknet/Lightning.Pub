@@ -9,9 +9,9 @@
   <link rel="stylesheet" href="vendor/pico.min.css" />
   <link rel="stylesheet" href="vendor/pico.colors.min.css" />
   <link rel="stylesheet" href="css/pico-theme.css" />
-  <link rel="stylesheet" href="css/custom.css?v=20261021d" />
+  <link rel="stylesheet" href="css/custom.css?v=20261021e" />
 
-  <script src="js/app.js?v=20261019j" defer></script>
+  <script src="js/app.js?v=20261021e" defer></script>
   <script src="vendor/alpine.min.js" defer></script>
 
   <title>Lightning.Pub</title>
@@ -412,10 +412,15 @@
               <input type="radio" value="custom" x-model="relayTier" />
               <div class="relay-option-content">
                 <div class="relay-option-header">
-                  <span class="relay-option-title">Custom nostr relay(s)</span>
-                  <span class="relay-option-meta relay-info-icon">ⓘ
-                    <div class="relay-info-tooltip"><u>Make sure</u> your relays have adequate storage policies to hold
-                      NIP78 events.</div>
+                  <span class="relay-option-title">Custom nostr relay(s)
+                    <span class="question-box" @click.outside="showRelayQuestion = false">
+                      <button type="button" class="icon-button" @click.stop="showRelayQuestion = !showRelayQuestion" aria-label="About custom relays" :aria-expanded="showRelayQuestion">
+                        <img src="img/question.svg" alt="" />
+                      </button>
+                      <div class="question-content" x-show="showRelayQuestion" x-cloak @click.stop>
+                        <p>Make sure your relays have adequate storage policies to hold NIP78 events.</p>
+                      </div>
+                    </span>
                   </span>
                 </div>
                 <span class="relay-option-description">Use your own or your most trusted relays</span>
