@@ -20,6 +20,7 @@ import {
     persistLspThreshold,
     pickDefaultApp,
     remoteBackupFromSettings,
+    wizardFirstRun,
     type RemoteBackupConfig,
 } from "../services/main/adminNodeSettings.js"
 import type { BackupSettings } from "../services/main/settings.js"
@@ -117,6 +118,18 @@ const testPolarityHelpers = (T: StorageTestBase) => {
     T.expect(persistLspThreshold(true, 500_000)).to.equal(500_000)
     T.expect(isValidLspThreshold(0)).to.equal(true)
     T.expect(isValidLspThreshold(-1)).to.equal(false)
+    const firstRun = (overrides: Partial<Parameters<typeof wizardFirstRun>[0]> = {}) => wizardFirstRun({
+        hasOngoingRecovery: false,
+        wizardConfigured: false,
+        dbClean: true,
+        wizardNonBlocking: false,
+        ...overrides,
+    })
+    T.expect(firstRun()).to.equal(true)
+    T.expect(firstRun({ dbClean: false, wizardNonBlocking: true })).to.equal(true)
+    T.expect(firstRun({ dbClean: false, wizardNonBlocking: false })).to.equal(false)
+    T.expect(firstRun({ wizardConfigured: true, dbClean: false, wizardNonBlocking: true })).to.equal(false)
+    T.expect(firstRun({ hasOngoingRecovery: true })).to.equal(false)
     T.d("automation on means disableLiquidityProvider is false")
 }
 
@@ -126,6 +139,19 @@ const testDefaultAutomationOn = async (h: Harness) => {
     h.T.expect(disable).to.equal(false)
     h.T.expect(automationEnabled(disable)).to.equal(true)
     h.T.d("no env set: automation defaults on")
+}
+
+const testWizardConfiguredPersists = async (h: Harness) => {
+    h.T.d("starting testWizardConfiguredPersists")
+    h.T.expect(h.settings.getSettings().serviceSettings.wizardConfigured).to.equal(false)
+    const marked = await h.settings.markWizardConfigured()
+    h.T.expect(marked).to.equal(true)
+    h.T.expect(h.settings.getSettings().serviceSettings.wizardConfigured).to.equal(true)
+    h.T.expect(await h.settings.markWizardConfigured()).to.equal(false)
+    const reloaded = new SettingsManager(h.T.storage)
+    await reloaded.InitSettings()
+    h.T.expect(reloaded.getSettings().serviceSettings.wizardConfigured).to.equal(true)
+    h.T.d("markWizardConfigured writes WIZARD_CONFIGURED")
 }
 
 const testToggleAutomationPersists = async (h: Harness) => {
@@ -438,6 +464,7 @@ export default async (T: StorageTestBase) => {
     testRemoteBackupMapping(T)
     const h = await setupHarness(T)
     await testDefaultAutomationOn(h)
+    await testWizardConfiguredPersists(h)
     await testToggleAutomationPersists(h)
     await testEnvLockRefusesDisable(h)
     await testRelayEnvLock(h)

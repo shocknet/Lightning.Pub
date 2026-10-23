@@ -62,6 +62,7 @@ type ServiceStateResponse struct {
 	App_id               string        `json:"app_id"`
 	Automate_liquidity   bool          `json:"automate_liquidity"`
 	Avatar_url           string        `json:"avatar_url"`
+	First_run            bool          `json:"first_run"`
 	Has_ongoing_recovery bool          `json:"has_ongoing_recovery"`
 	Has_seed             bool          `json:"has_seed"`
 	Http_url             string        `json:"http_url"`

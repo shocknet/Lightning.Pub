@@ -155,6 +155,18 @@ export const pickDefaultApp = <T extends { name: string }>(apps: T[], defaultApp
     }
 }
 
+/** First-run UI defaults apply until wizard config is submitted.
+ * Non-blocking startup creates a default app (and owner user), so IsDbClean() is false. */
+export const wizardFirstRun = (opts: {
+    hasOngoingRecovery: boolean
+    wizardConfigured: boolean
+    dbClean: boolean
+    wizardNonBlocking: boolean
+}): boolean => {
+    if (opts.hasOngoingRecovery || opts.wizardConfigured) return false
+    return opts.dbClean || opts.wizardNonBlocking
+}
+
 export { assertAvatarUrl, isHttpsAvatarUrl, trimAvatarUrl } from "../helpers/httpsAvatarUrl.js"
 
 export const trimNodeName = (name: string) => name.trim()
