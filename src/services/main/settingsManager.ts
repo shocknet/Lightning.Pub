@@ -12,8 +12,9 @@ import {
 } from "./settings.js"
 import { BackupManager } from "../backup/backupManager.js"
 import {
+    ADMIN_RELAY_ENV,
     assertOnchainConfSettings, assertRemoteBackup, backupSettingsFromRemote, changedRemoteBackupSettings,
-    isRemoteBackupEnvLocked, OnchainConfTiers, RemoteBackupConfig,
+    isEnvLocked, isRemoteBackupEnvLocked, OnchainConfTiers, RemoteBackupConfig,
 } from "./adminNodeSettings.js"
 export type SettingOverrideFunction = (s: FullSettings) => FullSettings
 export default class SettingsManager {
@@ -144,7 +145,7 @@ export default class SettingsManager {
         if (url === this.settings.nostrRelaySettings.relays[0]) {
             return false
         }
-        if (!!process.env.RELAY_URL) {
+        if (isEnvLocked(ADMIN_RELAY_ENV)) {
             return false
         }
         await this.storage.settingsStorage.setDbEnvIFNeeded("NOSTR_RELAYS", url)
