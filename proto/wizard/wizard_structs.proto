@@ -58,6 +58,9 @@ message ServiceStateResponse {
     bool is_db_clean = 16;
     // True while a restore checkpoint is unfinished or a restore is in flight.
     bool has_ongoing_recovery = 17;
+    // True until wizard config is submitted. Non-blocking startup creates a
+    // placeholder app, so is_db_clean is false even on first run.
+    bool first_run = 18;
 }
 
 message FtpCreds {

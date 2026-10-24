@@ -304,6 +304,7 @@ export type ServiceStateResponse = {
     app_id: string
     automate_liquidity: boolean
     avatar_url: string
+    first_run: boolean
     has_ongoing_recovery: boolean
     has_seed: boolean
     http_url: string
@@ -325,6 +326,7 @@ export type ServiceStateResponseOptions = OptionsBaseMessage & {
     app_id_CustomCheck?: (v: string) => boolean
     automate_liquidity_CustomCheck?: (v: boolean) => boolean
     avatar_url_CustomCheck?: (v: string) => boolean
+    first_run_CustomCheck?: (v: boolean) => boolean
     has_ongoing_recovery_CustomCheck?: (v: boolean) => boolean
     has_seed_CustomCheck?: (v: boolean) => boolean
     http_url_CustomCheck?: (v: string) => boolean
@@ -354,6 +356,9 @@ export const ServiceStateResponseValidate = (o?: ServiceStateResponse, opts: Ser
 
     if (typeof o.avatar_url !== 'string') return new Error(`${path}.avatar_url: is not a string`)
     if (opts.avatar_url_CustomCheck && !opts.avatar_url_CustomCheck(o.avatar_url)) return new Error(`${path}.avatar_url: custom check failed`)
+
+    if (typeof o.first_run !== 'boolean') return new Error(`${path}.first_run: is not a boolean`)
+    if (opts.first_run_CustomCheck && !opts.first_run_CustomCheck(o.first_run)) return new Error(`${path}.first_run: custom check failed`)
 
     if (typeof o.has_ongoing_recovery !== 'boolean') return new Error(`${path}.has_ongoing_recovery: is not a boolean`)
     if (opts.has_ongoing_recovery_CustomCheck && !opts.has_ongoing_recovery_CustomCheck(o.has_ongoing_recovery)) return new Error(`${path}.has_ongoing_recovery: custom check failed`)

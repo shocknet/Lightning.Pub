@@ -6,7 +6,7 @@ import SettingsManager from "../main/settingsManager.js"
 import Storage from '../storage/index.js'
 import { Unlocker } from "../main/unlocker.js"
 import { AdminManager } from '../main/adminManager.js';
-import { assertRemoteBackup, DEFAULT_SFTP_PORT, pickDefaultApp, remoteBackupFromSettings } from '../main/adminNodeSettings.js'
+import { assertRemoteBackup, DEFAULT_SFTP_PORT, pickDefaultApp, remoteBackupFromSettings, wizardFirstRun } from '../main/adminNodeSettings.js'
 import { RestoreManager } from '../backup/restoreManager.js'
 import { applyWizardDefaultApp } from './defaultApp.js'
 const { nprofileEncode } = nip19
@@ -44,13 +44,31 @@ export class Wizard {
     GetServiceState = async (): Promise<WizardTypes.ServiceStateResponse> => {
         // Keep this even if the rest of the snapshot fails: the welcome page needs it to
         // show Retry Restore after a committed restore (is_db_clean is then false).
+        // first_run is independent of is_db_clean: non-blocking startup creates a default
+        // app before the operator submits config.
         const hasOngoingRecovery = this.restoreManager.IsRecoveryActive()
+        const firstRun = (dbClean: boolean) => {
+            try {
+                const service = this.settings.getSettings().serviceSettings
+                return wizardFirstRun({
+                    hasOngoingRecovery,
+                    wizardConfigured: service.wizardConfigured,
+                    dbClean,
+                    wizardNonBlocking: service.wizardNonBlocking,
+                })
+            } catch {
+                return false
+            }
+        }
+        // Hoisted so a later failure still reports first run once cleanliness is known.
+        let dbClean = false
         try {
             const apps = await this.storage.applicationStorage.GetApplications()
             const appNamesList = apps.map(app => app.name).join(', ')
             const relays = this.settings.getSettings().nostrRelaySettings.relays
             const relayUrl = (relays && relays.length > 0) ? relays[0] : '';
             const defaultApp = pickDefaultApp(apps, this.settings.getSettings().serviceSettings.defaultAppName) || apps[0]
+            dbClean = await this.storage.IsDbClean()
             // Determine LND state and watchdog
             let lndState: WizardTypes.LndState = WizardTypes.LndState.OFFLINE
             let watchdogOk = false
@@ -79,7 +97,8 @@ export class Wizard {
                 avatar_url: defaultApp?.avatar_url || '',
                 app_id: defaultApp?.app_id || '',
                 has_seed: await this.unlocker.HasSeedForNode(),
-                is_db_clean: await this.storage.IsDbClean(),
+                is_db_clean: dbClean,
+                first_run: firstRun(dbClean),
                 has_ongoing_recovery: hasOngoingRecovery,
             }
         } catch (e) {
@@ -101,7 +120,8 @@ export class Wizard {
                 avatar_url: '',
                 app_id: '',
                 has_seed: false,
-                is_db_clean: false,
+                is_db_clean: dbClean,
+                first_run: firstRun(dbClean),
                 has_ongoing_recovery: hasOngoingRecovery,
             }
         }
@@ -224,6 +244,7 @@ export class Wizard {
         await this.settings.updateDisableLiquidityProvider(!pendingConfig.automateLiquidity)
         this.adminManager.liquidityProvider?.syncAfterSettingsChange()
         await this.settings.updateRemoteBackup(req.remote_backup)
+        await this.settings.markWizardConfigured()
 
         const relayUpdated = await this.settings.updateRelayUrl(pendingConfig.relayUrl)
         if (relayUpdated) {

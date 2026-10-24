@@ -322,6 +322,7 @@ export class RestoreManager {
         // cannot block SCB retries. COMPLETED waits on this reload: a failed load stays
         // at LND_ACTIVE so waiters stay blocked and retry can reload without re-importing.
         await this.settings.InitSettings()
+        await this.settings.markWizardConfigured()
         this.updateCheckpoint(RestoreCheckpoint.COMPLETED)
         this.clearPhraseBinding()
         this.clearWalletBinding()

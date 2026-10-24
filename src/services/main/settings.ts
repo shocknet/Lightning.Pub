@@ -32,6 +32,7 @@ export type ServiceSettings = {
     skipSanityCheck: boolean
     wizard: boolean
     wizardNonBlocking: boolean
+    wizardConfigured: boolean
     bridgeUrl: string,
     shockPushBaseUrl: string
 
@@ -54,6 +55,7 @@ export const LoadServiceSettingsFromEnv = (dbEnv: Record<string, string | undefi
         disableExternalPayments: chooseEnvBool("DISABLE_EXTERNAL_PAYMENTS", dbEnv, false, addToDb),
         wizard: chooseEnvBool("WIZARD", dbEnv, false, addToDb),
         wizardNonBlocking: chooseEnvBool("WIZARD_NON_BLOCKING", dbEnv, false, addToDb),
+        wizardConfigured: chooseEnvBool("WIZARD_CONFIGURED", dbEnv, false, addToDb),
         defaultAppName: chooseEnv("DEFAULT_APP_NAME", dbEnv, "wallet", addToDb),
         lnurlMetaText: chooseEnv("LNURL_META_TEXT", dbEnv, "LNURL via Lightning.pub", addToDb),
         bridgeUrl: chooseEnv("BRIDGE_URL", dbEnv, "https://shockwallet.app", addToDb),

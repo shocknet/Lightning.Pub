@@ -212,6 +212,19 @@ export default class SettingsManager {
         return true
     }
 
+    async markWizardConfigured(): Promise<boolean> {
+        if (!this.settings) {
+            throw new Error("Settings not initialized")
+        }
+        if (this.settings.serviceSettings.wizardConfigured) {
+            return false
+        }
+        await this.storage.settingsStorage.setDbEnvIFNeeded("WIZARD_CONFIGURED", "true")
+        this.settings.serviceSettings.wizardConfigured = true
+        void this.backupManager?.notifyBackupTable('admin_settings')
+        return true
+    }
+
     async updateSkipSanityCheck(skip: boolean): Promise<boolean> {
         if (!this.settings) {
             throw new Error("Settings not initialized")

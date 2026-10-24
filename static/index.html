@@ -84,7 +84,7 @@
       <p class="welcome-terms" x-show="serviceState?.has_ongoing_recovery">A previous restore did not finish. Retry with the same seed phrase — setup is blocked until restore completes.</p>
       <div class="welcome-actions">
         <button type="button" class="wizard-cta wizard-cta--ghost" x-show="serviceState?.is_db_clean || serviceState?.has_ongoing_recovery" @click="goTo('restore-intent')" x-text="serviceState?.has_ongoing_recovery ? 'Retry Restore' : 'Restore Backup'"></button>
-        <button type="button" class="wizard-cta wizard-cta--gradient-fill" x-show="!serviceState?.has_ongoing_recovery" @click="goTo('node')" x-text="serviceState?.is_db_clean ? 'Get Started!' : 'Edit Setup'"></button>
+        <button type="button" class="wizard-cta wizard-cta--gradient-fill" x-show="!serviceState?.has_ongoing_recovery" @click="goTo('node')" x-text="serviceState?.is_db_clean || serviceState?.first_run ? 'Get Started!' : 'Edit Setup'"></button>
       </div>
       <a href="https://docs.shock.network" target="_blank" rel="noopener"
         class="marked need-help welcome-need-help">Need Help?</a>

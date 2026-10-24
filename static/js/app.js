@@ -126,10 +126,15 @@ window.wizard = function () {
             this.applyServiceFields(data);
             this.automateLiquidity = data.automate_liquidity;
             this.liquidityChoice = this.automateLiquidity === true ? 'automate' : 'manual';
-            if (data.admin_npub || data.is_db_clean) clearRestoredSetup();
+            // A finished restore leaves the DB dirty and first_run false, so the flag
+            // stays until an admin enrolls. first_run means this browser flag is stale:
+            // non-blocking startup already created the placeholder app.
+            if (data.admin_npub || data.is_db_clean || data.first_run) clearRestoredSetup();
             // admin_npub is still empty after restore. A dirty DB or the restore
             // flag keeps a disabled backup from being shown as the first-run remote default.
-            const configured = !!data.admin_npub || restoredSetupPending() || data.is_db_clean === false;
+            // first_run stays true in WIZARD_NON_BLOCKING until config is submitted, even
+            // though startup already created the default wallet app (is_db_clean false).
+            const configured = !!data.admin_npub || restoredSetupPending() || (data.is_db_clean === false && data.first_run !== true);
             this.loadRemoteBackup(data.remote_backup, configured);
             if (data.has_ongoing_recovery) {
                 this.restoreIntent = 'restore';
