@@ -307,8 +307,8 @@ PROVIDER_NPROFILE=nprofile1...
 
 Pub backs up user balances and channel state with one secret, the LND seed. Each table is encrypted on the node before it is uploaded, so the server that stores it cannot read it. Choose where the files go:
 
-- **Managed backup server**: nothing to set up. The login is derived from the seed, so the same 24 words find the backup on restore.
-- **Your own SFTP server**: a host and, if you have it, the server's host-key fingerprint (`ssh-keygen -lf` on that machine).
+- **Managed backup server**: nothing to set up. An ed25519 SFTP key is derived from the seed, so the same 24 words find the backup on restore.
+- **Your own SFTP server**: a host and, if you have it, the server's host-key fingerprint (`ssh-keygen -lf` on that machine). Optional username/password; unset uses the seed-derived password login.
 - **A folder on this machine**: `BACKUP_LOCAL_PATH` (environment only).
 
 With none of these set, every file stays on this disk, and a dead disk can take channel funds and user balances with it.

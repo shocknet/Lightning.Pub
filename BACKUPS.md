@@ -28,7 +28,7 @@ When you restore a node, the wizard keeps its saved backup choice. Finishing set
 
 ### Managed Backup
 
-The managed service is `backup.lightning.pub`. Pub derives the backup login and encryption key from your recovery phrase, so there is no separate backup password to remember. The backup contents are encrypted before they leave your node.
+The managed service is `backup.lightning.pub`. Pub derives the encryption key and an SFTP login key from your recovery phrase, so there is no separate backup password to remember. The backup contents are encrypted before they leave your node.
 
 Pub checks the server's identity automatically. If you see a server identity or host-key error, do not bypass it; resolve the error before continuing.
 

@@ -8,6 +8,8 @@
 // that retained child shards still name. A destination that missed that full
 // refresh keeps the obligation until a later batch exports every table: a queued
 // partial must not mix post-delete parents with retained pre-delete children.
+// Startup and newly enabled destinations use the same obligation until a complete
+// snapshot has landed, so a new manager cannot publish a partial first.
 // Unchanged filenames are copied from that destination's current manifest.
 // Startup, newly enabled destinations, bulk deletes, and shutdown still push
 // every shard so restore has a complete file set.
@@ -22,8 +24,9 @@
 // are deleted immediately. A failed attempt deletes the shards it uploaded only after a
 // re-read shows the published manifest does not name them.
 // High-churn tables coalesce into one batch; a max-wait caps continuous resets.
-// Destinations: managed cloud SFTP, custom SFTP (BACKUP_SFTP_USER/PASS override phrase-derived
-// login when set), optional local dir. Local is written first so a stalled remote cannot
+// Destinations: managed cloud SFTP (seed-derived ed25519 key), custom SFTP
+// (BACKUP_SFTP_USER/PASS override phrase-derived password when set), optional local dir.
+// Local is written first so a stalled remote cannot
 // block the on-disk copy. Shutdown stops waiting on a remote already in flight so the final
 // local snapshot can run, and bounds every remote, including remote-only and a failed local
 // write. Destinations that share host, port, and username are one physical destination: env
@@ -133,10 +136,11 @@ export class BackupManager {
     private cloudSignUp: Promise<void> | null = null
     private destState = new Map<string, DestPubState>()
     /**
-     * After a parent-row delete, no destination may take a partial until a full
-     * snapshot has landed. Queued batches check this when they execute; capturing
-     * every table into `dirty` is not enough if a narrow list is already waiting
-     * on the publish lock. `clearAllDebounce` must not clear this.
+     * No destination may take a partial until a full snapshot has landed. Set on
+     * parent-row deletes, startup, and newly enabled destinations. Queued batches
+     * check this when they execute; capturing every table into `dirty` is not
+     * enough if a narrow list is already waiting on the publish lock.
+     * `clearAllDebounce` must not clear this.
      */
     private fullRefreshRequired = false
     shuttingDown = false
@@ -182,10 +186,13 @@ export class BackupManager {
     /**
      * Immediate upload of every backup shard (startup, newly enabled destination).
      * Empty tables are still written so restore has a complete file set. Cancels pending
-     * debounce so this flush is not followed by a duplicate timer fire. Bulk deletes use
-     * `runExclusiveFullBackup` so they cannot interleave with a live parent snapshot.
+     * debounce so this flush is not followed by a duplicate timer fire. Sets
+     * `fullRefreshRequired` first so a failed attempt cannot be followed by a
+     * queued partial. Bulk deletes use `runExclusiveFullBackup` so they cannot
+     * interleave with a live parent snapshot.
      */
     async uploadAllTables(): Promise<void> {
+        this.fullRefreshRequired = true
         this.clearAllDebounce()
         await this.waitUntilUploadsIdle(this.waitInFlightMs)
         try {
@@ -465,7 +472,7 @@ export class BackupManager {
         const bs = this.settings.getSettings().backupSettings
         const dests: BackupDest[] = []
         if (bs.cloudEnabled) {
-            dests.push({ type: 'cloud', config: cloudSftpConfig(this.keys.sftpUser, this.keys.sftpPass) })
+            dests.push({ type: 'cloud', config: cloudSftpConfig(this.keys.sftpUser, this.keys.sftpPrivateKey) })
         }
         if (bs.sftpEnabled) {
             dests.push({
@@ -858,7 +865,7 @@ export class BackupManager {
 
     /** A rejected login means this seed has no cloud account yet: sign up once, then retry. */
     private async putOnCloud(filename: string, encrypted: Buffer) {
-        const config = cloudSftpConfig(this.keys.sftpUser, this.keys.sftpPass)
+        const config = cloudSftpConfig(this.keys.sftpUser, this.keys.sftpPrivateKey)
         await this.withCloudAuth({ type: 'cloud', config }, () => this.putOnSftp(config, filename, encrypted))
     }
 
@@ -875,7 +882,7 @@ export class BackupManager {
     private signUpForCloud(): Promise<void> {
         if (!this.cloudSignUp) {
             this.log("no cloud backup account for this seed yet, signing up")
-            this.cloudSignUp = provisionCloudAccount(this.keys.sftpUser, this.keys.sftpPass)
+            this.cloudSignUp = provisionCloudAccount(this.keys.sftpUser, this.keys.sftpPublicKey)
                 .then(() => { this.log("cloud backup account ready") })
                 .finally(() => { this.cloudSignUp = null })
         }

@@ -4,6 +4,7 @@
 
 import crypto from 'crypto'
 import argon2 from 'argon2'
+import { opensshEd25519FromSeed } from './sshKey.js'
 
 // --- Derivation v1 ---
 // A version fully determines all outputs, including the SFTP login, so a backup's version
@@ -13,7 +14,11 @@ import argon2 from 'argon2'
 export type DerivedKeys = {
     encKey: Buffer   // 32 bytes — AES-256-GCM key for .enc dialtone files
     sftpUser: string // hex-encoded 32 bytes
-    sftpPass: string // hex-encoded 32 bytes
+    sftpPass: string // hex-encoded 32 bytes — custom SFTP password override / legacy
+    /** OpenSSH ed25519 PEM for managed-cloud SFTP. Never sent off-node. */
+    sftpPrivateKey: string
+    /** OpenSSH one-liner (`ssh-ed25519 AAAA…`) posted at cloud provision. */
+    sftpPublicKey: string
 }
 
 type DerivationParams = {
@@ -25,6 +30,8 @@ type DerivationParams = {
     argon2Parallelism: number
     encLabel: string
     ftpLabel: string
+    /** Separate from ftpLabel so a captured password cannot become the SSH key. */
+    sshLabel: string
 }
 
 const DERIVATION_VERSIONS: Record<number, DerivationParams> = {
@@ -37,6 +44,7 @@ const DERIVATION_VERSIONS: Record<number, DerivationParams> = {
         argon2Parallelism: 1,
         encLabel: 'lightning-pub/enc/v1',
         ftpLabel: 'lightning-pub/ftp/v1',
+        sshLabel: 'lightning-pub/ssh/v1',
     }
 }
 
@@ -85,10 +93,14 @@ export async function deriveBackupKeys(phrase: string, version: number = LATEST_
 
     const encKey = await hkdfExpand(master, params.encLabel, 32)
     const ftpRaw = await hkdfExpand(master, params.ftpLabel, 64)
+    const sshSeed = await hkdfExpand(master, params.sshLabel, 32)
+    const ssh = opensshEd25519FromSeed(sshSeed)
 
     return {
         encKey,
         sftpUser: ftpRaw.subarray(0, 32).toString('hex'),
         sftpPass: ftpRaw.subarray(32, 64).toString('hex'),
+        sftpPrivateKey: ssh.privateKey,
+        sftpPublicKey: ssh.publicKey,
     }
 }
