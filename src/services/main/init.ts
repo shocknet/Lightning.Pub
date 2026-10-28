@@ -13,7 +13,7 @@ import { LoadStorageSettingsFromEnv } from "../storage/index.js"
 import { acquirePubInstanceLock } from "../storage/instanceLock.js"
 import { NostrSender } from "../nostr/sender.js"
 import { Swaps } from "../lnd/swaps/swaps.js"
-import { parseRestoreFlags, RestoreManager } from "../backup/restoreManager.js"
+import { hasOngoingRecoveryCheckpoint, parseRestoreFlags, RestoreManager } from "../backup/restoreManager.js"
 import { BackupManager } from "../backup/backupManager.js"
 import { pickDefaultApp } from "./adminNodeSettings.js"
 export type AppData = {
@@ -28,17 +28,32 @@ export const initSettings = async (log: PubLogger, storageSettings: StorageSetti
     const nostrSender = new NostrSender()
     const utils = new Utils({ dataDir: storageSettings.dataDir, allowResetMetricsStorages: storageSettings.allowResetMetricsStorages }, nostrSender)
     const storageManager = new Storage(storageSettings, utils)
-    await storageManager.Connect(log)
-    const settingsManager = new SettingsManager(storageManager)
-    await settingsManager.InitSettings()
-    const unlocker = new Unlocker(settingsManager, storageManager, storageManager.NostrSender())
-    const restore = new RestoreManager(storageManager, settingsManager, unlocker)
+    try {
+        await storageManager.Connect(log)
+        const settingsManager = new SettingsManager(storageManager)
+        // Restored admin_settings are already committed while the checkpoint is still
+        // open. Validating them before the restore manager exists crashes the restart
+        // that is supposed to bring the wizard up. Publish the loaded values and let
+        // the recovery gate hold the main server; a later reload still has to validate
+        // before the checkpoint can complete. Do not persist on that failed validation.
+        const ongoingRecovery = hasOngoingRecoveryCheckpoint(storageSettings.dataDir)
+        await settingsManager.InitSettings(ongoingRecovery ? { publishInvalid: true } : undefined)
+        const unlocker = new Unlocker(settingsManager, storageManager, storageManager.NostrSender())
+        const restore = new RestoreManager(storageManager, settingsManager, unlocker)
 
-    const { keepOn } = await processPostSettingArgs(restore)
-    if (!keepOn) {
-        return undefined
+        const { keepOn } = await processPostSettingArgs(restore)
+        if (!keepOn) {
+            return undefined
+        }
+        return { settingsManager, restore, unlocker, nostrSender }
+    } catch (err) {
+        try {
+            storageManager.Stop()
+        } catch {
+            // Connect may have failed before storage finished coming up.
+        }
+        throw err
     }
-    return { settingsManager, restore, unlocker, nostrSender }
 }
 export const initMainHandler = async (log: PubLogger, settingsManager: SettingsManager, restore: RestoreManager, unlocker: Unlocker) => {
     const storageManager = settingsManager.storage

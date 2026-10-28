@@ -86,6 +86,26 @@ const normalizeRestorePhrase = (phrase: string) =>
 export const hashRestorePhrase = (phrase: string) =>
     crypto.createHash('sha256').update(normalizeRestorePhrase(phrase), 'utf8').digest('hex')
 
+export const restoreCheckpointPath = (dataDir: string) =>
+    dataDir ? path.join(dataDir, CHECKPOINT_FILE) : CHECKPOINT_FILE
+
+/** True when a checkpoint file exists and is not COMPLETED. Empty or unreadable counts as ongoing. */
+export const hasOngoingRecoveryCheckpoint = (dataDir: string): boolean => {
+    const checkpointPath = restoreCheckpointPath(dataDir)
+    if (!fs.existsSync(checkpointPath)) {
+        return false
+    }
+    try {
+        const s = fs.readFileSync(checkpointPath, 'utf8').trim()
+        if (!s) {
+            return true
+        }
+        return s !== RestoreCheckpoint.COMPLETED
+    } catch {
+        return true
+    }
+}
+
 const failedRestore = (error: string): wizardTypes.RestoreResponse => ({
     entries_restored: 0,
     scb_restored: false,
@@ -106,10 +126,7 @@ export class RestoreManager {
         this.unlocker = unlocker
     }
 
-    getCheckpointPath = () => {
-        const dataDir = this.settings.getStorageSettings().dataDir
-        return dataDir ? path.join(dataDir, CHECKPOINT_FILE) : CHECKPOINT_FILE
-    }
+    getCheckpointPath = () => restoreCheckpointPath(this.settings.getStorageSettings().dataDir)
 
     getPhraseHashPath = () => {
         const dataDir = this.settings.getStorageSettings().dataDir
@@ -147,21 +164,7 @@ export class RestoreManager {
     }
 
     /** True when a checkpoint file exists and restore has not reached COMPLETED. Includes STARTED. */
-    HasOngoingRecovery = (): boolean => {
-        const checkpointPath = this.getCheckpointPath()
-        if (!fs.existsSync(checkpointPath)) {
-            return false
-        }
-        try {
-            const s = fs.readFileSync(checkpointPath, 'utf8').trim()
-            if (!s) {
-                return true
-            }
-            return s !== RestoreCheckpoint.COMPLETED
-        } catch {
-            return true
-        }
-    }
+    HasOngoingRecovery = (): boolean => hasOngoingRecoveryCheckpoint(this.settings.getStorageSettings().dataDir)
 
     IsRecoveryActive = (): boolean => this.restoreInFlight || this.HasOngoingRecovery()
 
@@ -319,6 +322,7 @@ export class RestoreManager {
         // cannot block SCB retries. COMPLETED waits on this reload: a failed load stays
         // at LND_ACTIVE so waiters stay blocked and retry can reload without re-importing.
         await this.settings.InitSettings()
+        await this.settings.markWizardConfigured()
         this.updateCheckpoint(RestoreCheckpoint.COMPLETED)
         this.clearPhraseBinding()
         this.clearWalletBinding()

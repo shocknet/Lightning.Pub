@@ -1,7 +1,8 @@
 #!/bin/bash
-# Dev helper script to reset wizard config state for testing first-run flow
-# Note: With WIZARD_NON_BLOCKING=true, you typically don't need this for UI iteration
-# The wizard UI is always accessible and works even when initialized
+# Dev helper script to reset wizard config state for testing first-run flow.
+# Submitting setup or finishing a restore sets WIZARD_CONFIGURED. Delete that
+# flag and restart to see first-run defaults again. WIZARD_NON_BLOCKING can
+# leave the placeholder wallet app in place; first run follows this flag.
 
 DB_FILE="${DATABASE_FILE:-db.sqlite}"
 if [ ! -f "$DB_FILE" ]; then
@@ -22,7 +23,8 @@ DELETE FROM admin_settings WHERE env_name IN (
     'BACKUP_SFTP_PORT',
     'BACKUP_SFTP_USER',
     'BACKUP_SFTP_PASS',
-    'BACKUP_SFTP_HOST_FINGERPRINT'
+    'BACKUP_SFTP_HOST_FINGERPRINT',
+    'WIZARD_CONFIGURED'
 );
 EOF
 

@@ -2,6 +2,7 @@ import type { BackupSettings } from "./settings.js"
 
 export const ADMIN_NODE_NAME_ENV = "DEFAULT_APP_NAME"
 export const ADMIN_AUTOMATION_ENV = "DISABLE_LIQUIDITY_PROVIDER"
+export const ADMIN_RELAY_ENV = "NOSTR_RELAYS"
 export const ADMIN_LSP_THRESHOLD_ENV = "LSP_CHANNEL_THRESHOLD"
 export const ADMIN_TIER1_LIMIT_ENV = "ONCHAIN_TIER1_LIMIT_SATS"
 export const ADMIN_TIER1_CONFS_ENV = "ONCHAIN_TIER1_CONFS"
@@ -152,6 +153,18 @@ export const pickDefaultApp = <T extends { name: string }>(apps: T[], defaultApp
         const match = apps.find(app => app.name === name)
         if (match) return match
     }
+}
+
+/** First-run UI defaults apply until wizard config is submitted.
+ * Non-blocking startup creates a default app (and owner user), so IsDbClean() is false. */
+export const wizardFirstRun = (opts: {
+    hasOngoingRecovery: boolean
+    wizardConfigured: boolean
+    dbClean: boolean
+    wizardNonBlocking: boolean
+}): boolean => {
+    if (opts.hasOngoingRecovery || opts.wizardConfigured) return false
+    return opts.dbClean || opts.wizardNonBlocking
 }
 
 export { assertAvatarUrl, isHttpsAvatarUrl, trimAvatarUrl } from "../helpers/httpsAvatarUrl.js"

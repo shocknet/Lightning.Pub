@@ -1,18 +1,36 @@
 const COMMUNITY_RELAY_URL = 'wss://relay.lightning.pub';
+const INVITE_LINK_BASE = 'https://my.shockwallet.app/#/sources?addSource=';
 // Set when restore succeeds. A restored node has saved settings before an admin
-// is enrolled, so a disabled backup must stay manual across reload.
+// is enrolled, so a disabled backup must stay manual across reload. localStorage
+// keeps the flag if the operator reopens the wizard in a new browser session.
 const RESTORED_SETUP_KEY = 'pub-wizard-restored';
 
 function markRestoredSetup() {
-    try { sessionStorage.setItem(RESTORED_SETUP_KEY, '1'); } catch (e) { /* private mode */ }
+    try { localStorage.setItem(RESTORED_SETUP_KEY, '1'); } catch (e) { /* private mode */ }
 }
 
 function restoredSetupPending() {
-    try { return sessionStorage.getItem(RESTORED_SETUP_KEY) === '1'; } catch (e) { return false; }
+    try {
+        if (localStorage.getItem(RESTORED_SETUP_KEY) === '1') return true;
+        if (sessionStorage.getItem(RESTORED_SETUP_KEY) === '1') {
+            localStorage.setItem(RESTORED_SETUP_KEY, '1');
+            sessionStorage.removeItem(RESTORED_SETUP_KEY);
+            return true;
+        }
+        return false;
+    } catch (e) { return false; }
 }
 
 function clearRestoredSetup() {
+    try { localStorage.removeItem(RESTORED_SETUP_KEY); } catch (e) { /* private mode */ }
     try { sessionStorage.removeItem(RESTORED_SETUP_KEY); } catch (e) { /* private mode */ }
+}
+
+function isMissingBackupError(msg) {
+    const s = (msg || '').toLowerCase();
+    return s.includes('no backup found')
+        || s.includes('no backup file')
+        || s.includes('not found or path is not a readable directory');
 }
 
 window.wizard = function () {
@@ -111,10 +129,15 @@ window.wizard = function () {
             this.applyServiceFields(data);
             this.automateLiquidity = data.automate_liquidity;
             this.liquidityChoice = this.automateLiquidity === true ? 'automate' : 'manual';
-            if (data.admin_npub || data.is_db_clean) clearRestoredSetup();
-            // admin_npub is still empty after restore. The session flag keeps a
-            // disabled backup from being shown as the first-run remote default.
-            const configured = !!data.admin_npub || restoredSetupPending();
+            // A finished restore leaves the DB dirty and first_run false, so the flag
+            // stays until an admin enrolls. first_run means this browser flag is stale:
+            // non-blocking startup already created the placeholder app.
+            if (data.admin_npub || data.is_db_clean || data.first_run) clearRestoredSetup();
+            // admin_npub is still empty after restore. A dirty DB or the restore
+            // flag keeps a disabled backup from being shown as the first-run remote default.
+            // first_run stays true in WIZARD_NON_BLOCKING until config is submitted, even
+            // though startup already created the default wallet app (is_db_clean false).
+            const configured = !!data.admin_npub || restoredSetupPending() || (data.is_db_clean === false && data.first_run !== true);
             this.loadRemoteBackup(data.remote_backup, configured);
             if (data.has_ongoing_recovery) {
                 this.restoreIntent = 'restore';
@@ -409,18 +432,24 @@ window.wizard = function () {
         },
 
         get lndStatusText() {
-            const state = this.serviceState && this.serviceState.lnd_state;
-            if (state === 'ONLINE') return 'Online';
-            if (state === 'SYNCING') return 'Syncing';
-            if (state === 'OFFLINE') return 'Offline';
-            return '—';
+            if (!this.serviceState) return '—';
+            const s = this.serviceState.lnd_state;
+            if (s === 2 || s === 'ONLINE') return 'Online';
+            if (s === 1 || s === 'SYNCING') return 'Syncing';
+            if (s === 0 || s === 'OFFLINE') return 'Offline';
+            return 'Offline';
         },
 
-        get lndStatusDot() {
-            const state = this.serviceState && this.serviceState.lnd_state;
-            if (state === 'ONLINE') return 'status-dot-green';
-            if (state === 'SYNCING') return 'status-dot-orange';
+        get lndStatusDotClass() {
+            const s = this.serviceState?.lnd_state;
+            if (s === 2 || s === 'ONLINE') return 'status-dot-green';
+            if (s === 1 || s === 'SYNCING') return 'status-dot-orange';
             return 'status-dot-red';
+        },
+
+        get inviteLinkHttp() {
+            const nprofile = this.serviceState?.nprofile;
+            return nprofile ? INVITE_LINK_BASE + nprofile : '';
         },
 
         async loadConnectInfo() {
@@ -586,10 +615,10 @@ window.wizard = function () {
                         },
                     };
 
-                    if (this.restoreSftpUser.trim() || this.restoreSftpPass.trim()) {
+                    if (this.restoreSftpUser.trim() || this.restoreSftpPass) {
                         payload.creds_override = {
                             user: this.restoreSftpUser.trim(),
-                            pass: this.restoreSftpPass.trim()
+                            pass: this.restoreSftpPass
                         };
                     }
                 } else if (this.restoreSource === 'local') {
@@ -618,7 +647,8 @@ window.wizard = function () {
                     }
                     this.goTo('node');
                 } else {
-                    this.restoreError = result.error || 'Restore failed.';
+                    const reason = result.error || result.reason || 'Restore failed.';
+                    this.restoreError = reason;
                     try {
                         await this.refreshServiceState();
                     } catch (e) {
@@ -626,7 +656,9 @@ window.wizard = function () {
                     }
                     // A committed restore that then failed is still resumable. Stay on
                     // this step with the real error instead of "No Backup Found".
-                    if (!this.serviceState?.has_ongoing_recovery) {
+                    // Auth/validation failures also stay here; only a missing backup
+                    // file goes to the dedicated "No Backup Found" step.
+                    if (!this.serviceState?.has_ongoing_recovery && isMissingBackupError(reason)) {
                         this.goTo('restore-nobackup');
                     }
                 }

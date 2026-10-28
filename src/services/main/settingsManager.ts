@@ -12,8 +12,9 @@ import {
 } from "./settings.js"
 import { BackupManager } from "../backup/backupManager.js"
 import {
+    ADMIN_RELAY_ENV,
     assertOnchainConfSettings, assertRemoteBackup, backupSettingsFromRemote, changedRemoteBackupSettings,
-    isRemoteBackupEnvLocked, OnchainConfTiers, RemoteBackupConfig,
+    isEnvLocked, isRemoteBackupEnvLocked, OnchainConfTiers, RemoteBackupConfig,
 } from "./adminNodeSettings.js"
 export type SettingOverrideFunction = (s: FullSettings) => FullSettings
 export default class SettingsManager {
@@ -53,7 +54,7 @@ export default class SettingsManager {
         this.settings = f(this.settings)
     }
 
-    async InitSettings(): Promise<FullSettings> {
+    async InitSettings(opts?: { publishInvalid?: boolean }): Promise<FullSettings> {
         const dbSettings = await this.storage.settingsStorage.getAllDbEnvs()
         const toAdd: Record<string, string> = {}
         const addToDb = (key: string, value: string) => {
@@ -62,8 +63,20 @@ export default class SettingsManager {
         const next = this.loadEnvs(dbSettings, addToDb)
         // Validate before publishing or persisting so a failed restore reload cannot
         // expose invalid settings or write dest env overrides into the restored DB.
-        this.validateFeeSettings(next)
-        this.validateOnchainConfTiers(next)
+        // Recovery boot is the exception: the process has to publish the loaded values
+        // so the wizard can start, and it still must not write them back.
+        try {
+            this.validateFeeSettings(next)
+            this.validateOnchainConfTiers(next)
+        } catch (err) {
+            if (!opts?.publishInvalid) {
+                throw err
+            }
+            const message = err instanceof Error ? err.message : String(err)
+            this.log("settings failed validation during recovery; publishing them without writing to the database:", message)
+            this.settings = next
+            return this.settings
+        }
         this.log("adding", Object.keys(toAdd).length, "settings to db")
         let changed = false
         for (const key in toAdd) {
@@ -132,7 +145,7 @@ export default class SettingsManager {
         if (url === this.settings.nostrRelaySettings.relays[0]) {
             return false
         }
-        if (!!process.env.RELAY_URL) {
+        if (isEnvLocked(ADMIN_RELAY_ENV)) {
             return false
         }
         await this.storage.settingsStorage.setDbEnvIFNeeded("NOSTR_RELAYS", url)
@@ -196,6 +209,19 @@ export default class SettingsManager {
         if (next.cloudEnabled || next.sftpEnabled) {
             void this.backupManager?.uploadAllTables()
         }
+        return true
+    }
+
+    async markWizardConfigured(): Promise<boolean> {
+        if (!this.settings) {
+            throw new Error("Settings not initialized")
+        }
+        if (this.settings.serviceSettings.wizardConfigured) {
+            return false
+        }
+        await this.storage.settingsStorage.setDbEnvIFNeeded("WIZARD_CONFIGURED", "true")
+        this.settings.serviceSettings.wizardConfigured = true
+        void this.backupManager?.notifyBackupTable('admin_settings')
         return true
     }
 

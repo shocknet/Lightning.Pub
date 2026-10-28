@@ -143,6 +143,7 @@ const testHostFingerprintMatch = async (T: StorageTestBase) => {
 const testCustomHostPin = async (T: StorageTestBase) => {
     T.d('starting testCustomHostPin')
     T.expect(customHostFingerprint('backup.lightning.pub', 22, '')).to.equal(CLOUD_SFTP_HOST_FINGERPRINT)
+    T.expect(customHostFingerprint('BACKUP.LIGHTNING.PUB', 22, '')).to.equal(CLOUD_SFTP_HOST_FINGERPRINT)
     T.expect(customHostFingerprint('backup.lightning.pub', 22, ' SHA256:operator ')).to.equal('SHA256:operator')
     T.expect(customHostFingerprint('backup.lightning.pub', 2222, '')).to.equal(undefined)
     T.expect(customHostFingerprint('example.test', 22, '')).to.equal(undefined)
