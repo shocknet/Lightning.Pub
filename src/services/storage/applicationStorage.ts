@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { Between, FindOperator, IsNull, LessThanOrEqual, MoreThanOrEqual } from "typeorm"
+import { Between, FindOperator, In, IsNull, LessThanOrEqual, MoreThanOrEqual } from "typeorm"
 import { generateSecretKey, getPublicKey } from 'nostr-tools';
 import { Application } from "./entity/Application.js"
 import UserStorage from './userStorage.js';
@@ -9,6 +9,7 @@ import { User } from './entity/User.js';
 import { InviteToken } from './entity/InviteToken.js';
 import { StorageInterface } from './db/storageInterface.js';
 import { AppUserDevice } from './entity/AppUserDevice.js';
+import { ApplicationRow, ApplicationUserRow, AppUserDeviceRow, InviteTokenRow, mapAppBackupRow, mapAppUserBackupRow, mapAppUserDeviceBackupRow, mapInviteTokenBackupRow } from '../backup/segments.js';
 export default class {
     dbs: StorageInterface
     userStorage: UserStorage
@@ -40,6 +41,34 @@ export default class {
     async GetApplications(txId?: string): Promise<Application[]> {
         return this.dbs.Find<Application>('Application', {}, txId)
     }
+
+    async ExportApplications(txId?: string): Promise<ApplicationRow[]> {
+        const apps = await this.GetApplications(txId)
+        return apps.map(mapAppBackupRow)
+    }
+
+    async RestoreApplications(applications: ApplicationRow[], txId: string): Promise<number> {
+        let restoredApplications = 0;
+        for (const app of applications) {
+            try {
+                const owner = await this.userStorage.GetUser(app.owner_user_id, txId)
+                await this.dbs.CreateAndSave<Application>('Application', {
+                    app_id: app.app_id,
+                    name: app.name,
+                    owner,
+                    allow_user_creation: app.allow_user_creation,
+                    nostr_private_key: app.nostr_private_key || undefined,
+                    nostr_public_key: app.nostr_public_key || undefined,
+                }, txId)
+                restoredApplications++;
+            } catch (error: any) {
+                getLogger({ component: "backupRestore" })("error restoring application", error.message)
+            }
+        }
+        return restoredApplications;
+    }
+
+
     async GetApplication(appId: string, txId?: string): Promise<Application> {
         if (!appId) {
             throw new Error("invalid app id provided")
@@ -65,35 +94,43 @@ export default class {
         return { privateKey: privString, publicKey: pub, appId: app.app_id, name: app.name }
     }
 
-    async AddApplicationUser(application: Application, userIdentifier: string, balance: number, nostrPub?: string) {
-        return this.dbs.Tx(async txId => {
+    async AddApplicationUser(application: Application, userIdentifier: string, balance: number, nostrPub?: string, opts?: { ownerOnlyClink?: boolean, txId?: string }) {
+        const create = async (txId: string) => {
             const user = await this.userStorage.AddUser(balance, txId)
             return this.dbs.CreateAndSave<ApplicationUser>('ApplicationUser', {
                 user: user,
                 application,
                 identifier: userIdentifier,
                 nostr_public_key: nostrPub,
-                topic_id: crypto.randomBytes(32).toString('hex')
+                topic_id: crypto.randomBytes(32).toString('hex'),
+                owner_only_clink: opts?.ownerOnlyClink === true,
             }, txId)
-        })
+        }
+        if (opts?.txId) {
+            return create(opts.txId)
+        }
+        return this.dbs.Tx(create)
     }
 
     async GetApplicationUserIfExists(application: Application, userIdentifier: string, txId?: string): Promise<ApplicationUser | null> {
         return this.dbs.FindOne<ApplicationUser>('ApplicationUser', { where: { identifier: userIdentifier, application: { serial_id: application.serial_id } } }, txId)
     }
 
-    async GetOrCreateNostrAppUser(application: Application, nostrPub: string, txId?: string): Promise<ApplicationUser> {
+    async GetOrCreateNostrAppUser(application: Application, nostrPub: string, opts?: { txId?: string, ownerOnlyClink?: boolean }): Promise<ApplicationUser> {
         if (!nostrPub) {
             throw new Error("no nostrPub provided")
         }
-        const user = await this.dbs.FindOne<ApplicationUser>('ApplicationUser', { where: { nostr_public_key: nostrPub } }, txId)
+        const user = await this.dbs.FindOne<ApplicationUser>('ApplicationUser', { where: { nostr_public_key: nostrPub } }, opts?.txId)
         if (user) {
             return user
         }
         if (!application.allow_user_creation) {
             throw new Error("user creation by client is not allowed in this app")
         }
-        return this.AddApplicationUser(application, crypto.randomBytes(32).toString('hex'), 0, nostrPub)
+        return this.AddApplicationUser(application, crypto.randomBytes(32).toString('hex'), 0, nostrPub, {
+            ownerOnlyClink: opts?.ownerOnlyClink === true,
+            txId: opts?.txId,
+        })
     }
 
     async FindNostrAppUser(nostrPub: string, txId?: string) {
@@ -121,6 +158,38 @@ export default class {
         return found
     }
 
+    async GetAllApplicationUsers(txId?: string) {
+        return this.dbs.Find<ApplicationUser>('ApplicationUser', {}, txId)
+    }
+
+    async ExportApplicationUsers(txId?: string): Promise<ApplicationUserRow[]> {
+        const appUsers = await this.GetAllApplicationUsers(txId)
+        return appUsers.map(mapAppUserBackupRow)
+    }
+
+    async RestoreApplicationUsers(appUsers: ApplicationUserRow[], txId: string): Promise<number> {
+        let restoredAppUsers = 0;
+        for (const appUser of appUsers) {
+            try {
+                const user = await this.userStorage.GetUser(appUser.user_id, txId)
+                const application = await this.GetApplication(appUser.app_id, txId)
+                await this.dbs.CreateAndSave<ApplicationUser>('ApplicationUser', {
+                    user,
+                    application,
+                    identifier: appUser.identifier,
+                    nostr_public_key: appUser.nostr_public_key || undefined,
+                    callback_url: appUser.callback_url,
+                    topic_id: appUser.topic_id,
+                    owner_only_clink: appUser.owner_only_clink === true,
+                }, txId)
+                restoredAppUsers++;
+            } catch (error: any) {
+                getLogger({ component: "backupRestore" })("error restoring application user", error.message)
+            }
+        }
+        return restoredAppUsers;
+    }
+
     async GetApplicationUsers(application: Application | null, { from, to }: { from?: number, to?: number }, txId?: string) {
         const q = application ? { app_id: application.app_id } : IsNull()
         let time: { created_at?: FindOperator<Date> } = {}
@@ -134,12 +203,32 @@ export default class {
         return this.dbs.Find<ApplicationUser>('ApplicationUser', { where: { application: q, ...time } }, txId)
     }
 
+    async CountApplicationUsers(application: Application | null, range: { from?: number, to?: number }, txId?: string) {
+        const q = application ? { serial_id: application.serial_id } : IsNull()
+        if (!range.from && !range.to) {
+            const [, n] = await this.dbs.FindAndCount<ApplicationUser>('ApplicationUser', {
+                where: { application: q },
+                take: 1,
+            }, txId)
+            return n
+        }
+        const users = await this.dbs.Find<ApplicationUser>('ApplicationUser', { where: { application: q } }, txId)
+        return users.filter(u => createdAtInRange(u.created_at, range)).length
+    }
+
     async GetAppUserFromUser(application: Application, userId: string, txId?: string): Promise<ApplicationUser | null> {
         return this.dbs.FindOne<ApplicationUser>('ApplicationUser', { where: { user: { user_id: userId }, application: { app_id: application.app_id } } }, txId)
     }
 
     async GetAllAppUsersFromUser(userId: string, txId?: string): Promise<ApplicationUser[]> {
         return this.dbs.Find<ApplicationUser>('ApplicationUser', { where: { user: { user_id: userId } } }, txId)
+    }
+
+    async GetAppUsersForUsers(userIds: string[], txId?: string): Promise<ApplicationUser[]> {
+        if (userIds.length === 0) {
+            return []
+        }
+        return this.dbs.Find<ApplicationUser>('ApplicationUser', { where: { user: { user_id: In(userIds) } } }, txId)
     }
 
     async IsApplicationOwner(userId: string, txId?: string) {
@@ -149,6 +238,10 @@ export default class {
 
     async AddNPubToApplicationUser(serialId: number, nPub: string, txId?: string) {
         return this.dbs.Update<ApplicationUser>('ApplicationUser', serialId, { nostr_public_key: nPub }, txId)
+    }
+
+    async SetOwnerOnlyClink(serialId: number, ownerOnly: boolean, txId?: string) {
+        return this.dbs.Update<ApplicationUser>('ApplicationUser', serialId, { owner_only_clink: ownerOnly }, txId)
     }
 
     async UpdateUserCallbackUrl(application: Application, userIdentifier: string, callbackUrl: string, txId?: string) {
@@ -183,14 +276,80 @@ export default class {
         })
     }
 
-    async FindInviteToken(token: string) {
-        return this.dbs.FindOne<InviteToken>('InviteToken', { where: { inviteToken: token } })
+    async FindInviteToken(token: string, txId?: string) {
+        return this.dbs.FindOne<InviteToken>('InviteToken', { where: { inviteToken: token } }, txId)
     }
 
+    async ConsumeInviteToken(appId: string, token: string, nostrPub: string) {
+        await this.dbs.Tx(async txId => {
+            const app = await this.GetApplication(appId, txId)
+            const invite = await this.requireInviteForApp(app, token, txId)
+            await this.rejectIfPubLinked(nostrPub, txId)
+            const claimed = await this.claimUnusedInvite(invite.serial_id, txId)
+            if (!claimed) {
+                throw new Error("Invite token not found")
+            }
+            await this.addUserForInvite(app, nostrPub, txId)
+        })
+    }
 
-    async SetInviteTokenAsUsed(inviteToken: InviteToken) {
-        return this.dbs.Update<InviteToken>('InviteToken', inviteToken, { used: true })
+    private async requireInviteForApp(app: Application, token: string, txId: string) {
+        const invite = await this.FindInviteToken(token, txId)
+        if (!invite || invite.used || invite.application.app_id !== app.app_id) {
+            throw new Error("Invite token not found")
+        }
+        return invite
+    }
 
+    private async rejectIfPubLinked(nostrPub: string, txId: string) {
+        const existing = await this.FindNostrAppUser(nostrPub, txId)
+        if (existing) {
+            throw new Error("This key is already linked")
+        }
+    }
+
+    private async claimUnusedInvite(serialId: number, txId: string) {
+        const affected = await this.dbs.Update<InviteToken>('InviteToken', { serial_id: serialId, used: false }, { used: true }, txId)
+        return affected === 1
+    }
+
+    private async addUserForInvite(app: Application, nostrPub: string, txId: string) {
+        try {
+            await this.AddApplicationUser(app, crypto.randomBytes(32).toString('hex'), 0, nostrPub, { txId })
+        } catch (e: any) {
+            if (isNostrPubTaken(e)) {
+                throw new Error("This key is already linked")
+            }
+            throw e
+        }
+    }
+
+    async GetAllInviteTokens(txId?: string) {
+        return this.dbs.Find<InviteToken>('InviteToken', {}, txId)
+    }
+
+    async ExportInviteTokens(txId?: string): Promise<InviteTokenRow[]> {
+        const tokens = await this.GetAllInviteTokens(txId)
+        return tokens.map(mapInviteTokenBackupRow)
+    }
+
+    async RestoreInviteTokens(tokens: InviteTokenRow[], txId: string): Promise<number> {
+        let restoredTokens = 0;
+        for (const token of tokens) {
+            try {
+                const application = await this.GetApplication(token.app_id, txId)
+                await this.dbs.CreateAndSave<InviteToken>('InviteToken', {
+                    inviteToken: token.inviteToken,
+                    application,
+                    sats: token.sats || 0,
+                    used: token.used,
+                }, txId)
+                restoredTokens++;
+            } catch (error: any) {
+                getLogger({ component: "backupRestore" })("error restoring invite token", error.message)
+            }
+        }
+        return restoredTokens;
     }
 
     async UpdateAppUserMessagingToken(appUserId: string, deviceId: string, firebaseMessagingToken: string) {
@@ -215,4 +374,41 @@ export default class {
     async RemoveAppUserDevices(appUserId: string, txId?: string) {
         return this.dbs.Delete<AppUserDevice>('AppUserDevice', { app_user_id: appUserId }, txId)
     }
+    async GetAllAppUserDevices(txId?: string) {
+        return this.dbs.Find<AppUserDevice>('AppUserDevice', {}, txId)
+    }
+
+    async ExportAppUserDevices(txId?: string): Promise<AppUserDeviceRow[]> {
+        const devices = await this.GetAllAppUserDevices(txId)
+        return devices.map(mapAppUserDeviceBackupRow)
+    }
+
+    async RestoreAppUserDevices(devices: AppUserDeviceRow[], txId: string): Promise<number> {
+        let restoredDevices = 0;
+        for (const device of devices) {
+            try {
+                await this.dbs.CreateAndSave<AppUserDevice>('AppUserDevice', {
+                    app_user_id: device.app_user_id,
+                    device_id: device.device_id,
+                    firebase_messaging_token: device.firebase_messaging_token,
+                }, txId)
+                restoredDevices++;
+            } catch (error: any) {
+                getLogger({ component: "backupRestore" })("error restoring app user device", error.message)
+            }
+        }
+        return restoredDevices;
+    }
+}
+
+function createdAtInRange(createdAt: Date, range: { from?: number, to?: number }) {
+    const ms = new Date(createdAt).getTime()
+    if (range.from != null && ms < range.from * 1000) return false
+    if (range.to != null && ms > range.to * 1000) return false
+    return true
+}
+
+const isNostrPubTaken = (e: unknown) => {
+    const msg = e instanceof Error ? e.message : String(e)
+    return msg.includes('UNIQUE constraint failed') && msg.includes('nostr_public_key')
 }

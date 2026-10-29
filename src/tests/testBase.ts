@@ -7,16 +7,24 @@ import { User } from '../services/storage/entity/User.js'
 import chaiString from 'chai-string'
 import { defaultInvoiceExpiry } from '../services/storage/paymentStorage.js'
 import SanityChecker from '../services/main/sanityChecker.js'
-import LND from '../services/lnd/lnd.js'
+import LND, { LndHooks } from '../services/lnd/lnd.js'
 import { getLogger, resetDisabledLoggers } from '../services/helpers/logger.js'
 import { LiquidityProvider } from '../services/main/liquidityProvider.js'
 import { Utils } from '../services/helpers/utilsWrapper.js'
 import { AdminManager } from '../services/main/adminManager.js'
 import { TlvStorageFactory } from '../services/storage/tlv/tlvFilesStorageFactory.js'
 import { ChainTools } from './networkSetup.js'
-import { LiquiditySettings, LoadLndSettingsFromEnv, LoadSecondLndSettingsFromEnv, LoadThirdLndSettingsFromEnv } from '../services/main/settings.js'
+import { LiquiditySettings, LoadLndSettingsFromEnv, LoadBobLndSettingsFromEnv, LoadCarolLndSettingsFromEnv } from '../services/main/settings.js'
 import { NostrSender } from '../services/nostr/sender.js'
+import { SettingOverrideFunction } from '../services/main/settingsManager.js'
+import { getPublicKey } from 'nostr-tools'
 chai.use(chaiString)
+
+const pubFromByte = (n: number) => {
+    const priv = new Uint8Array(32)
+    priv[31] = n
+    return getPublicKey(priv)
+}
 export const expect = chai.expect
 export type Describe = (message: string, failure?: boolean) => void
 export type TestUserData = {
@@ -62,16 +70,20 @@ export const teardownStorageTest = async (T: StorageTestBase) => {
     T.storage.Stop()
 }
 
-export const SetupTest = async (d: Describe, chainTools: ChainTools): Promise<TestBase> => {
+export const SetupTest = async (d: Describe, chainTools: ChainTools, overrideFunction: SettingOverrideFunction): Promise<TestBase> => {
     const storageSettings = GetTestStorageSettings(LoadStorageSettingsFromEnv())
-    const settingsManager = await initSettings(getLogger({ component: "mainForTest" }), storageSettings)
+    const initOk = await initSettings(getLogger({ component: "mainForTest" }), storageSettings)
+    if (!initOk) {
+        throw new Error("failed to initialize settings manager")
+    }
+    const { settingsManager, restore, unlocker } = initOk
     settingsManager.OverrideTestSettings(s => {
         s.liquiditySettings.disableLiquidityProvider = true
         s.liquiditySettings.liquidityProviderPub = ""
         s.liquiditySettings.useOnlyLiquidityProvider = false
-        return s
+        return overrideFunction(s)
     })
-    const initialized = await initMainHandler(getLogger({ component: "mainForTest" }), settingsManager)
+    const initialized = await initMainHandler(getLogger({ component: "mainForTest" }), settingsManager, restore, unlocker)
     if (!initialized) {
         throw new Error("failed to initialize main handler")
     }
@@ -79,6 +91,13 @@ export const SetupTest = async (d: Describe, chainTools: ChainTools): Promise<Te
     const app = initialized.apps[0]
     const u1 = await main.applicationManager.AddAppUser(app.appId, { identifier: "user1", balance: 0, fail_if_exists: true })
     const u2 = await main.applicationManager.AddAppUser(app.appId, { identifier: "user2", balance: 0, fail_if_exists: true })
+    const appEntity = await main.storage.applicationStorage.GetApplication(app.appId)
+    const linkTestUserNpub = async (identifier: string, npub: string) => {
+        const appUser = await main.storage.applicationStorage.GetApplicationUser(appEntity, identifier)
+        await main.storage.applicationStorage.AddNPubToApplicationUser(appUser.serial_id, npub)
+    }
+    await linkTestUserNpub(u1.identifier, pubFromByte(1))
+    await linkTestUserNpub(u2.identifier, pubFromByte(2))
     const user1 = { userId: u1.info.userId, appUserIdentifier: u1.identifier, appId: app.appId }
     const user2 = { userId: u2.info.userId, appUserIdentifier: u2.identifier, appId: app.appId }
     const nostrSender = new NostrSender()
@@ -87,14 +106,23 @@ export const SetupTest = async (d: Describe, chainTools: ChainTools): Promise<Te
         await externalAccessToMainLnd.Warmup() */
     const liquiditySettings: LiquiditySettings = { disableLiquidityProvider: true, liquidityProviderPub: "", useOnlyLiquidityProvider: false, providerRelayUrl: "" }
     const lndSettings = LoadLndSettingsFromEnv({})
-    const secondLndNodeSettings = LoadSecondLndSettingsFromEnv()
+    const secondLndNodeSettings = LoadBobLndSettingsFromEnv()
     const otherLndSetting = () => ({ lndSettings, lndNodeSettings: secondLndNodeSettings })
-    const externalAccessToOtherLnd = new LND(otherLndSetting, new LiquidityProvider(() => liquiditySettings, extermnalUtils, async () => { }, async () => { }), async () => { }, extermnalUtils, async () => { }, async () => { }, async () => { }, () => { }, () => { })
+    const hooks: LndHooks = {
+        unlockLnd: async () => 'unlocked',
+        addressPaidCb: async () => { },
+        invoicePaidCb: async () => { },
+        newBlockCb: async () => { },
+        htlcCb: async () => { },
+        channelEventCb: async () => { },
+        newAddressCb: async () => { },
+    }
+    const externalAccessToOtherLnd = new LND(otherLndSetting, new LiquidityProvider(() => liquiditySettings, extermnalUtils, async () => { }, async () => { }), extermnalUtils, hooks)
     await externalAccessToOtherLnd.Warmup()
 
-    const thirdLndNodeSettings = LoadThirdLndSettingsFromEnv()
+    const thirdLndNodeSettings = LoadCarolLndSettingsFromEnv()
     const thirdLndSetting = () => ({ lndSettings, lndNodeSettings: thirdLndNodeSettings })
-    const externalAccessToThirdLnd = new LND(thirdLndSetting, new LiquidityProvider(() => liquiditySettings, extermnalUtils, async () => { }, async () => { }), async () => { }, extermnalUtils, async () => { }, async () => { }, async () => { }, () => { }, () => { })
+    const externalAccessToThirdLnd = new LND(thirdLndSetting, new LiquidityProvider(() => liquiditySettings, extermnalUtils, async () => { }, async () => { }), extermnalUtils, hooks)
     await externalAccessToThirdLnd.Warmup()
 
 
@@ -125,6 +153,29 @@ export const safelySetUserBalance = async (T: TestBase, user: TestUserData, amou
     // Credit is async via SubscribeInvoices; do not assume PayInvoice SUCCESS implies local balance yet.
     await waitForUserBalance(T, user.userId, amount)
     T.d(`user ${user.appUserIdentifier} balance is now ${amount}`)
+}
+
+/** Credit sats on top of the user's current balance (safe after prior test debits). */
+export const creditUserBalance = async (T: TestBase, user: TestUserData, creditSats: number) => {
+    const current = (await T.main.storage.userStorage.GetUser(user.userId)).balance_sats
+    const app = await T.main.storage.applicationStorage.GetApplication(user.appId)
+    const invoice = await T.main.paymentManager.NewInvoice(user.userId, { amountSats: creditSats, memo: "test credit" }, { linkedApplication: app, expiry: defaultInvoiceExpiry })
+    await T.externalAccessToOtherLnd.PayInvoice(invoice.invoice, 0, { routingFeeLimit: 100, serviceFee: 100 }, creditSats, { from: 'system', useProvider: false })
+    await waitForUserBalance(T, user.userId, current + creditSats)
+    T.d(`user ${user.appUserIdentifier} balance credited by ${creditSats} to ${current + creditSats}`)
+}
+
+/** Credit only when needed so the user's balance equals `exactBalanceSats` (never lowers balance). */
+export const setUserBalanceExact = async (T: TestBase, user: TestUserData, exactBalanceSats: number) => {
+    const current = (await T.main.storage.userStorage.GetUser(user.userId)).balance_sats
+    if (current === exactBalanceSats) {
+        T.d(`user ${user.appUserIdentifier} balance is already ${exactBalanceSats}`)
+        return
+    }
+    if (current > exactBalanceSats) {
+        throw new Error(`setUserBalanceExact: balance ${current} exceeds target ${exactBalanceSats}`)
+    }
+    await creditUserBalance(T, user, exactBalanceSats - current)
 }
 
 export const runSanityCheck = async (T: TestBase) => {
