@@ -1,4 +1,6 @@
 import crypto from 'crypto'
+import ssh2 from 'ssh2'
+const { utils } = ssh2
 import { deriveBackupKeys, LATEST_DERIVATION_VERSION } from '../services/backup/derivation.js'
 import { encryptPayload, decryptPayload } from '../services/backup/encryption.js'
 import { concatUint8Arrays, encodeTLbV, parseTLbV } from '../services/helpers/tlv.js'
@@ -19,6 +21,7 @@ const TEST_PHRASE = 'abandon abandon abandon abandon abandon abandon abandon aba
 
 export default async (T: StorageTestBase) => {
     await testDeriveKeysStable(T)
+    await testDeriveSshKeyStableAndParseable(T)
     await testDeriveKeysRejectUnknownVersion(T)
     await testEncryptDecryptPayload(T)
     await testEncryptDecryptRejectsWrongKey(T)
@@ -39,6 +42,24 @@ const testDeriveKeysStable = async (T: StorageTestBase) => {
     T.expect(a.sftpUser).to.have.length(64)
     T.expect(a.sftpPass).to.have.length(64)
     T.d('deriveBackupKeys is stable under normalize and yields 32-byte enc key')
+}
+
+const testDeriveSshKeyStableAndParseable = async (T: StorageTestBase) => {
+    T.d('starting testDeriveSshKeyStableAndParseable')
+    const a = await deriveBackupKeys(TEST_PHRASE, LATEST_DERIVATION_VERSION)
+    const b = await deriveBackupKeys(`  ${TEST_PHRASE.toUpperCase()}  `, LATEST_DERIVATION_VERSION)
+    T.expect(a.sftpPrivateKey).to.equal(b.sftpPrivateKey)
+    T.expect(a.sftpPublicKey).to.equal(b.sftpPublicKey)
+    T.expect(a.sftpPublicKey).to.match(/^ssh-ed25519 [A-Za-z0-9+/=]+ /)
+    T.expect(a.sftpPrivateKey).to.include('BEGIN OPENSSH PRIVATE KEY')
+    const parsed = utils.parseKey(a.sftpPrivateKey)
+    T.expect(parsed instanceof Error).to.equal(false)
+    if (parsed instanceof Error) throw parsed
+    T.expect(parsed.type).to.equal('ssh-ed25519')
+    const pubFromPriv = Buffer.from(parsed.getPublicSSH()).toString('base64')
+    const pubLineB64 = a.sftpPublicKey.split(/\s+/)[1]
+    T.expect(pubFromPriv).to.equal(pubLineB64)
+    T.d('seed-derived OpenSSH ed25519 key is stable and matches the public line')
 }
 
 const testDeriveKeysRejectUnknownVersion = async (T: StorageTestBase) => {

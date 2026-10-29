@@ -129,6 +129,7 @@ export default async (T: StorageTestBase) => {
     await testParentDeleteWaitsForLiveSnapshot(T)
     await testFailedExclusiveExportKeepsFullRefresh(T)
     await testQueuedPartialAfterFailedFullRefreshStaysComplete(T)
+    await testRestartFailedUploadAllKeepsFullRefresh(T)
     await testRefusesWhenLndStarted(T)
     await testResumeAfterDbCommitted(T)
     await testResumePhraseMismatch(T)
@@ -1369,6 +1370,71 @@ const testQueuedPartialAfterFailedFullRefreshStaysComplete = async (T: StorageTe
     T.d('a products batch queued during a failed exclusive full upload still republishes every child shard')
 }
 
+const testRestartFailedUploadAllKeepsFullRefresh = async (T: StorageTestBase) => {
+    T.d('starting testRestartFailedUploadAllKeepsFullRefresh')
+    const dir = tempBackupDir()
+    const settings = await localBackupSettings(T, dir)
+    const first = new BackupManager(T.storage, settings)
+    first.retryBaseMs = 60_000
+    const appUsers = new AppUserManager(T.storage, settings, {} as never, first)
+    let restarted: BackupManager | undefined
+    try {
+        await first.InitKeys(TEST_SEED)
+        const { app } = await seedDialtone(T, settings)
+        const doomed = await T.storage.applicationStorage.AddApplicationUser(
+            app,
+            `gone-restart-${crypto.randomBytes(8).toString('hex')}`,
+            0,
+        )
+        const userId = doomed.user.user_id
+        await first.AddressUpdate(5)
+        first.ChannelBackupUpdate(SAMPLE_SCB)
+        await first.uploadAllTables()
+        const before = readManifest(dir)
+        ;(first as any).exportTables = async () => {
+            throw new Error('export failed')
+        }
+        await appUsers.RemoveUsers([{ userId, appUserIds: [doomed.identifier] }])
+        T.expect(await T.storage.userStorage.FindUser(userId)).to.equal(null)
+        T.expect(readManifest(dir).generation).to.equal(before.generation)
+        await first.shutdown()
+
+        restarted = new BackupManager(T.storage, settings)
+        restarted.retryBaseMs = 60_000
+        await restarted.InitKeys(TEST_SEED)
+        await restarted.AddressUpdate(5)
+        restarted.ChannelBackupUpdate(SAMPLE_SCB)
+        T.expect((restarted as any).fullRefreshRequired).to.equal(false)
+        let failExport = true
+        const origExport = (restarted as any).exportTables.bind(restarted)
+        ;(restarted as any).exportTables = async (ids: BackupTableId[]) => {
+            if (failExport) {
+                failExport = false
+                throw new Error('startup export failed')
+            }
+            return origExport(ids)
+        }
+        await restarted.uploadAllTables()
+        T.expect((restarted as any).fullRefreshRequired).to.equal(true)
+        T.expect(readManifest(dir).generation).to.equal(before.generation)
+        ;(restarted as any).clearRetry()
+        ;(restarted as any).dirty.clear()
+        ;(restarted as any).dirty.add('products')
+        await (restarted as any).flushDebounced()
+        T.expect((restarted as any).fullRefreshRequired).to.equal(false)
+        const after = readManifest(dir)
+        T.expect(after.tables.application_users).to.not.equal(before.tables.application_users)
+        T.expect(after.tables.user_balances).to.not.equal(before.tables.user_balances)
+        const keys = await deriveBackupKeys(TEST_PHRASE)
+        expectMembershipsJoinBalances(T, dir, keys, userId, false)
+    } finally {
+        await first.shutdown()
+        await restarted?.shutdown()
+        fs.rmSync(dir, { recursive: true, force: true })
+    }
+    T.d('a restarted manager that fails its first complete upload still republishes every child shard from a later products batch')
+}
+
 const localBackupSettings = async (T: StorageTestBase, dir: string) => {
     const settings = new SettingsManager(T.storage)
     await settings.InitSettings()
@@ -2368,6 +2434,7 @@ const testUploadAllTablesSurvivesRemoteFailure = async (T: StorageTestBase) => {
     }
     try {
         await withTimeout(backup.uploadAllTables(), 5000, 'uploadAllTables rejected or hung on remote failure')
+        T.expect((backup as any).fullRefreshRequired).to.equal(true)
     } finally {
         await backup.shutdown()
     }
@@ -2405,7 +2472,7 @@ const testConfiguredDestsDedupsCloudSftpAlias = async (T: StorageTestBase) => {
                     host: sftpHost,
                     port: 22,
                     username: (backup as any).keys.sftpUser,
-                    password: (backup as any).keys.sftpPass,
+                    privateKey: (backup as any).keys.sftpPrivateKey,
                 },
             }
             T.expect((backup as any).destKey(dests[0])).to.equal((backup as any).destKey(alias))
@@ -2498,14 +2565,14 @@ const testAliasedRemotesDoNotDropInFlightShards = async (T: StorageTestBase) => 
     backup.retryBaseMs = 60_000
     await backup.InitKeys(TEST_SEED)
     const files = new Map<string, Buffer>()
-    const cloud = { type: 'cloud' as const, config: cloudSftpConfig((backup as any).keys.sftpUser, (backup as any).keys.sftpPass) }
+    const cloud = { type: 'cloud' as const, config: cloudSftpConfig((backup as any).keys.sftpUser, (backup as any).keys.sftpPrivateKey) }
     const alias = {
         type: 'sftp' as const,
         config: {
             host: CLOUD_SFTP_HOST,
             port: 22,
             username: (backup as any).keys.sftpUser,
-            password: (backup as any).keys.sftpPass,
+            privateKey: (backup as any).keys.sftpPrivateKey,
         },
     }
     bindMemoryDestIo(backup, files, { failDest: alias })
@@ -2542,14 +2609,14 @@ const testHostnameCaseAliasKeepsCiphertext = async (T: StorageTestBase) => {
     backup.retryBaseMs = 60_000
     await backup.InitKeys(TEST_SEED)
     const files = new Map<string, Buffer>()
-    const cloud = { type: 'cloud' as const, config: cloudSftpConfig((backup as any).keys.sftpUser, (backup as any).keys.sftpPass) }
+    const cloud = { type: 'cloud' as const, config: cloudSftpConfig((backup as any).keys.sftpUser, (backup as any).keys.sftpPrivateKey) }
     const alias = {
         type: 'sftp' as const,
         config: {
             host: mixedHost,
             port: 22,
             username: (backup as any).keys.sftpUser,
-            password: (backup as any).keys.sftpPass,
+            privateKey: (backup as any).keys.sftpPrivateKey,
         },
     }
     bindMemoryDestIo(backup, files, { truncateLiveOnOverlap: true })

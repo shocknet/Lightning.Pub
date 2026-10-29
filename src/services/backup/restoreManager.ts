@@ -471,7 +471,7 @@ export class RestoreManager {
                 return fetchNamed(async filename => readLocalRestoreFile(req.source, filename))
             case wizardTypes.RestoreRequest_source_type.CLOUD:
                 try {
-                    return await withSftpSession(cloudSftpConfig(keys.sftpUser, keys.sftpPass), session =>
+                    return await withSftpSession(cloudSftpConfig(keys.sftpUser, keys.sftpPrivateKey), session =>
                         fetchNamed(filename => session.download(filename)))
                 } catch (err) {
                     throw cloudDownloadError(err)
@@ -650,7 +650,7 @@ const readLocalRestoreFile = (source: wizardTypes.RestoreRequest['source'], file
  */
 export class CloudLoginRejectedError extends Error {
     constructor(loginError: string) {
-        super(`Cloud backup login rejected: ${loginError}. This seed has no cloud account, or the server refused the password.`)
+        super(`Cloud backup login rejected: ${loginError}. This seed has no cloud account, or the server refused the key.`)
         this.name = 'CloudLoginRejectedError'
     }
 }

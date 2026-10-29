@@ -16,18 +16,23 @@ const HASHES_PER_YIELD = 5_000
 
 type PowChallenge = { challengeId: string, challenge: string, difficultyBits: number }
 
-/** Creates the cloud account for these phrase-derived credentials; an existing account counts as success. */
-export async function provisionCloudAccount(username: string, password: string): Promise<void> {
+/**
+ * Creates the cloud account for these phrase-derived credentials.
+ * Posts the OpenSSH public key only — never the private key.
+ * An existing account (409) counts as success and does not update the stored key.
+ */
+export async function provisionCloudAccount(username: string, publicKey: string): Promise<void> {
     const challenge = await fetchChallenge()
     const nonce = await solvePow(challenge.challenge, challenge.difficultyBits)
     const res = await fetch(`${CLOUD_API_URL}/v1/provision`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ username, password, challengeId: challenge.challengeId, nonce }),
+        body: JSON.stringify({ username, publicKey, challengeId: challenge.challengeId, nonce }),
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     })
     if (res.status === 201 || res.status === 409) return
-    throw new Error(`cloud backup sign-up failed: HTTP ${res.status} ${await errorCode(res)}`)
+    const code = await errorCode(res)
+    throw new Error(`cloud backup sign-up failed: HTTP ${res.status} ${code}`)
 }
 
 async function fetchChallenge(): Promise<PowChallenge> {

@@ -5,7 +5,8 @@
 // Server is dumb storage — no Lightning.Pub-specific logic. Atomic replace of manifest.json
 // needs OpenSSH posix-rename@openssh.com; a server without it is flagged incompatible.
 // Shards are written once to unique names (sftpUpload); only the manifest is renamed.
-// Cloud managed = Shocknet-hosted (PubFTPService); self-hosters run OpenSSH.
+// Cloud managed = Shocknet-hosted (PubFTPService) with seed-derived ed25519 key auth;
+// self-hosters run OpenSSH (password auth via BACKUP_SFTP_USER/PASS).
 //
 // A destination publish (and a restore fetch) holds one SSH session for every SFTP
 // call. Single-op helpers still open a session for that call alone (tests, ad-hoc).
@@ -41,7 +42,10 @@ export type SftpConfig = {
     host: string
     port?: number
     username: string
-    password: string
+    /** Password auth (custom SFTP). Omit when connecting with privateKey. */
+    password?: string
+    /** OpenSSH private key PEM (managed cloud). Prefer over password when set. */
+    privateKey?: string | Buffer
     /** SHA256 host key fingerprint as printed by `ssh-keygen -lf` (with or without "SHA256:"). */
     hostFingerprint?: string
     readyTimeoutMs?: number
@@ -87,12 +91,12 @@ export class SftpIncompatibleError extends Error {
     }
 }
 
-export function cloudSftpConfig(sftpUser: string, sftpPass: string): SftpConfig {
+export function cloudSftpConfig(sftpUser: string, privateKey: string | Buffer): SftpConfig {
     return {
         host: CLOUD_SFTP_HOST,
         port: CLOUD_SFTP_PORT,
         username: sftpUser,
-        password: sftpPass,
+        privateKey,
         hostFingerprint: CLOUD_SFTP_HOST_FINGERPRINT,
     }
 }
@@ -218,11 +222,14 @@ function connectSftp(config: SftpConfig, onClient?: (client: Client) => void): P
             }
             done(new Error(`SFTP connection error: ${err.message}`))
         })
+        const auth = config.privateKey !== undefined
+            ? { privateKey: config.privateKey }
+            : { password: config.password }
         client.connect({
             host: config.host,
             port,
             username: config.username,
-            password: config.password,
+            ...auth,
             hostVerifier,
             readyTimeout: readyTimeoutMs,
             timeout: readyTimeoutMs,

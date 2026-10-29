@@ -3,6 +3,7 @@ import net from 'net'
 import ssh2 from 'ssh2'
 const { Server, utils } = ssh2
 import { assertPowDifficulty, hasLeadingZeroBits, MAX_ACCEPTED_POW_BITS, solvePow } from '../services/backup/cloudProvision.js'
+import { deriveBackupKeys } from '../services/backup/derivation.js'
 import {
     CLOUD_SFTP_HOST,
     CLOUD_SFTP_HOST_FINGERPRINT,
@@ -60,6 +61,7 @@ export default async (T: StorageTestBase) => {
     await testSftpSessionSurvivesFailedUpload(T)
     await testSftpSessionAbortWaitsForCallback(T)
     await testPublishUsesOneSshSession(T)
+    await testSftpKeyAuthAcceptsDerivedKey(T)
 }
 
 const leadingZeroBitsOf = (hash: Buffer): number => {
@@ -793,4 +795,87 @@ const waitFor = async (pred: () => boolean, ms: number): Promise<boolean> => {
         await new Promise<void>(resolve => setTimeout(resolve, 20))
     }
     return true
+}
+
+/** Server that accepts only one OpenSSH ed25519 public key and rejects passwords. */
+const startPublicKeyOnlySftp = async (authorizedPublicKeyLine: string) => {
+    const hostKeys = utils.generateKeyPairSync('ed25519')
+    const clients: Array<{ end: () => void }> = []
+    const pubB64 = authorizedPublicKeyLine.trim().split(/\s+/)[1]
+    const expected = Buffer.from(pubB64, 'base64')
+    let passwordAttempts = 0
+    let acceptedKey = false
+    const server = new Server({ hostKeys: [hostKeys.private], keepaliveInterval: 0 }, client => {
+        clients.push(client)
+        client.on('error', () => { /* client may abort */ })
+        client.on('authentication', ctx => {
+            if (ctx.method === 'password') {
+                passwordAttempts++
+                return ctx.reject(['publickey'])
+            }
+            if (ctx.method === 'publickey'
+                && ctx.key.algo === 'ssh-ed25519'
+                && ctx.key.data.equals(expected)) {
+                acceptedKey = true
+                return ctx.accept()
+            }
+            return ctx.reject(['publickey'])
+        })
+        client.on('ready', () => {
+            client.on('session', (accept) => {
+                const session = accept()
+                session.on('sftp', (acceptSftp) => {
+                    const sftp = acceptSftp()
+                    const handle = Buffer.alloc(4)
+                    handle.writeUInt32BE(1, 0)
+                    sftp.on('OPEN', (id: number) => sftp.handle(id, handle))
+                    sftp.on('WRITE', (id: number) => sftp.status(id, utils.sftp.STATUS_CODE.OK))
+                    sftp.on('CLOSE', (id: number) => sftp.status(id, utils.sftp.STATUS_CODE.OK))
+                    sftp.on('READ', (id: number) => sftp.status(id, utils.sftp.STATUS_CODE.EOF))
+                })
+            })
+        })
+    })
+    const port = await listenPort(server)
+    return {
+        port,
+        passwordAttempts: () => passwordAttempts,
+        acceptedKey: () => acceptedKey,
+        stop: async () => {
+            for (const c of clients) {
+                try { c.end() } catch { /* already closed */ }
+            }
+            await new Promise<void>(resolve => server.close(() => resolve()))
+        },
+    }
+}
+
+const testSftpKeyAuthAcceptsDerivedKey = async (T: StorageTestBase) => {
+    T.d('starting testSftpKeyAuthAcceptsDerivedKey')
+    const keys = await deriveBackupKeys(TEST_PHRASE)
+    const { port, stop, passwordAttempts, acceptedKey } = await startPublicKeyOnlySftp(keys.sftpPublicKey)
+    try {
+        let passwordRejected = false
+        try {
+            await sftpUpload(sftpCfg(port, { password: keys.sftpPass, privateKey: undefined }), 'a.enc', Buffer.from('x'))
+        } catch (err) {
+            passwordRejected = err instanceof SftpAuthError || (err instanceof Error && /auth|login|rejected|failed/i.test(err.message))
+        }
+        T.expect(passwordRejected).to.equal(true)
+        T.expect(passwordAttempts()).to.be.greaterThan(0)
+
+        await sftpUpload({
+            host: '127.0.0.1',
+            port,
+            username: 'pub',
+            privateKey: keys.sftpPrivateKey,
+            ...FAST_SFTP,
+            idleTimeoutMs: 2000,
+            opTimeoutMs: 2000,
+        }, 'b.enc', Buffer.from('shard'))
+        T.expect(acceptedKey()).to.equal(true)
+    } finally {
+        await stop()
+    }
+    T.d('seed-derived private key logs in; password auth is refused')
 }
