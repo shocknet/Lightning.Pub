@@ -30,7 +30,7 @@
   },
   "homepage": "https://github.com/shocknet/Lightning.Pub#readme",
   "dependencies": {
-    "@grpc/grpc-js": "^1.11.2",
+    "@grpc/grpc-js": "^1.14.6",
     "@protobuf-ts/grpc-transport": "^2.9.4",
     "@protobuf-ts/plugin": "^2.5.0",
     "@protobuf-ts/runtime": "^2.5.0",
@@ -43,7 +43,7 @@
     "@types/ssh2": "^1.15.5",
     "@vulpemventures/secp256k1-zkp": "^3.2.1",
     "argon2": "^0.44.0",
-    "axios": "=1.16.0",
+    "axios": "^1.21.0",
     "bech32": "^2.0.0",
     "better-sqlite3": "^12.8.0",
     "bitcoinjs-lib": "^6.1.7",
@@ -52,10 +52,10 @@
     "chai-string": "^1.6.0",
     "copyfiles": "^2.4.1",
     "cors": "^2.8.6",
-    "csv": "^6.5.1",
+    "csv": "^6.6.4",
     "dotenv": "^17.4.2",
     "ecpair": "^3.0.0",
-    "express": "^4.21.2",
+    "express": "^4.22.3",
     "express-ws": "^5.0.2",
     "globby": "^16.2.0",
     "grpc-tools": "^1.12.4",
@@ -69,7 +69,7 @@
     "ssh2": "^1.17.0",
     "tiny-secp256k1": "^2.2.4",
     "ts-node": "^10.7.0",
-    "typeorm": "^0.3.28",
+    "typeorm": "^0.3.31",
     "typescript": "~6.0.3",
     "uri-template": "^2.0.0",
     "why-is-node-running": "^3.2.0",
@@ -91,7 +91,17 @@
     "typescript": "~6.0.3"
   },
   "overrides": {
-    "@scure/base": "$@scure/base"
+    "@scure/base": "$@scure/base",
+    "body-parser": "1.20.9",
+    "proxy-addr": "2.0.8",
+    "qs": "6.17.0",
+    "follow-redirects": "1.16.2",
+    "protobufjs": "7.6.6",
+    "tar": "7.5.22",
+    "valibot": "1.5.0",
+    "brace-expansion@1": "1.1.21",
+    "brace-expansion@2": "2.1.7",
+    "brace-expansion@5": "5.0.12"
   },
   "optionalDependencies": {
     "wrtc": "^0.4.7"
