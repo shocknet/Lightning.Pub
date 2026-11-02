@@ -50,6 +50,30 @@ export type TransactionSwapResponse = {
 type TransactionSwapInfo = { destinationAddress: string, preimage: Buffer, keys: ECPairInterface, chainFee: number }
 export type TransactionSwapData = { createdResponse: TransactionSwapResponse, info: TransactionSwapInfo }
 
+export type CooperativeClaimResult = { pubNonce: string, partialSignature: string }
+export type CooperativeClaimFn = (req: {
+    id: string
+    transaction: string
+    preimage: string
+    pubNonce: string
+}) => Promise<{ ok: true, data: CooperativeClaimResult } | { ok: false, error: string }>
+
+export type ReverseClaimChain = {
+    waitForLockup: (script: Buffer, numConfs: number, heightHint: number, abort?: AbortSignal) => Promise<{ txHex: string }>
+    publish: (txHex: string) => Promise<void>
+    heightHint: number
+    abortSignal?: AbortSignal
+    cooperativeClaim?: CooperativeClaimFn
+}
+
+type ParsedLockup = {
+    lockupTx: Transaction
+    swapOutput: NonNullable<ReturnType<typeof detectSwap>>
+    swapTree: ReturnType<typeof SwapTreeSerializer.deserializeSwapTree>
+    internalKey: Buffer
+    boltzPublicKey: Buffer
+}
+
 /**
  * BIP65: locktimes below this are block heights. At or above it they are unix times,
  * so a refund leaf built from such a value is not a block-height timeout.
@@ -68,6 +92,18 @@ export const MIN_REVERSE_TIMEOUT_BLOCKS = 72
  * Matches Boltz's upper reverse-swap timeout bound.
  */
 export const MAX_REVERSE_TIMEOUT_BLOCKS = 2_016
+
+/** Deliberate policy: do not disclose the preimage on a mempool lockup. */
+export const REVERSE_CLAIM_CONFIRMATIONS = 1
+
+/**
+ * SendPaymentV2 must stay in-flight until the lockup confirms and we claim.
+ * 50s is only enough for the old mempool-speed cooperative path.
+ */
+export const REVERSE_SWAP_PAYMENT_TIMEOUT_SECONDS = 60 * 60
+
+/** Reverse-swap hold invoices must be paid by our node, not a liquidity provider. */
+export const SWAP_INVOICE_MUST_USE_LND = 'swaps cannot be paid via the liquidity provider'
 
 /**
  * Reject provider-chosen refund heights that are not safe block heights inside
@@ -344,7 +380,11 @@ export class ReverseSwaps {
         return { ok: true }
     }
 
-    SubscribeToTransactionSwap = async (data: TransactionSwapData, swapDone: (result: { ok: true, txId: string } | { ok: false, error: string }) => void) => {
+    SubscribeToTransactionSwap = async (
+        data: TransactionSwapData,
+        swapDone: (result: { ok: true, txId: string } | { ok: false, error: string }) => void,
+        chain: ReverseClaimChain,
+    ) => {
         const webSocket = new ws(`${this.wsUrl}/v2/ws`)
         const subReq = { op: 'subscribe', channel: 'swap.update', args: [data.createdResponse.id] }
         webSocket.on('open', () => {
@@ -353,15 +393,23 @@ export class ReverseSwaps {
         const interval = setInterval(() => {
             webSocket.ping()
         }, 30 * 1000)
+        interval.unref()
+        const localAbort = new AbortController()
+        const onParentAbort = () => localAbort.abort()
+        chain.abortSignal?.addEventListener('abort', onParentAbort)
         let txId = "", isDone = false
         const done = (failureReason?: string) => {
+            if (isDone) {
+                return
+            }
             isDone = true
+            localAbort.abort()
+            chain.abortSignal?.removeEventListener('abort', onParentAbort)
             clearInterval(interval)
             webSocket.close()
             if (failureReason) {
                 swapDone({ ok: false, error: failureReason })
             } else if (!txId) {
-                // Never report success without a validated on-chain claim tx
                 swapDone({ ok: false, error: 'swap settled without a validated on-chain claim' })
             } else {
                 swapDone({ ok: true, txId })
@@ -375,184 +423,276 @@ export class ReverseSwaps {
         })
         webSocket.on('close', () => {
             if (!isDone) {
-                this.log(ERROR, 'WebSocket closed before swap was done');
-                done('WebSocket closed before swap was done')
+                this.log('WebSocket closed; continuing to wait for an independently confirmed lockup')
             }
         })
         webSocket.on('message', async (rawMsg) => {
             try {
-                await this.handleSwapTransactionMessage(rawMsg, data, done, {
-                    getClaimTxId: () => txId,
-                    setClaimTxId: (id: string) => { txId = id },
-                })
+                await this.handleSwapTransactionMessage(rawMsg)
             } catch (err: any) {
                 this.log(ERROR, 'Error handling transaction WebSocket message', err.message)
-                done(err.message)
-                return
             }
         })
+        void this.claimWhenLockupConfirmed(data, chain, localAbort.signal, (id) => { txId = id }, done)
     }
 
-    handleSwapTransactionMessage = async (
-        rawMsg: ws.RawData,
-        data: TransactionSwapData,
-        done: (failureReason?: string) => void,
-        claim: { getClaimTxId: () => string, setClaimTxId: (txId: string) => void },
-    ) => {
-        const msg = JSON.parse(rawMsg.toString('utf-8'));
+    /**
+     * Provider websocket is informational only. It must never finish the swap or
+     * abort the chain watch: a hostile update (failed/expired, or malformed JSON)
+     * would otherwise cancel an independent 1-conf claim.
+     */
+    handleSwapTransactionMessage = async (rawMsg: ws.RawData) => {
+        let msg: any
+        try {
+            msg = JSON.parse(rawMsg.toString('utf-8'))
+        } catch (err: any) {
+            this.log(ERROR, 'Invalid swap websocket payload', err.message)
+            return
+        }
         if (msg.event !== 'update') {
-            return;
+            return
         }
 
-        this.log('Got WebSocket update');
-        this.log(msg);
-        switch (msg.args[0].status) {
-            // "swap.created" means Boltz is waiting for the invoice to be paid
+        this.log('Got WebSocket update')
+        this.log(msg)
+        const status = msg.args?.[0]?.status
+        switch (status) {
             case 'swap.created':
-                this.log('Waiting invoice to be paid');
-                return;
-
-            // "transaction.mempool" means that Boltz sent an onchain transaction
+                this.log('Waiting invoice to be paid')
+                return
             case 'transaction.mempool':
-                const txIdRes = await this.handleTransactionMempool(data, msg.args[0].transaction.hex)
-                if (!txIdRes.ok) {
-                    throw new Error(txIdRes.error)
-                }
-                // Record claim tx before any later invoice.settled can succeed
-                claim.setClaimTxId(txIdRes.txId)
+            case 'transaction.confirmed':
+                this.log('Provider reported lockup', status, '- waiting for independent confirmation')
                 return
             case 'invoice.settled':
-                if (!claim.getClaimTxId()) {
-                    done(`swap ${data.createdResponse.id} settled without a validated on-chain claim`)
-                    return
-                }
-                this.log('Transaction swap successful');
-                done()
-                return;
+                this.log('Provider reported invoice settled; waiting for independent claim publish')
+                return
             case 'invoice.expired':
             case 'swap.expired':
             case 'transaction.failed':
-                done(`swap ${data.createdResponse.id} failed with status ${msg.args[0].status}`)
-                return;
+                this.log('Provider reported', status, '- ignoring; claim depends on independent confirmation')
+                return
             default:
                 this.log('Unknown swap transaction WebSocket message', msg)
-                return;
-
+                return
         }
     }
 
-    handleTransactionMempool = async (data: TransactionSwapData, txHex: string): Promise<{ ok: true, txId: string } | { ok: false, error: string }> => {
-        this.log('Creating claim transaction');
+    private claimWhenLockupConfirmed = async (
+        data: TransactionSwapData,
+        chain: ReverseClaimChain,
+        abort: AbortSignal,
+        setClaimTxId: (id: string) => void,
+        done: (failureReason?: string) => void,
+    ) => {
+        try {
+            const network = getNetwork(this.network)
+            const script = address.toOutputScript(data.createdResponse.lockupAddress, network)
+            const confirmed = await chain.waitForLockup(script, REVERSE_CLAIM_CONFIRMATIONS, chain.heightHint, abort)
+            if (abort.aborted) {
+                return
+            }
+            const claimed = await this.claimConfirmedLockup(data, confirmed.txHex, chain)
+            if (!claimed.ok) {
+                done(claimed.error)
+                return
+            }
+            setClaimTxId(claimed.txId)
+            done()
+        } catch (err: any) {
+            if (abort.aborted) {
+                return
+            }
+            this.log(ERROR, 'Failed waiting for confirmed reverse-swap lockup', err.message || err)
+            done(err.message || String(err))
+        }
+    }
+
+    /**
+     * Claim a lockup that our node has already confirmed. Builds the script-path
+     * spend first so a withheld cooperative signature is not theft, then tries
+     * the cheaper key-path claim. Always publishes via the injected chain client.
+     */
+    claimConfirmedLockup = async (
+        data: TransactionSwapData,
+        confirmedTxHex: string,
+        deps: { publish: (txHex: string) => Promise<void>, cooperativeClaim?: CooperativeClaimFn },
+    ): Promise<{ ok: true, txId: string, usedCooperative: boolean } | { ok: false, error: string }> => {
+        const parsed = await this.parseAndValidateLockup(data, confirmedTxHex)
+        if (!parsed.ok) {
+            return parsed
+        }
+
+        let unilateral: Transaction
+        try {
+            unilateral = this.buildUnilateralClaim(data, parsed)
+        } catch (err: any) {
+            return { ok: false, error: `failed to construct unilateral claim: ${err.message}` }
+        }
+
+        let toPublish = unilateral
+        let usedCooperative = false
+        const coop = await this.tryCooperativeClaim(data, parsed, deps.cooperativeClaim)
+        if (coop.ok) {
+            toPublish = coop.tx
+            usedCooperative = true
+        } else {
+            this.log(ERROR, 'Cooperative reverse-swap claim failed, publishing script-path claim', coop.error)
+        }
+
+        try {
+            await deps.publish(toPublish.toHex())
+        } catch (err: any) {
+            if (usedCooperative) {
+                this.log(ERROR, 'Cooperative claim publish failed, broadcasting script-path claim', err.message)
+                await deps.publish(unilateral.toHex())
+                toPublish = unilateral
+                usedCooperative = false
+            } else {
+                return { ok: false, error: err.message || String(err) }
+            }
+        }
+        this.log('Reverse-swap claim published', { txId: toPublish.getId(), usedCooperative })
+        return { ok: true, txId: toPublish.getId(), usedCooperative }
+    }
+
+    parseAndValidateLockup = async (
+        data: TransactionSwapData,
+        txHex: string,
+    ): Promise<{ ok: true } & ParsedLockup | { ok: false, error: string }> => {
         const { createdResponse, info } = data
-        const { destinationAddress, keys, preimage, chainFee } = info
-        const boltzPublicKey = Buffer.from(
-            createdResponse.refundPublicKey,
-            'hex',
-        );
+        const boltzPublicKey = Buffer.from(createdResponse.refundPublicKey, 'hex')
+        let swapTree
+        try {
+            swapTree = SwapTreeSerializer.deserializeSwapTree(createdResponse.swapTree)
+        } catch (err: any) {
+            return { ok: false, error: `failed to deserialize swapTree: ${err.message}` }
+        }
 
-        // Create a musig signing session and tweak it with the Taptree of the swap scripts
-        const musig = new Musig(await zkpInit(), keys, randomBytes(32), [
+        const musig = new Musig(await zkpInit(), info.keys, randomBytes(32), [
             boltzPublicKey,
-            Buffer.from(keys.publicKey),
-        ]);
-        const tweakedKey = TaprootUtils.tweakMusig(
-            musig,
-            // swap tree can either be a string or an object
-            SwapTreeSerializer.deserializeSwapTree(createdResponse.swapTree).tree,
-        );
-
-        // Parse the lockup transaction and find the output relevant for the swap
-        const lockupTx = Transaction.fromHex(txHex);
-        const swapOutput = detectSwap(tweakedKey, lockupTx);
+            Buffer.from(info.keys.publicKey),
+        ])
+        const tweakedKey = TaprootUtils.tweakMusig(musig, swapTree.tree)
+        const lockupTx = Transaction.fromHex(txHex)
+        const swapOutput = detectSwap(tweakedKey, lockupTx)
         if (swapOutput === undefined) {
-            this.log(ERROR, 'No swap output found in lockup transaction');
+            this.log(ERROR, 'No swap output found in lockup transaction')
             return { ok: false, error: 'No swap output found in lockup transaction' }
         }
 
-        // Refuse to claim (and reveal the preimage) unless the lockup pays at least
-        // the quoted on-chain amount. Script match alone is not enough.
         const expectedAmount = createdResponse.onchainAmount
         if (!Number.isFinite(expectedAmount) || expectedAmount === undefined || expectedAmount <= 0) {
-            this.log(ERROR, 'Missing or invalid quoted onchainAmount for reverse swap');
             return { ok: false, error: 'Missing or invalid quoted onchainAmount for reverse swap' }
         }
         if (swapOutput.value < expectedAmount) {
-            this.log(ERROR, 'Lockup output underfunded', { got: swapOutput.value, want: expectedAmount });
+            this.log(ERROR, 'Lockup output underfunded', { got: swapOutput.value, want: expectedAmount })
             return {
                 ok: false,
                 error: `Lockup output underfunded: got ${swapOutput.value}, want at least ${expectedAmount}`,
             }
         }
 
+        return {
+            ok: true,
+            lockupTx,
+            swapOutput,
+            swapTree,
+            internalKey: musig.getAggregatedPublicKey(),
+            boltzPublicKey,
+        }
+    }
+
+    private buildUnilateralClaim = (data: TransactionSwapData, parsed: ParsedLockup): Transaction => {
+        const { info } = data
         const network = getNetwork(this.network)
-        // Create a claim transaction to be signed cooperatively via a key path spend
-        const claimTx = constructClaimTransaction(
+        return constructClaimTransaction(
             [
                 {
-                    ...swapOutput,
-                    keys,
-                    preimage,
-                    cooperative: true,
+                    ...parsed.swapOutput,
+                    keys: info.keys,
+                    preimage: info.preimage,
+                    cooperative: false,
                     type: OutputType.Taproot,
-                    txHash: lockupTx.getHash(),
+                    txHash: parsed.lockupTx.getHash(),
+                    swapTree: parsed.swapTree,
+                    internalKey: parsed.internalKey,
                 },
             ],
-            address.toOutputScript(destinationAddress, network),
-            chainFee,
+            address.toOutputScript(info.destinationAddress, network),
+            info.chainFee,
         )
-        // Get the partial signature from Boltz
-        const claimUrl = `${this.httpUrl}/v2/swap/reverse/${createdResponse.id}/claim`
-        const claimReq = {
+    }
+
+    private tryCooperativeClaim = async (
+        data: TransactionSwapData,
+        parsed: ParsedLockup,
+        cooperativeClaim?: CooperativeClaimFn,
+    ): Promise<{ ok: true, tx: Transaction } | { ok: false, error: string }> => {
+        const { createdResponse, info } = data
+        const { keys, preimage, chainFee, destinationAddress } = info
+        try {
+            const musig = new Musig(await zkpInit(), keys, randomBytes(32), [
+                parsed.boltzPublicKey,
+                Buffer.from(keys.publicKey),
+            ])
+            TaprootUtils.tweakMusig(musig, parsed.swapTree.tree)
+            const network = getNetwork(this.network)
+            const claimTx = constructClaimTransaction(
+                [
+                    {
+                        ...parsed.swapOutput,
+                        keys,
+                        preimage,
+                        cooperative: true,
+                        type: OutputType.Taproot,
+                        txHash: parsed.lockupTx.getHash(),
+                    },
+                ],
+                address.toOutputScript(destinationAddress, network),
+                chainFee,
+            )
+            const postClaim = cooperativeClaim ?? this.postCooperativeClaim
+            const boltzSigRes = await postClaim({
+                id: createdResponse.id,
+                transaction: claimTx.toHex(),
+                preimage: preimage.toString('hex'),
+                pubNonce: Buffer.from(musig.getPublicNonce()).toString('hex'),
+            })
+            if (!boltzSigRes.ok) {
+                return boltzSigRes
+            }
+            const boltzSig = boltzSigRes.data
+            musig.aggregateNonces([
+                [parsed.boltzPublicKey, Musig.parsePubNonce(boltzSig.pubNonce)],
+            ])
+            musig.initializeSession(
+                claimTx.hashForWitnessV1(
+                    0,
+                    [parsed.swapOutput.script],
+                    [parsed.swapOutput.value],
+                    Transaction.SIGHASH_DEFAULT,
+                ),
+            )
+            musig.addPartial(
+                parsed.boltzPublicKey,
+                Buffer.from(boltzSig.partialSignature, 'hex'),
+            )
+            musig.signPartial()
+            claimTx.ins[0].witness = [musig.aggregatePartials()]
+            return { ok: true, tx: claimTx }
+        } catch (err: any) {
+            return { ok: false, error: err.message || String(err) }
+        }
+    }
+
+    private postCooperativeClaim: CooperativeClaimFn = async (req) => {
+        const claimUrl = `${this.httpUrl}/v2/swap/reverse/${req.id}/claim`
+        return loggedPost<CooperativeClaimResult>(this.log, claimUrl, {
             index: 0,
-            transaction: claimTx.toHex(),
-            preimage: preimage.toString('hex'),
-            pubNonce: Buffer.from(musig.getPublicNonce()).toString('hex'),
-        }
-        const boltzSigRes = await loggedPost<{ pubNonce: string, partialSignature: string }>(this.log, claimUrl, claimReq)
-        if (!boltzSigRes.ok) {
-            return boltzSigRes
-        }
-        const boltzSig = boltzSigRes.data
-
-        // Aggregate the nonces
-        musig.aggregateNonces([
-            [boltzPublicKey, Buffer.from(boltzSig.pubNonce, 'hex')],
-        ]);
-
-        // Initialize the session to sign the claim transaction
-        musig.initializeSession(
-            claimTx.hashForWitnessV1(
-                0,
-                [swapOutput.script],
-                [swapOutput.value],
-                Transaction.SIGHASH_DEFAULT,
-            ),
-        );
-
-        // Add the partial signature from Boltz
-        musig.addPartial(
-            boltzPublicKey,
-            Buffer.from(boltzSig.partialSignature, 'hex'),
-        );
-
-        // Create our partial signature
-        musig.signPartial();
-
-        // Witness of the input to the aggregated signature
-        claimTx.ins[0].witness = [musig.aggregatePartials()];
-
-        // Broadcast the finalized transaction
-        const broadcastUrl = `${this.httpUrl}/v2/chain/BTC/transaction`
-        const broadcastReq = {
-            hex: claimTx.toHex(),
-        }
-
-        const broadcastResponse = await loggedPost<any>(this.log, broadcastUrl, broadcastReq)
-        if (!broadcastResponse.ok) {
-            return broadcastResponse
-        }
-        this.log('Transaction broadcasted', broadcastResponse.data)
-        const txId = claimTx.getId()
-        return { ok: true, txId }
+            transaction: req.transaction,
+            preimage: req.preimage,
+            pubNonce: req.pubNonce,
+        })
     }
 }

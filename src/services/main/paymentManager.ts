@@ -19,6 +19,7 @@ import { Utils } from '../helpers/utilsWrapper.js'
 import { UserInvoicePayment } from '../storage/entity/UserInvoicePayment.js'
 import SettingsManager from './settingsManager.js'
 import { Swaps } from '../lnd/swaps/swaps.js'
+import { REVERSE_SWAP_PAYMENT_TIMEOUT_SECONDS, SWAP_INVOICE_MUST_USE_LND } from '../lnd/swaps/reverseSwaps.js'
 import { Transaction, OutputDetail } from '../../../proto/lnd/lightning.js'
 import { LndAddress } from '../lnd/lnd.js'
 import Metrics from '../metrics/index.js'
@@ -36,6 +37,7 @@ export type OutgoingInvoiceFailedCb = (invoice: string, txId: string) => Promise
 
 type PayInvoiceOptionals = {
     swapOperationId?: string
+    timeoutSeconds?: number
     ack?: (op: Types.UserOperation) => void
     assertDebitFrequency?: AssertDebitFrequency
     onPaymentAccepted?: (txId: string) => Promise<void>
@@ -663,7 +665,11 @@ export default class {
         const { amountForLnd, payAmount, serviceFee } = amounts
         const totalAmountToDecrement = payAmount + serviceFee
         const routingFeeLimit = this.getRoutingFeeLimit(payAmount)
-        const use = await this.liquidityManager.beforeOutInvoicePayment(payAmount, serviceFee)
+        const isSwapPay = Boolean(optionals.swapOperationId)
+        if (isSwapPay && this.settings.getSettings().liquiditySettings.useOnlyLiquidityProvider) {
+            throw new Error(SWAP_INVOICE_MUST_USE_LND)
+        }
+        const use = isSwapPay ? 'lnd' : await this.liquidityManager.beforeOutInvoicePayment(payAmount, serviceFee)
         const provider = use === 'provider' ? this.lnd.liquidProvider.GetProviderPubkey() : undefined
         const pendingPayment = await this.storage.StartTransaction(async tx => {
             await this.applyPaymentTxGuards(tx, userId, payAmount, serviceFee, optionals)
@@ -677,7 +683,7 @@ export default class {
         optionals.ack?.(op)
         let gotIndex = false
         try {
-            const payment = await this.lnd.PayInvoice(invoice, amountForLnd, { routingFeeLimit, serviceFee }, payAmount, { useProvider: use === 'provider', from: 'user' }, index => {
+            const payment = await this.lnd.PayInvoice(invoice, amountForLnd, { routingFeeLimit, serviceFee, timeoutSeconds: optionals.timeoutSeconds }, payAmount, { useProvider: use === 'provider', from: 'user', forceLocalLnd: isSwapPay }, index => {
                 this.storage.paymentStorage.SetExternalPaymentIndex(pendingPayment.serial_id, index)
                 gotIndex = true
             })
@@ -837,7 +843,7 @@ export default class {
             payment = await this.PayInvoice(ctx.user_id, {
                 amount: 0,
                 invoice: invoice
-            }, app, { swapOperationId: req.swap_operation_id })
+            }, app, { swapOperationId: req.swap_operation_id, timeoutSeconds: REVERSE_SWAP_PAYMENT_TIMEOUT_SECONDS })
         })
         return {
             txId: swap.txId,

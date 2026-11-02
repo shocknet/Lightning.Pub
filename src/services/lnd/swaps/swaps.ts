@@ -542,14 +542,25 @@ export class Swaps {
                 preimage: Buffer.from(txSwap.preimage, 'hex'),
             }
         }
-        // the swap and the invoice payment are linked, swap will not start until the invoice payment is started, and will not complete once the invoice payment is completed
+        const abort = new AbortController()
         let swapResult = { ok: false, error: "swap never completed" } as { ok: true, txId: string } | { ok: false, error: string }
-        swapper.SubscribeToTransactionSwap(data, result => {
-            swapResult = result
+        const claimed = new Promise<void>(resolve => {
+            swapper.SubscribeToTransactionSwap(data, result => {
+                swapResult = result
+                resolve()
+            }, {
+                waitForLockup: (script, numConfs, heightHint, signal) => this.lnd.WaitForScriptConfirmations(script, numConfs, heightHint, signal),
+                publish: async (txHex) => {
+                    await this.lnd.BroadcastTransaction(txHex)
+                },
+                heightHint: currentHeight,
+                abortSignal: abort.signal,
+            })
         })
         try {
             await this.storage.paymentStorage.SetTransactionSwapPaid(swapOpId)
             await payInvoice(txSwap.invoice, txSwap.invoice_amount)
+            await claimed
             if (!swapResult.ok || !swapResult.txId) {
                 const error = !swapResult.ok ? swapResult.error : "swap completed without claim txId"
                 this.log("invoice payment successful, but swap failed")
@@ -567,6 +578,8 @@ export class Swaps {
                 await this.storage.paymentStorage.FailTransactionSwap(swapOpId, address, swapResult.error)
             }
             throw err
+        } finally {
+            abort.abort()
         }
         const networkFeesTotal = txSwap.chain_fee_sats + txSwap.swap_fee_sats
         return {

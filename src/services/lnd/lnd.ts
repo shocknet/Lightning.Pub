@@ -12,7 +12,7 @@ import { ChainNotifierClient } from '../../../proto/lnd/chainnotifier.client.js'
 import { GetInfoResponse, AddressType, NewAddressResponse, AddInvoiceResponse, Invoice_InvoiceState, PayReq, Payment_PaymentStatus, Payment, PaymentFailureReason, SendCoinsResponse, EstimateFeeResponse, ChannelBalanceResponse, TransactionDetails, ListChannelsResponse, ClosedChannelsResponse, PendingChannelsResponse, ForwardingHistoryResponse, CoinSelectionStrategy, OpenStatusUpdate, CloseStatusUpdate, PendingUpdate, ChannelEventUpdate_UpdateType, ListPaymentsResponse, ListInvoiceResponse } from '../../../proto/lnd/lightning.js'
 import { OpenChannelReq } from './openChannelReq.js';
 import { AddInvoiceReq } from './addInvoiceReq.js';
-import { PayInvoiceReq } from './payInvoiceReq.js';
+import { DEFAULT_PAYMENT_TIMEOUT_SECONDS, PayInvoiceReq } from './payInvoiceReq.js';
 import { SendCoinsReq } from './sendCoinsReq.js';
 import { AddressPaidCb, InvoicePaidCb, NodeInfo, Invoice, DecodedInvoice, PaidInvoice, NewBlockCb, HtlcCb, BalanceInfo, ChannelEventCb, UnlockLndCb, NewAddressCb } from './settings.js';
 import { ERROR, getLogger, DEBUG, INFO } from '../helpers/logger.js';
@@ -30,6 +30,11 @@ import { Transaction } from 'bitcoinjs-lib'
 const DeadLineMetadata = (deadline = 10 * 1000) => ({ deadline: Date.now() + deadline })
 const GET_PAYMENT_FROM_HASH_TIMEOUT_MS = 10 * 1000
 
+const isAlreadyBroadcastError = (message: string) => {
+    const msg = message.toLowerCase()
+    return msg.includes('already in') || msg.includes('already have') || msg.includes('txn-already')
+}
+
 const settleOnce = (onSettle: () => void) => {
     let settled = false
     return (action: () => void) => {
@@ -42,7 +47,7 @@ const settleOnce = (onSettle: () => void) => {
     }
 }
 const deadLndRetrySeconds = 20
-type TxActionOptions = { useProvider: boolean, from: 'user' | 'system' }
+type TxActionOptions = { useProvider: boolean, from: 'user' | 'system', forceLocalLnd?: boolean }
 
 export type LndHooks = {
     unlockLnd: UnlockLndCb
@@ -187,6 +192,77 @@ export default class {
             txHex: Buffer.from(txHex, 'hex'), label: ""
         }, DeadLineMetadata())
         return res.response
+    }
+
+    /**
+     * Publish a tx via our node. Duplicate-mempool errors count as success so
+     * a claim can be rebroadcast after a crash or a provider-side publish.
+     */
+    async BroadcastTransaction(txHex: string): Promise<{ txId: string }> {
+        const txId = Transaction.fromHex(txHex).getId()
+        try {
+            const res = await this.PublishTransaction(txHex)
+            if (res.publishError && !isAlreadyBroadcastError(res.publishError)) {
+                throw new Error(res.publishError)
+            }
+        } catch (err: any) {
+            const message = err instanceof Error ? err.message : String(err)
+            if (!isAlreadyBroadcastError(message)) {
+                throw err
+            }
+        }
+        return { txId }
+    }
+
+    /**
+     * Wait until an output script has numConfs on our chain. txid is left zeroed
+     * so this matches the script itself, not a provider-supplied transaction id.
+     */
+    async WaitForScriptConfirmations(
+        script: Buffer,
+        numConfs: number,
+        heightHint: number,
+        abort?: AbortSignal,
+    ): Promise<{ txHex: string, blockHeight: number }> {
+        if (abort?.aborted) {
+            throw new Error('lockup confirmation watch aborted')
+        }
+        const combined = new AbortController()
+        const abortWatch = () => combined.abort()
+        abort?.addEventListener('abort', abortWatch)
+        this.abortController.signal.addEventListener('abort', abortWatch)
+        const stream = this.chainNotifier.registerConfirmationsNtfn({
+            txid: Buffer.alloc(32),
+            script,
+            numConfs,
+            heightHint: Math.max(1, heightHint),
+            includeBlock: false,
+        }, { abort: combined.signal })
+        return new Promise((res, rej) => {
+            const finish = settleOnce(() => {
+                abort?.removeEventListener('abort', abortWatch)
+                this.abortController.signal.removeEventListener('abort', abortWatch)
+                abortWatch()
+            })
+            stream.responses.onMessage(event => {
+                if (event.event.oneofKind !== 'conf') {
+                    return
+                }
+                const conf = event.event.conf
+                finish(() => res({
+                    txHex: Buffer.from(conf.rawTx).toString('hex'),
+                    blockHeight: conf.blockHeight,
+                }))
+            })
+            stream.responses.onError(error => {
+                if (combined.signal.aborted) {
+                    finish(() => rej(new Error('lockup confirmation watch aborted')))
+                    return
+                }
+                this.log(ERROR, 'Error waiting for script confirmation', error)
+                finish(() => rej(error))
+            })
+        })
     }
 
     /**
@@ -551,14 +627,16 @@ export default class {
         const r = res.response
         return { local: r.localBalance ? Number(r.localBalance.sat) : 0, remote: r.remoteBalance ? Number(r.remoteBalance.sat) : 0 }
     }
-    async PayInvoice(invoice: string, amount: number, { routingFeeLimit, serviceFee }: { routingFeeLimit: number, serviceFee: number }, decodedAmount: number, { useProvider, from }: TxActionOptions, paymentIndexCb?: (index: number) => void): Promise<PaidInvoice> {
+    async PayInvoice(invoice: string, amount: number, { routingFeeLimit, serviceFee, timeoutSeconds }: { routingFeeLimit: number, serviceFee: number, timeoutSeconds?: number }, decodedAmount: number, { useProvider, from, forceLocalLnd }: TxActionOptions, paymentIndexCb?: (index: number) => void): Promise<PaidInvoice> {
         this.log(DEBUG, "Paying invoice")
         if (this.outgoingOpsLocked) {
             this.log(ERROR, "outgoing ops locked, rejecting payment request")
             throw new Error("lnd node is currently out of sync")
         }
-        // Force use of provider when bypass is enabled
-        const mustUseProvider = this.liquidProvider.getSettings().useOnlyLiquidityProvider || useProvider
+        if (forceLocalLnd && (this.liquidProvider.getSettings().useOnlyLiquidityProvider || useProvider)) {
+            throw new Error("swaps cannot be paid via the liquidity provider")
+        }
+        const mustUseProvider = !forceLocalLnd && (this.liquidProvider.getSettings().useOnlyLiquidityProvider || useProvider)
         if (mustUseProvider) {
             const res = await this.liquidProvider.PayInvoice(invoice, decodedAmount, from, serviceFee)
             const providerPubkey = this.liquidProvider.GetProviderPubkey()
@@ -567,7 +645,7 @@ export default class {
         await this.Health()
         let paymentFailed = false
         try {
-            const res = await this.sendPaymentV2({ invoice, amount, routingFeeLimit }, paymentIndexCb)
+            const res = await this.sendPaymentV2({ invoice, amount, routingFeeLimit, timeoutSeconds }, paymentIndexCb)
             if (res.ok) {
                 this.utils.stateBundler.AddTxPoint('paidAnInvoice', res.res.valueSat, { from, used: 'lnd', timeDiscount: true })
                 return res.res
@@ -616,12 +694,12 @@ export default class {
         }
     }
 
-    private async sendPaymentV2(payReq: { invoice: string, amount: number, routingFeeLimit: number }, paymentIndexCb?: (index: number) => void): Promise<{ ok: true, res: PaidInvoice } | { ok: false, error: string }> {
-        const { invoice, amount, routingFeeLimit } = payReq
+    private async sendPaymentV2(payReq: { invoice: string, amount: number, routingFeeLimit: number, timeoutSeconds?: number }, paymentIndexCb?: (index: number) => void): Promise<{ ok: true, res: PaidInvoice } | { ok: false, error: string }> {
+        const { invoice, amount, routingFeeLimit, timeoutSeconds } = payReq
         const abortController = new AbortController()
-        const req = PayInvoiceReq(invoice, amount, routingFeeLimit)
+        const req = PayInvoiceReq(invoice, amount, routingFeeLimit, timeoutSeconds)
         const stream = this.router.sendPaymentV2(req, { abort: abortController.signal })
-        const indexTimeoutMs = (req.timeoutSeconds || 50) * 1000
+        const indexTimeoutMs = DEFAULT_PAYMENT_TIMEOUT_SECONDS * 1000
         return new Promise((res, rej) => {
             let settled = false
             let indexSent = false

@@ -1,13 +1,15 @@
 import { OpenChannelRequest } from "../../../proto/lnd/lightning";
 import { SendPaymentRequest } from "../../../proto/lnd/router";
 
-export const PayInvoiceReq = (invoice: string, amount: number, feeLimit: number): SendPaymentRequest => ({
+export const DEFAULT_PAYMENT_TIMEOUT_SECONDS = 50
+
+export const PayInvoiceReq = (invoice: string, amount: number, feeLimit: number, timeoutSeconds = DEFAULT_PAYMENT_TIMEOUT_SECONDS): SendPaymentRequest => ({
     amt: BigInt(amount),
     feeLimitSat: BigInt(feeLimit),
     noInflightUpdates: false,
     paymentRequest: invoice,
     maxParts: 3,
-    timeoutSeconds: 50,
+    timeoutSeconds,
 
     allowSelfPayment: false,
     amp: false,
