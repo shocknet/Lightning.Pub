@@ -4,18 +4,20 @@ import { initEccLib, Transaction, address } from 'bitcoinjs-lib';
 // import bolt11 from 'bolt11';
 import {
     Musig, SwapTreeSerializer, TaprootUtils, detectSwap,
-    constructClaimTransaction, OutputType, constructRefundTransaction
+    constructClaimTransaction, OutputType, constructRefundTransaction,
+    reverseSwapTree, compareTrees, Scripts
 } from 'boltz-core';
 import { randomBytes, createHash } from 'crypto';
 import { ECPairFactory, ECPairInterface } from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
 import ws from 'ws';
 import { getLogger, PubLogger, ERROR } from '../../helpers/logger.js';
+import { isNonNegativeSats, isPositiveSats } from '../../helpers/sats.js';
 import { BTCNetwork } from '../../main/settings.js';
 import { loggedGet, loggedPost, getNetwork } from './swapHelpers.js';
 
 
-type TransactionSwapFees = {
+export type ReverseSwapFees = {
     percentage: number,
     minerFees: {
         claim: number,
@@ -26,21 +28,119 @@ type TransactionSwapFees = {
 type TransactionSwapFeesRes = {
     BTC?: {
         BTC?: {
-            fees: TransactionSwapFees
+            fees: ReverseSwapFees
         }
     }
 }
 
+export type ReverseSwapTreeJson = {
+    claimLeaf: { version: number, output: string },
+    refundLeaf: { version: number, output: string },
+}
 
-type TransactionSwapResponse = {
-    id: string, refundPublicKey: string, swapTree: string,
-    timeoutBlockHeight: number, lockupAddress: string, invoice: string,
+export type TransactionSwapResponse = {
+    id: string
+    refundPublicKey: string
+    swapTree: string | ReverseSwapTreeJson
+    timeoutBlockHeight: number
+    lockupAddress: string
+    invoice: string
     onchainAmount?: number
 }
 type TransactionSwapInfo = { destinationAddress: string, preimage: Buffer, keys: ECPairInterface, chainFee: number }
 export type TransactionSwapData = { createdResponse: TransactionSwapResponse, info: TransactionSwapInfo }
 
+/**
+ * BIP65: locktimes below this are block heights. At or above it they are unix times,
+ * so a refund leaf built from such a value is not a block-height timeout.
+ */
+export const REVERSE_LOCKTIME_THRESHOLD = 500_000_000
 
+/**
+ * Shortest claim window we will accept, in blocks (~12 hours).
+ * Boltz reverse timeouts are 144 blocks; this is below that so a quote
+ * still verifies after small tip skew and a few new blocks before pay.
+ */
+export const MIN_REVERSE_TIMEOUT_BLOCKS = 72
+
+/**
+ * Longest claim window we will accept, in blocks (~2 weeks).
+ * Matches Boltz's upper reverse-swap timeout bound.
+ */
+export const MAX_REVERSE_TIMEOUT_BLOCKS = 2_016
+
+/**
+ * Reject provider-chosen refund heights that are not safe block heights inside
+ * [tip + min, tip + max]. Building a local tree from the same height and comparing
+ * it to the provider tree does not make an out-of-range height safe.
+ */
+export const checkReverseTimeout = (
+    timeoutBlockHeight: number,
+    currentHeight: number,
+): { ok: true } | { ok: false, error: string } => {
+    if (!Number.isSafeInteger(currentHeight) || currentHeight <= 0 || currentHeight >= REVERSE_LOCKTIME_THRESHOLD) {
+        return { ok: false, error: 'untrusted chain tip' }
+    }
+    if (!Number.isSafeInteger(timeoutBlockHeight) || timeoutBlockHeight <= 0 || timeoutBlockHeight >= REVERSE_LOCKTIME_THRESHOLD) {
+        return { ok: false, error: 'invalid timeoutBlockHeight from swap service' }
+    }
+    if (timeoutBlockHeight <= currentHeight) {
+        return { ok: false, error: `swap quote expired at block ${timeoutBlockHeight} (tip ${currentHeight})` }
+    }
+    const earliest = currentHeight + MIN_REVERSE_TIMEOUT_BLOCKS
+    if (timeoutBlockHeight < earliest) {
+        return {
+            ok: false,
+            error: `timeoutBlockHeight ${timeoutBlockHeight} is sooner than ${MIN_REVERSE_TIMEOUT_BLOCKS} blocks from tip ${currentHeight}`,
+        }
+    }
+    const latest = currentHeight + MAX_REVERSE_TIMEOUT_BLOCKS
+    if (timeoutBlockHeight > latest) {
+        return {
+            ok: false,
+            error: `timeoutBlockHeight ${timeoutBlockHeight} is later than ${MAX_REVERSE_TIMEOUT_BLOCKS} blocks from tip ${currentHeight}`,
+        }
+    }
+    return { ok: true }
+}
+
+/**
+ * Reverse swap amounts as Boltz computes them when we specify onchainAmount:
+ * lockup = receive + claim + lockup miner fees;
+ * invoice = ceil((lockup + lockup miner fee) / (1 - pct/100)).
+ */
+export const calculateReverseQuoteAmounts = (receiveAmountSats: number, fees: ReverseSwapFees): {
+    minerFee: number
+    onchainAmount: number
+    swapFee: number
+    invoiceAmount: number
+} => {
+    if (!isPositiveSats(receiveAmountSats)) {
+        throw new Error('receive amount must be a positive integer number of sats')
+    }
+    if (!isNonNegativeSats(fees.minerFees.claim) || !isNonNegativeSats(fees.minerFees.lockup)) {
+        throw new Error('invalid miner fees from swap service')
+    }
+    if (!Number.isFinite(fees.percentage) || fees.percentage < 0 || fees.percentage >= 100) {
+        throw new Error('invalid percentage fee from swap service')
+    }
+    const minerFee = fees.minerFees.claim + fees.minerFees.lockup
+    const onchainAmount = receiveAmountSats + minerFee
+    const invoiceAmount = Math.ceil((onchainAmount + fees.minerFees.lockup) / (1 - fees.percentage / 100))
+    if (!isPositiveSats(invoiceAmount)) {
+        throw new Error('invalid invoice amount from swap service')
+    }
+    const swapFee = invoiceAmount - onchainAmount
+    if (!isNonNegativeSats(swapFee)) {
+        throw new Error('invalid swap fee from swap service')
+    }
+    return {
+        minerFee,
+        onchainAmount,
+        swapFee,
+        invoiceAmount,
+    }
+}
 
 export class ReverseSwaps {
     // settings: SettingsManager
@@ -63,17 +163,12 @@ export class ReverseSwaps {
         return this.wsUrl
     }
 
-    calculateFees = (fees: TransactionSwapFees, receiveAmount: number) => {
-        const pct = fees.percentage / 100
-        const minerFee = fees.minerFees.claim + fees.minerFees.lockup
-
-        const preFee = receiveAmount + minerFee
-        const fee = Math.ceil(preFee * pct)
-        const total = preFee + fee
-        return { total, fee, minerFee }
+    calculateFees = (fees: ReverseSwapFees, receiveAmount: number) => {
+        const amounts = calculateReverseQuoteAmounts(receiveAmount, fees)
+        return { total: amounts.invoiceAmount, fee: amounts.swapFee, minerFee: amounts.minerFee }
     }
 
-    GetFees = async (): Promise<{ ok: true, fees: TransactionSwapFees, } | { ok: false, error: string }> => {
+    GetFees = async (): Promise<{ ok: true, fees: ReverseSwapFees, } | { ok: false, error: string }> => {
         const url = `${this.httpUrl}/v2/swap/reverse`
         const feesRes = await loggedGet<TransactionSwapFeesRes>(this.log, url)
         if (!feesRes.ok) {
@@ -113,6 +208,140 @@ export class ReverseSwaps {
             pubkey: Buffer.from(keys.publicKey).toString('hex'),
             privKey: Buffer.from(keys.privateKey).toString('hex')
         }
+    }
+
+    /**
+     * Verify untrusted reverse-swap quote fields before paying the Lightning invoice.
+     * Checks invoice payment hash against SHA256 of our preimage, invoice and
+     * on-chain amounts against locally computed values, that timeoutBlockHeight
+     * is a safe block height inside the local claim window relative to a trusted
+     * chain tip, that swapTree matches a reverse tree built from our preimage
+     * hash / claim key, and that the lockup address derives from that tree.
+     */
+    VerifyReverseQuote = async (params: {
+        preimageHex: string
+        claimPrivateKeyHex: string
+        invoicePaymentHashHex: string
+        invoiceAmountSats: number
+        expectedInvoiceAmountSats: number
+        expectedOnchainAmountSats: number
+        currentHeight: number
+        created: TransactionSwapResponse
+    }): Promise<{ ok: true } | { ok: false, error: string }> => {
+        const {
+            preimageHex,
+            claimPrivateKeyHex,
+            invoicePaymentHashHex,
+            invoiceAmountSats,
+            expectedInvoiceAmountSats,
+            expectedOnchainAmountSats,
+            currentHeight,
+            created,
+        } = params
+
+        if (!isPositiveSats(expectedOnchainAmountSats) || !isPositiveSats(expectedInvoiceAmountSats)) {
+            return { ok: false, error: 'invalid expected reverse-swap amounts' }
+        }
+        if (!isPositiveSats(invoiceAmountSats)) {
+            return { ok: false, error: 'invalid invoice amount from swap service' }
+        }
+        if (invoiceAmountSats !== expectedInvoiceAmountSats) {
+            return {
+                ok: false,
+                error: `invoice amount mismatch: got ${invoiceAmountSats}, want ${expectedInvoiceAmountSats}`,
+            }
+        }
+        if (!Number.isFinite(created.onchainAmount) || created.onchainAmount === undefined) {
+            return { ok: false, error: 'invalid onchainAmount from swap service' }
+        }
+        if (!isPositiveSats(created.onchainAmount)) {
+            return { ok: false, error: 'invalid onchainAmount from swap service' }
+        }
+        if (created.onchainAmount !== expectedOnchainAmountSats) {
+            return {
+                ok: false,
+                error: `onchainAmount mismatch: got ${created.onchainAmount}, want ${expectedOnchainAmountSats}`,
+            }
+        }
+
+        const timeout = checkReverseTimeout(created.timeoutBlockHeight, currentHeight)
+        if (!timeout.ok) {
+            return timeout
+        }
+        if (!created.refundPublicKey || !created.lockupAddress || !created.swapTree || !created.invoice) {
+            return { ok: false, error: 'incomplete swap quote from swap service' }
+        }
+
+        let claimKeys: ECPairInterface
+        try {
+            claimKeys = ECPairFactory(ecc).fromPrivateKey(Buffer.from(claimPrivateKeyHex, 'hex'))
+        } catch (err: any) {
+            return { ok: false, error: `invalid claim private key: ${err.message}` }
+        }
+
+        let refundPublicKey: Buffer
+        let preimage: Buffer
+        let invoicePaymentHash: Buffer
+        try {
+            refundPublicKey = Buffer.from(created.refundPublicKey, 'hex')
+            preimage = Buffer.from(preimageHex, 'hex')
+            invoicePaymentHash = Buffer.from(invoicePaymentHashHex, 'hex')
+            if (refundPublicKey.length !== 33) {
+                return { ok: false, error: 'invalid refundPublicKey length' }
+            }
+            if (preimage.length !== 32) {
+                return { ok: false, error: 'invalid preimage length' }
+            }
+            if (invoicePaymentHash.length !== 32) {
+                return { ok: false, error: 'invalid invoice payment hash length' }
+            }
+        } catch (err: any) {
+            return { ok: false, error: `invalid hex in quote fields: ${err.message}` }
+        }
+
+        const preimageHash = createHash('sha256').update(preimage).digest()
+        if (!preimageHash.equals(invoicePaymentHash)) {
+            return { ok: false, error: 'invoice payment hash does not match preimage hash' }
+        }
+
+        const localTree = reverseSwapTree(
+            false,
+            preimageHash,
+            Buffer.from(claimKeys.publicKey),
+            refundPublicKey,
+            created.timeoutBlockHeight,
+        )
+
+        let remoteTree
+        try {
+            remoteTree = SwapTreeSerializer.deserializeSwapTree(created.swapTree)
+        } catch (err: any) {
+            return { ok: false, error: `failed to deserialize swapTree: ${err.message}` }
+        }
+
+        if (!compareTrees(localTree, remoteTree)) {
+            return { ok: false, error: 'swapTree does not match locally derived tree' }
+        }
+
+        try {
+            const musig = new Musig(await zkpInit(), claimKeys, randomBytes(32), [
+                refundPublicKey,
+                Buffer.from(claimKeys.publicKey),
+            ])
+            const tweakedKey = TaprootUtils.tweakMusig(musig, localTree.tree)
+            const network = getNetwork(this.network)
+            const derivedAddress = address.fromOutputScript(Scripts.p2trOutput(tweakedKey), network)
+            if (derivedAddress !== created.lockupAddress) {
+                return {
+                    ok: false,
+                    error: `address mismatch: got ${created.lockupAddress}, derived ${derivedAddress}`,
+                }
+            }
+        } catch (err: any) {
+            return { ok: false, error: `failed to derive lockup address: ${err.message}` }
+        }
+
+        return { ok: true }
     }
 
     SubscribeToTransactionSwap = async (data: TransactionSwapData, swapDone: (result: { ok: true, txId: string } | { ok: false, error: string }) => void) => {

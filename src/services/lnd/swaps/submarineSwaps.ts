@@ -47,6 +47,59 @@ type InvoiceSwapResponse = {
 type InvoiceSwapInfo = { paymentHash: string, keys: ECPairInterface }
 export type InvoiceSwapData = { createdResponse: InvoiceSwapResponse, info: InvoiceSwapInfo }
 
+/**
+ * BIP65: locktimes below this are block heights. At or above it they are unix times,
+ * so a refund leaf built from such a value is not a block-height timeout.
+ */
+export const SUBMARINE_LOCKTIME_THRESHOLD = 500_000_000
+
+/**
+ * Shortest refund delay we will fund, in blocks (~1 day).
+ * Boltz's shortest submarine timeout (swapMinimal = 1440 minutes) is 144 Bitcoin blocks.
+ */
+export const MIN_SUBMARINE_TIMEOUT_BLOCKS = 144
+
+/**
+ * Longest refund delay we will fund, in blocks (~2 weeks).
+ * Boltz's taproot submarine timeout (swapTaproot = 10080 minutes) is 1008 Bitcoin blocks.
+ */
+export const MAX_SUBMARINE_TIMEOUT_BLOCKS = 2_016
+
+/**
+ * Reject provider-chosen refund heights that are not safe block heights inside
+ * [tip + min, tip + max]. Building a local tree from the same height and comparing
+ * it to the provider tree does not make an out-of-range height safe.
+ */
+export const checkSubmarineTimeout = (
+    timeoutBlockHeight: number,
+    currentHeight: number,
+): { ok: true } | { ok: false, error: string } => {
+    if (!Number.isSafeInteger(currentHeight) || currentHeight <= 0 || currentHeight >= SUBMARINE_LOCKTIME_THRESHOLD) {
+        return { ok: false, error: 'untrusted chain tip' }
+    }
+    if (!Number.isSafeInteger(timeoutBlockHeight) || timeoutBlockHeight <= 0 || timeoutBlockHeight >= SUBMARINE_LOCKTIME_THRESHOLD) {
+        return { ok: false, error: 'invalid timeoutBlockHeight from swap service' }
+    }
+    if (timeoutBlockHeight <= currentHeight) {
+        return { ok: false, error: `swap quote expired at block ${timeoutBlockHeight} (tip ${currentHeight})` }
+    }
+    const earliest = currentHeight + MIN_SUBMARINE_TIMEOUT_BLOCKS
+    if (timeoutBlockHeight < earliest) {
+        return {
+            ok: false,
+            error: `timeoutBlockHeight ${timeoutBlockHeight} is sooner than ${MIN_SUBMARINE_TIMEOUT_BLOCKS} blocks from tip ${currentHeight}`,
+        }
+    }
+    const latest = currentHeight + MAX_SUBMARINE_TIMEOUT_BLOCKS
+    if (timeoutBlockHeight > latest) {
+        return {
+            ok: false,
+            error: `timeoutBlockHeight ${timeoutBlockHeight} is later than ${MAX_SUBMARINE_TIMEOUT_BLOCKS} blocks from tip ${currentHeight}`,
+        }
+    }
+    return { ok: true }
+}
+
 /** Boltz submarine: amountToSend = invoice + ceil(invoice * pct) + claim miner fee */
 export const calculateSubmarineLockupAmount = (invoiceAmountSats: number, fees: InvoiceSwapFees): number => {
     const percentageFee = Math.ceil((fees.percentage / 100) * invoiceAmountSats)
@@ -111,16 +164,18 @@ export class SubmarineSwaps {
     /**
      * Verify untrusted swap-service quote fields before any on-chain spend.
      * Checks expectedAmount against a locally computed lockup amount, that
-     * swapTree matches a tree built from our payment hash / refund key, and
-     * that the lockup address derives from that tree.
+     * timeoutBlockHeight is a safe block height inside the local refund window
+     * relative to a trusted chain tip, that swapTree matches a tree built from
+     * our payment hash / refund key, and that the lockup address derives from that tree.
      */
     VerifySubmarineQuote = async (params: {
         paymentHashHex: string
         refundPrivateKeyHex: string
         expectedLockupAmount: number
+        currentHeight: number
         created: InvoiceSwapResponse
     }): Promise<{ ok: true } | { ok: false, error: string }> => {
-        const { paymentHashHex, refundPrivateKeyHex, expectedLockupAmount, created } = params
+        const { paymentHashHex, refundPrivateKeyHex, expectedLockupAmount, currentHeight, created } = params
 
         if (!Number.isFinite(created.expectedAmount) || created.expectedAmount <= 0) {
             return { ok: false, error: 'invalid expectedAmount from swap service' }
@@ -131,8 +186,9 @@ export class SubmarineSwaps {
                 error: `expectedAmount mismatch: got ${created.expectedAmount}, want ${expectedLockupAmount}`,
             }
         }
-        if (!Number.isFinite(created.timeoutBlockHeight) || created.timeoutBlockHeight <= 0) {
-            return { ok: false, error: 'invalid timeoutBlockHeight from swap service' }
+        const timeout = checkSubmarineTimeout(created.timeoutBlockHeight, currentHeight)
+        if (!timeout.ok) {
+            return timeout
         }
         if (!created.claimPublicKey || !created.address || !created.swapTree) {
             return { ok: false, error: 'incomplete swap quote from swap service' }
