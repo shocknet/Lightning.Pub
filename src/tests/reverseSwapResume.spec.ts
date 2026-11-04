@@ -64,6 +64,15 @@ const mockSettings = {
     }),
 }
 
+const deleteOtherUnfinished = async (T: StorageTestBase, keepId: string) => {
+    const leftover = await T.storage.paymentStorage.ListUnfinishedTransactionSwaps()
+    for (const swap of leftover) {
+        if (swap.swap_operation_id !== keepId) {
+            await T.storage.paymentStorage.DeleteTransactionSwap(swap.swap_operation_id)
+        }
+    }
+}
+
 const makeSwaps = (T: StorageTestBase) => {
     const swapper = new ReverseSwaps({ httpUrl: MOCK_URL, wsUrl: 'ws://127.0.0.1:1', network: 'regtest' })
     const swaps = new Swaps(mockSettings as any, T.storage)
@@ -182,6 +191,7 @@ const testPayKeepsPersistedClaimRetryable = async (T: StorageTestBase) => {
     T.expect(row?.claim_tx_hex).to.equal(CLAIM_HEX)
     const unfinished = await T.storage.paymentStorage.ListUnfinishedTransactionSwaps()
     T.expect(unfinished.some(s => s.swap_operation_id === saved.swap_operation_id)).to.equal(true)
+    await T.storage.paymentStorage.DeleteTransactionSwap(saved.swap_operation_id)
     T.d('persisted claim stayed unused so resume can rebroadcast')
 }
 
@@ -194,6 +204,7 @@ const testResumeRebroadcastsPersistedClaim = async (T: StorageTestBase) => {
         claim_tx_hex: CLAIM_HEX,
         timeout_block_height: 10,
     }))
+    await deleteOtherUnfinished(T, saved.swap_operation_id)
     const { swaps, broadcasts } = makeSwaps(T)
     swaps.SetBackupManager({ notifyBackupTable: async () => { }, flushTablesNow: async () => { } } as any)
     await swaps.ResumeTransactionSwaps()
@@ -228,6 +239,7 @@ const testResumeRebroadcastsFailedSwapWithClaim = async (T: StorageTestBase) => 
     const unfinished = await T.storage.paymentStorage.ListUnfinishedTransactionSwaps()
     T.expect(unfinished.some(s => s.swap_operation_id === saved.swap_operation_id)).to.equal(true)
     T.expect(unfinished.some(s => s.swap_operation_id === failedNoClaim.swap_operation_id)).to.equal(false)
+    await deleteOtherUnfinished(T, saved.swap_operation_id)
     const { swaps, broadcasts } = makeSwaps(T)
     swaps.SetBackupManager({ notifyBackupTable: async () => { }, flushTablesNow: async () => { } } as any)
     await swaps.ResumeTransactionSwaps()
@@ -251,6 +263,7 @@ const testResumeDoesNotBlockOnLockupWatch = async (T: StorageTestBase) => {
         address_paid: DEST,
         timeout_block_height: 920_000 + 1_008,
     }))
+    await deleteOtherUnfinished(T, saved.swap_operation_id)
     const { swaps, swapper } = makeSwaps(T)
     let watchStarted = false
     swapper.SubscribeToTransactionSwap = async () => {
@@ -278,6 +291,7 @@ const testResumeRejectsMissingDestination = async (T: StorageTestBase) => {
         paid_at_unix: 1,
         timeout_block_height: 10,
     }))
+    await deleteOtherUnfinished(T, saved.swap_operation_id)
     const { swaps, broadcasts } = makeSwaps(T)
     await swaps.ResumeTransactionSwaps()
     T.expect(broadcasts.length).to.equal(0)
