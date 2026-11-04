@@ -838,18 +838,33 @@ export default class {
             throw new Error("request a swap quote before paying an external address")
         }
         const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
-        let payment: Types.PayInvoiceResponse
+        let payment: Types.PayInvoiceResponse | undefined
         const swap = await this.swaps.PayAddrWithSwap(ctx.app_user_id, req.swap_operation_id, req.address, async (invoice) => {
             payment = await this.PayInvoice(ctx.user_id, {
                 amount: 0,
                 invoice: invoice
             }, app, { swapOperationId: req.swap_operation_id, timeoutSeconds: REVERSE_SWAP_PAYMENT_TIMEOUT_SECONDS })
         })
+        // A persisted-claim retry rebroadcasts without paying again. Look up the
+        // invoice payment from the first attempt so this RPC does not read undefined.
+        if (!payment) {
+            const existing = await this.storage.paymentStorage.GetInvoicePaymentBySwapOperationId(req.swap_operation_id)
+            if (existing) {
+                payment = {
+                    amount_paid: existing.paid_amount,
+                    latest_balance: 0,
+                    network_fee: 0,
+                    preimage: '',
+                    service_fee: existing.service_fees,
+                    operation_id: `${Types.UserOperationType.OUTGOING_INVOICE}-${existing.serial_id}`,
+                }
+            }
+        }
         return {
             txId: swap.txId,
             network_fee: swap.network_fee,
-            service_fee: payment!.service_fee,
-            operation_id: payment!.operation_id,
+            service_fee: payment?.service_fee ?? 0,
+            operation_id: payment?.operation_id ?? '',
         }
     }
 

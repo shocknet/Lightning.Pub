@@ -644,6 +644,7 @@ export class AdminManager {
         }
         const published = await this.lnd.BroadcastTransaction(result.txHex)
         await this.storage.paymentStorage.UpdateRefundInvoiceSwap(req.swap_operation_id, address.address, published.txId)
+        await this.backupManager?.flushTablesNow('invoice_swaps')
         return { tx_id: published.txId }
     }
 

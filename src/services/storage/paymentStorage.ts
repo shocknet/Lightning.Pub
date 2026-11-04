@@ -811,6 +811,10 @@ export default class {
         return this.dbs.Find<UserInvoicePayment>('UserInvoicePayment', { where: { swap_operation_id: Not(IsNull()), user: { user_id: userId } } }, txId)
     }
 
+    async GetInvoicePaymentBySwapOperationId(swapOperationId: string, txId?: string) {
+        return this.dbs.FindOne<UserInvoicePayment>('UserInvoicePayment', { where: { swap_operation_id: swapOperationId } }, txId)
+    }
+
     async ListCompletedTxSwaps(appUserId: string, payments: UserInvoicePayment[], txId?: string) {
         const completed = await this.dbs.Find<TransactionSwap>('TransactionSwap', { where: { used: true, app_user_id: appUserId } }, txId)
         // const payments = await this.dbs.Find<UserInvoicePayment>('UserInvoicePayment', { where: { swap_operation_id: Not(IsNull()), } }, txId)

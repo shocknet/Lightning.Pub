@@ -68,7 +68,7 @@ const testExportOmitsCompletedSwapHistory = async (T: StorageTestBase) => {
     T.expect(invoiceIds).to.not.include(invoiceQuote.swap_operation_id)
     T.expect(invoiceIds).to.include(invoicePending.swap_operation_id)
     T.expect(invoiceIds).to.include(invoiceFailed.swap_operation_id)
-    T.expect(invoiceIds).to.not.include(invoiceDone.swap_operation_id)
+    T.expect(invoiceIds).to.include(invoiceDone.swap_operation_id)
     T.expect(invoiceIds).to.not.include(invoiceRefunded.swap_operation_id)
 
     const reverseIds = (await T.storage.paymentStorage.ExportTransactionSwaps()).map(s => s.swap_operation_id)
@@ -77,7 +77,7 @@ const testExportOmitsCompletedSwapHistory = async (T: StorageTestBase) => {
     T.expect(reverseIds).to.not.include(reverseQuote.swap_operation_id)
     T.expect(reverseIds).to.not.include(reverseDone.swap_operation_id)
 
-    T.d('swap backups keep in-flight recovery rows and drop quotes and completed history')
+    T.d('swap backups keep funded unrefunded submarine rows and drop quotes and refunded history')
 }
 
 const invoiceSwap = (userId: string, extra: Record<string, unknown> = {}) => ({

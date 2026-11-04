@@ -34,6 +34,7 @@ export default async (T: StorageTestBase) => {
     await testSignatureRefusalStillPublishesUnilateral(T)
     await testSubscribeClaimsOnlyAfterIndependentConfirmation(T)
     await testPersistsClaimBeforeCooperativeOrBroadcast(T)
+    await testCoopPersistFailurePublishesUnilateral(T)
 }
 
 const testLockupMustMatchSwapOutputAndAmount = async (T: StorageTestBase) => {
@@ -191,6 +192,39 @@ const testPersistsClaimBeforeCooperativeOrBroadcast = async (T: StorageTestBase)
     T.expect(result.ok, !result.ok ? result.error : '').to.equal(true)
     T.expect(order).to.deep.equal(['persist', 'coop', 'publish'])
     T.d('unilateral claim was persisted before cooperative disclosure and broadcast')
+}
+
+const testCoopPersistFailurePublishesUnilateral = async (T: StorageTestBase) => {
+    T.d('starting cooperative persist failure publishes the script-path claim')
+    const { swapper, data, lockupHex, preimage } = await setupClaim(T)
+    const coopTx = new Transaction()
+    coopTx.version = 2
+    coopTx.addInput(Buffer.alloc(32), 1)
+    coopTx.addOutput(Buffer.from('6a', 'hex'), 0)
+    ;(swapper as any).tryCooperativeClaim = async () => ({ ok: true, tx: coopTx })
+    const persisted: string[] = []
+    const published: string[] = []
+    const result = await swapper.claimConfirmedLockup(data, lockupHex, {
+        persistClaim: async (txHex) => {
+            if (persisted.length >= 1) {
+                throw new Error('coop persist fail')
+            }
+            persisted.push(txHex)
+        },
+        publish: async (txHex) => { published.push(txHex) },
+    })
+    T.expect(result.ok, !result.ok ? result.error : '').to.equal(true)
+    if (!result.ok) {
+        return
+    }
+    T.expect(result.usedCooperative).to.equal(false)
+    T.expect(published.length).to.equal(1)
+    T.expect(published[0]).to.equal(persisted[0])
+    T.expect(published[0]).to.not.equal(coopTx.toHex())
+    const claimTx = Transaction.fromHex(published[0])
+    T.expect(claimTx.ins[0].witness.length).to.equal(4)
+    T.expect(Buffer.from(claimTx.ins[0].witness[1]).equals(Buffer.from(preimage, 'hex'))).to.equal(true)
+    T.d('failed cooperative persist still published the already-saved script-path claim')
 }
 
 const setupClaim = async (T: StorageTestBase) => {

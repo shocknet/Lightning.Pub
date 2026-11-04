@@ -8,10 +8,11 @@
 // debited at send time; after SCB restore LND's payment DB is gone so payment
 // status cannot be verified. Refunding on restore would be gameable.
 //
-// Swap shards keep only in-flight recovery rows (funded submarine lockups and
-// started reverse swaps whose claim is not yet recorded, including failed swaps
-// that may still need a refund or claim). Unused quotes can be recreated.
-// Completed swap history is omitted; those keys no longer control coins.
+// Swap shards keep in-flight recovery rows: funded submarine lockups that have
+// not been refunded (including used/preimage rows, because a verified preimage
+// is not proof the lockup was spent), and started reverse swaps whose claim
+// txid is not yet recorded. Unused quotes can be recreated. Refunded submarine
+// swaps and reverse swaps with a recorded claim txid are omitted.
 import type { User } from '../storage/entity/User.js'
 import type { Application } from '../storage/entity/Application.js'
 import type { ApplicationUser } from '../storage/entity/ApplicationUser.js'
@@ -658,7 +659,7 @@ export type InvoiceSwapRow = {
     service_url: string
 }
 
-/** Funded submarine recovery: in-flight lockups and failed swaps that may still need a refund. */
+/** Funded submarine recovery: lockups that have not been refunded. A stored preimage is not proof the lockup was spent. */
 export const isInvoiceSwapBackupRow = (swap: {
     used?: boolean
     refund_tx_id?: string
@@ -670,13 +671,7 @@ export const isInvoiceSwapBackupRow = (swap: {
     if (swap.refund_tx_id) {
         return false
     }
-    if (!(swap.tx_id || swap.lockup_tx_hex)) {
-        return false
-    }
-    if (!swap.used) {
-        return true
-    }
-    return !!swap.failure_reason || !swap.preimage
+    return !!(swap.tx_id || swap.lockup_tx_hex)
 }
 
 /** Open reverse-swap recovery: payment has started and the claim is not yet recorded. */

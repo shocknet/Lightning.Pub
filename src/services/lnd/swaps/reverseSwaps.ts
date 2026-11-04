@@ -545,11 +545,11 @@ export class ReverseSwaps {
         if (coop.ok) {
             try {
                 await deps.persistClaim?.(coop.tx.toHex())
+                toPublish = coop.tx
+                usedCooperative = true
             } catch (err: any) {
                 this.log(ERROR, 'Failed to persist cooperative claim, publishing script-path claim', err.message || err)
             }
-            toPublish = coop.tx
-            usedCooperative = true
         } else {
             this.log(ERROR, 'Cooperative reverse-swap claim failed, publishing script-path claim', coop.error)
         }

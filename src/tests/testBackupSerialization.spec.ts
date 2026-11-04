@@ -69,7 +69,7 @@ const testSwapBackupFilters = (T: StorageTestBase) => {
     T.expect(isInvoiceSwapBackupRow({ used: false })).to.equal(false)
     T.expect(isInvoiceSwapBackupRow({ used: false, tx_id: 'aa' })).to.equal(true)
     T.expect(isInvoiceSwapBackupRow({ used: false, lockup_tx_hex: '0200', refund_tx_id: 'cc' })).to.equal(false)
-    T.expect(isInvoiceSwapBackupRow({ used: true, tx_id: 'aa', preimage: 'bb' })).to.equal(false)
+    T.expect(isInvoiceSwapBackupRow({ used: true, tx_id: 'aa', preimage: 'bb' })).to.equal(true)
     T.expect(isInvoiceSwapBackupRow({ used: true, tx_id: 'aa', failure_reason: 'timeout' })).to.equal(true)
     T.expect(isInvoiceSwapBackupRow({ used: true, tx_id: 'aa' })).to.equal(true)
     T.expect(isInvoiceSwapBackupRow({ used: true })).to.equal(false)

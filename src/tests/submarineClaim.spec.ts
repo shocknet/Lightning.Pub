@@ -7,6 +7,7 @@ import {
     verifySubmarineClaimPreimage,
     type InvoiceSwapData,
 } from '../services/lnd/swaps/submarineSwaps.js'
+import { Swaps } from '../services/lnd/swaps/swaps.js'
 import { InvoiceSwap } from '../services/storage/entity/InvoiceSwap.js'
 import { StorageTestBase } from './testBase.js'
 
@@ -21,6 +22,7 @@ export default async (T: StorageTestBase) => {
     await testProviderWebsocketDoesNotFinalize(T)
     await testWrongIdClaimedDoesNotBlockRefund(T)
     await testUsedSuccessDoesNotVetoRefund(T)
+    await testResumeInvoiceSwapWithoutLockupHex(T)
 }
 
 const testVerifyClaimPreimage = (T: StorageTestBase) => {
@@ -119,6 +121,57 @@ const testUsedSuccessDoesNotVetoRefund = async (T: StorageTestBase) => {
     const notRefundable = await T.storage.paymentStorage.GetRefundableInvoiceSwap(unfunded.swap_operation_id)
     T.expect(notRefundable).to.equal(null)
     T.d('used success does not veto refund; unfunded quotes are still excluded')
+}
+
+const testResumeInvoiceSwapWithoutLockupHex = async (T: StorageTestBase) => {
+    T.d('starting resume of a funded invoice swap without lockup hex does not throw')
+    const saved = await insertFundedSwap(T, { lockup_tx_hex: '' })
+    const leftover = await T.storage.paymentStorage.ListUnfinishedInvoiceSwaps()
+    for (const swap of leftover) {
+        if (swap.swap_operation_id !== saved.swap_operation_id) {
+            await T.storage.paymentStorage.DeleteInvoiceSwap(swap.swap_operation_id)
+        }
+    }
+    const swapper = new SubmarineSwaps({ httpUrl: 'http://mock-boltz', wsUrl: 'ws://127.0.0.1:1', network: 'regtest' })
+    const swaps = new Swaps({
+        getSettings: () => ({
+            lndSettings: { network: 'regtest' as const },
+            swapsSettings: {
+                enableSwaps: true,
+                boltzHttpUrl: '',
+                boltzWebSocketUrl: '',
+                boltsHttpUrlAlt: '',
+                boltsWebSocketUrlAlt: '',
+            },
+        }),
+    } as any, T.storage)
+    swaps.subSwappers['http://mock-boltz'] = swapper
+    let waitingTxCalls = 0
+    let waitingTxError: string | undefined
+    swapper.SubscribeToInvoiceSwap = (_data, _done, waitingTx) => {
+        try {
+            waitingTx()
+            waitingTxCalls++
+        } catch (err: any) {
+            waitingTxError = err.message || String(err)
+        }
+        return () => { }
+    }
+    let broadcast = false
+    swaps.SetLnd({
+        BroadcastTransaction: async () => {
+            broadcast = true
+            return { txId: 'should-not-broadcast' }
+        },
+    } as any)
+    await swaps.ResumeInvoiceSwaps()
+    T.expect(waitingTxCalls).to.equal(1)
+    T.expect(waitingTxError).to.equal(undefined)
+    T.expect(broadcast).to.equal(false)
+    const stillOpen = await T.storage.paymentStorage.ListUnfinishedInvoiceSwaps()
+    T.expect(stillOpen.some(s => s.swap_operation_id === saved.swap_operation_id)).to.equal(true)
+    await T.storage.paymentStorage.DeleteInvoiceSwap(saved.swap_operation_id)
+    T.d('resume waited for claim without throwing or republishing a missing lockup hex')
 }
 
 const setupSubmarine = (swapId = `swap-${randomBytes(8).toString('hex')}`): { swapper: SubmarineSwaps, data: InvoiceSwapData } => {

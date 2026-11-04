@@ -297,7 +297,8 @@ export class Swaps {
         }, async () => {
             // Re-publish the persisted lockup if we crashed between persist and broadcast.
             if (!swap.lockup_tx_hex) {
-                throw new Error("swap tx already paid")
+                this.log("resumed invoice swap has no lockup hex to republish", { swapOpId: swap.swap_operation_id })
+                return
             }
             await this.lnd.BroadcastTransaction(swap.lockup_tx_hex)
         })
