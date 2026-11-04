@@ -61,6 +61,7 @@ export type CooperativeClaimFn = (req: {
 export type ReverseClaimChain = {
     waitForLockup: (script: Buffer, numConfs: number, heightHint: number, abort?: AbortSignal) => Promise<{ txHex: string }>
     publish: (txHex: string) => Promise<void>
+    persistClaim?: (txHex: string) => Promise<void>
     heightHint: number
     abortSignal?: AbortSignal
     cooperativeClaim?: CooperativeClaimFn
@@ -516,7 +517,7 @@ export class ReverseSwaps {
     claimConfirmedLockup = async (
         data: TransactionSwapData,
         confirmedTxHex: string,
-        deps: { publish: (txHex: string) => Promise<void>, cooperativeClaim?: CooperativeClaimFn },
+        deps: { publish: (txHex: string) => Promise<void>, persistClaim?: (txHex: string) => Promise<void>, cooperativeClaim?: CooperativeClaimFn },
     ): Promise<{ ok: true, txId: string, usedCooperative: boolean } | { ok: false, error: string }> => {
         const parsed = await this.parseAndValidateLockup(data, confirmedTxHex)
         if (!parsed.ok) {
@@ -530,10 +531,23 @@ export class ReverseSwaps {
             return { ok: false, error: `failed to construct unilateral claim: ${err.message}` }
         }
 
+        // Persist the script-path spend before disclosing the preimage cooperatively
+        // or broadcasting, so a crash still has a claim to rebroadcast.
+        try {
+            await deps.persistClaim?.(unilateral.toHex())
+        } catch (err: any) {
+            return { ok: false, error: `failed to persist reverse-swap claim: ${err.message || err}` }
+        }
+
         let toPublish = unilateral
         let usedCooperative = false
         const coop = await this.tryCooperativeClaim(data, parsed, deps.cooperativeClaim)
         if (coop.ok) {
+            try {
+                await deps.persistClaim?.(coop.tx.toHex())
+            } catch (err: any) {
+                this.log(ERROR, 'Failed to persist cooperative claim, publishing script-path claim', err.message || err)
+            }
             toPublish = coop.tx
             usedCooperative = true
         } else {
@@ -545,6 +559,7 @@ export class ReverseSwaps {
         } catch (err: any) {
             if (usedCooperative) {
                 this.log(ERROR, 'Cooperative claim publish failed, broadcasting script-path claim', err.message)
+                await deps.persistClaim?.(unilateral.toHex()).catch(() => undefined)
                 await deps.publish(unilateral.toHex())
                 toPublish = unilateral
                 usedCooperative = false

@@ -623,12 +623,13 @@ export class AdminManager {
             // Persist before broadcast so a crash cannot leave an unpaid-looking row after coins are sent.
             await this.storage.paymentStorage.SetInvoiceSwapTxId(req.swap_operation_id, crafted.txId, crafted.feeSats, crafted.txHex)
             this.log("persisted admin swap lockup", { swapOpId: req.swap_operation_id, txId: crafted.txId })
+            await this.backupManager?.flushTablesNow('invoice_swaps')
 
-            await this.lnd.PublishTransaction(crafted.txHex)
-            this.log("published admin swap lockup", { swapOpId: req.swap_operation_id, txId: crafted.txId })
+            const published = await this.lnd.BroadcastTransaction(crafted.txHex)
+            this.log("published admin swap lockup", { swapOpId: req.swap_operation_id, txId: published.txId })
 
-            await this.storage.metricsStorage.AddRootOperation("chain_payment", crafted.txId, amt + crafted.feeSats, true)
-            return { txId: crafted.txId }
+            await this.storage.metricsStorage.AddRootOperation("chain_payment", published.txId, amt + crafted.feeSats, true)
+            return { txId: published.txId }
         })
         return { tx_id: resolvedTxId }
     }
@@ -641,9 +642,9 @@ export class AdminManager {
         if (result.published) {
             return { tx_id: result.txId }
         }
-        await this.lnd.PublishTransaction(result.txHex)
-        await this.storage.paymentStorage.UpdateRefundInvoiceSwap(req.swap_operation_id, address.address, result.txId)
-        return { tx_id: result.txId }
+        const published = await this.lnd.BroadcastTransaction(result.txHex)
+        await this.storage.paymentStorage.UpdateRefundInvoiceSwap(req.swap_operation_id, address.address, published.txId)
+        return { tx_id: published.txId }
     }
 
     async ListAdminTxSwaps(): Promise<Types.TxSwapsList> {

@@ -55,6 +55,8 @@ import {
     encodeInviteTokenRow,
     encodeBalanceRow,
     encodeTrackedProviderRow,
+    encodeInvoiceSwapRow,
+    encodeTransactionSwapRow,
     encryptTableRows,
     IndexesRow,
     encodeIndexesRow,
@@ -262,6 +264,16 @@ export class BackupManager {
         }
     }
 
+    /**
+     * Publish these tables immediately so recovery material is on the backup
+     * destination before a subsequent funding or claim broadcast. No-op when
+     * backups are not configured.
+     */
+    async flushTablesNow(...ids: BackupTableId[]): Promise<void> {
+        if (!this.isBackupConfigured() || ids.length === 0) return
+        await this.publishBatch(ids)
+    }
+
     private clearAllDebounce() {
         if (this.debounceTimer) {
             clearTimeout(this.debounceTimer)
@@ -461,6 +473,10 @@ export class BackupManager {
                 return encrypt((await this.storage.userStorage.ExportBalances(txId)).map(encodeBalanceRow))
             case 'tracked_providers':
                 return encrypt((await this.storage.liquidityStorage.ExportTrackedProviders(txId)).map(encodeTrackedProviderRow))
+            case 'invoice_swaps':
+                return encrypt((await this.storage.paymentStorage.ExportInvoiceSwaps(txId)).map(encodeInvoiceSwapRow))
+            case 'transaction_swaps':
+                return encrypt((await this.storage.paymentStorage.ExportTransactionSwaps(txId)).map(encodeTransactionSwapRow))
             default: {
                 const _exhaustive: never = id
                 throw new Error(`Unhandled backup table: ${_exhaustive}`)

@@ -16,6 +16,8 @@ import { LoggedEvent } from './eventsLog.js';
 import { StorageInterface } from './db/storageInterface.js';
 import { TransactionSwap } from './entity/TransactionSwap.js';
 import { InvoiceSwap } from './entity/InvoiceSwap.js';
+import { InvoiceSwapRow, isInvoiceSwapBackupRow, isTransactionSwapBackupRow, mapInvoiceSwapBackupRow, TransactionSwapRow, mapTransactionSwapBackupRow } from '../backup/segments.js';
+import { getLogger } from '../helpers/logger.js';
 export type InboundOptionals = { product?: Product, callbackUrl?: string, expiry: number, expectedPayer?: User, linkedApplication?: Application, zapInfo?: ZapInfo, offerId?: string, payerData?: Record<string, string>, rejectUnauthorized?: boolean, token?: string, blind?: boolean, clinkRequesterPub?: string, clinkRequesterEventId?: string }
 export const defaultInvoiceExpiry = 60 * 60
 export type AppOperationTotals = {
@@ -650,10 +652,23 @@ export default class {
         return this.dbs.FindOne<TransactionSwap>('TransactionSwap', { where: { swap_operation_id: swapOperationId, used: false, app_user_id: appUserId } }, txId)
     }
 
-    async SetTransactionSwapPaid(swapOperationId: string, txId?: string) {
+    async StartTransactionSwap(swapOperationId: string, address: string, txId?: string) {
         const now = Math.floor(Date.now() / 1000)
         return this.dbs.Update<TransactionSwap>('TransactionSwap', { swap_operation_id: swapOperationId }, {
             paid_at_unix: now,
+            address_paid: address,
+        }, txId)
+    }
+
+    async SetTransactionSwapClaimTx(swapOperationId: string, claimTxHex: string, txId?: string) {
+        return this.dbs.Update<TransactionSwap>('TransactionSwap', { swap_operation_id: swapOperationId }, {
+            claim_tx_hex: claimTxHex,
+        }, txId)
+    }
+
+    async SetTransactionSwapLockupTx(swapOperationId: string, lockupTxHex: string, txId?: string) {
+        return this.dbs.Update<TransactionSwap>('TransactionSwap', { swap_operation_id: swapOperationId }, {
+            lockup_tx_hex: lockupTxHex,
         }, txId)
     }
 
@@ -663,6 +678,7 @@ export default class {
             used: true,
             tx_id: chainTxId,
             address_paid: address,
+            failure_reason: '',
             completed_at_unix: now,
         }, txId)
     }
@@ -682,7 +698,109 @@ export default class {
     }
 
     async DeleteExpiredTransactionSwaps(currentHeight: number, txId?: string) {
-        return this.dbs.Delete<TransactionSwap>('TransactionSwap', { timeout_block_height: LessThan(currentHeight), used: false }, txId)
+        // Started reverse swaps keep their claim/refund keys even after timeout.
+        // Only never-started quotes (paid_at_unix = 0) may be deleted.
+        return this.dbs.Delete<TransactionSwap>('TransactionSwap', {
+            timeout_block_height: LessThan(currentHeight),
+            used: false,
+            paid_at_unix: 0,
+        }, txId)
+    }
+
+    async ListUnfinishedTransactionSwaps(txId?: string) {
+        const swaps = await this.dbs.Find<TransactionSwap>('TransactionSwap', {}, txId)
+        // used=true without a claim txid is still claimable when a claim or
+        // confirmed lockup was persisted before FailTransactionSwap.
+        return swaps.filter(s => s.paid_at_unix > 0 && !s.tx_id && (!s.used || !!s.claim_tx_hex || !!s.lockup_tx_hex))
+    }
+
+    async ExportInvoiceSwaps(txId?: string): Promise<InvoiceSwapRow[]> {
+        const swaps = await this.dbs.Find<InvoiceSwap>('InvoiceSwap', {}, txId)
+        return swaps.filter(isInvoiceSwapBackupRow).map(mapInvoiceSwapBackupRow)
+    }
+
+    async RestoreInvoiceSwaps(swaps: InvoiceSwapRow[], txId: string): Promise<number> {
+        let restored = 0
+        for (const swap of swaps) {
+            try {
+                await this.dbs.CreateAndSave<InvoiceSwap>('InvoiceSwap', {
+                    swap_operation_id: swap.swap_operation_id,
+                    app_user_id: swap.app_user_id,
+                    swap_quote_id: swap.swap_quote_id,
+                    swap_tree: swap.swap_tree,
+                    claim_public_key: swap.claim_public_key,
+                    payment_hash: swap.payment_hash,
+                    timeout_block_height: swap.timeout_block_height,
+                    invoice: swap.invoice,
+                    invoice_amount: swap.invoice_amount,
+                    transaction_amount: swap.transaction_amount,
+                    swap_fee_sats: swap.swap_fee_sats,
+                    chain_fee_sats: swap.chain_fee_sats,
+                    sat_per_v_byte: swap.sat_per_v_byte,
+                    ephemeral_public_key: swap.ephemeral_public_key,
+                    address: swap.address,
+                    ephemeral_private_key: swap.ephemeral_private_key,
+                    used: swap.used,
+                    completed_at_unix: swap.completed_at_unix,
+                    paid_at_unix: swap.paid_at_unix,
+                    preimage: swap.preimage,
+                    failure_reason: swap.failure_reason,
+                    tx_id: swap.tx_id,
+                    lockup_tx_hex: swap.lockup_tx_hex,
+                    refund_address: swap.refund_address,
+                    refund_at_unix: swap.refund_at_unix,
+                    refund_tx_id: swap.refund_tx_id,
+                    service_url: swap.service_url,
+                }, txId)
+                restored++
+            } catch (error: any) {
+                getLogger({ component: "backupRestore" })("error restoring invoice swap", error.message)
+            }
+        }
+        return restored
+    }
+
+    async ExportTransactionSwaps(txId?: string): Promise<TransactionSwapRow[]> {
+        const swaps = await this.dbs.Find<TransactionSwap>('TransactionSwap', {}, txId)
+        return swaps.filter(isTransactionSwapBackupRow).map(mapTransactionSwapBackupRow)
+    }
+
+    async RestoreTransactionSwaps(swaps: TransactionSwapRow[], txId: string): Promise<number> {
+        let restored = 0
+        for (const swap of swaps) {
+            try {
+                await this.dbs.CreateAndSave<TransactionSwap>('TransactionSwap', {
+                    swap_operation_id: swap.swap_operation_id,
+                    app_user_id: swap.app_user_id,
+                    swap_quote_id: swap.swap_quote_id,
+                    swap_tree: swap.swap_tree,
+                    lockup_address: swap.lockup_address,
+                    refund_public_key: swap.refund_public_key,
+                    timeout_block_height: swap.timeout_block_height,
+                    invoice: swap.invoice,
+                    invoice_amount: swap.invoice_amount,
+                    transaction_amount: swap.transaction_amount,
+                    swap_fee_sats: swap.swap_fee_sats,
+                    chain_fee_sats: swap.chain_fee_sats,
+                    preimage: swap.preimage,
+                    ephemeral_public_key: swap.ephemeral_public_key,
+                    ephemeral_private_key: swap.ephemeral_private_key,
+                    used: swap.used,
+                    failure_reason: swap.failure_reason,
+                    tx_id: swap.tx_id,
+                    completed_at_unix: swap.completed_at_unix,
+                    paid_at_unix: swap.paid_at_unix,
+                    address_paid: swap.address_paid,
+                    claim_tx_hex: swap.claim_tx_hex,
+                    lockup_tx_hex: swap.lockup_tx_hex,
+                    service_url: swap.service_url,
+                }, txId)
+                restored++
+            } catch (error: any) {
+                getLogger({ component: "backupRestore" })("error restoring transaction swap", error.message)
+            }
+        }
+        return restored
     }
 
     async ListPendingTransactionSwaps(appUserId: string, txId?: string) {
@@ -717,10 +835,14 @@ export default class {
         return swap
     }
 
-    async FinalizeInvoiceSwap(swapOperationId: string, txId?: string) {
+    async FinalizeInvoiceSwap(swapOperationId: string, preimage: string, txId?: string) {
+        if (!preimage) {
+            throw new Error('cannot finalize invoice swap without a verified preimage')
+        }
         const now = Math.floor(Date.now() / 1000)
         return this.dbs.Update<InvoiceSwap>('InvoiceSwap', { swap_operation_id: swapOperationId }, {
             used: true,
+            preimage,
             completed_at_unix: now,
         }, txId)
     }
@@ -786,9 +908,9 @@ export default class {
         if (!swap || !swap.tx_id) {
             return null
         }
-        if (swap.used && !swap.failure_reason) {
-            return null
-        }
+        // used / provider-reported success is not a veto. A timeout refund of an
+        // unspent lockup must remain available even after a false claimed event
+        // or a paid invoice the provider never claimed on-chain.
         return swap
     }
 

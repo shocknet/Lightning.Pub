@@ -106,6 +106,35 @@ export const calculateSubmarineLockupAmount = (invoiceAmountSats: number, fees: 
     return invoiceAmountSats + percentageFee + fees.minerFees
 }
 
+/**
+ * Cryptographic proof the provider paid our invoice: SHA256(preimage) must
+ * equal the invoice payment hash. A websocket "claimed" status is not this.
+ */
+export const verifySubmarineClaimPreimage = (
+    preimageHex: string,
+    paymentHashHex: string,
+): { ok: true } | { ok: false, error: string } => {
+    try {
+        const preimage = Buffer.from(preimageHex, 'hex')
+        const paymentHash = Buffer.from(paymentHashHex, 'hex')
+        if (preimage.length !== 32) {
+            return { ok: false, error: 'invalid preimage length' }
+        }
+        if (paymentHash.length !== 32) {
+            return { ok: false, error: 'invalid payment hash length' }
+        }
+        const hash = createHash('sha256').update(preimage).digest()
+        if (!hash.equals(paymentHash)) {
+            return { ok: false, error: 'preimage does not match payment hash' }
+        }
+        return { ok: true }
+    } catch (err: any) {
+        return { ok: false, error: err.message || String(err) }
+    }
+}
+
+export type InvoiceSwapResult = { ok: true, preimage: string } | { ok: false, error: string }
+
 export class SubmarineSwaps {
     private httpUrl: string
     private wsUrl: string
@@ -552,7 +581,7 @@ export class SubmarineSwaps {
         return { ok: true, publish: { done: true, txId: broadcastRes.txId } }
     }
 
-    SubscribeToInvoiceSwap = (data: InvoiceSwapData, swapDone: (result: { ok: true } | { ok: false, error: string }) => void, waitingTx: () => void) => {
+    SubscribeToInvoiceSwap = (data: InvoiceSwapData, swapDone: (result: InvoiceSwapResult) => void, waitingTx: () => void) => {
         this.log("subscribing to invoice swap", { id: data.createdResponse.id })
         const webSocket = new ws(`${this.wsUrl}/v2/ws`)
         const subReq = { op: 'subscribe', channel: 'swap.update', args: [data.createdResponse.id] }
@@ -562,16 +591,16 @@ export class SubmarineSwaps {
         const interval = setInterval(() => {
             webSocket.ping()
         }, 30 * 1000)
+        interval.unref()
         let isDone = false
-        const done = (failureReason?: string) => {
+        const done = (result: InvoiceSwapResult) => {
+            if (isDone) {
+                return
+            }
             isDone = true
             clearInterval(interval)
             webSocket.close()
-            if (failureReason) {
-                swapDone({ ok: false, error: failureReason })
-            } else {
-                swapDone({ ok: true })
-            }
+            swapDone(result)
         }
         webSocket.on('pong', () => {
             this.log('WebSocket invoice swap pong received')
@@ -581,8 +610,7 @@ export class SubmarineSwaps {
         })
         webSocket.on('close', () => {
             if (!isDone) {
-                this.log(ERROR, 'WebSocket closed before swap was done');
-                done('WebSocket closed before swap was done')
+                this.log('WebSocket closed; completion still requires a verified preimage')
             }
         })
         let txRequested = false
@@ -596,11 +624,12 @@ export class SubmarineSwaps {
         }
         webSocket.on('message', async (rawMsg) => {
             try {
-                await this.handleSwapInvoiceMessage(rawMsg, data, done, requestTx)
+                await this.handleSwapInvoiceMessage(rawMsg, data, {
+                    waitingTx: requestTx,
+                    onVerifiedPreimage: (preimage) => done({ ok: true, preimage }),
+                })
             } catch (err: any) {
                 this.log(ERROR, 'Error handling invoice WebSocket message', err.message)
-                done(err.message)
-                return
             }
         });
         return () => {
@@ -608,95 +637,120 @@ export class SubmarineSwaps {
         }
     }
 
-    handleSwapInvoiceMessage = async (rawMsg: ws.RawData, data: InvoiceSwapData, closeWebSocket: (failureReason?: string) => void, waitingTx: () => void) => {
-        const msg = JSON.parse(rawMsg.toString('utf-8'));
+    /**
+     * Provider websocket is informational except for invoice.set (fund) and
+     * claim.pending (verify preimage, then optionally cooperate). Statuses such
+     * as transaction.claimed must not finalize or fail the swap: a hostile
+     * update would otherwise disable timeout refunds of an unspent lockup.
+     */
+    handleSwapInvoiceMessage = async (
+        rawMsg: ws.RawData,
+        data: InvoiceSwapData,
+        handlers: {
+            waitingTx: () => void
+            onVerifiedPreimage?: (preimage: string) => void
+        },
+    ) => {
+        let msg: any
+        try {
+            msg = JSON.parse(rawMsg.toString('utf-8'))
+        } catch (err: any) {
+            this.log(ERROR, 'Invalid swap websocket payload', err.message)
+            return
+        }
         if (msg.event !== 'update') {
-            return;
+            return
         }
 
-        this.log('Got invoice WebSocket update');
-        this.log(msg);
-        switch (msg.args[0].status) {
-            // "invoice.set" means Boltz is waiting for an onchain transaction to be sent
+        this.log('Got invoice WebSocket update')
+        this.log(msg)
+        const update = msg.args?.[0]
+        const status = update?.status
+        const updateId = update?.id
+        if (updateId && updateId !== data.createdResponse.id) {
+            this.log(ERROR, 'Ignoring swap websocket update for a different swap', { updateId, expected: data.createdResponse.id })
+            return
+        }
+        if (!updateId) {
+            this.log(ERROR, 'Ignoring swap websocket update with no swap id')
+            return
+        }
+        switch (status) {
             case 'invoice.set':
-                this.log('Waiting for onchain transaction');
-                waitingTx()
-                return;
-            // Create a partial signature to allow Boltz to do a key path spend to claim the mainchain coins
-            case 'transaction.claim.pending':
-                await this.handleInvoiceClaimPending(data)
-                return;
-
+                this.log('Waiting for onchain transaction')
+                handlers.waitingTx()
+                return
+            case 'transaction.claim.pending': {
+                const claimed = await this.handleInvoiceClaimPending(data)
+                if (claimed.ok) {
+                    handlers.onVerifiedPreimage?.(claimed.preimage)
+                }
+                return
+            }
             case 'transaction.claimed':
-                this.log('Invoice swap successful');
-                closeWebSocket()
-                return;
+                this.log('Provider reported transaction.claimed - ignoring; completion requires a verified preimage')
+                return
             case 'swap.expired':
             case 'transaction.lockupFailed':
             case 'invoice.failedToPay':
-                closeWebSocket(`swap ${data.createdResponse.id} failed with status ${msg.args[0].status}`)
-                return;
+                this.log('Provider reported', status, '- ignoring; refund still depends on independent lockup state')
+                return
             default:
                 this.log('Unknown swap invoice WebSocket message', msg)
-                return;
+                return
         }
-
     }
 
-    handleInvoiceClaimPending = async (data: InvoiceSwapData) => {
+    handleInvoiceClaimPending = async (data: InvoiceSwapData): Promise<{ ok: true, preimage: string } | { ok: false, error: string }> => {
         this.log('Creating cooperative claim transaction');
         const { createdResponse, info } = data
         const { paymentHash, keys } = info
-        // Get the information request to create a partial signature
         const url = `${this.httpUrl}/v2/swap/submarine/${createdResponse.id}/claim`
         const claimTxDetailsRes = await loggedGet<{ preimage: string, transactionHash: string, pubNonce: string }>(this.log, url)
         if (!claimTxDetailsRes.ok) {
             return claimTxDetailsRes
         }
         const claimTxDetails = claimTxDetailsRes.data
-        // Verify that Boltz actually paid the invoice by comparing the preimage hash
-        // of the invoice to the SHA256 hash of the preimage from the response
-        const claimTxPreimageHash = createHash('sha256').update(Buffer.from(claimTxDetails.preimage, 'hex')).digest()
-        const invoicePreimageHash = Buffer.from(paymentHash, 'hex')
-
-        if (!claimTxPreimageHash.equals(invoicePreimageHash)) {
-            this.log(ERROR, 'Boltz provided invalid preimage');
-            return;
+        const verified = verifySubmarineClaimPreimage(claimTxDetails.preimage, paymentHash)
+        if (!verified.ok) {
+            this.log(ERROR, 'Boltz provided invalid preimage', verified.error)
+            return verified
         }
 
-        const boltzPublicKey = Buffer.from(createdResponse.claimPublicKey, 'hex')
+        try {
+            const boltzPublicKey = Buffer.from(createdResponse.claimPublicKey, 'hex')
 
-        // Create a musig signing instance
-        const musig = new Musig(await zkpInit(), keys, randomBytes(32), [
-            boltzPublicKey,
-            Buffer.from(keys.publicKey),
-        ]);
-        // Tweak that musig with the Taptree of the swap scripts
-        TaprootUtils.tweakMusig(
-            musig,
-            SwapTreeSerializer.deserializeSwapTree(createdResponse.swapTree).tree,
-        );
+            const musig = new Musig(await zkpInit(), keys, randomBytes(32), [
+                boltzPublicKey,
+                Buffer.from(keys.publicKey),
+            ]);
+            TaprootUtils.tweakMusig(
+                musig,
+                SwapTreeSerializer.deserializeSwapTree(createdResponse.swapTree).tree,
+            );
 
-        // Aggregate the nonces
-        musig.aggregateNonces([
-            [boltzPublicKey, Buffer.from(claimTxDetails.pubNonce, 'hex')],
-        ]);
-        // Initialize the session to sign the transaction hash from the response
-        musig.initializeSession(
-            Buffer.from(claimTxDetails.transactionHash, 'hex'),
-        );
+            musig.aggregateNonces([
+                [boltzPublicKey, Buffer.from(claimTxDetails.pubNonce, 'hex')],
+            ]);
+            musig.initializeSession(
+                Buffer.from(claimTxDetails.transactionHash, 'hex'),
+            );
 
-        // Give our public nonce and the partial signature to Boltz
-        const claimUrl = `${this.httpUrl}/v2/swap/submarine/${createdResponse.id}/claim`
-        const claimReq = {
-            pubNonce: Buffer.from(musig.getPublicNonce()).toString('hex'),
-            partialSignature: Buffer.from(musig.signPartial()).toString('hex'),
+            const claimUrl = `${this.httpUrl}/v2/swap/submarine/${createdResponse.id}/claim`
+            const claimReq = {
+                pubNonce: Buffer.from(musig.getPublicNonce()).toString('hex'),
+                partialSignature: Buffer.from(musig.signPartial()).toString('hex'),
+            }
+            const claimResponseRes = await loggedPost<{ pubNonce: string, partialSignature: string }>(this.log, claimUrl, claimReq)
+            if (!claimResponseRes.ok) {
+                this.log(ERROR, 'Cooperative claim signature post failed', claimResponseRes.error)
+            } else {
+                this.log('Claim response', claimResponseRes.data)
+            }
+        } catch (err: any) {
+            this.log(ERROR, 'Cooperative claim signing failed', err.message || err)
         }
-        const claimResponseRes = await loggedPost<{ pubNonce: string, partialSignature: string }>(this.log, claimUrl, claimReq)
-        if (!claimResponseRes.ok) {
-            return claimResponseRes
-        }
-        const claimResponse = claimResponseRes.data
-        this.log('Claim response', claimResponse)
+
+        return { ok: true, preimage: claimTxDetails.preimage }
     }
 }

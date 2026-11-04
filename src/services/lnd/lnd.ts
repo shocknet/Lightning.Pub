@@ -25,15 +25,11 @@ import SettingsManager from '../main/settingsManager.js';
 import { LndNodeSettings, LndSettings } from '../main/settings.js';
 import { ListAddressesResponse, PublishResponse, ChangeAddressType } from '../../../proto/lnd/walletkit.js';
 import { isPaymentNotInitiatedError } from './trackPaymentError.js';
+import { broadcastPublishedTx } from './publishError.js';
 import { Transaction } from 'bitcoinjs-lib'
 
 const DeadLineMetadata = (deadline = 10 * 1000) => ({ deadline: Date.now() + deadline })
 const GET_PAYMENT_FROM_HASH_TIMEOUT_MS = 10 * 1000
-
-const isAlreadyBroadcastError = (message: string) => {
-    const msg = message.toLowerCase()
-    return msg.includes('already in') || msg.includes('already have') || msg.includes('txn-already')
-}
 
 const settleOnce = (onSettle: () => void) => {
     let settled = false
@@ -187,6 +183,12 @@ export default class {
         })
     }
 
+    /**
+     * Raw WalletKit PublishTransaction. LND reports broadcast failure in
+     * PublishResponse.publishError rather than the gRPC status, so a nonempty
+     * error is still a successful RPC. Call BroadcastTransaction for any
+     * publication that records a txid or reports success to the user.
+     */
     async PublishTransaction(txHex: string): Promise<PublishResponse> {
         const res = await this.walletKit.publishTransaction({
             txHex: Buffer.from(txHex, 'hex'), label: ""
@@ -195,23 +197,24 @@ export default class {
     }
 
     /**
-     * Publish a tx via our node. Duplicate-mempool errors count as success so
-     * a claim can be rebroadcast after a crash or a provider-side publish.
+     * Publish a tx via our node. The returned txid is computed locally from the
+     * hex. If LND reports a publishError or the RPC throws, success is recorded
+     * when GetTx already has this txid, or when the error is a mempool duplicate
+     * of this hex (swap claims are not wallet txs, so GetTx often misses them).
      */
     async BroadcastTransaction(txHex: string): Promise<{ txId: string }> {
-        const txId = Transaction.fromHex(txHex).getId()
-        try {
-            const res = await this.PublishTransaction(txHex)
-            if (res.publishError && !isAlreadyBroadcastError(res.publishError)) {
-                throw new Error(res.publishError)
-            }
-        } catch (err: any) {
-            const message = err instanceof Error ? err.message : String(err)
-            if (!isAlreadyBroadcastError(message)) {
-                throw err
-            }
-        }
-        return { txId }
+        return broadcastPublishedTx(
+            txHex,
+            () => this.PublishTransaction(txHex),
+            async (txId) => {
+                try {
+                    const tx = await this.GetTx(txId)
+                    return tx.txHash ? { txHash: tx.txHash } : null
+                } catch {
+                    return null
+                }
+            },
+        )
     }
 
     /**

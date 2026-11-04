@@ -8,9 +8,11 @@ import Storage from '../../storage/index.js';
 import LND from '../lnd.js';
 import { UserInvoicePayment } from '../../storage/entity/UserInvoicePayment.js';
 import { ReverseSwaps, TransactionSwapData, calculateReverseQuoteAmounts } from './reverseSwaps.js';
-import { SubmarineSwaps, calculateSubmarineLockupAmount } from './submarineSwaps.js';
+import { SubmarineSwaps, calculateSubmarineLockupAmount, verifySubmarineClaimPreimage } from './submarineSwaps.js';
 import { InvoiceSwap } from '../../storage/entity/InvoiceSwap.js';
 import { TransactionSwap } from '../../storage/entity/TransactionSwap.js';
+import { BackupManager } from '../../backup/backupManager.js';
+import { Transaction } from 'bitcoinjs-lib';
 
 
 export class Swaps {
@@ -19,6 +21,7 @@ export class Swaps {
     subSwappers: Record<string, SubmarineSwaps>
     storage: Storage
     lnd: LND
+    backupManager?: BackupManager
     waitingSwaps: Record<string, boolean> = {}
     log = getLogger({ component: 'swaps' })
     constructor(settings: SettingsManager, storage: Storage) {
@@ -42,7 +45,19 @@ export class Swaps {
         this.lnd = lnd
     }
 
+    SetBackupManager = (backup: BackupManager) => {
+        this.backupManager = backup
+    }
+
     Stop = () => { }
+
+    private notifySwapBackup = (id: 'invoice_swaps' | 'transaction_swaps') => {
+        void this.backupManager?.notifyBackupTable(id)
+    }
+
+    private protectSwapBackup = async (id: 'invoice_swaps' | 'transaction_swaps') => {
+        await this.backupManager?.flushTablesNow(id)
+    }
 
     GetKeys = (privateKey: string) => {
         const keys = ECPairFactory(ecc).fromPrivateKey(Buffer.from(privateKey, 'hex'))
@@ -149,6 +164,7 @@ export class Swaps {
         // publishes via LND and must call UpdateRefundInvoiceSwap after that succeeds.
         if (result.publish.done) {
             await this.storage.paymentStorage.UpdateRefundInvoiceSwap(swapOperationId, refundAddress, result.publish.txId)
+            this.notifySwapBackup('invoice_swaps')
             return { published: true, txId: result.publish.txId }
         }
         return { published: false, txHex: result.publish.txHex, txId: result.publish.txId }
@@ -198,10 +214,17 @@ export class Swaps {
         return new Promise<string>((resolve, reject) => {
             const close = swapper.SubscribeToInvoiceSwap(data, async (result) => {
                 if (result.ok) {
-                    await this.storage.paymentStorage.FinalizeInvoiceSwap(swapOpId)
+                    const verified = verifySubmarineClaimPreimage(result.preimage, swap.payment_hash)
+                    if (!verified.ok) {
+                        this.log("refusing to finalize invoice swap without a verified preimage", { swapOpId, error: verified.error })
+                        return
+                    }
+                    await this.storage.paymentStorage.FinalizeInvoiceSwap(swapOpId, result.preimage)
+                    this.notifySwapBackup('invoice_swaps')
                     this.log("invoice swap completed", { swapOpId })
                 } else {
                     await this.storage.paymentStorage.FailInvoiceSwap(swapOpId, result.error)
+                    this.notifySwapBackup('invoice_swaps')
                     this.log("invoice swap failed", { swapOpId, error: result.error })
                 }
             }, () => verifyQuote()
@@ -229,6 +252,21 @@ export class Swaps {
         }
     }
 
+    ResumeTransactionSwaps = async () => {
+        this.log("resuming transaction swaps")
+        const swaps = await this.storage.paymentStorage.ListUnfinishedTransactionSwaps()
+        this.log("resuming", swaps.length, "transaction swaps")
+        for (const swap of swaps) {
+            try {
+                // Rebroadcasts are awaited; lockup watches are not, so boot cannot
+                // stall on an in-flight reverse swap that has not confirmed yet.
+                await this.resumeTransactionSwap(swap)
+            } catch (err: any) {
+                this.log("error resuming transaction swap", err.message || err)
+            }
+        }
+    }
+
     private resumeInvoiceSwap = (swap: InvoiceSwap) => {
         if (!swap || !swap.tx_id || swap.used) {
             throw new Error("swap to resume not found, or does not have a tx id")
@@ -240,10 +278,20 @@ export class Swaps {
         const data = this.getInvoiceSwapData(swap)
         swapper.SubscribeToInvoiceSwap(data, async (result) => {
             if (result.ok) {
-                await this.storage.paymentStorage.FinalizeInvoiceSwap(swap.swap_operation_id)
+                const verified = verifySubmarineClaimPreimage(result.preimage, swap.payment_hash)
+                if (!verified.ok) {
+                    this.log("refusing to finalize resumed invoice swap without a verified preimage", {
+                        swapOpId: swap.swap_operation_id,
+                        error: verified.error,
+                    })
+                    return
+                }
+                await this.storage.paymentStorage.FinalizeInvoiceSwap(swap.swap_operation_id, result.preimage)
+                this.notifySwapBackup('invoice_swaps')
                 this.log("invoice swap completed", { swapOpId: swap.swap_operation_id, txId: swap.tx_id })
             } else {
                 await this.storage.paymentStorage.FailInvoiceSwap(swap.swap_operation_id, result.error)
+                this.notifySwapBackup('invoice_swaps')
                 this.log("invoice swap failed", { swapOpId: swap.swap_operation_id, error: result.error })
             }
         }, async () => {
@@ -251,7 +299,7 @@ export class Swaps {
             if (!swap.lockup_tx_hex) {
                 throw new Error("swap tx already paid")
             }
-            await this.lnd.PublishTransaction(swap.lockup_tx_hex)
+            await this.lnd.BroadcastTransaction(swap.lockup_tx_hex)
         })
     }
 
@@ -532,59 +580,172 @@ export class Swaps {
         if (!verified.ok) {
             throw new Error(`swap quote failed verification before pay: ${verified.error}`)
         }
-        const keys = this.GetKeys(txSwap.ephemeral_private_key)
-        const data: TransactionSwapData = {
-            createdResponse,
-            info: {
-                destinationAddress: address,
-                keys,
-                chainFee: txSwap.chain_fee_sats,
-                preimage: Buffer.from(txSwap.preimage, 'hex'),
-            }
+        if (txSwap.address_paid && txSwap.address_paid !== address) {
+            throw new Error("swap already started with a different destination")
+        }
+        if (!txSwap.address_paid || !txSwap.paid_at_unix) {
+            await this.storage.paymentStorage.StartTransactionSwap(swapOpId, address)
+            await this.protectSwapBackup('transaction_swaps')
+            txSwap.address_paid = address
+        }
+        if (txSwap.claim_tx_hex) {
+            return this.rebroadcastTransactionSwapClaim(txSwap)
         }
         const abort = new AbortController()
         let swapResult = { ok: false, error: "swap never completed" } as { ok: true, txId: string } | { ok: false, error: string }
         const claimed = new Promise<void>(resolve => {
-            swapper.SubscribeToTransactionSwap(data, result => {
+            this.watchTransactionSwapClaim(txSwap, currentHeight, abort.signal).then(result => {
                 swapResult = result
                 resolve()
-            }, {
-                waitForLockup: (script, numConfs, heightHint, signal) => this.lnd.WaitForScriptConfirmations(script, numConfs, heightHint, signal),
-                publish: async (txHex) => {
-                    await this.lnd.BroadcastTransaction(txHex)
-                },
-                heightHint: currentHeight,
-                abortSignal: abort.signal,
+            }, err => {
+                swapResult = { ok: false, error: err.message || String(err) }
+                resolve()
             })
         })
         try {
-            await this.storage.paymentStorage.SetTransactionSwapPaid(swapOpId)
             await payInvoice(txSwap.invoice, txSwap.invoice_amount)
             await claimed
             if (!swapResult.ok || !swapResult.txId) {
                 const error = !swapResult.ok ? swapResult.error : "swap completed without claim txId"
                 this.log("invoice payment successful, but swap failed")
-                await this.storage.paymentStorage.FailTransactionSwap(swapOpId, address, error)
                 throw new Error(error)
             }
             this.log("swap completed successfully")
             await this.storage.paymentStorage.FinalizeTransactionSwap(swapOpId, address, swapResult.txId)
-        } catch (err: any) {
-            if (swapResult.ok) {
-                this.log("failed to pay swap invoice, but swap completed successfully", swapResult.txId)
-                await this.storage.paymentStorage.FailTransactionSwap(swapOpId, address, err.message)
-            } else {
-                this.log("failed to pay swap invoice and swap failed", swapResult.error)
-                await this.storage.paymentStorage.FailTransactionSwap(swapOpId, address, swapResult.error)
+            this.notifySwapBackup('transaction_swaps')
+            return {
+                txId: swapResult.txId,
+                network_fee: txSwap.chain_fee_sats + txSwap.swap_fee_sats,
             }
+        } catch (err: any) {
+            if (swapResult.ok && swapResult.txId) {
+                this.log("failed to pay swap invoice, but swap claimed successfully", swapResult.txId)
+                await this.storage.paymentStorage.FinalizeTransactionSwap(swapOpId, address, swapResult.txId)
+                this.notifySwapBackup('transaction_swaps')
+                return {
+                    txId: swapResult.txId,
+                    network_fee: txSwap.chain_fee_sats + txSwap.swap_fee_sats,
+                }
+            }
+            await this.failTransactionSwapUnlessClaimable(swapOpId, appUserId, address, err.message || String(err))
             throw err
         } finally {
             abort.abort()
         }
-        const networkFeesTotal = txSwap.chain_fee_sats + txSwap.swap_fee_sats
+    }
+
+    private getTransactionSwapData = (swap: TransactionSwap): TransactionSwapData => {
         return {
-            txId: swapResult.txId,
-            network_fee: networkFeesTotal
+            createdResponse: {
+                id: swap.swap_quote_id,
+                invoice: swap.invoice,
+                lockupAddress: swap.lockup_address,
+                refundPublicKey: swap.refund_public_key,
+                swapTree: swap.swap_tree,
+                timeoutBlockHeight: swap.timeout_block_height,
+                onchainAmount: swap.transaction_amount,
+            },
+            info: {
+                destinationAddress: swap.address_paid,
+                keys: this.GetKeys(swap.ephemeral_private_key),
+                chainFee: swap.chain_fee_sats,
+                preimage: Buffer.from(swap.preimage, 'hex'),
+            },
+        }
+    }
+
+    /**
+     * A persisted claim must stay retryable. Marking used=true here would drop
+     * the row from resume even though the signed claim is in the database.
+     */
+    private failTransactionSwapUnlessClaimable = async (
+        swapOpId: string,
+        appUserId: string,
+        address: string,
+        error: string,
+    ) => {
+        const row = await this.storage.paymentStorage.GetTransactionSwap(swapOpId, appUserId)
+        if (row?.claim_tx_hex) {
+            this.log("leaving reverse swap open; claim is persisted for resume", { swapOpId, error })
+            return
+        }
+        await this.storage.paymentStorage.FailTransactionSwap(swapOpId, address, error)
+        this.notifySwapBackup('transaction_swaps')
+    }
+
+    private persistTransactionSwapClaim = async (swapOpId: string, txHex: string) => {
+        await this.storage.paymentStorage.SetTransactionSwapClaimTx(swapOpId, txHex)
+        await this.protectSwapBackup('transaction_swaps')
+    }
+
+    private rebroadcastTransactionSwapClaim = async (swap: TransactionSwap) => {
+        const published = await this.lnd.BroadcastTransaction(swap.claim_tx_hex)
+        await this.storage.paymentStorage.FinalizeTransactionSwap(swap.swap_operation_id, swap.address_paid, published.txId)
+        this.notifySwapBackup('transaction_swaps')
+        return {
+            txId: published.txId,
+            network_fee: swap.chain_fee_sats + swap.swap_fee_sats,
+        }
+    }
+
+    private watchTransactionSwapClaim = (
+        swap: TransactionSwap,
+        currentHeight: number,
+        abortSignal?: AbortSignal,
+    ) => {
+        const swapper = this.revSwappers[swap.service_url]
+        if (!swapper) {
+            return Promise.reject(new Error("swapper service not found"))
+        }
+        if (!swap.address_paid) {
+            return Promise.reject(new Error("cannot claim reverse swap without a persisted destination"))
+        }
+        const data = this.getTransactionSwapData(swap)
+        return new Promise<{ ok: true, txId: string } | { ok: false, error: string }>(resolve => {
+            swapper.SubscribeToTransactionSwap(data, resolve, {
+                waitForLockup: async (script, numConfs, heightHint, signal) => {
+                    const confirmed = await this.lnd.WaitForScriptConfirmations(script, numConfs, heightHint, signal)
+                    await this.storage.paymentStorage.SetTransactionSwapLockupTx(swap.swap_operation_id, confirmed.txHex)
+                    this.notifySwapBackup('transaction_swaps')
+                    return confirmed
+                },
+                persistClaim: (txHex) => this.persistTransactionSwapClaim(swap.swap_operation_id, txHex),
+                publish: async (txHex) => {
+                    await this.lnd.BroadcastTransaction(txHex)
+                },
+                heightHint: currentHeight,
+                abortSignal,
+            })
+        })
+    }
+
+    private resumeTransactionSwap = async (swap: TransactionSwap) => {
+        if (!swap.address_paid) {
+            this.log("skipping reverse swap resume without destination", { swapOpId: swap.swap_operation_id })
+            return
+        }
+        if (swap.claim_tx_hex) {
+            await this.rebroadcastTransactionSwapClaim(swap)
+            this.log("rebroadcast resumed reverse-swap claim", { swapOpId: swap.swap_operation_id, txId: Transaction.fromHex(swap.claim_tx_hex).getId() })
+            return
+        }
+        void this.watchResumedTransactionSwap(swap)
+    }
+
+    private watchResumedTransactionSwap = async (swap: TransactionSwap) => {
+        try {
+            const currentHeight = await this.trustedChainTip()
+            const swapResult = await this.watchTransactionSwapClaim(swap, currentHeight)
+            if (!swapResult.ok || !swapResult.txId) {
+                const error = !swapResult.ok ? swapResult.error : "swap completed without claim txId"
+                this.log("resumed reverse swap failed to claim", { swapOpId: swap.swap_operation_id, error })
+                return
+            }
+            await this.storage.paymentStorage.FinalizeTransactionSwap(swap.swap_operation_id, swap.address_paid, swapResult.txId)
+            this.notifySwapBackup('transaction_swaps')
+            this.log("resumed reverse swap claimed", { swapOpId: swap.swap_operation_id, txId: swapResult.txId })
+        } catch (err: any) {
+            this.log("error watching resumed reverse swap", { swapOpId: swap.swap_operation_id, error: err.message || err })
         }
     }
 }

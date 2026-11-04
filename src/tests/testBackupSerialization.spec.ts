@@ -3,12 +3,15 @@ import {
     BackupData, BalanceRow, DebitAccessRow, encodeApplicationUserRow, encodeAdminSettingRow,
     encodeUserOfferRow, encodeProductRow, encodeManagementGrantRow, encodeDebitAccessRow,
     encodeInviteTokenRow, encodeBalanceRow, encodeAppUserDeviceRow, encodeTrackedProviderRow,
+    encodeInvoiceSwapRow, encodeTransactionSwapRow,
     InviteTokenRow, ManagementGrantRow, ProductRow, TrackedProviderRow, UserOfferRow, encodeApplicationRow,
     decodeApplicationRow, decodeApplicationUserRow, decodeTrackedProviderRow, decodeBalanceRow,
     decodeAdminSettingRow, decodeUserOfferRow, decodeProductRow, decodeManagementGrantRow, decodeDebitAccessRow,
-    decodeInviteTokenRow, decodeAppUserDeviceRow,
+    decodeInviteTokenRow, decodeAppUserDeviceRow, decodeInvoiceSwapRow, decodeTransactionSwapRow,
     encodeIndexesRow,
-    decodeIndexesRow
+    decodeIndexesRow,
+    InvoiceSwapRow, TransactionSwapRow,
+    isInvoiceSwapBackupRow, isTransactionSwapBackupRow,
 } from '../services/backup/segments.js'
 import { StorageTestBase } from './testBase.js'
 import crypto from 'crypto'
@@ -18,6 +21,7 @@ export const requires = 'storage'
 
 export default async (T: StorageTestBase) => {
     testSerializeBalanceData(T)
+    testSwapBackupFilters(T)
     //testSize(T)
 }
 
@@ -37,6 +41,8 @@ const testSerializeBalanceData = (T: StorageTestBase) => {
         appUserDevices: backupData.appUserDevices.map(encodeAppUserDeviceRow),
         balances: backupData.balances.map(encodeBalanceRow),
         trackedProviders: backupData.trackedProviders.map(encodeTrackedProviderRow),
+        invoiceSwaps: backupData.invoiceSwaps.map(encodeInvoiceSwapRow),
+        transactionSwaps: backupData.transactionSwaps.map(encodeTransactionSwapRow),
     }
     const decoded = {
         indexes: encoded.indexes.map(decodeIndexesRow),
@@ -51,9 +57,27 @@ const testSerializeBalanceData = (T: StorageTestBase) => {
         appUserDevices: encoded.appUserDevices.map(decodeAppUserDeviceRow),
         balances: encoded.balances.map(decodeBalanceRow),
         trackedProviders: encoded.trackedProviders.map(decodeTrackedProviderRow),
+        invoiceSwaps: encoded.invoiceSwaps.map(decodeInvoiceSwapRow),
+        transactionSwaps: encoded.transactionSwaps.map(decodeTransactionSwapRow),
     }
     T.expect(decoded).to.deep.equal(backupData)
     T.d('Finished testSerializeBalanceData')
+}
+
+const testSwapBackupFilters = (T: StorageTestBase) => {
+    T.d('Starting testSwapBackupFilters')
+    T.expect(isInvoiceSwapBackupRow({ used: false })).to.equal(false)
+    T.expect(isInvoiceSwapBackupRow({ used: false, tx_id: 'aa' })).to.equal(true)
+    T.expect(isInvoiceSwapBackupRow({ used: false, lockup_tx_hex: '0200', refund_tx_id: 'cc' })).to.equal(false)
+    T.expect(isInvoiceSwapBackupRow({ used: true, tx_id: 'aa', preimage: 'bb' })).to.equal(false)
+    T.expect(isInvoiceSwapBackupRow({ used: true, tx_id: 'aa', failure_reason: 'timeout' })).to.equal(true)
+    T.expect(isInvoiceSwapBackupRow({ used: true, tx_id: 'aa' })).to.equal(true)
+    T.expect(isInvoiceSwapBackupRow({ used: true })).to.equal(false)
+
+    T.expect(isTransactionSwapBackupRow({ paid_at_unix: 0 })).to.equal(false)
+    T.expect(isTransactionSwapBackupRow({ paid_at_unix: 1 })).to.equal(true)
+    T.expect(isTransactionSwapBackupRow({ paid_at_unix: 1, tx_id: 'dd' })).to.equal(false)
+    T.d('Finished testSwapBackupFilters')
 }
 
 
@@ -80,6 +104,8 @@ const generateBackupData = (base: number): BackupData => {
         appUserDevices: ex(10, "appUserDevices").map(generateAppUserDeviceRow),
         balances: ex(100, "balances").map(generateBalanceRow),
         trackedProviders: ex(1, "trackedProviders").map(generateTrackedProviderRow),
+        invoiceSwaps: ex(1, "invoiceSwaps").map(generateInvoiceSwapRow),
+        transactionSwaps: ex(1, "transactionSwaps").map(generateTransactionSwapRow),
     }
 }
 
@@ -190,6 +216,67 @@ const generateBalanceRow = (base: number): BalanceRow => {
         user_id: randomHex,
         balance_sats: 1000,
         locked: false,
+    }
+}
+
+const generateInvoiceSwapRow = (base: number): InvoiceSwapRow => {
+    return {
+        swap_operation_id: crypto.randomUUID(),
+        app_user_id: randomHex,
+        swap_quote_id: `sub-${base}`,
+        swap_tree: JSON.stringify({ claimLeaf: { version: 196, output: 'aa' }, refundLeaf: { version: 196, output: 'bb' } }),
+        claim_public_key: randomHex,
+        payment_hash: randomHex,
+        timeout_block_height: 800_000,
+        invoice: 'lnbc1-test',
+        invoice_amount: 1000,
+        transaction_amount: 1100,
+        swap_fee_sats: 80,
+        chain_fee_sats: 20,
+        sat_per_v_byte: 2,
+        ephemeral_public_key: randomHex,
+        address: 'bcrt1qtest',
+        ephemeral_private_key: randomHex,
+        used: false,
+        completed_at_unix: 0,
+        paid_at_unix: 1,
+        preimage: '',
+        failure_reason: '',
+        tx_id: randomHex,
+        lockup_tx_hex: '020000000001',
+        refund_address: '',
+        refund_at_unix: 0,
+        refund_tx_id: '',
+        service_url: 'https://boltz.example',
+    }
+}
+
+const generateTransactionSwapRow = (base: number): TransactionSwapRow => {
+    return {
+        swap_operation_id: crypto.randomUUID(),
+        app_user_id: randomHex,
+        swap_quote_id: `rev-${base}`,
+        swap_tree: JSON.stringify({ claimLeaf: { version: 196, output: 'aa' }, refundLeaf: { version: 196, output: 'bb' } }),
+        lockup_address: 'bcrt1qlockup',
+        refund_public_key: randomHex,
+        timeout_block_height: 800_000,
+        invoice: 'lnbc1-rev',
+        invoice_amount: 1200,
+        transaction_amount: 1000,
+        swap_fee_sats: 50,
+        chain_fee_sats: 15,
+        preimage: randomHex,
+        ephemeral_public_key: randomHex,
+        ephemeral_private_key: randomHex,
+        used: false,
+        failure_reason: '',
+        tx_id: '',
+        completed_at_unix: 0,
+        paid_at_unix: 1,
+        address_paid: 'bcrt1qdest',
+        claim_tx_hex: '020000000002',
+        lockup_tx_hex: '020000000003',
+        service_url: 'https://boltz.example',
     }
 }
 

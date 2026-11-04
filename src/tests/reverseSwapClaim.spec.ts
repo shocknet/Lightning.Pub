@@ -33,6 +33,7 @@ export default async (T: StorageTestBase) => {
     await testProviderWebsocketCannotFinishOrAbort(T)
     await testSignatureRefusalStillPublishesUnilateral(T)
     await testSubscribeClaimsOnlyAfterIndependentConfirmation(T)
+    await testPersistsClaimBeforeCooperativeOrBroadcast(T)
 }
 
 const testLockupMustMatchSwapOutputAndAmount = async (T: StorageTestBase) => {
@@ -173,6 +174,23 @@ const testSubscribeClaimsOnlyAfterIndependentConfirmation = async (T: StorageTes
     T.expect(claimTx.ins[0].witness.length).to.equal(4)
     T.expect(Buffer.from(claimTx.ins[0].witness[1]).equals(Buffer.from(preimage, 'hex'))).to.equal(true)
     T.d('subscribe claimed only after independent confirmation and published unilaterally')
+}
+
+const testPersistsClaimBeforeCooperativeOrBroadcast = async (T: StorageTestBase) => {
+    T.d('starting claim is persisted before preimage disclosure or broadcast')
+    const { swapper, data, lockupHex } = await setupClaim(T)
+    const order: string[] = []
+    const result = await swapper.claimConfirmedLockup(data, lockupHex, {
+        persistClaim: async () => { order.push('persist') },
+        cooperativeClaim: async () => {
+            order.push('coop')
+            return { ok: false, error: 'signature refused' }
+        },
+        publish: async () => { order.push('publish') },
+    })
+    T.expect(result.ok, !result.ok ? result.error : '').to.equal(true)
+    T.expect(order).to.deep.equal(['persist', 'coop', 'publish'])
+    T.d('unilateral claim was persisted before cooperative disclosure and broadcast')
 }
 
 const setupClaim = async (T: StorageTestBase) => {

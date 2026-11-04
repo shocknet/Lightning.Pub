@@ -69,6 +69,12 @@ export class TransactionSwap {
     @Column({ default: "" })
     address_paid: string
 
+    @Column({ default: "", type: "text" })
+    claim_tx_hex: string
+
+    @Column({ default: "", type: "text" })
+    lockup_tx_hex: string
+
     @Column({ default: "" })
     service_url: string
 
