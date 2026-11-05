@@ -9,6 +9,7 @@ import LND from '../lnd.js';
 import { UserInvoicePayment } from '../../storage/entity/UserInvoicePayment.js';
 import { ReverseSwaps, TransactionSwapData, calculateReverseQuoteAmounts, MAX_REVERSE_TIMEOUT_BLOCKS } from './reverseSwaps.js';
 import { SubmarineSwaps, calculateSubmarineLockupAmount, verifySubmarineClaimPreimage } from './submarineSwaps.js';
+import { assertSwapActor } from './swapOwnership.js';
 import { InvoiceSwap } from '../../storage/entity/InvoiceSwap.js';
 import { TransactionSwap } from '../../storage/entity/TransactionSwap.js';
 import { BackupManager } from '../../backup/backupManager.js';
@@ -70,6 +71,7 @@ export class Swaps {
     }
 
     GetInvoiceSwapQuotes = async (appUserId: string, invoice: string, fees: Types.TxFeesReq|undefined): Promise<Types.InvoiceSwapQuote[]> => {
+        assertSwapActor(appUserId)
         if (!this.settings.getSettings().swapsSettings.enableSwaps) {
             throw new Error("Swaps are not enabled")
         }
@@ -112,6 +114,7 @@ export class Swaps {
     }
 
     ListInvoiceSwaps = async (appUserId: string): Promise<Types.InvoiceSwapsList> => {
+        assertSwapActor(appUserId)
         const info = await this.lnd.GetInfo()
         const currentBlockHeight = info.blockHeight
         const completedSwaps = await this.storage.paymentStorage.ListCompletedInvoiceSwaps(appUserId)
@@ -131,25 +134,20 @@ export class Swaps {
         }
     }
 
-    RefundInvoiceSwap = async (swapOperationId: string, satPerVByte: number, refundAddress: string, currentHeight: number): Promise<{ published: false, txHex: string, txId: string } | { published: true, txId: string }> => {
+    RefundInvoiceSwap = async (swapOperationId: string, satPerVByte: number, refundAddress: string, currentHeight: number): Promise<{ published: true, txId: string }> => {
         this.log("refunding invoice swap", { swapOperationId, satPerVByte, refundAddress, currentHeight })
         const swap = await this.storage.paymentStorage.GetRefundableInvoiceSwap(swapOperationId)
         if (!swap) {
             throw new Error("Swap not found or already used")
         }
-        // Idempotent: if a refund tx was already recorded, return it instead of rebuilding/broadcasting.
-        if (swap.refund_tx_id) {
-            this.log("invoice swap already refunded", { swapOperationId, refundTxId: swap.refund_tx_id })
-            return { published: true, txId: swap.refund_tx_id }
-        }
         if (!isNonNegativeSats(satPerVByte)) {
             throw new Error("sat per v byte must be a non-negative integer")
         }
-        const allowEarlyRefund = !!swap.failure_reason
-        const swapper = this.subSwappers[swap.service_url]
-        if (!swapper) {
-            throw new Error("swapper service not found")
+        if (swap.refund_tx_hex) {
+            return this.publishInvoiceSwapRefund(swapOperationId, refundAddress, swap.refund_tx_hex)
         }
+        const allowEarlyRefund = !!swap.failure_reason
+        const swapper = this.refundSwapper(swap.service_url)
         const result = await swapper.RefundSwap({
             swapId: swap.swap_quote_id,
             claimPublicKey: swap.claim_public_key,
@@ -165,19 +163,41 @@ export class Swaps {
         if (!result.ok) {
             throw new Error(result.error)
         }
-        // Only persist after a successful broadcast. For uncooperative refunds the caller
-        // publishes via LND and must call UpdateRefundInvoiceSwap after that succeeds.
-        if (result.publish.done) {
-            await this.storage.paymentStorage.UpdateRefundInvoiceSwap(swapOperationId, refundAddress, result.publish.txId)
-            this.notifySwapBackup('invoice_swaps')
-            return { published: true, txId: result.publish.txId }
+        const localTxId = Transaction.fromHex(result.publish.txHex).getId()
+        if (localTxId !== result.publish.txId) {
+            throw new Error("refund transaction id mismatch")
         }
-        return { published: false, txHex: result.publish.txHex, txId: result.publish.txId }
+        await this.storage.paymentStorage.SetInvoiceSwapRefundHex(swapOperationId, refundAddress, result.publish.txHex)
+        await this.protectSwapBackup('invoice_swaps')
+        return this.publishInvoiceSwapRefund(swapOperationId, refundAddress, result.publish.txHex)
+    }
 
+    /**
+     * Refund construction does not need a live provider. Swaps may be disabled
+     * or the stored service URL may have been removed; timeout refunds still work.
+     */
+    private refundSwapper = (serviceUrl: string): SubmarineSwaps => {
+        if (this.subSwappers[serviceUrl]) {
+            return this.subSwappers[serviceUrl]
+        }
+        const network = this.settings.getSettings().lndSettings.network
+        return new SubmarineSwaps({ httpUrl: '', wsUrl: '', network })
+    }
+
+    private publishInvoiceSwapRefund = async (swapOperationId: string, refundAddress: string, refundTxHex: string): Promise<{ published: true, txId: string }> => {
+        const txId = Transaction.fromHex(refundTxHex).getId()
+        const published = await this.lnd.BroadcastTransaction(refundTxHex)
+        if (published.txId !== txId) {
+            throw new Error("refund broadcast tx id mismatch")
+        }
+        await this.storage.paymentStorage.UpdateRefundInvoiceSwap(swapOperationId, refundAddress, txId, refundTxHex)
+        this.notifySwapBackup('invoice_swaps')
+        return { published: true, txId }
     }
 
     PayInvoiceSwap = async (appUserId: string, swapOpId: string,satPerVByteOverride: number|undefined, payAddress: (address: string, amt: number, satPerVByte: number) => Promise<{ txId: string }>): Promise<string> => {
         this.log("paying invoice swap", { appUserId, swapOpId })
+        assertSwapActor(appUserId)
         if (!this.settings.getSettings().swapsSettings.enableSwaps) {
             throw new Error("Swaps are not enabled")
         }
@@ -478,6 +498,7 @@ export class Swaps {
     }
 
     ListTxSwaps = async (appUserId: string, payments: UserInvoicePayment[], newOp: (p: UserInvoicePayment) => Types.UserOperation | undefined, getServiceFee: (amt: number) => number): Promise<Types.TxSwapsList> => {
+        assertSwapActor(appUserId)
         const completedSwaps = await this.storage.paymentStorage.ListCompletedTxSwaps(appUserId, payments)
         const pendingSwaps = await this.storage.paymentStorage.ListPendingTransactionSwaps(appUserId)
         const quotes: Types.TxSwapOperation[] = pendingSwaps.map(s => ({ quote: this.mapTransactionSwapQuote(s, getServiceFee) }))
@@ -493,6 +514,7 @@ export class Swaps {
         }
     }
     GetTxSwapQuotes = async (appUserId: string, amt: number, getServiceFee: (decodedAmt: number) => number): Promise<Types.TransactionSwapQuote[]> => {
+        assertSwapActor(appUserId)
         if (!isPositiveSats(amt)) {
             throw new Error("transaction_amount_sats must be a positive integer number of sats")
         }
@@ -578,6 +600,7 @@ export class Swaps {
     }
 
     async PayAddrWithSwap(appUserId: string, swapOpId: string, address: string, payInvoice: (invoice: string, amt: number) => Promise<void>) {
+        assertSwapActor(appUserId)
         if (!this.settings.getSettings().swapsSettings.enableSwaps) {
             throw new Error("Swaps are not enabled")
         }
@@ -585,7 +608,7 @@ export class Swaps {
         if (!swapOpId) {
             throw new Error("request a swap quote before paying an external address")
         }
-        const txSwap = await this.storage.paymentStorage.GetTransactionSwap(swapOpId, appUserId)
+        let txSwap = await this.storage.paymentStorage.GetTransactionSwap(swapOpId, appUserId)
         if (!txSwap) {
             throw new Error("swap quote not found")
         }
@@ -617,17 +640,14 @@ export class Swaps {
         if (!verified.ok) {
             throw new Error(`swap quote failed verification before pay: ${verified.error}`)
         }
-        if (txSwap.address_paid && txSwap.address_paid !== address) {
-            throw new Error("swap already started with a different destination")
-        }
-        if (!txSwap.address_paid || !txSwap.paid_at_unix) {
-            await this.storage.paymentStorage.StartTransactionSwap(swapOpId, address)
-            await this.protectSwapBackup('transaction_swaps')
-            txSwap.address_paid = address
-        }
+        txSwap = await this.reserveTransactionSwapDestination(txSwap, appUserId, address)
         if (txSwap.claim_tx_hex) {
             return this.rebroadcastTransactionSwapClaim(txSwap)
         }
+        if (this.waitingSwaps[swapOpId]) {
+            throw new Error("swap already in progress")
+        }
+        this.waitingSwaps[swapOpId] = true
         const abort = new AbortController()
         let swapResult = { ok: false, error: "swap never completed" } as { ok: true, txId: string } | { ok: false, error: string }
         const claimed = new Promise<void>(resolve => {
@@ -655,6 +675,7 @@ export class Swaps {
                 network_fee: txSwap.chain_fee_sats + txSwap.swap_fee_sats,
             }
         } catch (err: any) {
+            abort.abort()
             if (swapResult.ok && swapResult.txId) {
                 this.log("failed to pay swap invoice, but swap claimed successfully", swapResult.txId)
                 await this.storage.paymentStorage.FinalizeTransactionSwap(swapOpId, address, swapResult.txId)
@@ -668,7 +689,34 @@ export class Swaps {
             throw err
         } finally {
             abort.abort()
+            delete this.waitingSwaps[swapOpId]
         }
+    }
+
+    private reserveTransactionSwapDestination = async (txSwap: TransactionSwap, appUserId: string, address: string) => {
+        if (txSwap.address_paid && txSwap.address_paid !== address) {
+            throw new Error("swap already started with a different destination")
+        }
+        if (txSwap.address_paid && txSwap.paid_at_unix) {
+            return txSwap
+        }
+        const reserved = await this.storage.paymentStorage.StartTransactionSwap(txSwap.swap_operation_id, address, appUserId)
+        if (reserved !== 1) {
+            const latest = await this.storage.paymentStorage.GetTransactionSwap(txSwap.swap_operation_id, appUserId)
+            if (!latest || (latest.address_paid && latest.address_paid !== address)) {
+                throw new Error("swap already started with a different destination")
+            }
+            if (!latest.address_paid || !latest.paid_at_unix) {
+                throw new Error("failed to reserve swap destination")
+            }
+            return latest
+        }
+        await this.protectSwapBackup('transaction_swaps')
+        const bound = await this.storage.paymentStorage.GetTransactionSwap(txSwap.swap_operation_id, appUserId)
+        if (!bound || bound.address_paid !== address) {
+            throw new Error("swap already started with a different destination")
+        }
+        return bound
     }
 
     private getTransactionSwapData = (swap: TransactionSwap): TransactionSwapData => {

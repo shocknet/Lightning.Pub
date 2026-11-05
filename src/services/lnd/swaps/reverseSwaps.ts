@@ -14,7 +14,7 @@ import ws from 'ws';
 import { getLogger, PubLogger, ERROR } from '../../helpers/logger.js';
 import { isNonNegativeSats, isPositiveSats } from '../../helpers/sats.js';
 import { BTCNetwork } from '../../main/settings.js';
-import { loggedGet, loggedPost, getNetwork } from './swapHelpers.js';
+import { caughtErrorMessage, loggedGet, loggedPost, getNetwork } from './swapHelpers.js';
 
 
 export type ReverseSwapFees = {
@@ -696,8 +696,8 @@ export class ReverseSwaps {
             musig.signPartial()
             claimTx.ins[0].witness = [musig.aggregatePartials()]
             return { ok: true, tx: claimTx }
-        } catch (err: any) {
-            return { ok: false, error: err.message || String(err) }
+        } catch (err: unknown) {
+            return { ok: false, error: caughtErrorMessage(err) }
         }
     }
 

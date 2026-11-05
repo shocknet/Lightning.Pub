@@ -11,7 +11,7 @@ import * as ecc from 'tiny-secp256k1';
 import { Transaction, address } from 'bitcoinjs-lib';
 import ws from 'ws';
 import { getLogger, PubLogger, ERROR } from '../../helpers/logger.js';
-import { loggedGet, loggedPost, getNetwork } from './swapHelpers.js';
+import { caughtErrorMessage, loggedGet, loggedPost, getNetwork } from './swapHelpers.js';
 import { BTCNetwork } from '../../main/settings.js';
 
 /* type InvoiceSwapFees = {
@@ -294,14 +294,18 @@ export class SubmarineSwaps {
     }
 
     /**
-     * Get partial refund signature from Boltz for cooperative refund
+     * Get partial refund signature from Boltz for cooperative refund.
+     * HTTP is bounded; a hung provider must not block the unilateral path.
      */
-    private getPartialRefundSignature = async (
+    getPartialRefundSignature = async (
         swapId: string,
         pubNonce: Buffer,
         transaction: Transaction,
         index: number
     ): Promise<{ ok: true, data: { pubNonce: string, partialSignature: string } } | { ok: false, error: string }> => {
+        if (!this.httpUrl) {
+            return { ok: false, error: 'no swap provider configured' }
+        }
         const url = `${this.httpUrl}/v2/swap/submarine/${swapId}/refund`
         const req = {
             index,
@@ -312,9 +316,11 @@ export class SubmarineSwaps {
     }
 
     /**
-     * Constructs a Taproot refund transaction (cooperative or uncooperative)
+     * Constructs a Taproot refund transaction (cooperative or uncooperative).
+     * Mode is an explicit flag; never infer cooperative vs unilateral from error.message.
+     * boltz-core Musig.addPartial throws a string on an invalid partial signature.
      */
-    private constructTaprootRefund = async (
+    constructTaprootRefund = async (
         swapId: string,
         claimPublicKey: string,
         swapTree: string,
@@ -325,11 +331,10 @@ export class SubmarineSwaps {
         feePerVbyte: number,
         cooperative: boolean = true,
         allowUncooperativeFallback: boolean = true,
-        cooperativeErrorMessage?: string
     ): Promise<{
         ok: true,
         transaction: Transaction,
-        cooperativeError?: string
+        usedCooperative: boolean
     } | {
         ok: false,
         error: string
@@ -383,7 +388,7 @@ export class SubmarineSwaps {
             return {
                 ok: true,
                 transaction: refundTx,
-                cooperativeError: cooperativeErrorMessage,
+                usedCooperative: false,
             }
         }
 
@@ -407,7 +412,6 @@ export class SubmarineSwaps {
                     return { ok: false, error: `Failed to get Boltz partial signature: ${boltzSigRes.error}` }
                 }
                 this.log(ERROR, 'Falling back to uncooperative refund')
-                // Fallback to uncooperative refund
                 return await this.constructTaprootRefund(
                     swapId,
                     claimPublicKey,
@@ -419,7 +423,6 @@ export class SubmarineSwaps {
                     feePerVbyte,
                     false,
                     allowUncooperativeFallback,
-                    boltzSigRes.error
                 )
             }
 
@@ -448,13 +451,13 @@ export class SubmarineSwaps {
             // Set the witness to the aggregated signature
             refundTx.ins[0].witness = [musig.aggregatePartials()]
 
-            return { ok: true, transaction: refundTx }
-        } catch (error: any) {
-            this.log(ERROR, 'Cooperative refund failed:', error.message)
+            return { ok: true, transaction: refundTx, usedCooperative: true }
+        } catch (error: unknown) {
+            const message = caughtErrorMessage(error)
+            this.log(ERROR, 'Cooperative refund failed:', message)
             if (!allowUncooperativeFallback) {
-                return { ok: false, error: `Cooperative refund failed: ${error.message}` }
+                return { ok: false, error: `Cooperative refund failed: ${message}` }
             }
-            // Fallback to uncooperative refund
             return await this.constructTaprootRefund(
                 swapId,
                 claimPublicKey,
@@ -466,24 +469,8 @@ export class SubmarineSwaps {
                 feePerVbyte,
                 false,
                 allowUncooperativeFallback,
-                error.message
             )
         }
-    }
-
-    /**
-     * Broadcasts a refund transaction
-     */
-    private broadcastRefundTransaction = async (transaction: Transaction): Promise<{ ok: true, txId: string } | { ok: false, error: string }> => {
-        const url = `${this.httpUrl}/v2/chain/BTC/transaction`
-        const req = { hex: transaction.toHex() }
-
-        const result = await loggedPost<{ id: string }>(this.log, url, req)
-        if (!result.ok) {
-            return result
-        }
-
-        return { ok: true, txId: result.data.id }
     }
 
     /**
@@ -509,23 +496,26 @@ export class SubmarineSwaps {
         lockupTxHex?: string,
         feePerVbyte?: number,
         allowEarlyRefund?: boolean
-    }): Promise<{ ok: true, publish: { done: false, txHex: string, txId: string } | { done: true, txId: string } } | { ok: false, error: string }> => {
+    }): Promise<{ ok: true, publish: { done: false, txHex: string, txId: string, usedCooperative: boolean } } | { ok: false, error: string }> => {
         const { swapId, claimPublicKey, swapTree, timeoutBlockHeight, privateKeyHex, refundAddress, currentHeight, lockupTxHex, feePerVbyte = 2, allowEarlyRefund = false } = params
 
         this.log('Starting refund process for swap:', swapId)
 
-        // Get the lockup transaction (from parameter or fetch from Boltz)
+        // Get the lockup transaction (from parameter or, if a provider is configured, fetch it).
+        // Independent timeout refunds must not require a live provider URL.
         let lockupTx: Transaction
         if (lockupTxHex) {
             this.log('Using provided lockup transaction hex')
             lockupTx = Transaction.fromHex(lockupTxHex)
-        } else {
+        } else if (this.httpUrl) {
             this.log('Fetching lockup transaction from Boltz')
             const lockupTxRes = await this.getLockupTransaction(swapId)
             if (!lockupTxRes.ok) {
                 return { ok: false, error: `Failed to get lockup transaction: ${lockupTxRes.error}` }
             }
             lockupTx = Transaction.fromHex(lockupTxRes.data.hex)
+        } else {
+            return { ok: false, error: 'lockup transaction hex is required for independent refund' }
         }
         this.log('Lockup transaction retrieved:', lockupTx.getId())
 
@@ -548,7 +538,12 @@ export class SubmarineSwaps {
         // Parse the private key
         const privateKey = ECPairFactory(ecc).fromPrivateKey(Buffer.from(privateKeyHex, 'hex'))
 
-        // Construct the refund transaction (tries cooperative first, then falls back to uncooperative)
+        // After timeout the refund is unilateral. Cooperative is a bounded optional
+        // path only before timeout; publication always happens independently via LND.
+        const tryCooperative = !hasTimedOut && allowEarlyRefund && !!this.httpUrl
+        if (!hasTimedOut && !tryCooperative) {
+            return { ok: false, error: 'cooperative refund requires a swap provider' }
+        }
         const refundTxRes = await this.constructTaprootRefund(
             swapId,
             claimPublicKey,
@@ -558,27 +553,18 @@ export class SubmarineSwaps {
             privateKey,
             refundAddress,
             feePerVbyte,
-            true, // Try cooperative first
-            hasTimedOut // only allow uncooperative fallback once timeout has passed
+            tryCooperative,
+            hasTimedOut,
         )
 
         if (!refundTxRes.ok) {
             return { ok: false, error: refundTxRes.error }
         }
 
-        const cooperative = !refundTxRes.cooperativeError
-        this.log(`Refund transaction constructed (${cooperative ? 'cooperative' : 'uncooperative'}):`, refundTxRes.transaction.getId())
-        if (!cooperative) {
-            return { ok: true, publish: { done: false, txHex: refundTxRes.transaction.toHex(), txId: refundTxRes.transaction.getId() } }
-        }
-        // Broadcast the refund transaction
-        const broadcastRes = await this.broadcastRefundTransaction(refundTxRes.transaction)
-        if (!broadcastRes.ok) {
-            return { ok: false, error: `Failed to broadcast refund transaction: ${broadcastRes.error}` }
-        }
-
-        this.log('Refund transaction broadcasted successfully:', broadcastRes.txId)
-        return { ok: true, publish: { done: true, txId: broadcastRes.txId } }
+        const txHex = refundTxRes.transaction.toHex()
+        const txId = refundTxRes.transaction.getId()
+        this.log(`Refund transaction constructed (${refundTxRes.usedCooperative ? 'cooperative' : 'uncooperative'}):`, txId)
+        return { ok: true, publish: { done: false, txHex, txId, usedCooperative: refundTxRes.usedCooperative } }
     }
 
     SubscribeToInvoiceSwap = (data: InvoiceSwapData, swapDone: (result: InvoiceSwapResult) => void, waitingTx: () => void | Promise<void>) => {

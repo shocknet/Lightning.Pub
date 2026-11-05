@@ -247,6 +247,7 @@ const generateInvoiceSwapRow = (base: number): InvoiceSwapRow => {
         refund_address: '',
         refund_at_unix: 0,
         refund_tx_id: '',
+        refund_tx_hex: '',
         service_url: 'https://boltz.example',
     }
 }

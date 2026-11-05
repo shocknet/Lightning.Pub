@@ -10,6 +10,7 @@ import { InviteToken } from './entity/InviteToken.js';
 import { StorageInterface } from './db/storageInterface.js';
 import { AppUserDevice } from './entity/AppUserDevice.js';
 import { ApplicationRow, ApplicationUserRow, AppUserDeviceRow, InviteTokenRow, mapAppBackupRow, mapAppUserBackupRow, mapAppUserDeviceBackupRow, mapInviteTokenBackupRow } from '../backup/segments.js';
+import { isReservedAppUserIdentifier } from '../lnd/swaps/swapOwnership.js';
 export default class {
     dbs: StorageInterface
     userStorage: UserStorage
@@ -95,6 +96,9 @@ export default class {
     }
 
     async AddApplicationUser(application: Application, userIdentifier: string, balance: number, nostrPub?: string, opts?: { ownerOnlyClink?: boolean, txId?: string }) {
+        if (isReservedAppUserIdentifier(userIdentifier)) {
+            throw new Error("reserved user identifier")
+        }
         const create = async (txId: string) => {
             const user = await this.userStorage.AddUser(balance, txId)
             return this.dbs.CreateAndSave<ApplicationUser>('ApplicationUser', {

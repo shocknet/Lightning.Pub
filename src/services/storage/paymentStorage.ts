@@ -17,6 +17,7 @@ import { StorageInterface } from './db/storageInterface.js';
 import { TransactionSwap } from './entity/TransactionSwap.js';
 import { InvoiceSwap } from './entity/InvoiceSwap.js';
 import { InvoiceSwapRow, isInvoiceSwapBackupRow, isTransactionSwapBackupRow, mapInvoiceSwapBackupRow, TransactionSwapRow, mapTransactionSwapBackupRow } from '../backup/segments.js';
+import { swapOwnerIds } from '../lnd/swaps/swapOwnership.js';
 import { getLogger } from '../helpers/logger.js';
 export type InboundOptionals = { product?: Product, callbackUrl?: string, expiry: number, expectedPayer?: User, linkedApplication?: Application, zapInfo?: ZapInfo, offerId?: string, payerData?: Record<string, string>, rejectUnauthorized?: boolean, token?: string, blind?: boolean, clinkRequesterPub?: string, clinkRequesterEventId?: string }
 export const defaultInvoiceExpiry = 60 * 60
@@ -648,13 +649,24 @@ export default class {
         return this.dbs.CreateAndSave<TransactionSwap>('TransactionSwap', swap)
     }
 
-    async GetTransactionSwap(swapOperationId: string, appUserId: string, txId?: string) {
-        return this.dbs.FindOne<TransactionSwap>('TransactionSwap', { where: { swap_operation_id: swapOperationId, used: false, app_user_id: appUserId } }, txId)
+    private swapOwnerWhere(appUserId: string) {
+        const ids = swapOwnerIds(appUserId)
+        return ids.length === 1 ? ids[0] : In(ids)
     }
 
-    async StartTransactionSwap(swapOperationId: string, address: string, txId?: string) {
+    async GetTransactionSwap(swapOperationId: string, appUserId: string, txId?: string) {
+        return this.dbs.FindOne<TransactionSwap>('TransactionSwap', { where: { swap_operation_id: swapOperationId, used: false, app_user_id: this.swapOwnerWhere(appUserId) } }, txId)
+    }
+
+    async StartTransactionSwap(swapOperationId: string, address: string, appUserId: string, txId?: string) {
         const now = Math.floor(Date.now() / 1000)
-        return this.dbs.Update<TransactionSwap>('TransactionSwap', { swap_operation_id: swapOperationId }, {
+        return this.dbs.Update<TransactionSwap>('TransactionSwap', {
+            swap_operation_id: swapOperationId,
+            used: false,
+            app_user_id: this.swapOwnerWhere(appUserId),
+            paid_at_unix: 0,
+            address_paid: "",
+        }, {
             paid_at_unix: now,
             address_paid: address,
         }, txId)
@@ -750,6 +762,7 @@ export default class {
                     refund_address: swap.refund_address,
                     refund_at_unix: swap.refund_at_unix,
                     refund_tx_id: swap.refund_tx_id,
+                    refund_tx_hex: swap.refund_tx_hex,
                     service_url: swap.service_url,
                 }, txId)
                 restored++
@@ -804,7 +817,7 @@ export default class {
     }
 
     async ListPendingTransactionSwaps(appUserId: string, txId?: string) {
-        return this.dbs.Find<TransactionSwap>('TransactionSwap', { where: { used: false, app_user_id: appUserId } }, txId)
+        return this.dbs.Find<TransactionSwap>('TransactionSwap', { where: { used: false, app_user_id: this.swapOwnerWhere(appUserId) } }, txId)
     }
 
     async ListTxSwapPayments(userId: string, txId?: string) {
@@ -816,7 +829,7 @@ export default class {
     }
 
     async ListCompletedTxSwaps(appUserId: string, payments: UserInvoicePayment[], txId?: string) {
-        const completed = await this.dbs.Find<TransactionSwap>('TransactionSwap', { where: { used: true, app_user_id: appUserId } }, txId)
+        const completed = await this.dbs.Find<TransactionSwap>('TransactionSwap', { where: { used: true, app_user_id: this.swapOwnerWhere(appUserId) } }, txId)
         // const payments = await this.dbs.Find<UserInvoicePayment>('UserInvoicePayment', { where: { swap_operation_id: Not(IsNull()), } }, txId)
         const paymentsMap = new Map<string, UserInvoicePayment>()
         payments.forEach(p => {
@@ -832,7 +845,7 @@ export default class {
     }
 
     async GetInvoiceSwap(swapOperationId: string, appUserId: string, txId?: string) {
-        const swap = await this.dbs.FindOne<InvoiceSwap>('InvoiceSwap', { where: { swap_operation_id: swapOperationId, used: false, app_user_id: appUserId } }, txId)
+        const swap = await this.dbs.FindOne<InvoiceSwap>('InvoiceSwap', { where: { swap_operation_id: swapOperationId, used: false, app_user_id: this.swapOwnerWhere(appUserId) } }, txId)
         if (!swap || swap.tx_id) {
             return null
         }
@@ -886,11 +899,11 @@ export default class {
     }
 
     async ListCompletedInvoiceSwaps(appUserId: string, txId?: string) {
-        return this.dbs.Find<InvoiceSwap>('InvoiceSwap', { where: { used: true, app_user_id: appUserId } }, txId)
+        return this.dbs.Find<InvoiceSwap>('InvoiceSwap', { where: { used: true, app_user_id: this.swapOwnerWhere(appUserId) } }, txId)
     }
 
     async ListPendingInvoiceSwaps(appUserId: string, txId?: string) {
-        return this.dbs.Find<InvoiceSwap>('InvoiceSwap', { where: { used: false, app_user_id: appUserId } }, txId)
+        return this.dbs.Find<InvoiceSwap>('InvoiceSwap', { where: { used: false, app_user_id: this.swapOwnerWhere(appUserId) } }, txId)
     }
 
     async ListUnfinishedInvoiceSwaps(txId?: string) {
@@ -898,13 +911,26 @@ export default class {
         return swaps.filter(s => !!s.tx_id)
     }
 
-    async UpdateRefundInvoiceSwap(swapOperationId: string, refundAddress: string, refundTxId: string, txId?: string) {
+    async SetInvoiceSwapRefundHex(swapOperationId: string, refundAddress: string, refundTxHex: string, txId?: string) {
         const now = Math.floor(Date.now() / 1000)
         return this.dbs.Update<InvoiceSwap>('InvoiceSwap', { swap_operation_id: swapOperationId }, {
             refund_address: refundAddress,
             refund_at_unix: now,
-            refund_tx_id: refundTxId,
+            refund_tx_hex: refundTxHex,
         }, txId)
+    }
+
+    async UpdateRefundInvoiceSwap(swapOperationId: string, refundAddress: string, refundTxId: string, refundTxHex?: string, txId?: string) {
+        const now = Math.floor(Date.now() / 1000)
+        const update: Partial<InvoiceSwap> = {
+            refund_address: refundAddress,
+            refund_at_unix: now,
+            refund_tx_id: refundTxId,
+        }
+        if (refundTxHex) {
+            update.refund_tx_hex = refundTxHex
+        }
+        return this.dbs.Update<InvoiceSwap>('InvoiceSwap', { swap_operation_id: swapOperationId }, update, txId)
     }
 
     async GetRefundableInvoiceSwap(swapOperationId: string, txId?: string) {

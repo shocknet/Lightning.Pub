@@ -42,6 +42,7 @@ import { ConsumedDebitK1ReleasedAt1787850000006 } from './1787850000006-consumed
 import { ConsumedDebitK1CreatedAtUnix1787850000007 } from './1787850000007-consumed_debit_k1_created_at_unix.js'
 import { ApplicationUserOwnerOnlyClink1786649280000 } from './1786649280000-application_user_owner_only_clink.js'
 import { TxSwapClaim1788000000000 } from './1788000000000-tx_swap_claim.js'
+import { RefundTxHex1789000000000 } from './1789000000000-refund_tx_hex.js'
 
 import { LndMetrics1703170330183 } from './1703170330183-lnd_metrics.js'
 import { ChannelRouting1709316653538 } from './1709316653538-channel_routing.js'
@@ -66,7 +67,7 @@ export const allMigrations = [Initial1703170309875, LspOrder1718387847693, Liqui
     TxSwapTimestamps1771878683383, RefundSwapInfo1773082318982, SwapRate1785519558948, ConsumedDebitK11787850000000, ConsumedDebitK1RateIdx1787850000001,
     ConsumedDebitK1Invoice1787850000002, ConsumedDebitK1Hold1787850000003, ConsumedDebitK1Attempts1787850000004, ConsumedDebitK1InvoiceIdx1787850000005,
     ConsumedDebitK1ReleasedAt1787850000006, ConsumedDebitK1CreatedAtUnix1787850000007, ApplicationUserOwnerOnlyClink1786649280000,
-    TxSwapClaim1788000000000]
+    TxSwapClaim1788000000000, RefundTxHex1789000000000]
 
 
 export const allMetricsMigrations = [LndMetrics1703170330183, ChannelRouting1709316653538, HtlcCount1724266887195, BalanceEvents1724860966825,

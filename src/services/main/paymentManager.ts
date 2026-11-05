@@ -20,6 +20,7 @@ import { UserInvoicePayment } from '../storage/entity/UserInvoicePayment.js'
 import SettingsManager from './settingsManager.js'
 import { Swaps } from '../lnd/swaps/swaps.js'
 import { REVERSE_SWAP_PAYMENT_TIMEOUT_SECONDS, SWAP_INVOICE_MUST_USE_LND } from '../lnd/swaps/reverseSwaps.js'
+import { assertSwapActor } from '../lnd/swaps/swapOwnership.js'
 import { Transaction, OutputDetail } from '../../../proto/lnd/lightning.js'
 import { LndAddress } from '../lnd/lnd.js'
 import Metrics from '../metrics/index.js'
@@ -872,6 +873,7 @@ export default class {
         this.log("paying internal address")
         let amount = req.amountSats
         if (req.swap_operation_id) {
+            assertSwapActor(ctx.app_user_id)
             const swap = await this.storage.paymentStorage.GetTransactionSwap(req.swap_operation_id, ctx.app_user_id)
             if (!swap) {
                 throw new Error("swap quote not found")

@@ -656,6 +656,7 @@ export type InvoiceSwapRow = {
     refund_address: string
     refund_at_unix: number
     refund_tx_id: string
+    refund_tx_hex: string
     service_url: string
 }
 
@@ -707,6 +708,7 @@ export const mapInvoiceSwapBackupRow = (swap: InvoiceSwap): InvoiceSwapRow => ({
     refund_address: swap.refund_address || '',
     refund_at_unix: unixFromBackup(swap.refund_at_unix),
     refund_tx_id: swap.refund_tx_id || '',
+    refund_tx_hex: swap.refund_tx_hex || '',
     service_url: swap.service_url || '',
 })
 
@@ -739,6 +741,7 @@ export const encodeInvoiceSwapRow = (row: InvoiceSwapRow): Uint8Array => {
     putNumber(tlv, 26, row.refund_at_unix, true)
     putString(tlv, 27, row.refund_tx_id, true)
     putString(tlv, 28, row.service_url, true)
+    putString(tlv, 29, row.refund_tx_hex, true)
     return encodeTLV(tlv)
 }
 
@@ -772,6 +775,7 @@ export const decodeInvoiceSwapRow = (data: Uint8Array): InvoiceSwapRow => {
         refund_at_unix: tlvNumber(tlv, 26),
         refund_tx_id: tlvString(tlv, 27),
         service_url: tlvString(tlv, 28),
+        refund_tx_hex: tlvString(tlv, 29),
     }
 }
 
