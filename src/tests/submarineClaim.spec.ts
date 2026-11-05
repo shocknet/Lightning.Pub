@@ -23,6 +23,7 @@ export default async (T: StorageTestBase) => {
     await testWrongIdClaimedDoesNotBlockRefund(T)
     await testUsedSuccessDoesNotVetoRefund(T)
     await testResumeInvoiceSwapWithoutLockupHex(T)
+    await testResumeInvoiceSwapBroadcastRejectionDoesNotThrow(T)
 }
 
 const testVerifyClaimPreimage = (T: StorageTestBase) => {
@@ -148,13 +149,12 @@ const testResumeInvoiceSwapWithoutLockupHex = async (T: StorageTestBase) => {
     swaps.subSwappers['http://mock-boltz'] = swapper
     let waitingTxCalls = 0
     let waitingTxError: string | undefined
+    let waitingTxDone: Promise<void> = Promise.resolve()
     swapper.SubscribeToInvoiceSwap = (_data, _done, waitingTx) => {
-        try {
-            waitingTx()
-            waitingTxCalls++
-        } catch (err: any) {
+        waitingTxCalls++
+        waitingTxDone = Promise.resolve().then(() => waitingTx()).catch((err: any) => {
             waitingTxError = err.message || String(err)
-        }
+        })
         return () => { }
     }
     let broadcast = false
@@ -165,6 +165,7 @@ const testResumeInvoiceSwapWithoutLockupHex = async (T: StorageTestBase) => {
         },
     } as any)
     await swaps.ResumeInvoiceSwaps()
+    await waitingTxDone
     T.expect(waitingTxCalls).to.equal(1)
     T.expect(waitingTxError).to.equal(undefined)
     T.expect(broadcast).to.equal(false)
@@ -172,6 +173,65 @@ const testResumeInvoiceSwapWithoutLockupHex = async (T: StorageTestBase) => {
     T.expect(stillOpen.some(s => s.swap_operation_id === saved.swap_operation_id)).to.equal(true)
     await T.storage.paymentStorage.DeleteInvoiceSwap(saved.swap_operation_id)
     T.d('resume waited for claim without throwing or republishing a missing lockup hex')
+}
+
+const testResumeInvoiceSwapBroadcastRejectionDoesNotThrow = async (T: StorageTestBase) => {
+    T.d('starting resume of a funded invoice swap survives a rejected lockup rebroadcast')
+    const saved = await insertFundedSwap(T, { lockup_tx_hex: '020000000001aabb' })
+    const leftover = await T.storage.paymentStorage.ListUnfinishedInvoiceSwaps()
+    for (const swap of leftover) {
+        if (swap.swap_operation_id !== saved.swap_operation_id) {
+            await T.storage.paymentStorage.DeleteInvoiceSwap(swap.swap_operation_id)
+        }
+    }
+    const swapper = new SubmarineSwaps({ httpUrl: 'http://mock-boltz', wsUrl: 'ws://127.0.0.1:1', network: 'regtest' })
+    const swaps = new Swaps({
+        getSettings: () => ({
+            lndSettings: { network: 'regtest' as const },
+            swapsSettings: {
+                enableSwaps: true,
+                boltzHttpUrl: '',
+                boltzWebSocketUrl: '',
+                boltsHttpUrlAlt: '',
+                boltsWebSocketUrlAlt: '',
+            },
+        }),
+    } as any, T.storage)
+    swaps.subSwappers['http://mock-boltz'] = swapper
+    let waitingTxDone: Promise<void> = Promise.resolve()
+    let waitingTxError: string | undefined
+    swapper.SubscribeToInvoiceSwap = (_data, _done, waitingTx) => {
+        waitingTxDone = Promise.resolve().then(() => waitingTx()).catch((err: any) => {
+            waitingTxError = err.message || String(err)
+        })
+        return () => { }
+    }
+    const rejections: string[] = []
+    const onUnhandled = (reason: unknown) => {
+        rejections.push(reason instanceof Error ? reason.message : String(reason))
+    }
+    process.on('unhandledRejection', onUnhandled)
+    let broadcast = false
+    try {
+        swaps.SetLnd({
+            BroadcastTransaction: async () => {
+                broadcast = true
+                throw new Error('no peers')
+            },
+        } as any)
+        await swaps.ResumeInvoiceSwaps()
+        await waitingTxDone
+        await new Promise<void>(resolve => setImmediate(resolve))
+        T.expect(broadcast).to.equal(true)
+        T.expect(waitingTxError).to.equal(undefined)
+        T.expect(rejections).to.deep.equal([])
+        const stillOpen = await T.storage.paymentStorage.ListUnfinishedInvoiceSwaps()
+        T.expect(stillOpen.some(s => s.swap_operation_id === saved.swap_operation_id)).to.equal(true)
+    } finally {
+        process.removeListener('unhandledRejection', onUnhandled)
+        await T.storage.paymentStorage.DeleteInvoiceSwap(saved.swap_operation_id)
+    }
+    T.d('rejected lockup rebroadcast was caught and did not reject the resume callback')
 }
 
 const setupSubmarine = (swapId = `swap-${randomBytes(8).toString('hex')}`): { swapper: SubmarineSwaps, data: InvoiceSwapData } => {

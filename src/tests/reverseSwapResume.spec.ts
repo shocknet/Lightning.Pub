@@ -1,7 +1,7 @@
 import { Transaction } from 'bitcoinjs-lib'
 import { randomBytes } from 'crypto'
 import { Swaps } from '../services/lnd/swaps/swaps.js'
-import { ReverseSwaps } from '../services/lnd/swaps/reverseSwaps.js'
+import { MAX_REVERSE_TIMEOUT_BLOCKS, ReverseSwaps } from '../services/lnd/swaps/reverseSwaps.js'
 import { StorageTestBase } from './testBase.js'
 
 export const ignore = false
@@ -12,6 +12,7 @@ const MOCK_URL = 'http://mock-boltz'
 const DEST = 'bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080'
 const CLAIM_HEX = dummyTxHex('aa')
 const OTHER_CLAIM_HEX = dummyTxHex('bb')
+const LOCKUP_HEX = dummyTxHex('cc')
 
 export default async (T: StorageTestBase) => {
     await testExpiredCleanupKeepsStartedReverseSwaps(T)
@@ -22,6 +23,9 @@ export default async (T: StorageTestBase) => {
     await testResumeRebroadcastsFailedSwapWithClaim(T)
     await testResumeDoesNotBlockOnLockupWatch(T)
     await testResumeRejectsMissingDestination(T)
+    await testResumeUsesSavedLockupHex(T)
+    await testResumeWatchesFromTimeoutWindow(T)
+    await testResumeRetriesUntilLndSynced(T)
 }
 
 function dummyTxHex(tag: string) {
@@ -299,4 +303,132 @@ const testResumeRejectsMissingDestination = async (T: StorageTestBase) => {
     T.expect(leftover.some(s => s.swap_operation_id === saved.swap_operation_id)).to.equal(true)
     await T.storage.paymentStorage.DeleteTransactionSwap(saved.swap_operation_id)
     T.d('started rows without a destination are kept for a later verified pay')
+}
+
+const testResumeUsesSavedLockupHex = async (T: StorageTestBase) => {
+    T.d('starting resume claims from a persisted lockup hex without watching from tip')
+    const userId = `rev-lockup-${randomBytes(8).toString('hex')}`
+    const saved = await T.storage.paymentStorage.AddTransactionSwap(requiredSwap(userId, {
+        paid_at_unix: 1,
+        address_paid: DEST,
+        lockup_tx_hex: LOCKUP_HEX,
+        timeout_block_height: 920_000 + 1_008,
+    }))
+    await deleteOtherUnfinished(T, saved.swap_operation_id)
+    const { swaps, swapper } = makeSwaps(T)
+    let waitedScript = false
+    let returnedHex = ''
+    let heightHint = -1
+    swapper.SubscribeToTransactionSwap = async (_data, done, chain) => {
+        heightHint = chain.heightHint
+        const confirmed = await chain.waitForLockup(Buffer.alloc(0), 1, chain.heightHint)
+        returnedHex = confirmed.txHex
+        done({ ok: true, txId: Transaction.fromHex(CLAIM_HEX).getId() })
+    }
+    swaps.SetLnd({
+        DecodeInvoice: async () => ({ numSatoshis: 1200, paymentHash: '22'.repeat(32) }),
+        GetInfo: async () => ({ syncedToChain: true, blockHeight: 920_500 }),
+        BroadcastTransaction: async (txHex: string) => ({ txId: Transaction.fromHex(txHex).getId() }),
+        WaitForScriptConfirmations: async () => {
+            waitedScript = true
+            throw new Error('should not watch chain when lockup hex is saved')
+        },
+    } as any)
+    swaps.SetBackupManager({ notifyBackupTable: async () => { }, flushTablesNow: async () => { } } as any)
+    await swaps.ResumeTransactionSwaps()
+    const deadline = Date.now() + 500
+    while (!returnedHex && Date.now() < deadline) {
+        await new Promise(resolve => setTimeout(resolve, 10))
+    }
+    T.expect(waitedScript).to.equal(false)
+    T.expect(returnedHex).to.equal(LOCKUP_HEX)
+    T.expect(heightHint).to.equal(Math.max(1, 920_000 + 1_008 - MAX_REVERSE_TIMEOUT_BLOCKS))
+    await T.storage.paymentStorage.DeleteTransactionSwap(saved.swap_operation_id)
+    T.d('resume reused the saved lockup hex and did not start a tip-based watch')
+}
+
+const testResumeWatchesFromTimeoutWindow = async (T: StorageTestBase) => {
+    T.d('starting resume watches for lockup from the timeout window, not the tip')
+    const userId = `rev-hint-${randomBytes(8).toString('hex')}`
+    const timeout = 920_000 + 1_008
+    const tip = 920_500
+    const saved = await T.storage.paymentStorage.AddTransactionSwap(requiredSwap(userId, {
+        paid_at_unix: 1,
+        address_paid: DEST,
+        timeout_block_height: timeout,
+    }))
+    await deleteOtherUnfinished(T, saved.swap_operation_id)
+    const { swaps, swapper } = makeSwaps(T)
+    let heightHint = -1
+    let waitHeightHint = -1
+    swapper.SubscribeToTransactionSwap = async (_data, done, chain) => {
+        heightHint = chain.heightHint
+        await chain.waitForLockup(Buffer.alloc(0), 1, chain.heightHint)
+        waitHeightHint = chain.heightHint
+        done({ ok: false, error: 'stop after recording hint' })
+    }
+    swaps.SetLnd({
+        DecodeInvoice: async () => ({ numSatoshis: 1200, paymentHash: '22'.repeat(32) }),
+        GetInfo: async () => ({ syncedToChain: true, blockHeight: tip }),
+        BroadcastTransaction: async (txHex: string) => ({ txId: Transaction.fromHex(txHex).getId() }),
+        WaitForScriptConfirmations: async (_script: Buffer, _confs: number, hint: number) => {
+            waitHeightHint = hint
+            return { txHex: LOCKUP_HEX, blockHeight: tip }
+        },
+    } as any)
+    swaps.SetBackupManager({ notifyBackupTable: async () => { }, flushTablesNow: async () => { } } as any)
+    await swaps.ResumeTransactionSwaps()
+    const deadline = Date.now() + 500
+    while ((heightHint < 0 || waitHeightHint < 0) && Date.now() < deadline) {
+        await new Promise(resolve => setTimeout(resolve, 10))
+    }
+    const expected = Math.max(1, Math.min(tip, timeout - MAX_REVERSE_TIMEOUT_BLOCKS))
+    T.expect(expected).to.equal(timeout - MAX_REVERSE_TIMEOUT_BLOCKS)
+    T.expect(expected).to.be.lessThan(tip)
+    T.expect(heightHint).to.equal(expected)
+    T.expect(waitHeightHint).to.equal(expected)
+    await T.storage.paymentStorage.DeleteTransactionSwap(saved.swap_operation_id)
+    T.d('resume asked LND to scan from the start of the reverse-swap timeout window')
+}
+
+const testResumeRetriesUntilLndSynced = async (T: StorageTestBase) => {
+    T.d('starting resume retries until LND is synced instead of giving up')
+    const userId = `rev-sync-${randomBytes(8).toString('hex')}`
+    const saved = await T.storage.paymentStorage.AddTransactionSwap(requiredSwap(userId, {
+        paid_at_unix: 1,
+        address_paid: DEST,
+        timeout_block_height: 920_000 + 1_008,
+    }))
+    await deleteOtherUnfinished(T, saved.swap_operation_id)
+    const { swaps, swapper } = makeSwaps(T)
+    swaps.chainTipRetryMs = 10
+    let infoCalls = 0
+    let watchStarted = false
+    swapper.SubscribeToTransactionSwap = async () => {
+        watchStarted = true
+    }
+    swaps.SetLnd({
+        DecodeInvoice: async () => ({ numSatoshis: 1200, paymentHash: '22'.repeat(32) }),
+        GetInfo: async () => {
+            infoCalls++
+            if (infoCalls < 3) {
+                return { syncedToChain: false, blockHeight: 0 }
+            }
+            return { syncedToChain: true, blockHeight: 920_500 }
+        },
+        BroadcastTransaction: async (txHex: string) => ({ txId: Transaction.fromHex(txHex).getId() }),
+        WaitForScriptConfirmations: async () => ({ txHex: LOCKUP_HEX, blockHeight: 920_500 }),
+    } as any)
+    const started = Date.now()
+    await swaps.ResumeTransactionSwaps()
+    T.expect(Date.now() - started).to.be.lessThan(1000)
+    const deadline = Date.now() + 1000
+    while (!watchStarted && Date.now() < deadline) {
+        await new Promise(resolve => setTimeout(resolve, 10))
+    }
+    T.expect(watchStarted).to.equal(true)
+    T.expect(infoCalls).to.be.greaterThan(2)
+    swaps.Stop()
+    await T.storage.paymentStorage.DeleteTransactionSwap(saved.swap_operation_id)
+    T.d('resume kept retrying until LND reported a synced chain tip')
 }

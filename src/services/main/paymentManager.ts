@@ -876,6 +876,9 @@ export default class {
             if (!swap) {
                 throw new Error("swap quote not found")
             }
+            if (swap.paid_at_unix > 0 || swap.claim_tx_hex || swap.lockup_tx_hex) {
+                throw new Error("cannot pay an internal address with a started swap")
+            }
             await this.storage.paymentStorage.DeleteTransactionSwap(req.swap_operation_id)
             if (amount <= 0) {
                 amount = swap.transaction_amount - swap.chain_fee_sats

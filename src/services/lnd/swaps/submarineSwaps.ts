@@ -581,7 +581,7 @@ export class SubmarineSwaps {
         return { ok: true, publish: { done: true, txId: broadcastRes.txId } }
     }
 
-    SubscribeToInvoiceSwap = (data: InvoiceSwapData, swapDone: (result: InvoiceSwapResult) => void, waitingTx: () => void) => {
+    SubscribeToInvoiceSwap = (data: InvoiceSwapData, swapDone: (result: InvoiceSwapResult) => void, waitingTx: () => void | Promise<void>) => {
         this.log("subscribing to invoice swap", { id: data.createdResponse.id })
         const webSocket = new ws(`${this.wsUrl}/v2/ws`)
         const subReq = { op: 'subscribe', channel: 'swap.update', args: [data.createdResponse.id] }
@@ -620,7 +620,12 @@ export class SubmarineSwaps {
                 return
             }
             txRequested = true
-            waitingTx()
+            // waitingTx may be async (resume rebroadcast). requestTx itself is not
+            // awaited by the websocket handler, so catch here to avoid an unhandled
+            // rejection taking down the process.
+            void Promise.resolve().then(() => waitingTx()).catch((err: any) => {
+                this.log(ERROR, 'Error requesting invoice swap lockup', err.message || err)
+            })
         }
         webSocket.on('message', async (rawMsg) => {
             try {
@@ -647,7 +652,7 @@ export class SubmarineSwaps {
         rawMsg: ws.RawData,
         data: InvoiceSwapData,
         handlers: {
-            waitingTx: () => void
+            waitingTx: () => void | Promise<void>
             onVerifiedPreimage?: (preimage: string) => void
         },
     ) => {
