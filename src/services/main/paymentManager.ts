@@ -19,6 +19,8 @@ import { Utils } from '../helpers/utilsWrapper.js'
 import { UserInvoicePayment } from '../storage/entity/UserInvoicePayment.js'
 import SettingsManager from './settingsManager.js'
 import { Swaps } from '../lnd/swaps/swaps.js'
+import { REVERSE_SWAP_PAYMENT_TIMEOUT_SECONDS, SWAP_INVOICE_MUST_USE_LND } from '../lnd/swaps/reverseSwaps.js'
+import { assertSwapActor } from '../lnd/swaps/swapOwnership.js'
 import { Transaction, OutputDetail } from '../../../proto/lnd/lightning.js'
 import { LndAddress } from '../lnd/lnd.js'
 import Metrics from '../metrics/index.js'
@@ -36,6 +38,7 @@ export type OutgoingInvoiceFailedCb = (invoice: string, txId: string) => Promise
 
 type PayInvoiceOptionals = {
     swapOperationId?: string
+    timeoutSeconds?: number
     ack?: (op: Types.UserOperation) => void
     assertDebitFrequency?: AssertDebitFrequency
     onPaymentAccepted?: (txId: string) => Promise<void>
@@ -663,7 +666,11 @@ export default class {
         const { amountForLnd, payAmount, serviceFee } = amounts
         const totalAmountToDecrement = payAmount + serviceFee
         const routingFeeLimit = this.getRoutingFeeLimit(payAmount)
-        const use = await this.liquidityManager.beforeOutInvoicePayment(payAmount, serviceFee)
+        const isSwapPay = Boolean(optionals.swapOperationId)
+        if (isSwapPay && this.settings.getSettings().liquiditySettings.useOnlyLiquidityProvider) {
+            throw new Error(SWAP_INVOICE_MUST_USE_LND)
+        }
+        const use = isSwapPay ? 'lnd' : await this.liquidityManager.beforeOutInvoicePayment(payAmount, serviceFee)
         const provider = use === 'provider' ? this.lnd.liquidProvider.GetProviderPubkey() : undefined
         const pendingPayment = await this.storage.StartTransaction(async tx => {
             await this.applyPaymentTxGuards(tx, userId, payAmount, serviceFee, optionals)
@@ -677,7 +684,7 @@ export default class {
         optionals.ack?.(op)
         let gotIndex = false
         try {
-            const payment = await this.lnd.PayInvoice(invoice, amountForLnd, { routingFeeLimit, serviceFee }, payAmount, { useProvider: use === 'provider', from: 'user' }, index => {
+            const payment = await this.lnd.PayInvoice(invoice, amountForLnd, { routingFeeLimit, serviceFee, timeoutSeconds: optionals.timeoutSeconds }, payAmount, { useProvider: use === 'provider', from: 'user', forceLocalLnd: isSwapPay }, index => {
                 this.storage.paymentStorage.SetExternalPaymentIndex(pendingPayment.serial_id, index)
                 gotIndex = true
             })
@@ -832,18 +839,33 @@ export default class {
             throw new Error("request a swap quote before paying an external address")
         }
         const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
-        let payment: Types.PayInvoiceResponse
+        let payment: Types.PayInvoiceResponse | undefined
         const swap = await this.swaps.PayAddrWithSwap(ctx.app_user_id, req.swap_operation_id, req.address, async (invoice) => {
             payment = await this.PayInvoice(ctx.user_id, {
                 amount: 0,
                 invoice: invoice
-            }, app, { swapOperationId: req.swap_operation_id })
+            }, app, { swapOperationId: req.swap_operation_id, timeoutSeconds: REVERSE_SWAP_PAYMENT_TIMEOUT_SECONDS })
         })
+        // A persisted-claim retry rebroadcasts without paying again. Look up the
+        // invoice payment from the first attempt so this RPC does not read undefined.
+        if (!payment) {
+            const existing = await this.storage.paymentStorage.GetInvoicePaymentBySwapOperationId(req.swap_operation_id)
+            if (existing) {
+                payment = {
+                    amount_paid: existing.paid_amount,
+                    latest_balance: 0,
+                    network_fee: 0,
+                    preimage: '',
+                    service_fee: existing.service_fees,
+                    operation_id: `${Types.UserOperationType.OUTGOING_INVOICE}-${existing.serial_id}`,
+                }
+            }
+        }
         return {
             txId: swap.txId,
             network_fee: swap.network_fee,
-            service_fee: payment!.service_fee,
-            operation_id: payment!.operation_id,
+            service_fee: payment?.service_fee ?? 0,
+            operation_id: payment?.operation_id ?? '',
         }
     }
 
@@ -851,9 +873,13 @@ export default class {
         this.log("paying internal address")
         let amount = req.amountSats
         if (req.swap_operation_id) {
+            assertSwapActor(ctx.app_user_id)
             const swap = await this.storage.paymentStorage.GetTransactionSwap(req.swap_operation_id, ctx.app_user_id)
             if (!swap) {
                 throw new Error("swap quote not found")
+            }
+            if (swap.paid_at_unix > 0 || swap.claim_tx_hex || swap.lockup_tx_hex) {
+                throw new Error("cannot pay an internal address with a started swap")
             }
             await this.storage.paymentStorage.DeleteTransactionSwap(req.swap_operation_id)
             if (amount <= 0) {

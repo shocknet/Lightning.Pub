@@ -14,7 +14,8 @@
 //
 // Import order matches BACKUP_RESTORE_ORDER in backupTables.ts (balances overlay, then FK order).
 // Restore reads one manifest and uses exactly those files. Every table in
-// BACKUP_RESTORE_ORDER must be present. A file that decrypts to zero rows is an empty
+// BACKUP_RESTORE_ORDER must be present, except OPTIONAL_BACKUP_TABLE_IDS
+// (swap recovery shards added after the first published format). A file that decrypts to zero rows is an empty
 // table and is imported, except indexes, which must be exactly one row holding the address
 // count and the SCB (or the no-channels marker). A missing or corrupt manifest, or a
 // missing shard named by the manifest, fails the restore.
@@ -49,12 +50,13 @@ import {
     decodeApplicationRow, decodeApplicationUserRow, decodeAdminSettingRow, decodeAppUserDeviceRow,
     decodeUserOfferRow, decodeProductRow, decodeManagementGrantRow, decodeDebitAccessRow,
     decodeInviteTokenRow, decodeBalanceRow, decodeTrackedProviderRow,
+    decodeInvoiceSwapRow, decodeTransactionSwapRow,
     decryptTableRows,
     BackupData,
     decodeIndexesRow,
     NO_CHANNELS_SCB,
 } from './segments.js'
-import { BACKUP_MANIFEST_FILENAME, BACKUP_RESTORE_ORDER, parseBackupManifest, type BackupTableId } from './backupTables.js'
+import { BACKUP_MANIFEST_FILENAME, BACKUP_RESTORE_ORDER, isOptionalBackupTableId, parseBackupManifest, type BackupTableId } from './backupTables.js'
 import SettingsManager from '../main/settingsManager.js'
 import { Unlocker } from '../main/unlocker.js'
 
@@ -439,6 +441,10 @@ export class RestoreManager {
             for (const id of BACKUP_RESTORE_ORDER) {
                 const name = manifest.tables[id]
                 if (!name) {
+                    if (isOptionalBackupTableId(id)) {
+                        this.log("manifest has no shard for optional table: " + id)
+                        continue
+                    }
                     this.log("manifest has no shard for: " + id)
                     missing.push(id)
                     continue
@@ -491,6 +497,9 @@ export class RestoreManager {
         const readRows = <T>(id: BackupTableId, decodeRow: (u: Uint8Array) => T): T[] => {
             const buffer = buffers.get(id)
             if (!buffer) {
+                if (isOptionalBackupTableId(id)) {
+                    return []
+                }
                 throw new Error(`missing backup shard ${id}`)
             }
             return decryptTableRows(buffer, keys.encKey).map(decodeRow)
@@ -509,6 +518,8 @@ export class RestoreManager {
             managementGrants: readRows('management_grants', decodeManagementGrantRow),
             debitAccesses: readRows('debit_accesses', decodeDebitAccessRow),
             inviteTokens: readRows('invite_tokens', decodeInviteTokenRow),
+            invoiceSwaps: readRows('invoice_swaps', decodeInvoiceSwapRow),
+            transactionSwaps: readRows('transaction_swaps', decodeTransactionSwapRow),
         }
 
         this.log("segments data decrypted, importing dialtone")
@@ -521,7 +532,8 @@ export class RestoreManager {
         const allowPartial = false
         const { balances, trackedProviders, applications,
             applicationUsers, adminSettings, appUserDevices, userOffers,
-            products, managementGrants, debitAccesses, inviteTokens } = backupData
+            products, managementGrants, debitAccesses, inviteTokens,
+            invoiceSwaps, transactionSwaps } = backupData
 
         await this.restore("balances", balances.length,
             () => this.storage.userStorage.RestoreBalances(balances, tx), allowPartial)
@@ -557,6 +569,12 @@ export class RestoreManager {
         await this.restore("inviteTokens", inviteTokens.length,
             () => this.storage.applicationStorage.RestoreInviteTokens(inviteTokens, tx), allowPartial)
         entriesRestored += inviteTokens.length
+        await this.restore("invoiceSwaps", invoiceSwaps.length,
+            () => this.storage.paymentStorage.RestoreInvoiceSwaps(invoiceSwaps, tx), allowPartial)
+        entriesRestored += invoiceSwaps.length
+        await this.restore("transactionSwaps", transactionSwaps.length,
+            () => this.storage.paymentStorage.RestoreTransactionSwaps(transactionSwaps, tx), allowPartial)
+        entriesRestored += transactionSwaps.length
         return entriesRestored
     }
 

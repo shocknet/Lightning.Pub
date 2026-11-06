@@ -90,6 +90,9 @@ export class InvoiceSwap {
     @Column({ default: "" })
     refund_tx_id: string
 
+    @Column({ default: "", type: "text" })
+    refund_tx_hex: string
+
     @Column({ default: "" })
     service_url: string
 
