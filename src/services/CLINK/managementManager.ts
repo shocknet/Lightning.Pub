@@ -5,7 +5,7 @@ import { nofferEncode, OfferPointer, OfferPriceType, NmanageRequest, NmanageSucc
 import { getLogger, PubLogger, ERROR } from "../helpers/logger.js";
 import SettingsManager from "../main/settingsManager.js";
 import { assertCallbackUrlAllowed, SafeOutboundFetchError } from "../helpers/safeOutboundFetch.js";
-import { assertValidOfferPriceSats, defaultOfferWebhookRejection, DEFAULT_OFFER_LABEL, DEFAULT_OFFER_NO_DELETE, isDefaultUserOffer } from "../helpers/offerValidation.js";
+import { assertNoReservedOfferPayerData, assertValidOfferPriceSats, defaultOfferWebhookRejection, DEFAULT_OFFER_LABEL, DEFAULT_OFFER_NO_DELETE, isDefaultUserOffer } from "../helpers/offerValidation.js";
 import { isAccountOwner, denyStrangerLiveAuth } from "./clinkOwner.js";
 import { ClinkCtx, ClinkError, encodeClinkResponse } from "./clinkTypes.js";
 import { CLINK_MANAGE_KIND } from "./clinkConstants.js";
@@ -243,6 +243,11 @@ export class ManagementManager {
         }
         if (fields.payer_data && !Array.isArray(fields.payer_data)) {
             throw new NmanageError({ code: 5, message: 'Invalid Field/Value', opts: { field: 'payer_data' } })
+        }
+        try {
+            assertNoReservedOfferPayerData(fields.payer_data)
+        } catch (err) {
+            throw new NmanageError({ code: 5, message: (err as Error).message, opts: { field: 'payer_data' } })
         }
     }
 

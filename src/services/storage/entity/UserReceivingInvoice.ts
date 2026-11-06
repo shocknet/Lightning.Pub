@@ -2,6 +2,7 @@ import { Entity, PrimaryGeneratedColumn, Column, Index, Check, ManyToOne, JoinCo
 import { Product } from "./Product.js"
 import { User } from "./User.js"
 import { Application } from "./Application.js"
+export type InvoicePayerData = Record<string, string | number>
 export type ZapInfo = {
     pub: string
     eventId: string
@@ -66,7 +67,7 @@ export class UserReceivingInvoice {
         nullable: true,
         type: 'simple-json'
     })
-    payer_data?: Record<string, string>
+    payer_data?: InvoicePayerData
 
 
     @Column({ default: true })

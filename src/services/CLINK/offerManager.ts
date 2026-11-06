@@ -6,13 +6,14 @@ import LND from "../lnd/lnd.js"
 import { getLogger } from "../helpers/logger.js";
 import { UserOffer } from '../storage/entity/UserOffer.js';
 import { LiquidityManager } from "../main/liquidityManager.js"
-import { NofferData, OfferPriceType, nofferEncode } from '@shocknet/clink-sdk';
+import { OfferPriceType, nofferEncode } from '@shocknet/clink-sdk';
 import { BackupManager } from "../backup/backupManager.js";
 import SettingsManager from "../main/settingsManager.js";
 import { assertCallbackUrlAllowed } from "../helpers/safeOutboundFetch.js";
-import { assertValidOfferPriceSats, defaultOfferWebhookRejection, DEFAULT_OFFER_NO_DELETE, isDefaultUserOffer } from "../helpers/offerValidation.js";
-import { NofferError } from "./offerTypes.js";
+import { assertNoReservedOfferPayerData, assertValidOfferPriceSats, defaultOfferWebhookRejection, DEFAULT_OFFER_NO_DELETE, isDefaultUserOffer } from "../helpers/offerValidation.js";
+import { NofferData, NofferError } from "./offerTypes.js";
 import { ClinkCtx } from "./clinkTypes.js";
+import { InvoicePayerData } from "../storage/entity/UserReceivingInvoice.js";
 
 const isPayableOfferAmount = (amount: number | undefined, remote: number): amount is number =>
     typeof amount === "number" && Number.isSafeInteger(amount) && amount >= 10 && amount <= remote
@@ -57,6 +58,7 @@ export class OfferManager {
 
     async AddUserOffer(ctx: Types.UserContext, req: Types.OfferCreateRequest): Promise<Types.OfferId> {
         assertValidOfferPriceSats(req.price_sats)
+        assertNoReservedOfferPayerData(req.payer_data)
         assertCallbackUrlAllowed(req.callback_url)
         const newOffer = await this.storage.offerStorage.AddUserOffer(ctx.app_user_id, {
             payer_data: req.payer_data,
@@ -83,6 +85,7 @@ export class OfferManager {
 
     async UpdateUserOffer(ctx: Types.UserContext, req: Types.OfferUpdateRequest) {
         assertValidOfferPriceSats(req.price_sats)
+        assertNoReservedOfferPayerData(req.payer_data)
         assertCallbackUrlAllowed(req.callback_url)
         if (isDefaultUserOffer(ctx.app_user_id, req.offer_id)) {
             const rejection = defaultOfferWebhookRejection(req)
@@ -113,7 +116,8 @@ export class OfferManager {
                 offer_id: i.offer_id || "",
                 paid_at_unix: i.paid_at_unix,
                 amount: i.paid_amount,
-                data: i.payer_data || {}
+                // The existing seller RPC exposes a string map, unlike stored CLINK payer data.
+                data: Object.fromEntries(Object.entries(i.payer_data || {}).map(([key, value]) => [key, String(value)]))
             }))
         }
     }
@@ -152,20 +156,29 @@ export class OfferManager {
         }
     }
 
-    ValidateExpectedData(userOffer: UserOffer, payerData: any): { passed: false, expected: string[] } | { passed: true, validated: Record<string, string> } {
+    ValidateExpectedData(userOffer: UserOffer, payerData: unknown): { passed: false, expected: string[] } | { passed: true, validated: InvoicePayerData } {
         const expectedKeys = userOffer.payer_data
         if (!expectedKeys || expectedKeys.length === 0) {
             return { passed: true, validated: {} }
         }
-        if (typeof payerData !== 'object' || payerData === null) {
+        if (typeof payerData !== 'object' || payerData === null || Array.isArray(payerData)) {
             return { passed: false, expected: expectedKeys }
         }
-        const validated: Record<string, string> = {}
+        const values = payerData as Record<string, unknown>
+        const validated: InvoicePayerData = Object.create(null)
         for (const key of expectedKeys) {
-            if (typeof payerData[key] !== 'string') {
+            if (!Object.prototype.hasOwnProperty.call(values, key)) {
                 return { passed: false, expected: expectedKeys }
             }
-            validated[key] = payerData[key]
+            const value = values[key]
+            if (key === 'quantity') {
+                if (typeof value !== 'number' || !Number.isSafeInteger(value) || value <= 0) {
+                    return { passed: false, expected: expectedKeys }
+                }
+            } else if (typeof value !== 'string') {
+                return { passed: false, expected: expectedKeys }
+            }
+            validated[key] = value
         }
         return { passed: true, validated }
     }
@@ -220,28 +233,28 @@ export class OfferManager {
             throw new NofferError({ code: 1, message: "invalid expires_in_seconds" })
         }
         const expiry = offerReq.expires_in_seconds ? offerReq.expires_in_seconds : undefined
+        if (offerReq.description !== undefined && (typeof offerReq.description !== 'string' || offerReq.description.length > 100)) {
+            throw new NofferError({ code: 1, message: 'Description must be a string of 100 characters or less', opts: { maxSats: remote } })
+        }
 
         if (!userOffer) {
             return this.HandleDefaultUserOffer(offerReq, appId, remote, { memo: offerReq.description, expiry }, clinkRequester)
-        }
-        let amt = userOffer.price_sats
-        if (userOffer.price_sats === 0) {
-            if (!isPayableOfferAmount(amount, remote)) {
-                throw new NofferError({ code: 5, opts: { maxSats: remote } })
-            }
-            amt = amount
-        } else if (!Number.isSafeInteger(userOffer.price_sats) || userOffer.price_sats < 0) {
-            throw new NofferError({ code: 5, opts: { maxSats: remote } })
         }
         const dataCheck = this.ValidateExpectedData(userOffer, offerReq.payer_data)
         if (!dataCheck.passed) {
             const expected = dataCheck.expected
             this.logger("payer_data validation failed", { expected, received: offerReq.payer_data })
-            throw new NofferError({ code: 1, message: `Missing or invalid payer_data: ${expected.join(', ')}`, opts: { payer_data: expected } })
+            throw new NofferError({ code: 6, message: `Missing or invalid payer_data: ${expected.join(', ')}`, opts: { payer_data: expected } })
         }
         const { validated } = dataCheck
-        if (offerReq.description && (typeof offerReq.description !== 'string' || offerReq.description.length > 100)) {
-            throw new NofferError({ code: 1, message: 'Description must be a string of 100 characters or less', opts: { maxSats: remote } })
+        const unitPrice = userOffer.price_sats === 0 ? amount : userOffer.price_sats
+        if (typeof unitPrice !== 'number' || !Number.isSafeInteger(unitPrice) || unitPrice <= 0) {
+            throw new NofferError({ code: 5, opts: { maxSats: remote } })
+        }
+        const quantity = typeof validated.quantity === 'number' ? validated.quantity : 1
+        const amt = unitPrice * quantity
+        if (!isPayableOfferAmount(amt, remote)) {
+            throw new NofferError({ code: 5, opts: { maxSats: remote } })
         }
         const memo = offerReq.description || userOffer.label
         const res = await this.applicationManager.AddAppUserInvoice(appId, {

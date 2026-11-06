@@ -1,5 +1,9 @@
-import { NofferData } from "@shocknet/clink-sdk"
+import { NofferData as SdkNofferData } from "@shocknet/clink-sdk"
 import { ClinkError } from "./clinkTypes.js"
+import { InvoicePayerData } from "../storage/entity/UserReceivingInvoice.js"
+
+// Use the quantity-aware request shape until the SDK dependency is updated to 1.8.
+export type NofferData = Omit<SdkNofferData, "payer_data"> & { payer_data?: InvoicePayerData & { quantity?: number } }
 
 export type ClinkOfferResponse = { bolt11: string }
 
@@ -53,6 +57,7 @@ const codeToMessage = (code: number) => {
         case 3: return 'Expired Offer'
         case 4: return 'Unsupported Feature'
         case 5: return 'Invalid Amount'
+        case 6: return 'Payer data required'
         default: return "unknown error code" + code
     }
 }
