@@ -3,7 +3,7 @@ const zkpInit = (secp256k1ZkpModule as any).default || secp256k1ZkpModule;
 import { initEccLib, Transaction, address } from 'bitcoinjs-lib';
 // import bolt11 from 'bolt11';
 import {
-    Musig, SwapTreeSerializer, TaprootUtils, detectSwap,
+    Musig, SwapTreeSerializer, TaprootUtils,
     constructClaimTransaction, OutputType, constructRefundTransaction,
     reverseSwapTree, compareTrees, Scripts
 } from 'boltz-core';
@@ -14,7 +14,10 @@ import ws from 'ws';
 import { getLogger, PubLogger, ERROR } from '../../helpers/logger.js';
 import { isNonNegativeSats, isPositiveSats } from '../../helpers/sats.js';
 import { BTCNetwork } from '../../main/settings.js';
-import { caughtErrorMessage, loggedGet, loggedPost, getNetwork } from './swapHelpers.js';
+import {
+    caughtErrorMessage, loggedGet, loggedPost, getNetwork,
+    findTaprootSwapOutput, isExactTaprootSwapOutput, TaprootSwapOutput,
+} from './swapHelpers.js';
 
 
 export type ReverseSwapFees = {
@@ -69,7 +72,7 @@ export type ReverseClaimChain = {
 
 type ParsedLockup = {
     lockupTx: Transaction
-    swapOutput: NonNullable<ReturnType<typeof detectSwap>>
+    swapOutput: TaprootSwapOutput
     swapTree: ReturnType<typeof SwapTreeSerializer.deserializeSwapTree>
     internalKey: Buffer
     boltzPublicKey: Buffer
@@ -590,8 +593,8 @@ export class ReverseSwaps {
         ])
         const tweakedKey = TaprootUtils.tweakMusig(musig, swapTree.tree)
         const lockupTx = Transaction.fromHex(txHex)
-        const swapOutput = detectSwap(tweakedKey, lockupTx)
-        if (swapOutput === undefined) {
+        const swapOutput = findTaprootSwapOutput(tweakedKey, lockupTx)
+        if (swapOutput === undefined || !isExactTaprootSwapOutput(swapOutput, lockupTx, tweakedKey)) {
             this.log(ERROR, 'No swap output found in lockup transaction')
             return { ok: false, error: 'No swap output found in lockup transaction' }
         }
@@ -601,7 +604,7 @@ export class ReverseSwaps {
             return { ok: false, error: 'Missing or invalid quoted onchainAmount for reverse swap' }
         }
         if (swapOutput.value < expectedAmount) {
-            this.log(ERROR, 'Lockup output underfunded', { got: swapOutput.value, want: expectedAmount })
+            this.log(ERROR, 'Lockup output underfunded', { got: swapOutput.value, want: expectedAmount, vout: swapOutput.vout })
             return {
                 ok: false,
                 error: `Lockup output underfunded: got ${swapOutput.value}, want at least ${expectedAmount}`,

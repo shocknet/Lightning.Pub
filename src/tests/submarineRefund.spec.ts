@@ -2,7 +2,7 @@ import secp256k1ZkpModule from '@vulpemventures/secp256k1-zkp'
 const zkpInit = (secp256k1ZkpModule as any).default || secp256k1ZkpModule
 import { initEccLib, Transaction, address } from 'bitcoinjs-lib'
 import {
-    Musig, SwapTreeSerializer, TaprootUtils, Scripts, swapTree,
+    Musig, SwapTreeSerializer, TaprootUtils, Scripts, swapTree, detectSwap, OutputType,
 } from 'boltz-core'
 import { createHash, randomBytes } from 'crypto'
 import { ECPairFactory } from 'ecpair'
@@ -33,6 +33,8 @@ export default async (T: StorageTestBase) => {
     await testRefundPublishesLocallyWithoutProvider(T)
     await testStaleProviderAckDoesNotBlockRefund(T)
     await testRefundHexPersistedBeforeBroadcast(T)
+    await testRefundSpendsTaprootNotDecoy(T)
+    await testRefundRejectsDecoyOnlyLockup(T)
 }
 
 const testCaughtErrorMessage = (T: StorageTestBase) => {
@@ -203,6 +205,63 @@ const testRefundHexPersistedBeforeBroadcast = async (T: StorageTestBase) => {
     T.d('retry rebroadcast the saved hex instead of trusting a provider id')
 }
 
+const testRefundSpendsTaprootNotDecoy = async (T: StorageTestBase) => {
+    T.d('starting refund spends the P2TR lockup when a matching P2WSH decoy precedes it')
+    const fixture = await buildSubmarineLockup()
+    const decoyTx = prependP2wshDecoy(fixture.lockupHex, fixture.tweakedKey, LOCKUP_SATS)
+    const detected = detectSwap(fixture.tweakedKey, decoyTx)
+    T.expect(detected?.vout).to.equal(0)
+    T.expect(detected?.type).to.not.equal(OutputType.Taproot)
+
+    const swapper = new SubmarineSwaps({ httpUrl: 'http://mock-boltz', wsUrl: 'ws://127.0.0.1:1', network: 'regtest' })
+    const result = await swapper.RefundSwap({
+        swapId: fixture.swapId,
+        claimPublicKey: fixture.claimPublicKey,
+        swapTree: fixture.swapTree,
+        timeoutBlockHeight: TIMEOUT,
+        privateKeyHex: fixture.refundPriv,
+        refundAddress: DEST,
+        currentHeight: TIMEOUT,
+        lockupTxHex: decoyTx.toHex(),
+        feePerVbyte: 2,
+        allowEarlyRefund: false,
+    })
+    T.expect(result.ok, !result.ok ? result.error : '').to.equal(true)
+    if (result.ok) {
+        const refundTx = Transaction.fromHex(result.publish.txHex)
+        T.expect(refundTx.ins[0].index).to.equal(1)
+        T.expect(result.publish.usedCooperative).to.equal(false)
+    }
+    T.d('timeout refund spent the genuine P2TR at vout 1 rather than the decoy')
+}
+
+const testRefundRejectsDecoyOnlyLockup = async (T: StorageTestBase) => {
+    T.d('starting refund rejects a lockup that only has a P2WSH decoy')
+    const fixture = await buildSubmarineLockup()
+    const decoyOnly = new Transaction()
+    decoyOnly.version = 2
+    decoyOnly.addInput(Buffer.alloc(32), 0)
+    decoyOnly.addOutput(Scripts.p2wshOutput(fixture.tweakedKey), LOCKUP_SATS)
+    const swapper = new SubmarineSwaps({ httpUrl: 'http://mock-boltz', wsUrl: 'ws://127.0.0.1:1', network: 'regtest' })
+    const result = await swapper.RefundSwap({
+        swapId: fixture.swapId,
+        claimPublicKey: fixture.claimPublicKey,
+        swapTree: fixture.swapTree,
+        timeoutBlockHeight: TIMEOUT,
+        privateKeyHex: fixture.refundPriv,
+        refundAddress: DEST,
+        currentHeight: TIMEOUT,
+        lockupTxHex: decoyOnly.toHex(),
+        feePerVbyte: 2,
+        allowEarlyRefund: false,
+    })
+    T.expect(result.ok).to.equal(false)
+    if (!result.ok) {
+        T.expect(result.error).to.equal('Could not detect swap output in lockup transaction')
+    }
+    T.d('a P2WSH-only lockup is not treated as a refundable Taproot output')
+}
+
 const disabledSwaps = (T: StorageTestBase) => {
     return new Swaps({
         getSettings: () => ({
@@ -274,5 +333,18 @@ const buildSubmarineLockup = async () => {
         swapTree: JSON.stringify(SwapTreeSerializer.serializeSwapTree(tree)),
         lockupAddress,
         lockupHex: lockup.toHex(),
+        tweakedKey,
     }
+}
+
+const prependP2wshDecoy = (lockupHex: string, tweakedKey: Buffer, decoyValue: number) => {
+    const original = Transaction.fromHex(lockupHex)
+    const decoy = new Transaction()
+    decoy.version = 2
+    decoy.addInput(Buffer.alloc(32), 0)
+    decoy.addOutput(Scripts.p2wshOutput(tweakedKey), decoyValue)
+    for (const output of original.outs) {
+        decoy.addOutput(output.script, output.value)
+    }
+    return decoy
 }

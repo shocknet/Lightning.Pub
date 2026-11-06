@@ -3,6 +3,7 @@ const zkpInit = (secp256k1ZkpModule as any).default || secp256k1ZkpModule
 import { initEccLib, Transaction, address } from 'bitcoinjs-lib'
 import {
     Musig, SwapTreeSerializer, TaprootUtils, reverseSwapTree, Scripts,
+    detectSwap, OutputType,
 } from 'boltz-core'
 import { createHash, randomBytes } from 'crypto'
 import { ECPairFactory } from 'ecpair'
@@ -30,6 +31,8 @@ initEccLib(ecc)
 
 export default async (T: StorageTestBase) => {
     await testLockupMustMatchSwapOutputAndAmount(T)
+    await testDecoyOutputDoesNotBypassFundingValidation(T)
+    await testClaimSpendsGenuineTaprootAfterDecoy(T)
     await testProviderWebsocketCannotFinishOrAbort(T)
     await testSignatureRefusalStillPublishesUnilateral(T)
     await testSubscribeClaimsOnlyAfterIndependentConfirmation(T)
@@ -62,6 +65,65 @@ const testLockupMustMatchSwapOutputAndAmount = async (T: StorageTestBase) => {
         T.expect(low.error).to.match(/^Lockup output underfunded/)
     }
     T.d('fabricated and underfunded lockups are rejected before any claim')
+}
+
+const DUST_SATS = 330
+
+const testDecoyOutputDoesNotBypassFundingValidation = async (T: StorageTestBase) => {
+    T.d('starting a full-value P2WSH decoy before a dust P2TR does not pass funding validation')
+    const { swapper, data, lockupAddress } = await setupClaim(T)
+    const tweakedKey = await tweakedKeyFromData(data)
+    const decoyHex = buildDecoyLockupHex(tweakedKey, lockupAddress, AMOUNTS.onchainAmount, DUST_SATS)
+
+    const detected = detectSwap(tweakedKey, Transaction.fromHex(decoyHex))
+    T.expect(detected?.vout).to.equal(0)
+    T.expect(detected?.value).to.equal(AMOUNTS.onchainAmount)
+    T.expect(detected?.type).to.not.equal(OutputType.Taproot)
+
+    let preimageSent = false
+    const published: string[] = []
+    const claimed = await swapper.claimConfirmedLockup(data, decoyHex, {
+        cooperativeClaim: async () => {
+            preimageSent = true
+            return { ok: false, error: 'should not disclose preimage' }
+        },
+        publish: async (txHex) => { published.push(txHex) },
+    })
+    T.expect(claimed.ok).to.equal(false)
+    if (!claimed.ok) {
+        T.expect(claimed.error).to.match(/^Lockup output underfunded/)
+    }
+    T.expect(preimageSent).to.equal(false)
+    T.expect(published.length).to.equal(0)
+    T.d('decoy amount was ignored; dust P2TR was underfunded and the preimage stayed secret')
+}
+
+const testClaimSpendsGenuineTaprootAfterDecoy = async (T: StorageTestBase) => {
+    T.d('starting claim spends the funded P2TR even when a matching P2WSH decoy precedes it')
+    const { swapper, data, lockupAddress, preimage } = await setupClaim(T)
+    const tweakedKey = await tweakedKeyFromData(data)
+    const lockupHex = buildDecoyLockupHex(tweakedKey, lockupAddress, AMOUNTS.onchainAmount, AMOUNTS.onchainAmount)
+    const parsed = await swapper.parseAndValidateLockup(data, lockupHex)
+    T.expect(parsed.ok, !parsed.ok ? parsed.error : '').to.equal(true)
+    if (!parsed.ok) {
+        return
+    }
+    T.expect(parsed.swapOutput.type).to.equal(OutputType.Taproot)
+    T.expect(parsed.swapOutput.vout).to.equal(1)
+    T.expect(parsed.swapOutput.value).to.equal(AMOUNTS.onchainAmount)
+
+    const published: string[] = []
+    const result = await swapper.claimConfirmedLockup(data, lockupHex, {
+        cooperativeClaim: async () => ({ ok: false, error: 'signature refused' }),
+        publish: async (txHex) => { published.push(txHex) },
+    })
+    T.expect(result.ok, !result.ok ? result.error : '').to.equal(true)
+    T.expect(published.length).to.equal(1)
+    const claimTx = Transaction.fromHex(published[0])
+    T.expect(claimTx.ins[0].index).to.equal(1)
+    T.expect(claimTx.ins[0].witness.length).to.equal(4)
+    T.expect(Buffer.from(claimTx.ins[0].witness[1]).equals(Buffer.from(preimage, 'hex'))).to.equal(true)
+    T.d('funded P2TR at vout 1 was claimed; the preceding decoy was not spent')
 }
 
 const testProviderWebsocketCannotFinishOrAbort = async (T: StorageTestBase) => {
@@ -251,6 +313,30 @@ const buildLockupHex = (lockupAddress: string, value: number) => {
     tx.addInput(Buffer.alloc(32), 0)
     tx.addOutput(address.toOutputScript(lockupAddress, getNetwork('regtest')), value)
     return tx.toHex()
+}
+
+const buildDecoyLockupHex = (
+    tweakedKey: Buffer,
+    lockupAddress: string,
+    decoyValue: number,
+    genuineValue: number,
+) => {
+    const tx = new Transaction()
+    tx.version = 2
+    tx.addInput(Buffer.alloc(32), 0)
+    tx.addOutput(Scripts.p2wshOutput(tweakedKey), decoyValue)
+    tx.addOutput(address.toOutputScript(lockupAddress, getNetwork('regtest')), genuineValue)
+    return tx.toHex()
+}
+
+const tweakedKeyFromData = async (data: TransactionSwapData) => {
+    const boltzPublicKey = Buffer.from(data.createdResponse.refundPublicKey, 'hex')
+    const swapTree = SwapTreeSerializer.deserializeSwapTree(data.createdResponse.swapTree)
+    const musig = new Musig(await zkpInit(), data.info.keys, randomBytes(32), [
+        boltzPublicKey,
+        Buffer.from(data.info.keys.publicKey),
+    ])
+    return TaprootUtils.tweakMusig(musig, swapTree.tree)
 }
 
 const buildValidReverseQuote = async (timeout = TIP + 1_008) => {

@@ -1,10 +1,11 @@
 import axios from 'axios';
-import { Network } from 'bitcoinjs-lib';
+import { Network, Transaction } from 'bitcoinjs-lib';
 // import bolt11 from 'bolt11';
 import {
-    Networks,
+    Networks, OutputType, Scripts,
 } from 'boltz-core';
 import { PubLogger, ERROR } from '../../helpers/logger.js';
+import { isNonNegativeIndex, isNonNegativeSats } from '../../helpers/sats.js';
 import { BTCNetwork } from '../../main/settings.js';
 
 /** Bound every provider HTTP call so a hung peer cannot stall refund/claim fallback. */
@@ -59,4 +60,54 @@ export const getNetwork = (network: BTCNetwork): Network => {
         default:
             throw new Error(`Invalid network: ${network}`)
     }
+}
+
+export type TaprootSwapOutput = {
+    type: OutputType.Taproot
+    vout: number
+    value: number
+    script: Buffer
+}
+
+/**
+ * Locate the locally derived P2TR lockup output.
+ * boltz-core detectSwap matches P2SH / P2SH-P2WSH / P2WSH / P2TR and returns
+ * the first hit, so a full-value decoy can steal amount validation from a
+ * later genuine Taproot output. Claim and refund construction must bind to
+ * this exact script, type, value, and vout.
+ */
+export const findTaprootSwapOutput = (
+    tweakedKey: Buffer,
+    lockupTx: Transaction,
+): TaprootSwapOutput | undefined => {
+    const expectedScript = Scripts.p2trOutput(tweakedKey)
+    for (let vout = 0; vout < lockupTx.outs.length; vout++) {
+        const output = lockupTx.outs[vout]
+        if (!expectedScript.equals(output.script) || !isNonNegativeSats(output.value)) {
+            continue
+        }
+        return {
+            type: OutputType.Taproot,
+            vout,
+            value: output.value,
+            script: output.script,
+        }
+    }
+    return undefined
+}
+
+export const isExactTaprootSwapOutput = (
+    swapOutput: TaprootSwapOutput,
+    lockupTx: Transaction,
+    tweakedKey: Buffer,
+): boolean => {
+    const expectedScript = Scripts.p2trOutput(tweakedKey)
+    if (swapOutput.type !== OutputType.Taproot || !isNonNegativeIndex(swapOutput.vout)) {
+        return false
+    }
+    const indexed = lockupTx.outs[swapOutput.vout]
+    return !!indexed
+        && expectedScript.equals(swapOutput.script)
+        && expectedScript.equals(indexed.script)
+        && indexed.value === swapOutput.value
 }

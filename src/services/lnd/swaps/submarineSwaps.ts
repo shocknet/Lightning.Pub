@@ -3,7 +3,7 @@ const zkpInit = (secp256k1ZkpModule as any).default || secp256k1ZkpModule;
 // import bolt11 from 'bolt11';
 import {
     Musig, SwapTreeSerializer, TaprootUtils, constructRefundTransaction,
-    detectSwap, OutputType, targetFee, swapTree, compareTrees, Scripts
+    OutputType, targetFee, swapTree, compareTrees, Scripts
 } from 'boltz-core';
 import { randomBytes, createHash } from 'crypto';
 import { ECPairFactory, ECPairInterface } from 'ecpair';
@@ -11,7 +11,7 @@ import * as ecc from 'tiny-secp256k1';
 import { Transaction, address } from 'bitcoinjs-lib';
 import ws from 'ws';
 import { getLogger, PubLogger, ERROR } from '../../helpers/logger.js';
-import { caughtErrorMessage, loggedGet, loggedPost, getNetwork } from './swapHelpers.js';
+import { caughtErrorMessage, loggedGet, loggedPost, getNetwork, findTaprootSwapOutput, isExactTaprootSwapOutput } from './swapHelpers.js';
 import { BTCNetwork } from '../../main/settings.js';
 
 /* type InvoiceSwapFees = {
@@ -351,9 +351,8 @@ export class SubmarineSwaps {
         ])
         const tweakedKey = TaprootUtils.tweakMusig(musig, swapTreeDeserialized.tree)
 
-        // Detect the swap output in the lockup transaction
-        const swapOutput = detectSwap(tweakedKey, lockupTx)
-        if (!swapOutput) {
+        const swapOutput = findTaprootSwapOutput(tweakedKey, lockupTx)
+        if (!swapOutput || !isExactTaprootSwapOutput(swapOutput, lockupTx, tweakedKey)) {
             return { ok: false, error: 'Could not detect swap output in lockup transaction' }
         }
 
