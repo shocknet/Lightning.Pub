@@ -11,9 +11,11 @@ import { Swaps } from '../services/lnd/swaps/swaps.js'
 import {
     MAX_REVERSE_TIMEOUT_BLOCKS,
     MIN_REVERSE_TIMEOUT_BLOCKS,
+    REVERSE_CLAIM_MIN_REMAINING_BLOCKS,
     REVERSE_LOCKTIME_THRESHOLD,
     ReverseSwaps,
     calculateReverseQuoteAmounts,
+    checkReverseClaimWindow,
     checkReverseTimeout,
 } from '../services/lnd/swaps/reverseSwaps.js'
 import { getNetwork } from '../services/lnd/swaps/swapHelpers.js'
@@ -33,6 +35,7 @@ initEccLib(ecc)
 
 export default async (T: StorageTestBase) => {
     await testTimeoutWindow(T)
+    await testClaimWindow(T)
     await testVerifyRejectsMismatchedHashAndUnverifiedTree(T)
     await testQuoteMethodRejectsAndDoesNotPersist(T)
     await testQuoteMethodPersistsVerifiedQuote(T)
@@ -77,6 +80,32 @@ const testTimeoutWindow = async (T: StorageTestBase) => {
     reject(TIP + 1_008, 0, 'untrusted chain tip')
 
     T.d('reverse timeout window rejects fractions, expired quotes, and far-future heights')
+}
+
+const testClaimWindow = async (T: StorageTestBase) => {
+    T.d('starting reverse claim-time remaining window checks')
+
+    const accept = (timeout: number, tip = TIP) => {
+        const result = checkReverseClaimWindow(timeout, tip)
+        T.expect(result.ok, !result.ok ? result.error : '').to.equal(true)
+    }
+    const reject = (timeout: number, tip: number, error: string) => {
+        const result = checkReverseClaimWindow(timeout, tip)
+        T.expect(result.ok).to.equal(false)
+        if (!result.ok) {
+            T.expect(result.error).to.equal(error)
+        }
+    }
+
+    accept(TIP + REVERSE_CLAIM_MIN_REMAINING_BLOCKS)
+    accept(TIP + MIN_REVERSE_TIMEOUT_BLOCKS)
+    accept(TIP + 1_008)
+    reject(TIP, TIP, `refund already valid at block ${TIP} (tip ${TIP})`)
+    reject(TIP - 1, TIP, `refund already valid at block ${TIP - 1} (tip ${TIP})`)
+    reject(TIP + REVERSE_CLAIM_MIN_REMAINING_BLOCKS - 1, TIP, `only ${REVERSE_CLAIM_MIN_REMAINING_BLOCKS - 1} blocks left to claim before refund at ${TIP + REVERSE_CLAIM_MIN_REMAINING_BLOCKS - 1} (tip ${TIP}, need ${REVERSE_CLAIM_MIN_REMAINING_BLOCKS})`)
+    reject(TIP + 1_008, 0, 'untrusted chain tip')
+
+    T.d('claim window allows a shorter remaining runway than quote-time and refuses refund-eligible tips')
 }
 
 const testVerifyRejectsMismatchedHashAndUnverifiedTree = async (T: StorageTestBase) => {

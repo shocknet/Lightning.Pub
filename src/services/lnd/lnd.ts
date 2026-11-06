@@ -218,6 +218,13 @@ export default class {
     }
 
     /**
+     * How long RegisterSpendNtfn is given to report a spend LND already knows.
+     * A quiet wait is not treated as unspent proof: the watch stays armed until
+     * stop() so a late historical spend still blocks preimage disclosure.
+     */
+    outputSpendLookupMs = 10_000
+
+    /**
      * Wait until an output script has numConfs on our chain. txid is left zeroed
      * so this matches the script itself, not a provider-supplied transaction id.
      */
@@ -265,6 +272,137 @@ export default class {
                 this.log(ERROR, 'Error waiting for script confirmation', error)
                 finish(() => rej(error))
             })
+        })
+    }
+
+    /**
+     * Watch a Taproot lockup outpoint for spends. Taproot watches require the
+     * outpoint (script-only is not supported). Confirmed historical spends are
+     * dispatched immediately on bitcoind; this is not a mempool guarantee.
+     * Stream errors fail closed. stop() is idempotent.
+     */
+    WatchLockupSpend(req: {
+        txHash: Uint8Array
+        vout: number
+        script: Uint8Array
+        heightHint: number
+        abort?: AbortSignal
+    }): {
+        waitForHistorical: () => Promise<boolean>
+        isSpent: () => boolean
+        failure: () => Error | undefined
+        outcome: Promise<{ kind: 'spent' } | { kind: 'failed', error: Error }>
+        stop: () => void
+    } {
+        if (req.abort?.aborted) {
+            throw new Error('lockup spend lookup aborted')
+        }
+        const combined = new AbortController()
+        const abortWatch = () => combined.abort()
+        req.abort?.addEventListener('abort', abortWatch)
+        this.abortController.signal.addEventListener('abort', abortWatch)
+        let stopped = false
+        let sawSpend = false
+        let failure: Error | undefined
+        const stop = settleOnce(() => {
+            stopped = true
+            req.abort?.removeEventListener('abort', abortWatch)
+            this.abortController.signal.removeEventListener('abort', abortWatch)
+            abortWatch()
+        })
+        let reportOutcome: (result: { kind: 'spent' } | { kind: 'failed', error: Error }) => void = () => undefined
+        const outcome = new Promise<{ kind: 'spent' } | { kind: 'failed', error: Error }>(resolve => {
+            reportOutcome = resolve
+        })
+        const emit = settleOnce(() => undefined)
+        const stream = this.chainNotifier.registerSpendNtfn({
+            outpoint: { hash: req.txHash, index: req.vout },
+            script: req.script,
+            heightHint: Math.max(1, req.heightHint),
+        }, { abort: combined.signal })
+        stream.responses.onMessage(event => {
+            if (event.event.oneofKind !== 'spend') {
+                return
+            }
+            sawSpend = true
+            emit(() => reportOutcome({ kind: 'spent' }))
+        })
+        stream.responses.onError(error => {
+            if (stopped) {
+                return
+            }
+            const err = combined.signal.aborted
+                ? new Error('lockup spend lookup aborted')
+                : error instanceof Error ? error : new Error(String(error))
+            if (!combined.signal.aborted) {
+                this.log(ERROR, 'Error waiting for lockup spend', error)
+            }
+            failure = err
+            emit(() => reportOutcome({ kind: 'failed', error: err }))
+        })
+        return {
+            isSpent: () => sawSpend,
+            failure: () => failure,
+            outcome,
+            waitForHistorical: async () => {
+                let timer: ReturnType<typeof setTimeout> | undefined
+                try {
+                    const first = await Promise.race([
+                        outcome,
+                        new Promise<'timeout'>(resolve => {
+                            timer = setTimeout(() => resolve('timeout'), this.outputSpendLookupMs)
+                        }),
+                    ])
+                    if (first === 'timeout') {
+                        return sawSpend
+                    }
+                    if (first.kind === 'spent') {
+                        return true
+                    }
+                    throw first.error
+                } finally {
+                    if (timer !== undefined) {
+                        clearTimeout(timer)
+                    }
+                }
+            },
+            stop: () => stop(() => undefined),
+        }
+    }
+
+    /**
+     * Stream block heights from the current tip. Used to abort a reverse-swap
+     * lockup watch once the refund window is too close to disclose safely.
+     */
+    WatchBlockHeights(onHeight: (height: number) => void, abort?: AbortSignal): void {
+        if (abort?.aborted) {
+            return
+        }
+        const combined = new AbortController()
+        const abortWatch = () => combined.abort()
+        abort?.addEventListener('abort', abortWatch)
+        this.abortController.signal.addEventListener('abort', abortWatch)
+        const stream = this.chainNotifier.registerBlockEpochNtfn(
+            { height: 0, hash: Buffer.alloc(0) },
+            { abort: combined.signal },
+        )
+        const cleanup = settleOnce(() => {
+            abort?.removeEventListener('abort', abortWatch)
+            this.abortController.signal.removeEventListener('abort', abortWatch)
+        })
+        abort?.addEventListener('abort', () => cleanup(() => undefined), { once: true })
+        this.abortController.signal.addEventListener('abort', () => cleanup(() => undefined), { once: true })
+        stream.responses.onMessage(block => {
+            if (block.height > 0) {
+                onHeight(block.height)
+            }
+        })
+        stream.responses.onError(error => {
+            cleanup(() => undefined)
+            if (combined.signal.aborted) {
+                return
+            }
+            this.log(ERROR, 'Error watching block heights', error)
         })
     }
 

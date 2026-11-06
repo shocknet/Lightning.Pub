@@ -61,13 +61,43 @@ export type CooperativeClaimFn = (req: {
     pubNonce: string
 }) => Promise<{ ok: true, data: CooperativeClaimResult } | { ok: false, error: string }>
 
-export type ReverseClaimChain = {
-    waitForLockup: (script: Buffer, numConfs: number, heightHint: number, abort?: AbortSignal) => Promise<{ txHex: string }>
+export type ReverseLockupSpendQuery = {
+    txHash: Buffer
+    vout: number
+    script: Buffer
+    heightHint: number
+    abort?: AbortSignal
+}
+
+export type LockupSpendOutcome = { kind: 'spent' } | { kind: 'failed', error: Error }
+
+/**
+ * Live spend watch for a reverse-swap lockup. waitForHistorical reports a spend
+ * LND already knows; a quiet wait keeps this armed until stop() so a late
+ * spend still blocks disclosure. Stream errors fail closed.
+ */
+export type LockupSpendGuard = {
+    waitForHistorical: () => Promise<boolean>
+    isSpent: () => boolean
+    failure: () => Error | undefined
+    outcome: Promise<LockupSpendOutcome>
+    stop: () => void
+}
+
+export type ReverseClaimDeps = {
     publish: (txHex: string) => Promise<void>
     persistClaim?: (txHex: string) => Promise<void>
-    heightHint: number
-    abortSignal?: AbortSignal
     cooperativeClaim?: CooperativeClaimFn
+    getChainTip: () => Promise<number>
+    watchLockupSpend: (req: ReverseLockupSpendQuery) => LockupSpendGuard | Promise<LockupSpendGuard>
+    heightHint?: number
+    abortSignal?: AbortSignal
+    watchHeights?: (onHeight: (height: number) => void, abort: AbortSignal) => void
+}
+
+export type ReverseClaimChain = ReverseClaimDeps & {
+    waitForLockup: (script: Buffer, numConfs: number, heightHint: number, abort?: AbortSignal) => Promise<{ txHex: string, blockHeight?: number }>
+    heightHint: number
 }
 
 type ParsedLockup = {
@@ -99,6 +129,14 @@ export const MAX_REVERSE_TIMEOUT_BLOCKS = 2_016
 
 /** Deliberate policy: do not disclose the preimage on a mempool lockup. */
 export const REVERSE_CLAIM_CONFIRMATIONS = 1
+
+/**
+ * Blocks that must remain before the refund height when we disclose the preimage.
+ * Quote-time MIN_REVERSE_TIMEOUT_BLOCKS is the start window; this is only enough
+ * runway for a claim to confirm first. SendPaymentV2's one-hour timeout is not
+ * a safety bound: an in-flight HTLC can remain active past that setting.
+ */
+export const REVERSE_CLAIM_MIN_REMAINING_BLOCKS = 6
 
 /**
  * SendPaymentV2 must stay in-flight until the lockup confirms and we claim.
@@ -139,6 +177,35 @@ export const checkReverseTimeout = (
         return {
             ok: false,
             error: `timeoutBlockHeight ${timeoutBlockHeight} is later than ${MAX_REVERSE_TIMEOUT_BLOCKS} blocks from tip ${currentHeight}`,
+        }
+    }
+    return { ok: true }
+}
+
+/**
+ * Claim-time refund window against a trusted tip. Unlike checkReverseTimeout,
+ * this does not require the original 72-block start window: confirmation wait
+ * consumes some of that. It still refuses disclosure once the refund is valid
+ * or closer than REVERSE_CLAIM_MIN_REMAINING_BLOCKS.
+ */
+export const checkReverseClaimWindow = (
+    timeoutBlockHeight: number,
+    currentHeight: number,
+): { ok: true } | { ok: false, error: string } => {
+    if (!Number.isSafeInteger(currentHeight) || currentHeight <= 0 || currentHeight >= REVERSE_LOCKTIME_THRESHOLD) {
+        return { ok: false, error: 'untrusted chain tip' }
+    }
+    if (!Number.isSafeInteger(timeoutBlockHeight) || timeoutBlockHeight <= 0 || timeoutBlockHeight >= REVERSE_LOCKTIME_THRESHOLD) {
+        return { ok: false, error: 'invalid timeoutBlockHeight from swap service' }
+    }
+    if (timeoutBlockHeight <= currentHeight) {
+        return { ok: false, error: `refund already valid at block ${timeoutBlockHeight} (tip ${currentHeight})` }
+    }
+    const remaining = timeoutBlockHeight - currentHeight
+    if (remaining < REVERSE_CLAIM_MIN_REMAINING_BLOCKS) {
+        return {
+            ok: false,
+            error: `only ${remaining} blocks left to claim before refund at ${timeoutBlockHeight} (tip ${currentHeight}, need ${REVERSE_CLAIM_MIN_REMAINING_BLOCKS})`,
         }
     }
     return { ok: true }
@@ -489,14 +556,41 @@ export class ReverseSwaps {
         setClaimTxId: (id: string) => void,
         done: (failureReason?: string) => void,
     ) => {
+        const timeout = data.createdResponse.timeoutBlockHeight
+        let windowError: string | undefined
+        const localAbort = new AbortController()
+        const onParentAbort = () => localAbort.abort()
+        abort.addEventListener('abort', onParentAbort)
+        const onHeight = (height: number) => {
+            const window = checkReverseClaimWindow(timeout, height)
+            if (!window.ok) {
+                windowError = window.error
+                localAbort.abort()
+            }
+        }
         try {
-            const network = getNetwork(this.network)
-            const script = address.toOutputScript(data.createdResponse.lockupAddress, network)
-            const confirmed = await chain.waitForLockup(script, REVERSE_CLAIM_CONFIRMATIONS, chain.heightHint, abort)
-            if (abort.aborted) {
+            const tip = await chain.getChainTip()
+            onHeight(tip)
+            if (windowError) {
+                done(windowError)
                 return
             }
-            const claimed = await this.claimConfirmedLockup(data, confirmed.txHex, chain)
+            chain.watchHeights?.(onHeight, localAbort.signal)
+            const network = getNetwork(this.network)
+            const script = address.toOutputScript(data.createdResponse.lockupAddress, network)
+            const confirmed = await chain.waitForLockup(script, REVERSE_CLAIM_CONFIRMATIONS, chain.heightHint, localAbort.signal)
+            if (windowError) {
+                done(windowError)
+                return
+            }
+            if (abort.aborted || localAbort.signal.aborted) {
+                return
+            }
+            const claimed = await this.claimConfirmedLockup(data, confirmed.txHex, {
+                ...chain,
+                heightHint: confirmed.blockHeight || chain.heightHint,
+                abortSignal: localAbort.signal,
+            })
             if (!claimed.ok) {
                 done(claimed.error)
                 return
@@ -504,11 +598,18 @@ export class ReverseSwaps {
             setClaimTxId(claimed.txId)
             done()
         } catch (err: any) {
+            if (windowError) {
+                done(windowError)
+                return
+            }
             if (abort.aborted) {
                 return
             }
             this.log(ERROR, 'Failed waiting for confirmed reverse-swap lockup', err.message || err)
             done(err.message || String(err))
+        } finally {
+            abort.removeEventListener('abort', onParentAbort)
+            localAbort.abort()
         }
     }
 
@@ -520,58 +621,74 @@ export class ReverseSwaps {
     claimConfirmedLockup = async (
         data: TransactionSwapData,
         confirmedTxHex: string,
-        deps: { publish: (txHex: string) => Promise<void>, persistClaim?: (txHex: string) => Promise<void>, cooperativeClaim?: CooperativeClaimFn },
+        deps: ReverseClaimDeps,
     ): Promise<{ ok: true, txId: string, usedCooperative: boolean } | { ok: false, error: string }> => {
         const parsed = await this.parseAndValidateLockup(data, confirmedTxHex)
         if (!parsed.ok) {
             return parsed
         }
 
-        let unilateral: Transaction
+        let guard: LockupSpendGuard | undefined
         try {
-            unilateral = this.buildUnilateralClaim(data, parsed)
-        } catch (err: any) {
-            return { ok: false, error: `failed to construct unilateral claim: ${err.message}` }
-        }
+            const spendable = await this.ensureLockupStillClaimable(data, parsed, deps)
+            if (!spendable.ok) {
+                return spendable
+            }
+            guard = spendable.guard
 
-        // Persist the script-path spend before disclosing the preimage cooperatively
-        // or broadcasting, so a crash still has a claim to rebroadcast.
-        try {
-            await deps.persistClaim?.(unilateral.toHex())
-        } catch (err: any) {
-            return { ok: false, error: `failed to persist reverse-swap claim: ${err.message || err}` }
-        }
-
-        let toPublish = unilateral
-        let usedCooperative = false
-        const coop = await this.tryCooperativeClaim(data, parsed, deps.cooperativeClaim)
-        if (coop.ok) {
+            let unilateral: Transaction
             try {
-                await deps.persistClaim?.(coop.tx.toHex())
-                toPublish = coop.tx
-                usedCooperative = true
+                unilateral = this.buildUnilateralClaim(data, parsed)
             } catch (err: any) {
-                this.log(ERROR, 'Failed to persist cooperative claim, publishing script-path claim', err.message || err)
+                return { ok: false, error: `failed to construct unilateral claim: ${err.message}` }
             }
-        } else {
-            this.log(ERROR, 'Cooperative reverse-swap claim failed, publishing script-path claim', coop.error)
-        }
 
-        try {
-            await deps.publish(toPublish.toHex())
-        } catch (err: any) {
-            if (usedCooperative) {
-                this.log(ERROR, 'Cooperative claim publish failed, broadcasting script-path claim', err.message)
-                await deps.persistClaim?.(unilateral.toHex()).catch(() => undefined)
-                await deps.publish(unilateral.toHex())
-                toPublish = unilateral
-                usedCooperative = false
-            } else {
-                return { ok: false, error: err.message || String(err) }
+            // Persist the script-path spend before disclosing the preimage cooperatively
+            // or broadcasting, so a crash still has a claim to rebroadcast.
+            try {
+                await deps.persistClaim?.(unilateral.toHex())
+            } catch (err: any) {
+                return { ok: false, error: `failed to persist reverse-swap claim: ${err.message || err}` }
             }
+
+            const beforeDisclose = this.lockupSpendUnsafe(guard)
+            if (beforeDisclose) {
+                return beforeDisclose
+            }
+
+            let toPublish = unilateral
+            let usedCooperative = false
+            const coop = await this.tryCooperativeClaim(data, parsed, deps.cooperativeClaim)
+            if (coop.ok) {
+                try {
+                    await deps.persistClaim?.(coop.tx.toHex())
+                    toPublish = coop.tx
+                    usedCooperative = true
+                } catch (err: any) {
+                    this.log(ERROR, 'Failed to persist cooperative claim, publishing script-path claim', err.message || err)
+                }
+            } else {
+                this.log(ERROR, 'Cooperative reverse-swap claim failed, publishing script-path claim', coop.error)
+            }
+
+            try {
+                await deps.publish(toPublish.toHex())
+            } catch (err: any) {
+                if (usedCooperative) {
+                    this.log(ERROR, 'Cooperative claim publish failed, broadcasting script-path claim', err.message)
+                    await deps.persistClaim?.(unilateral.toHex()).catch(() => undefined)
+                    await deps.publish(unilateral.toHex())
+                    toPublish = unilateral
+                    usedCooperative = false
+                } else {
+                    return { ok: false, error: err.message || String(err) }
+                }
+            }
+            this.log('Reverse-swap claim published', { txId: toPublish.getId(), usedCooperative })
+            return { ok: true, txId: toPublish.getId(), usedCooperative }
+        } finally {
+            guard?.stop()
         }
-        this.log('Reverse-swap claim published', { txId: toPublish.getId(), usedCooperative })
-        return { ok: true, txId: toPublish.getId(), usedCooperative }
     }
 
     parseAndValidateLockup = async (
@@ -593,6 +710,9 @@ export class ReverseSwaps {
         ])
         const tweakedKey = TaprootUtils.tweakMusig(musig, swapTree.tree)
         const lockupTx = Transaction.fromHex(txHex)
+        if (lockupTx.isCoinbase()) {
+            return { ok: false, error: 'coinbase lockup cannot be claimed before maturity' }
+        }
         const swapOutput = findTaprootSwapOutput(tweakedKey, lockupTx)
         if (swapOutput === undefined || !isExactTaprootSwapOutput(swapOutput, lockupTx, tweakedKey)) {
             this.log(ERROR, 'No swap output found in lockup transaction')
@@ -619,6 +739,67 @@ export class ReverseSwaps {
             internalKey: musig.getAggregatedPublicKey(),
             boltzPublicKey,
         }
+    }
+
+    /**
+     * Historical confirmation is not enough to disclose the preimage. Recheck
+     * the trusted tip and arm a spend watch before returning a live guard.
+     * Coinbase lockups are already rejected in parseAndValidateLockup.
+     */
+    private ensureLockupStillClaimable = async (
+        data: TransactionSwapData,
+        parsed: ParsedLockup,
+        deps: ReverseClaimDeps,
+    ): Promise<{ ok: true, guard: LockupSpendGuard } | { ok: false, error: string }> => {
+        let tip: number
+        try {
+            tip = await deps.getChainTip()
+        } catch (err: any) {
+            return { ok: false, error: `failed to read chain tip before claim: ${err.message || err}` }
+        }
+        const window = checkReverseClaimWindow(data.createdResponse.timeoutBlockHeight, tip)
+        if (!window.ok) {
+            return window
+        }
+        let guard: LockupSpendGuard
+        try {
+            guard = await deps.watchLockupSpend({
+                txHash: parsed.lockupTx.getHash(),
+                vout: parsed.swapOutput.vout,
+                script: parsed.swapOutput.script,
+                heightHint: Math.max(1, deps.heightHint || tip),
+                abort: deps.abortSignal,
+            })
+        } catch (err: any) {
+            return { ok: false, error: `failed to check lockup spend status: ${err.message || err}` }
+        }
+        try {
+            const spent = await guard.waitForHistorical()
+            if (spent) {
+                guard.stop()
+                return { ok: false, error: 'lockup output is already spent' }
+            }
+            const unsafe = this.lockupSpendUnsafe(guard)
+            if (unsafe) {
+                guard.stop()
+                return unsafe
+            }
+            return { ok: true, guard }
+        } catch (err: any) {
+            guard.stop()
+            return { ok: false, error: `failed to check lockup spend status: ${err.message || err}` }
+        }
+    }
+
+    private lockupSpendUnsafe = (guard: LockupSpendGuard): { ok: false, error: string } | undefined => {
+        if (guard.isSpent()) {
+            return { ok: false, error: 'lockup output is already spent' }
+        }
+        const failure = guard.failure()
+        if (failure) {
+            return { ok: false, error: `failed to check lockup spend status: ${failure.message}` }
+        }
+        return undefined
     }
 
     private buildUnilateralClaim = (data: TransactionSwapData, parsed: ParsedLockup): Transaction => {

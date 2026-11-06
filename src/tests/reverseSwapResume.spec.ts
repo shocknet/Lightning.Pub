@@ -23,7 +23,8 @@ export default async (T: StorageTestBase) => {
     await testResumeRebroadcastsFailedSwapWithClaim(T)
     await testResumeDoesNotBlockOnLockupWatch(T)
     await testResumeRejectsMissingDestination(T)
-    await testResumeUsesSavedLockupHex(T)
+    await testResumeRechecksSavedLockupOnChain(T)
+    await testResumeRejectsExpiredClaimWindow(T)
     await testResumeWatchesFromTimeoutWindow(T)
     await testResumeRetriesUntilLndSynced(T)
 }
@@ -90,6 +91,13 @@ const makeSwaps = (T: StorageTestBase) => {
             return { txId: Transaction.fromHex(txHex).getId() }
         },
         WaitForScriptConfirmations: async () => ({ txHex: OTHER_CLAIM_HEX, blockHeight: 6 }),
+        WatchLockupSpend: () => ({
+            waitForHistorical: async () => false,
+            isSpent: () => false,
+            failure: () => undefined,
+            outcome: new Promise(() => { }),
+            stop: () => { },
+        }),
     } as any)
     return { swaps, swapper, broadcasts }
 }
@@ -305,8 +313,8 @@ const testResumeRejectsMissingDestination = async (T: StorageTestBase) => {
     T.d('started rows without a destination are kept for a later verified pay')
 }
 
-const testResumeUsesSavedLockupHex = async (T: StorageTestBase) => {
-    T.d('starting resume claims from a persisted lockup hex without watching from tip')
+const testResumeRechecksSavedLockupOnChain = async (T: StorageTestBase) => {
+    T.d('starting resume rechecks a persisted lockup hex against the current chain')
     const userId = `rev-lockup-${randomBytes(8).toString('hex')}`
     const saved = await T.storage.paymentStorage.AddTransactionSwap(requiredSwap(userId, {
         paid_at_unix: 1,
@@ -331,8 +339,15 @@ const testResumeUsesSavedLockupHex = async (T: StorageTestBase) => {
         BroadcastTransaction: async (txHex: string) => ({ txId: Transaction.fromHex(txHex).getId() }),
         WaitForScriptConfirmations: async () => {
             waitedScript = true
-            throw new Error('should not watch chain when lockup hex is saved')
+            return { txHex: OTHER_CLAIM_HEX, blockHeight: 920_500 }
         },
+        WatchLockupSpend: () => ({
+            waitForHistorical: async () => false,
+            isSpent: () => false,
+            failure: () => undefined,
+            outcome: new Promise(() => { }),
+            stop: () => { },
+        }),
     } as any)
     swaps.SetBackupManager({ notifyBackupTable: async () => { }, flushTablesNow: async () => { } } as any)
     await swaps.ResumeTransactionSwaps()
@@ -340,11 +355,61 @@ const testResumeUsesSavedLockupHex = async (T: StorageTestBase) => {
     while (!returnedHex && Date.now() < deadline) {
         await new Promise(resolve => setTimeout(resolve, 10))
     }
-    T.expect(waitedScript).to.equal(false)
-    T.expect(returnedHex).to.equal(LOCKUP_HEX)
+    T.expect(waitedScript).to.equal(true)
+    T.expect(returnedHex).to.equal(OTHER_CLAIM_HEX)
     T.expect(heightHint).to.equal(Math.max(1, 920_000 + 1_008 - MAX_REVERSE_TIMEOUT_BLOCKS))
     await T.storage.paymentStorage.DeleteTransactionSwap(saved.swap_operation_id)
-    T.d('resume reused the saved lockup hex and did not start a tip-based watch')
+    T.d('resume asked LND for the current lockup instead of trusting the saved hex')
+}
+
+const testResumeRejectsExpiredClaimWindow = async (T: StorageTestBase) => {
+    T.d('starting resume refuses to wait for a lockup after the refund height')
+    const timeout = 920_000 + 1_008
+    const userId = `rev-expired-${randomBytes(8).toString('hex')}`
+    const saved = await T.storage.paymentStorage.AddTransactionSwap(requiredSwap(userId, {
+        paid_at_unix: 1,
+        address_paid: DEST,
+        lockup_tx_hex: LOCKUP_HEX,
+        timeout_block_height: timeout,
+    }))
+    await deleteOtherUnfinished(T, saved.swap_operation_id)
+    const { swaps, swapper } = makeSwaps(T)
+    let waitError = ''
+    let waitedScript = false
+    swapper.SubscribeToTransactionSwap = async (_data, done, chain) => {
+        try {
+            await chain.waitForLockup(Buffer.alloc(0), 1, chain.heightHint)
+        } catch (err: any) {
+            waitError = err.message || String(err)
+        }
+        done({ ok: false, error: waitError || 'expected claim window error' })
+    }
+    swaps.SetLnd({
+        DecodeInvoice: async () => ({ numSatoshis: 1200, paymentHash: '22'.repeat(32) }),
+        GetInfo: async () => ({ syncedToChain: true, blockHeight: timeout }),
+        BroadcastTransaction: async (txHex: string) => ({ txId: Transaction.fromHex(txHex).getId() }),
+        WaitForScriptConfirmations: async () => {
+            waitedScript = true
+            return { txHex: LOCKUP_HEX, blockHeight: timeout }
+        },
+        WatchLockupSpend: () => ({
+            waitForHistorical: async () => false,
+            isSpent: () => false,
+            failure: () => undefined,
+            outcome: new Promise(() => { }),
+            stop: () => { },
+        }),
+    } as any)
+    swaps.SetBackupManager({ notifyBackupTable: async () => { }, flushTablesNow: async () => { } } as any)
+    await swaps.ResumeTransactionSwaps()
+    const deadline = Date.now() + 500
+    while (!waitError && Date.now() < deadline) {
+        await new Promise(resolve => setTimeout(resolve, 10))
+    }
+    T.expect(waitedScript).to.equal(false)
+    T.expect(waitError).to.equal(`refund already valid at block ${timeout} (tip ${timeout})`)
+    await T.storage.paymentStorage.DeleteTransactionSwap(saved.swap_operation_id)
+    T.d('resume did not watch for lockup after the refund became valid')
 }
 
 const testResumeWatchesFromTimeoutWindow = async (T: StorageTestBase) => {
