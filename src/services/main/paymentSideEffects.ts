@@ -9,7 +9,7 @@ import { encodeClinkResponse } from "../CLINK/clinkTypes.js"
 import { CLINK_OFFER_KIND } from "../CLINK/clinkConstants.js"
 import { NotificationsManager } from "./notificationsManager.js"
 import { ApplicationUser } from "../storage/entity/ApplicationUser.js"
-import { UserReceivingInvoice } from "../storage/entity/UserReceivingInvoice.js"
+import { UserReceivingInvoice, InvoicePayerData } from "../storage/entity/UserReceivingInvoice.js"
 import Storage from "../storage/index.js"
 
 export class PaymentSideEffects {
@@ -63,7 +63,7 @@ export class PaymentSideEffects {
             {
                 invoice: string,
                 amount: number,
-                payerData?: Record<string, string>,
+                payerData?: InvoicePayerData,
                 token?: string,
                 rejectUnauthorized?: boolean
             }

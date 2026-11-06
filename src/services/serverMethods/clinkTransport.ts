@@ -2,6 +2,7 @@ import { getLogger, ERROR, PubLogger } from "../helpers/logger.js"
 import { NostrEvent } from "../nostr/nostrPool.js"
 import { ClinkRouter } from "./clinkRouter.js"
 import { ClinkError, encodeClinkResponse, toClinkCtx, ClinkSend } from "../CLINK/clinkTypes.js"
+import { CLINK_OFFER_KIND } from "../CLINK/clinkConstants.js"
 
 const unknownError = () => {
     return {
@@ -11,12 +12,12 @@ const unknownError = () => {
     }
 }
 
-const tryParse = (log: PubLogger, data: string) => {
+const tryParse = (log: PubLogger, data: string, kind: number) => {
     try {
         return JSON.parse(data)
     } catch (e: any) {
         log("invalid clink request body", e.message || e)
-        throw new ClinkError("Invalid Request: malformed request", 6)
+        throw new ClinkError("Invalid Request: malformed request", kind === CLINK_OFFER_KIND ? 1 : 6)
     }
 }
 
@@ -25,7 +26,7 @@ export const newClinkTransport = (clinkHandler: ClinkRouter) => {
 
     return async (event: NostrEvent, send: ClinkSend): Promise<void> => {
         try {
-            const req = tryParse(log, event.content)
+            const req = tryParse(log, event.content, event.kind)
             const body = await clinkHandler(toClinkCtx(event), event.kind, req)
             if (body == null) {
                 return
