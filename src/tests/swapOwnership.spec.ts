@@ -225,7 +225,7 @@ const requiredSwap = (userId: string, extra: Record<string, unknown> = {}) => ({
     invoice_amount: 1200,
     transaction_amount: 1000,
     swap_fee_sats: 50,
-    chain_fee_sats: 15,
+    chain_fee_sats: 200,
     preimage: '22'.repeat(32),
     ephemeral_public_key: '33'.repeat(33),
     ephemeral_private_key: '44'.repeat(32),
@@ -253,6 +253,7 @@ const makeSwaps = (T: StorageTestBase) => {
         GetInfo: async () => ({ syncedToChain: true, blockHeight: 5 }),
         BroadcastTransaction: async (txHex: string) => ({ txId: Transaction.fromHex(txHex).getId() }),
         WaitForScriptConfirmations: async () => ({ txHex: dummyTxHex(), blockHeight: 6 }),
+        EstimateSatPerVbyte: async () => ({ satPerVbyte: 1, minRelaySatPerVbyte: 1 }),
     } as any)
     return { swaps, swapper }
 }

@@ -4,7 +4,7 @@ import { initEccLib, Transaction, address } from 'bitcoinjs-lib';
 // import bolt11 from 'bolt11';
 import {
     Musig, SwapTreeSerializer, TaprootUtils,
-    constructClaimTransaction, OutputType, constructRefundTransaction,
+    constructClaimTransaction, OutputType, targetFee,
     reverseSwapTree, compareTrees, Scripts
 } from 'boltz-core';
 import { randomBytes, createHash } from 'crypto';
@@ -15,7 +15,7 @@ import { getLogger, PubLogger, ERROR } from '../../helpers/logger.js';
 import { isNonNegativeSats, isPositiveSats } from '../../helpers/sats.js';
 import { BTCNetwork } from '../../main/settings.js';
 import {
-    caughtErrorMessage, loggedGet, loggedPost, getNetwork,
+    loggedGet, loggedPost, getNetwork, scriptDustLimit,
     findTaprootSwapOutput, isExactTaprootSwapOutput, TaprootSwapOutput,
 } from './swapHelpers.js';
 
@@ -53,14 +53,6 @@ export type TransactionSwapResponse = {
 type TransactionSwapInfo = { destinationAddress: string, preimage: Buffer, keys: ECPairInterface, chainFee: number }
 export type TransactionSwapData = { createdResponse: TransactionSwapResponse, info: TransactionSwapInfo }
 
-export type CooperativeClaimResult = { pubNonce: string, partialSignature: string }
-export type CooperativeClaimFn = (req: {
-    id: string
-    transaction: string
-    preimage: string
-    pubNonce: string
-}) => Promise<{ ok: true, data: CooperativeClaimResult } | { ok: false, error: string }>
-
 export type ReverseLockupSpendQuery = {
     txHash: Buffer
     vout: number
@@ -84,10 +76,15 @@ export type LockupSpendGuard = {
     stop: () => void
 }
 
+export type ReverseClaimFeeRates = {
+    satPerVbyte: number
+    minRelaySatPerVbyte: number
+}
+
 export type ReverseClaimDeps = {
     publish: (txHex: string) => Promise<void>
     persistClaim?: (txHex: string) => Promise<void>
-    cooperativeClaim?: CooperativeClaimFn
+    getClaimFeeRates: () => Promise<ReverseClaimFeeRates>
     getChainTip: () => Promise<number>
     watchLockupSpend: (req: ReverseLockupSpendQuery) => LockupSpendGuard | Promise<LockupSpendGuard>
     heightHint?: number
@@ -140,9 +137,21 @@ export const REVERSE_CLAIM_MIN_REMAINING_BLOCKS = 6
 
 /**
  * SendPaymentV2 must stay in-flight until the lockup confirms and we claim.
- * 50s is only enough for the old mempool-speed cooperative path.
+ * The claim is a local script-path broadcast, not a provider round-trip.
  */
 export const REVERSE_SWAP_PAYMENT_TIMEOUT_SECONDS = 60 * 60
+
+/** Bitcoin Core default minrelaytxfee: 1 sat/vbyte. */
+export const MIN_CLAIM_SAT_PER_VBYTE = 1
+
+/**
+ * Conservative script-path claim size used at quote/pay time, before the
+ * destination script is known. A taproot reverse claim is ~150–180 vbytes;
+ * this leaves room for a P2PKH output and targetFee's extra input buffer.
+ * Admission uses min relay, not next-block, so a congested mempool cannot
+ * reject a quote whose lockup still pays a relayable claim.
+ */
+export const REVERSE_CLAIM_VBYTE_BUDGET = 200
 
 /** Reverse-swap hold invoices must be paid by our node, not a liquidity provider. */
 export const SWAP_INVOICE_MUST_USE_LND = 'swaps cannot be paid via the liquidity provider'
@@ -207,6 +216,127 @@ export const checkReverseClaimWindow = (
             ok: false,
             error: `only ${remaining} blocks left to claim before refund at ${timeoutBlockHeight} (tip ${currentHeight}, need ${REVERSE_CLAIM_MIN_REMAINING_BLOCKS})`,
         }
+    }
+    return { ok: true }
+}
+
+export const resolveClaimSatPerVbyte = (satPerVbyte: number): { ok: true, satPerVbyte: number } | { ok: false, error: string } => {
+    if (!Number.isSafeInteger(satPerVbyte) || satPerVbyte < MIN_CLAIM_SAT_PER_VBYTE) {
+        return { ok: false, error: `invalid local claim fee rate ${satPerVbyte}` }
+    }
+    return { ok: true, satPerVbyte }
+}
+
+/**
+ * Provider miner fees are a lockup budget, not a claim feerate. Refuse quotes
+ * that cannot pay a locally sized script-path spend at min relay. Next-block
+ * estimates are not an admission floor: the claim is capped to this budget.
+ */
+export const checkReverseClaimBudget = (
+    minerFee: number,
+    satPerVbyte: number,
+    vbytes = REVERSE_CLAIM_VBYTE_BUDGET,
+): { ok: true } | { ok: false, error: string } => {
+    const rate = resolveClaimSatPerVbyte(satPerVbyte)
+    if (!rate.ok) {
+        return rate
+    }
+    if (!isNonNegativeSats(minerFee)) {
+        return { ok: false, error: 'invalid miner fees from swap service' }
+    }
+    if (!isPositiveSats(vbytes)) {
+        return { ok: false, error: 'invalid claim size' }
+    }
+    const floor = rate.satPerVbyte * vbytes
+    if (minerFee < floor) {
+        return {
+            ok: false,
+            error: `swap miner fee budget ${minerFee} is below local claim floor ${floor}`,
+        }
+    }
+    return { ok: true }
+}
+
+/**
+ * Claim sat/vbyte: at least min relay, at most the quoted miner budget, and
+ * never above the live estimate. Honors the quoted receive amount; a congested
+ * mempool may confirm slower instead of eating the destination output.
+ */
+export const resolveClaimFeeRate = (
+    liveSatPerVbyte: number,
+    minRelaySatPerVbyte: number,
+    minerFee: number,
+    vbytes: number,
+): { ok: true, satPerVbyte: number } | { ok: false, error: string } => {
+    const minRelay = resolveClaimSatPerVbyte(minRelaySatPerVbyte)
+    if (!minRelay.ok) {
+        return minRelay
+    }
+    const live = resolveClaimSatPerVbyte(liveSatPerVbyte)
+    if (!live.ok) {
+        return live
+    }
+    const budget = checkReverseClaimBudget(minerFee, minRelay.satPerVbyte, vbytes)
+    if (!budget.ok) {
+        return budget
+    }
+    const maxRate = Math.floor(minerFee / vbytes)
+    const satPerVbyte = Math.min(Math.max(live.satPerVbyte, minRelay.satPerVbyte), maxRate)
+    if (satPerVbyte < minRelay.satPerVbyte) {
+        return { ok: false, error: `quoted miner budget ${minerFee} cannot pay min relay ${minRelay.satPerVbyte} sat/vbyte` }
+    }
+    return { ok: true, satPerVbyte }
+}
+
+/** Matches boltz-core targetFee: (virtualSize + input count) * sat/vbyte. */
+export const claimTargetVbytes = (tx: Transaction): number => tx.virtualSize() + tx.ins.length
+
+/**
+ * The script-path claim is the only disclosure of the preimage. It must meet
+ * the chosen sat/vbyte floor, stay within the quoted miner budget, and leave a
+ * standard, spendable output.
+ */
+export const checkUnilateralClaimRelayable = (
+    tx: Transaction,
+    inputValue: number,
+    satPerVbyte: number,
+    maxFee: number,
+): { ok: true } | { ok: false, error: string } => {
+    const rate = resolveClaimSatPerVbyte(satPerVbyte)
+    if (!rate.ok) {
+        return rate
+    }
+    if (!isPositiveSats(inputValue)) {
+        return { ok: false, error: 'invalid lockup value for reverse-swap claim' }
+    }
+    if (!isNonNegativeSats(maxFee)) {
+        return { ok: false, error: 'invalid quoted miner fee budget' }
+    }
+    if (tx.ins.length !== 1 || tx.outs.length !== 1) {
+        return { ok: false, error: 'unilateral claim must be a single-input single-output spend' }
+    }
+    const output = tx.outs[0]
+    const dust = scriptDustLimit(output.script)
+    if (dust <= 0) {
+        return { ok: false, error: 'claim destination is unspendable' }
+    }
+    if (!isNonNegativeSats(output.value) || output.value < dust) {
+        return { ok: false, error: `claim output ${output.value} is below dust limit ${dust}` }
+    }
+    const fee = inputValue - output.value
+    if (!isPositiveSats(fee)) {
+        return { ok: false, error: 'unilateral claim fee is below the local relay floor' }
+    }
+    const vsize = tx.virtualSize()
+    if (!isPositiveSats(vsize)) {
+        return { ok: false, error: 'invalid unilateral claim size' }
+    }
+    const minFee = vsize * rate.satPerVbyte
+    if (fee < minFee) {
+        return { ok: false, error: `unilateral claim fee ${fee} is below local floor ${minFee} (${rate.satPerVbyte} sat/vbyte)` }
+    }
+    if (fee > maxFee) {
+        return { ok: false, error: `unilateral claim fee ${fee} exceeds quoted miner budget ${maxFee}` }
     }
     return { ok: true }
 }
@@ -614,15 +744,15 @@ export class ReverseSwaps {
     }
 
     /**
-     * Claim a lockup that our node has already confirmed. Builds the script-path
-     * spend first so a withheld cooperative signature is not theft, then tries
-     * the cheaper key-path claim. Always publishes via the injected chain client.
+     * Claim a lockup that our node has already confirmed. The preimage is
+     * disclosed only by broadcasting a locally sized script-path spend; a
+     * provider round-trip would settle Lightning without a relayable fallback.
      */
     claimConfirmedLockup = async (
         data: TransactionSwapData,
         confirmedTxHex: string,
         deps: ReverseClaimDeps,
-    ): Promise<{ ok: true, txId: string, usedCooperative: boolean } | { ok: false, error: string }> => {
+    ): Promise<{ ok: true, txId: string } | { ok: false, error: string }> => {
         const parsed = await this.parseAndValidateLockup(data, confirmedTxHex)
         if (!parsed.ok) {
             return parsed
@@ -636,56 +766,67 @@ export class ReverseSwaps {
             }
             guard = spendable.guard
 
+            let feeRates: ReverseClaimFeeRates
+            try {
+                feeRates = await deps.getClaimFeeRates()
+            } catch (err: any) {
+                return { ok: false, error: `failed to read local claim fee rate: ${err.message || err}` }
+            }
+
+            let probe: Transaction
+            try {
+                probe = this.buildUnilateralClaim(data, parsed, MIN_CLAIM_SAT_PER_VBYTE)
+            } catch (err: any) {
+                return { ok: false, error: `failed to construct unilateral claim: ${err.message}` }
+            }
+            const vbytes = claimTargetVbytes(probe)
+            const rate = resolveClaimFeeRate(
+                feeRates.satPerVbyte,
+                feeRates.minRelaySatPerVbyte,
+                data.info.chainFee,
+                vbytes,
+            )
+            if (!rate.ok) {
+                return rate
+            }
+
             let unilateral: Transaction
             try {
-                unilateral = this.buildUnilateralClaim(data, parsed)
+                unilateral = this.buildUnilateralClaim(data, parsed, rate.satPerVbyte)
             } catch (err: any) {
                 return { ok: false, error: `failed to construct unilateral claim: ${err.message}` }
             }
 
-            // Persist the script-path spend before disclosing the preimage cooperatively
-            // or broadcasting, so a crash still has a claim to rebroadcast.
+            const relayable = checkUnilateralClaimRelayable(
+                unilateral,
+                parsed.swapOutput.value,
+                rate.satPerVbyte,
+                data.info.chainFee,
+            )
+            if (!relayable.ok) {
+                return relayable
+            }
+
+            // Persist the script-path spend before broadcasting so a crash still
+            // has a locally relayable claim to rebroadcast.
             try {
                 await deps.persistClaim?.(unilateral.toHex())
             } catch (err: any) {
                 return { ok: false, error: `failed to persist reverse-swap claim: ${err.message || err}` }
             }
 
-            const beforeDisclose = this.lockupSpendUnsafe(guard)
-            if (beforeDisclose) {
-                return beforeDisclose
-            }
-
-            let toPublish = unilateral
-            let usedCooperative = false
-            const coop = await this.tryCooperativeClaim(data, parsed, deps.cooperativeClaim)
-            if (coop.ok) {
-                try {
-                    await deps.persistClaim?.(coop.tx.toHex())
-                    toPublish = coop.tx
-                    usedCooperative = true
-                } catch (err: any) {
-                    this.log(ERROR, 'Failed to persist cooperative claim, publishing script-path claim', err.message || err)
-                }
-            } else {
-                this.log(ERROR, 'Cooperative reverse-swap claim failed, publishing script-path claim', coop.error)
+            const beforePublish = this.lockupSpendUnsafe(guard)
+            if (beforePublish) {
+                return beforePublish
             }
 
             try {
-                await deps.publish(toPublish.toHex())
+                await deps.publish(unilateral.toHex())
             } catch (err: any) {
-                if (usedCooperative) {
-                    this.log(ERROR, 'Cooperative claim publish failed, broadcasting script-path claim', err.message)
-                    await deps.persistClaim?.(unilateral.toHex()).catch(() => undefined)
-                    await deps.publish(unilateral.toHex())
-                    toPublish = unilateral
-                    usedCooperative = false
-                } else {
-                    return { ok: false, error: err.message || String(err) }
-                }
+                return { ok: false, error: err.message || String(err) }
             }
-            this.log('Reverse-swap claim published', { txId: toPublish.getId(), usedCooperative })
-            return { ok: true, txId: toPublish.getId(), usedCooperative }
+            this.log('Reverse-swap claim published', { txId: unilateral.getId() })
+            return { ok: true, txId: unilateral.getId() }
         } finally {
             guard?.stop()
         }
@@ -802,96 +943,22 @@ export class ReverseSwaps {
         return undefined
     }
 
-    private buildUnilateralClaim = (data: TransactionSwapData, parsed: ParsedLockup): Transaction => {
+    private buildUnilateralClaim = (data: TransactionSwapData, parsed: ParsedLockup, satPerVbyte: number): Transaction => {
         const { info } = data
         const network = getNetwork(this.network)
-        return constructClaimTransaction(
-            [
-                {
-                    ...parsed.swapOutput,
-                    keys: info.keys,
-                    preimage: info.preimage,
-                    cooperative: false,
-                    type: OutputType.Taproot,
-                    txHash: parsed.lockupTx.getHash(),
-                    swapTree: parsed.swapTree,
-                    internalKey: parsed.internalKey,
-                },
-            ],
-            address.toOutputScript(info.destinationAddress, network),
-            info.chainFee,
-        )
-    }
-
-    private tryCooperativeClaim = async (
-        data: TransactionSwapData,
-        parsed: ParsedLockup,
-        cooperativeClaim?: CooperativeClaimFn,
-    ): Promise<{ ok: true, tx: Transaction } | { ok: false, error: string }> => {
-        const { createdResponse, info } = data
-        const { keys, preimage, chainFee, destinationAddress } = info
-        try {
-            const musig = new Musig(await zkpInit(), keys, randomBytes(32), [
-                parsed.boltzPublicKey,
-                Buffer.from(keys.publicKey),
-            ])
-            TaprootUtils.tweakMusig(musig, parsed.swapTree.tree)
-            const network = getNetwork(this.network)
-            const claimTx = constructClaimTransaction(
-                [
-                    {
-                        ...parsed.swapOutput,
-                        keys,
-                        preimage,
-                        cooperative: true,
-                        type: OutputType.Taproot,
-                        txHash: parsed.lockupTx.getHash(),
-                    },
-                ],
-                address.toOutputScript(destinationAddress, network),
-                chainFee,
-            )
-            const postClaim = cooperativeClaim ?? this.postCooperativeClaim
-            const boltzSigRes = await postClaim({
-                id: createdResponse.id,
-                transaction: claimTx.toHex(),
-                preimage: preimage.toString('hex'),
-                pubNonce: Buffer.from(musig.getPublicNonce()).toString('hex'),
-            })
-            if (!boltzSigRes.ok) {
-                return boltzSigRes
-            }
-            const boltzSig = boltzSigRes.data
-            musig.aggregateNonces([
-                [parsed.boltzPublicKey, Musig.parsePubNonce(boltzSig.pubNonce)],
-            ])
-            musig.initializeSession(
-                claimTx.hashForWitnessV1(
-                    0,
-                    [parsed.swapOutput.script],
-                    [parsed.swapOutput.value],
-                    Transaction.SIGHASH_DEFAULT,
-                ),
-            )
-            musig.addPartial(
-                parsed.boltzPublicKey,
-                Buffer.from(boltzSig.partialSignature, 'hex'),
-            )
-            musig.signPartial()
-            claimTx.ins[0].witness = [musig.aggregatePartials()]
-            return { ok: true, tx: claimTx }
-        } catch (err: unknown) {
-            return { ok: false, error: caughtErrorMessage(err) }
-        }
-    }
-
-    private postCooperativeClaim: CooperativeClaimFn = async (req) => {
-        const claimUrl = `${this.httpUrl}/v2/swap/reverse/${req.id}/claim`
-        return loggedPost<CooperativeClaimResult>(this.log, claimUrl, {
-            index: 0,
-            transaction: req.transaction,
-            preimage: req.preimage,
-            pubNonce: req.pubNonce,
-        })
+        const destination = address.toOutputScript(info.destinationAddress, network)
+        const utxos = [
+            {
+                ...parsed.swapOutput,
+                keys: info.keys,
+                preimage: info.preimage,
+                cooperative: false,
+                type: OutputType.Taproot,
+                txHash: parsed.lockupTx.getHash(),
+                swapTree: parsed.swapTree,
+                internalKey: parsed.internalKey,
+            },
+        ]
+        return targetFee(satPerVbyte, (fee) => constructClaimTransaction(utxos, destination, fee))
     }
 }

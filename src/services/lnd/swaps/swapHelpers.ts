@@ -96,6 +96,23 @@ export const findTaprootSwapOutput = (
     return undefined
 }
 
+/**
+ * Bitcoin Core dust with the default 3 sat/vbyte dustRelayFee.
+ * OP_RETURN / empty scripts are unspendable (limit 0) and are not valid claim
+ * destinations; callers must reject them rather than treating 0 as "not dust".
+ */
+export const scriptDustLimit = (script: Buffer): number => {
+    if (script.length === 0 || script[0] === 0x6a) {
+        return 0
+    }
+    const outputSize = 8 + 1 + script.length
+    const witnessProgram = script[0] === 0x00 || script[0] === 0x51
+    const inputSize = witnessProgram
+        ? 32 + 4 + 1 + Math.floor(107 / 4) + 4
+        : 32 + 4 + 1 + 107 + 4
+    return Math.ceil(3_000 * (outputSize + inputSize) / 1000)
+}
+
 export const isExactTaprootSwapOutput = (
     swapOutput: TaprootSwapOutput,
     lockupTx: Transaction,

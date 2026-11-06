@@ -48,7 +48,7 @@ const requiredSwap = (userId: string, extra: Record<string, unknown> = {}) => ({
     invoice_amount: 1200,
     transaction_amount: 1000,
     swap_fee_sats: 50,
-    chain_fee_sats: 15,
+        chain_fee_sats: 200,
     preimage: '22'.repeat(32),
     ephemeral_public_key: '33'.repeat(33),
     ephemeral_private_key: '44'.repeat(32),
@@ -98,6 +98,7 @@ const makeSwaps = (T: StorageTestBase) => {
             outcome: new Promise(() => { }),
             stop: () => { },
         }),
+        EstimateSatPerVbyte: async () => ({ satPerVbyte: 1, minRelaySatPerVbyte: 1 }),
     } as any)
     return { swaps, swapper, broadcasts }
 }
@@ -179,6 +180,7 @@ const testPayKeepsPersistedClaimRetryable = async (T: StorageTestBase) => {
         GetInfo: async () => ({ syncedToChain: true, blockHeight: 5 }),
         BroadcastTransaction: async () => { throw new Error('no peers') },
         WaitForScriptConfirmations: async () => ({ txHex: OTHER_CLAIM_HEX, blockHeight: 6 }),
+        EstimateSatPerVbyte: async () => ({ satPerVbyte: 1, minRelaySatPerVbyte: 1 }),
     } as any)
     swapper.VerifyReverseQuote = async () => ({ ok: true as const })
     swapper.SubscribeToTransactionSwap = async (_data, done, chain) => {

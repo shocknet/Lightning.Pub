@@ -30,6 +30,15 @@ import { Transaction } from 'bitcoinjs-lib'
 
 const DeadLineMetadata = (deadline = 10 * 1000) => ({ deadline: Date.now() + deadline })
 const GET_PAYMENT_FROM_HASH_TIMEOUT_MS = 10 * 1000
+const SAT_PER_KW_PER_VBYTE = 250
+
+const satPerKwToSatPerVbyte = (satPerKw: bigint | number): number => {
+    const kw = typeof satPerKw === 'bigint' ? Number(satPerKw) : satPerKw
+    if (!Number.isFinite(kw) || kw <= 0) {
+        return 0
+    }
+    return Math.ceil(kw / SAT_PER_KW_PER_VBYTE)
+}
 
 const settleOnce = (onSettle: () => void) => {
     let settled = false
@@ -973,6 +982,25 @@ export default class {
             coinSelectionStrategy: CoinSelectionStrategy.STRATEGY_LARGEST
         })
         return res.response
+    }
+
+    /**
+     * Wallet fee estimator, not Lightning EstimateFee. That RPC coin-selects a
+     * send and fails on an empty on-chain wallet; reverse claims spend a lockup
+     * UTXO, so they only need sat/vbyte and the node's min relay floor.
+     * 250 sat/kw = 1 sat/vbyte.
+     */
+    async EstimateSatPerVbyte(confTarget = 1): Promise<{ satPerVbyte: number, minRelaySatPerVbyte: number }> {
+        this.log(DEBUG, "Estimating sat per vbyte")
+        await this.Health()
+        if (!Number.isSafeInteger(confTarget) || confTarget < 1) {
+            throw new Error("conf target must be a positive integer")
+        }
+        const res = await this.walletKit.estimateFee({ confTarget }, DeadLineMetadata())
+        return {
+            satPerVbyte: satPerKwToSatPerVbyte(res.response.satPerKw),
+            minRelaySatPerVbyte: satPerKwToSatPerVbyte(res.response.minRelayFeeSatPerKw),
+        }
     }
 
     async PayAddress(address: string, amount: number, satPerVByte: number, label = "", { useProvider, from }: TxActionOptions): Promise<SendCoinsResponse> {

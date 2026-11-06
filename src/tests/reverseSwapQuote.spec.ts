@@ -10,13 +10,17 @@ import * as ecc from 'tiny-secp256k1'
 import { Swaps } from '../services/lnd/swaps/swaps.js'
 import {
     MAX_REVERSE_TIMEOUT_BLOCKS,
+    MIN_CLAIM_SAT_PER_VBYTE,
     MIN_REVERSE_TIMEOUT_BLOCKS,
     REVERSE_CLAIM_MIN_REMAINING_BLOCKS,
+    REVERSE_CLAIM_VBYTE_BUDGET,
     REVERSE_LOCKTIME_THRESHOLD,
     ReverseSwaps,
     calculateReverseQuoteAmounts,
+    checkReverseClaimBudget,
     checkReverseClaimWindow,
     checkReverseTimeout,
+    resolveClaimFeeRate,
 } from '../services/lnd/swaps/reverseSwaps.js'
 import { getNetwork } from '../services/lnd/swaps/swapHelpers.js'
 import { StorageTestBase, expectThrowsAsync } from './testBase.js'
@@ -36,10 +40,14 @@ initEccLib(ecc)
 export default async (T: StorageTestBase) => {
     await testTimeoutWindow(T)
     await testClaimWindow(T)
+    await testClaimBudget(T)
     await testVerifyRejectsMismatchedHashAndUnverifiedTree(T)
     await testQuoteMethodRejectsAndDoesNotPersist(T)
     await testQuoteMethodPersistsVerifiedQuote(T)
+    await testQuoteRejectsInsufficientMinerBudget(T)
+    await testQuoteAcceptsBudgetBelowOneBlockRate(T)
     await testPayRejectsMismatchedHashBeforePaying(T)
+    await testPayRejectsIfMinRelayExceedsBudget(T)
 }
 
 const BOLTZ_REVERSE_TIMEOUT_BLOCKS = 144
@@ -106,6 +114,40 @@ const testClaimWindow = async (T: StorageTestBase) => {
     reject(TIP + 1_008, 0, 'untrusted chain tip')
 
     T.d('claim window allows a shorter remaining runway than quote-time and refuses refund-eligible tips')
+}
+
+const testClaimBudget = async (T: StorageTestBase) => {
+    T.d('starting reverse claim fee budget checks')
+    const floor = MIN_CLAIM_SAT_PER_VBYTE * REVERSE_CLAIM_VBYTE_BUDGET
+    T.expect(checkReverseClaimBudget(floor, 1).ok).to.equal(true)
+    T.expect(checkReverseClaimBudget(AMOUNTS.minerFee, 1).ok).to.equal(true)
+    const zero = checkReverseClaimBudget(0, 1)
+    T.expect(zero.ok).to.equal(false)
+    if (!zero.ok) {
+        T.expect(zero.error).to.equal(`swap miner fee budget 0 is below local claim floor ${floor}`)
+    }
+    const low = checkReverseClaimBudget(floor - 1, 1)
+    T.expect(low.ok).to.equal(false)
+    const invalidRate = checkReverseClaimBudget(AMOUNTS.minerFee, 0)
+    T.expect(invalidRate.ok).to.equal(false)
+    if (!invalidRate.ok) {
+        T.expect(invalidRate.error).to.equal('invalid local claim fee rate 0')
+    }
+
+    const capped = resolveClaimFeeRate(50, 1, AMOUNTS.minerFee, REVERSE_CLAIM_VBYTE_BUDGET)
+    T.expect(capped.ok, !capped.ok ? capped.error : '').to.equal(true)
+    if (capped.ok) {
+        T.expect(capped.satPerVbyte).to.equal(Math.floor(AMOUNTS.minerFee / REVERSE_CLAIM_VBYTE_BUDGET))
+        T.expect(capped.satPerVbyte).to.equal(1)
+    }
+    const liveFits = resolveClaimFeeRate(1, 1, AMOUNTS.minerFee, REVERSE_CLAIM_VBYTE_BUDGET)
+    T.expect(liveFits.ok, !liveFits.ok ? liveFits.error : '').to.equal(true)
+    if (liveFits.ok) {
+        T.expect(liveFits.satPerVbyte).to.equal(1)
+    }
+    const highRelay = resolveClaimFeeRate(50, 3, AMOUNTS.minerFee, REVERSE_CLAIM_VBYTE_BUDGET)
+    T.expect(highRelay.ok).to.equal(false)
+    T.d('quote-time miner fee budget is checked against min relay; live feerate is capped to that budget')
 }
 
 const testVerifyRejectsMismatchedHashAndUnverifiedTree = async (T: StorageTestBase) => {
@@ -221,6 +263,41 @@ const testQuoteMethodPersistsVerifiedQuote = async (T: StorageTestBase) => {
     T.d('GetTxSwapQuotes persisted a fully verified reverse quote')
 }
 
+const testQuoteRejectsInsufficientMinerBudget = async (T: StorageTestBase) => {
+    T.d('starting GetTxSwapQuotes rejection of a zero provider miner-fee budget')
+    const userId = `rev-swap-fee-${randomBytes(8).toString('hex')}`
+    const valid = await buildValidReverseQuote()
+    const swaps = await makeHarness(T, valid)
+    const swapper = swaps.revSwappers[MOCK_URL]
+    let created = false
+    swapper.GetFees = async () => ({ ok: true, fees: { percentage: 0.5, minerFees: { claim: 0, lockup: 0 } } })
+    swapper.SwapTransaction = async () => {
+        created = true
+        return { ok: false as const, error: 'should not create a reverse swap' }
+    }
+    await expectThrowsAsync(
+        swaps.GetTxSwapQuotes(userId, RECEIVE_SATS, () => 0),
+        `swap miner fee budget 0 is below local claim floor ${MIN_CLAIM_SAT_PER_VBYTE * REVERSE_CLAIM_VBYTE_BUDGET}`,
+    )
+    T.expect(created).to.equal(false)
+    const pending = await T.storage.paymentStorage.ListPendingTransactionSwaps(userId)
+    T.expect(pending.length).to.equal(0)
+    T.d('a zero-fee provider quote was rejected before creating or persisting a swap')
+}
+
+const testQuoteAcceptsBudgetBelowOneBlockRate = async (T: StorageTestBase) => {
+    T.d('starting GetTxSwapQuotes acceptance when next-block is above the miner budget')
+    const userId = `rev-swap-relay-${randomBytes(8).toString('hex')}`
+    const valid = await buildValidReverseQuote()
+    const swaps = await makeHarness(T, valid, { satPerVbyte: 50, minRelaySatPerVbyte: 1 })
+    const quotes = await swaps.GetTxSwapQuotes(userId, RECEIVE_SATS, () => 0)
+    T.expect(quotes.length).to.equal(1)
+    T.expect(quotes[0].chain_fee_sats).to.equal(AMOUNTS.minerFee)
+    const pending = await T.storage.paymentStorage.ListPendingTransactionSwaps(userId)
+    T.expect(pending.length).to.equal(1)
+    T.d('a high next-block estimate did not reject a quote that still covers min relay')
+}
+
 const testPayRejectsMismatchedHashBeforePaying = async (T: StorageTestBase) => {
     T.d('starting PayAddrWithSwap hash re-check')
     const userId = `rev-swap-pay-${randomBytes(8).toString('hex')}`
@@ -252,6 +329,39 @@ const testPayRejectsMismatchedHashBeforePaying = async (T: StorageTestBase) => {
     )
     T.expect(paid).to.equal(false)
     T.d('PayAddrWithSwap refused a mismatched invoice hash before paying')
+}
+
+const testPayRejectsIfMinRelayExceedsBudget = async (T: StorageTestBase) => {
+    T.d('starting PayAddrWithSwap rejection when min relay no longer fits the quoted miner budget')
+    const userId = `rev-swap-pay-relay-${randomBytes(8).toString('hex')}`
+    const valid = await buildValidReverseQuote()
+    const saved = await T.storage.paymentStorage.AddTransactionSwap({
+        app_user_id: userId,
+        swap_quote_id: valid.created.id,
+        swap_tree: JSON.stringify(valid.created.swapTree),
+        lockup_address: valid.created.lockupAddress,
+        refund_public_key: valid.created.refundPublicKey,
+        timeout_block_height: valid.created.timeoutBlockHeight,
+        invoice: valid.created.invoice,
+        invoice_amount: AMOUNTS.invoiceAmount,
+        transaction_amount: AMOUNTS.onchainAmount,
+        swap_fee_sats: AMOUNTS.swapFee,
+        chain_fee_sats: AMOUNTS.minerFee,
+        preimage: valid.preimage,
+        ephemeral_private_key: valid.privKey,
+        ephemeral_public_key: valid.pubkey,
+        service_url: MOCK_URL,
+    })
+    const swaps = await makeHarness(T, valid, { satPerVbyte: 2, minRelaySatPerVbyte: 2 })
+    let paid = false
+    await expectThrowsAsync(
+        swaps.PayAddrWithSwap(userId, saved.swap_operation_id, 'bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080', async () => {
+            paid = true
+        }),
+        `swap miner fee budget ${AMOUNTS.minerFee} is below local claim floor ${2 * REVERSE_CLAIM_VBYTE_BUDGET}`,
+    )
+    T.expect(paid).to.equal(false)
+    T.d('PayAddrWithSwap refused to pay when min relay outgrew the quoted miner budget')
 }
 
 type QuoteFixture = Awaited<ReturnType<typeof buildValidReverseQuote>>
@@ -322,7 +432,7 @@ const mockSettings = {
 const makeHarness = async (
     T: StorageTestBase,
     valid: QuoteFixture,
-    decode?: { paymentHash: string, numSatoshis: number },
+    decode?: { paymentHash?: string, numSatoshis?: number, satPerVbyte?: number, minRelaySatPerVbyte?: number },
 ) => {
     const swapper = new ReverseSwaps({ httpUrl: MOCK_URL, wsUrl: 'ws://mock', network: 'regtest' })
     swapper.GetFees = async () => ({ ok: true, fees: FEES })
@@ -344,6 +454,10 @@ const makeHarness = async (
             paymentHash: decode?.paymentHash ?? valid.preimageHash,
         }),
         GetInfo: async () => ({ syncedToChain: true, blockHeight: TIP }),
+        EstimateSatPerVbyte: async () => ({
+            satPerVbyte: decode?.satPerVbyte ?? 1,
+            minRelaySatPerVbyte: decode?.minRelaySatPerVbyte ?? 1,
+        }),
     } as any)
     return swaps
 }
