@@ -1,6 +1,9 @@
 import { createServer } from "node:http"
 import { once } from "node:events"
+import assert from "node:assert/strict"
 import { OfferManager } from "../services/CLINK/offerManager.js"
+import { ManagementManager } from "../services/CLINK/managementManager.js"
+import { NmanageError } from "../services/CLINK/manageTypes.js"
 import { NofferError, validateOfferReq } from "../services/CLINK/offerTypes.js"
 import { PaymentSideEffects } from "../services/main/paymentSideEffects.js"
 import Main from "../services/main/index.js"
@@ -24,6 +27,7 @@ export default async (T: StorageTestBase) => {
             },
         },
         logger: () => { },
+        backupManager: { notifyBackupTable: () => { } },
     }) as OfferManager
     const create = (price_sats: number, payer_data = ["quantity", "order_id"]) =>
         T.storage.offerStorage.AddUserOffer("quantity-seller", { price_sats, payer_data, label: "quantity test" })
@@ -70,6 +74,42 @@ export default async (T: StorageTestBase) => {
     })
     T.expect(listed.invoices[0].data).to.deep.equal({ quantity: "3", order_id: "fixed" })
     T.d("invoice storage retains numeric quantity while the existing seller RPC retains its string-map contract")
+
+    const userCtx = { app_id: "app", app_user_id: "quantity-seller", user_id: user.user_id }
+    const fields = {
+        label: "reserved field validation", price_sats: 1000, callback_url: "",
+        payer_data: ["quantity", "order_id"], blind: false, token: "", rejectUnauthorized: true,
+    }
+    const { offer_id } = await manager.AddUserOffer(userCtx, fields)
+    await manager.UpdateUserOffer(userCtx, { ...fields, offer_id })
+    const management = Object.assign(Object.create(ManagementManager.prototype), {
+        storage: T.storage,
+        validateGrantAccess: async () => { },
+        validateOfferAccess: async () => fixed,
+    }) as ManagementManager
+    for (const field of ["amount", "invoice"]) {
+        const invalidFields = { ...fields, payer_data: ["quantity", field] }
+        const message = `payer_data field ${field} is reserved`
+        const count = (await T.storage.offerStorage.GetAllUserOffers()).length
+        await assert.rejects(manager.AddUserOffer(userCtx, invalidFields), { message })
+        await assert.rejects(manager.UpdateUserOffer(userCtx, { ...invalidFields, offer_id }), { message })
+        for (const action of ["create", "update"] as const) {
+            const request = action === "create"
+                ? { resource: "offer" as const, action, pointer: "quantity-seller", offer: { fields: invalidFields } }
+                : { resource: "offer" as const, action, offer: { id: fixed.offer_id, fields: invalidFields } }
+            await assert.rejects(management.HandleClinkManage({ appId: "app", pub: "manager", eventId: "reserved" }, request), err => {
+                assert.ok(err instanceof NmanageError)
+                assert.equal(err.getPayload().code, 5)
+                assert.equal(err.getPayload().field, "payer_data")
+                assert.equal(err.message, message)
+                return true
+            })
+        }
+        T.expect((await T.storage.offerStorage.GetAllUserOffers()).length).to.equal(count)
+        T.expect((await T.storage.offerStorage.GetOffer(offer_id))?.payer_data).to.deep.equal(fields.payer_data)
+        T.expect((await T.storage.offerStorage.GetOffer(fixed.offer_id))?.payer_data).to.deep.equal(fixed.payer_data)
+    }
+    T.d("RPC and CLINK Manage create/update reject reserved payer fields without changing offers")
 
     for (const value of [undefined, null, [], "bad", 2, {}, { order_id: "missing" }]) {
         await fail(pay(fixed.offer_id, value), 6, fixed.payer_data!)
@@ -150,6 +190,17 @@ export default async (T: StorageTestBase) => {
         T.expect(query.get("order_id")).to.equal("retry")
         T.expect(query.get("amount")).to.equal("3000")
         T.expect(query.get("ok")).to.equal("true")
+        // Older invoice records or non-offer callers may still contain colliding payer fields.
+        await sideEffects.triggerPaidCallback(() => { }, `http://127.0.0.1:${address.port}/fulfill{?quantity,order_id,amount,invoice}`, {
+            invoice: "settled-invoice", amount: 3000,
+            payerData: { quantity: 3, order_id: "legacy", amount: "999999", invoice: "payer-controlled" },
+        })
+        const protectedQuery = new URL(callbackUrl, "http://localhost").searchParams
+        T.expect(protectedQuery.get("amount")).to.equal("3000")
+        T.expect(protectedQuery.get("invoice")).to.equal("settled-invoice")
+        T.expect(protectedQuery.get("quantity")).to.equal("3")
+        T.expect(protectedQuery.get("order_id")).to.equal("legacy")
+        T.expect(protectedQuery.get("ok")).to.equal("true")
     } finally {
         await new Promise<void>((resolve, reject) => server.close(err => err ? reject(err) : resolve()))
     }

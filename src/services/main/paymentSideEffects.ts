@@ -73,9 +73,9 @@ export class PaymentSideEffects {
         }
         let finalUrl = "";
         const payerDataToExpand = {
+            ...(payerData !== undefined ? payerData : {}),
             amount,
             invoice,
-            ...(payerData !== undefined ? payerData : {})
         };
         try {
             const parsed = parse(url);
