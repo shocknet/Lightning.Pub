@@ -6,11 +6,11 @@ export const dev = false
 export const requires = 'storage' as const
 
 export default async (T: StorageTestBase) => {
-    await testExportOmitsCompletedSwapHistory(T)
+    await testExportKeepsPublishedSwapRecovery(T)
 }
 
-const testExportOmitsCompletedSwapHistory = async (T: StorageTestBase) => {
-    T.d('starting swap backup export omits completed history')
+const testExportKeepsPublishedSwapRecovery = async (T: StorageTestBase) => {
+    T.d('starting swap backup export keeps published recovery rows')
     const userId = `swap-backup-${randomBytes(8).toString('hex')}`
 
     const invoiceQuote = await T.storage.paymentStorage.AddInvoiceSwap(invoiceSwap(userId))
@@ -37,6 +37,12 @@ const testExportOmitsCompletedSwapHistory = async (T: StorageTestBase) => {
         tx_id: '33'.repeat(32),
         lockup_tx_hex: '020000000001ref',
         refund_tx_id: '44'.repeat(32),
+        refund_tx_hex: '020000000001refund',
+    }))
+    const invoiceLegacyRefundId = await T.storage.paymentStorage.AddInvoiceSwap(invoiceSwap(userId, {
+        tx_id: '66'.repeat(32),
+        lockup_tx_hex: '020000000001legacy',
+        refund_tx_id: '77'.repeat(32),
     }))
 
     const reverseQuote = await T.storage.paymentStorage.AddTransactionSwap(transactionSwap(userId))
@@ -64,20 +70,33 @@ const testExportOmitsCompletedSwapHistory = async (T: StorageTestBase) => {
         lockup_tx_hex: '020000000003done',
     }))
 
-    const invoiceIds = (await T.storage.paymentStorage.ExportInvoiceSwaps()).map(s => s.swap_operation_id)
+    const invoiceRows = await T.storage.paymentStorage.ExportInvoiceSwaps()
+    const invoiceIds = invoiceRows.map(s => s.swap_operation_id)
     T.expect(invoiceIds).to.not.include(invoiceQuote.swap_operation_id)
     T.expect(invoiceIds).to.include(invoicePending.swap_operation_id)
     T.expect(invoiceIds).to.include(invoiceFailed.swap_operation_id)
     T.expect(invoiceIds).to.include(invoiceDone.swap_operation_id)
-    T.expect(invoiceIds).to.not.include(invoiceRefunded.swap_operation_id)
+    T.expect(invoiceIds).to.include(invoiceRefunded.swap_operation_id)
+    T.expect(invoiceIds).to.include(invoiceLegacyRefundId.swap_operation_id)
+    const exportedRefund = invoiceRows.find(s => s.swap_operation_id === invoiceRefunded.swap_operation_id)
+    T.expect(exportedRefund?.ephemeral_private_key).to.equal(invoiceRefunded.ephemeral_private_key)
+    T.expect(exportedRefund?.refund_tx_hex).to.equal('020000000001refund')
+    const exportedLegacy = invoiceRows.find(s => s.swap_operation_id === invoiceLegacyRefundId.swap_operation_id)
+    T.expect(exportedLegacy?.ephemeral_private_key).to.equal(invoiceLegacyRefundId.ephemeral_private_key)
+    T.expect(exportedLegacy?.lockup_tx_hex).to.equal('020000000001legacy')
 
-    const reverseIds = (await T.storage.paymentStorage.ExportTransactionSwaps()).map(s => s.swap_operation_id)
+    const reverseRows = await T.storage.paymentStorage.ExportTransactionSwaps()
+    const reverseIds = reverseRows.map(s => s.swap_operation_id)
     T.expect(reverseIds).to.include(reversePending.swap_operation_id)
     T.expect(reverseIds).to.include(reverseFailed.swap_operation_id)
     T.expect(reverseIds).to.not.include(reverseQuote.swap_operation_id)
-    T.expect(reverseIds).to.not.include(reverseDone.swap_operation_id)
+    T.expect(reverseIds).to.include(reverseDone.swap_operation_id)
+    const exportedClaim = reverseRows.find(s => s.swap_operation_id === reverseDone.swap_operation_id)
+    T.expect(exportedClaim?.ephemeral_private_key).to.equal(reverseDone.ephemeral_private_key)
+    T.expect(exportedClaim?.claim_tx_hex).to.equal('020000000002done')
+    T.expect(exportedClaim?.preimage).to.equal(reverseDone.preimage)
 
-    T.d('swap backups keep funded unrefunded submarine rows and drop quotes and refunded history')
+    T.d('swap backups keep funded submarine and started reverse recovery rows, including after publication')
 }
 
 const invoiceSwap = (userId: string, extra: Record<string, unknown> = {}) => ({

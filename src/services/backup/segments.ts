@@ -8,11 +8,10 @@
 // debited at send time; after SCB restore LND's payment DB is gone so payment
 // status cannot be verified. Refunding on restore would be gameable.
 //
-// Swap shards keep in-flight recovery rows: funded submarine lockups that have
-// not been refunded (including used/preimage rows, because a verified preimage
-// is not proof the lockup was spent), and started reverse swaps whose claim
-// txid is not yet recorded. Unused quotes can be recreated. Refunded submarine
-// swaps and reverse swaps with a recorded claim txid are omitted.
+// Swap shards keep funded/started recovery rows. A stored refund or claim
+// transaction id is publication, not independently confirmed spending, so it
+// must not prune: an unconfirmed spend can be evicted, and earlier shards are
+// garbage-collected. Unused quotes can be recreated and are omitted.
 import type { User } from '../storage/entity/User.js'
 import type { Application } from '../storage/entity/Application.js'
 import type { ApplicationUser } from '../storage/entity/ApplicationUser.js'
@@ -660,7 +659,8 @@ export type InvoiceSwapRow = {
     service_url: string
 }
 
-/** Funded submarine recovery: lockups that have not been refunded. A stored preimage is not proof the lockup was spent. */
+/** Funded submarine recovery: lockups that may still need a refund or rebroadcast.
+ *  A stored preimage or refund_tx_id is not proof the lockup was spent. */
 export const isInvoiceSwapBackupRow = (swap: {
     used?: boolean
     refund_tx_id?: string
@@ -668,18 +668,14 @@ export const isInvoiceSwapBackupRow = (swap: {
     lockup_tx_hex?: string
     failure_reason?: string
     preimage?: string
-}): boolean => {
-    if (swap.refund_tx_id) {
-        return false
-    }
-    return !!(swap.tx_id || swap.lockup_tx_hex)
-}
+}): boolean => !!(swap.tx_id || swap.lockup_tx_hex)
 
-/** Open reverse-swap recovery: payment has started and the claim is not yet recorded. */
+/** Started reverse-swap recovery: payment has started. A stored claim tx_id is
+ *  publication, not confirmed spending, and must not prune the recovery row. */
 export const isTransactionSwapBackupRow = (swap: {
     paid_at_unix?: number | string
     tx_id?: string
-}): boolean => unixFromBackup(swap.paid_at_unix) > 0 && !swap.tx_id
+}): boolean => unixFromBackup(swap.paid_at_unix) > 0
 
 export const mapInvoiceSwapBackupRow = (swap: InvoiceSwap): InvoiceSwapRow => ({
     swap_operation_id: swap.swap_operation_id,
