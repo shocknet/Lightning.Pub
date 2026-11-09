@@ -9,7 +9,7 @@ import LND from '../lnd.js';
 import { UserInvoicePayment } from '../../storage/entity/UserInvoicePayment.js';
 import { ReverseSwaps, TransactionSwapData, calculateReverseQuoteAmounts, checkReverseClaimBudget, checkReverseClaimWindow, MAX_REVERSE_TIMEOUT_BLOCKS, MIN_CLAIM_SAT_PER_VBYTE } from './reverseSwaps.js';
 import { SubmarineSwaps, calculateSubmarineLockupAmount, verifySubmarineClaimPreimage } from './submarineSwaps.js';
-import { assertSwapActor } from './swapOwnership.js';
+import { assertSwapActor, SwapActorSource } from './swapOwnership.js';
 import { InvoiceSwap } from '../../storage/entity/InvoiceSwap.js';
 import { TransactionSwap } from '../../storage/entity/TransactionSwap.js';
 import { BackupManager } from '../../backup/backupManager.js';
@@ -79,8 +79,8 @@ export class Swaps {
         return keys
     }
 
-    GetInvoiceSwapQuotes = async (appUserId: string, invoice: string, fees: Types.TxFeesReq|undefined): Promise<Types.InvoiceSwapQuote[]> => {
-        assertSwapActor(appUserId)
+    GetInvoiceSwapQuotes = async (appUserId: string, invoice: string, fees: Types.TxFeesReq|undefined, source: SwapActorSource = 'user'): Promise<Types.InvoiceSwapQuote[]> => {
+        assertSwapActor(appUserId, source)
         if (!this.settings.getSettings().swapsSettings.enableSwaps) {
             throw new Error("Swaps are not enabled")
         }
@@ -122,8 +122,8 @@ export class Swaps {
         }
     }
 
-    ListInvoiceSwaps = async (appUserId: string): Promise<Types.InvoiceSwapsList> => {
-        assertSwapActor(appUserId)
+    ListInvoiceSwaps = async (appUserId: string, source: SwapActorSource = 'user'): Promise<Types.InvoiceSwapsList> => {
+        assertSwapActor(appUserId, source)
         const info = await this.lnd.GetInfo()
         const currentBlockHeight = info.blockHeight
         const completedSwaps = await this.storage.paymentStorage.ListCompletedInvoiceSwaps(appUserId)
@@ -264,9 +264,9 @@ export class Swaps {
         return { published: true, txId }
     }
 
-    PayInvoiceSwap = async (appUserId: string, swapOpId: string,satPerVByteOverride: number|undefined, payAddress: (address: string, amt: number, satPerVByte: number) => Promise<{ txId: string }>): Promise<string> => {
+    PayInvoiceSwap = async (appUserId: string, swapOpId: string,satPerVByteOverride: number|undefined, payAddress: (address: string, amt: number, satPerVByte: number) => Promise<{ txId: string }>, source: SwapActorSource = 'user'): Promise<string> => {
         this.log("paying invoice swap", { appUserId, swapOpId })
-        assertSwapActor(appUserId)
+        assertSwapActor(appUserId, source)
         if (!this.settings.getSettings().swapsSettings.enableSwaps) {
             throw new Error("Swaps are not enabled")
         }
@@ -610,8 +610,8 @@ export class Swaps {
         }
     }
 
-    ListTxSwaps = async (appUserId: string, payments: UserInvoicePayment[], newOp: (p: UserInvoicePayment) => Types.UserOperation | undefined, getServiceFee: (amt: number) => number): Promise<Types.TxSwapsList> => {
-        assertSwapActor(appUserId)
+    ListTxSwaps = async (appUserId: string, payments: UserInvoicePayment[], newOp: (p: UserInvoicePayment) => Types.UserOperation | undefined, getServiceFee: (amt: number) => number, source: SwapActorSource = 'user'): Promise<Types.TxSwapsList> => {
+        assertSwapActor(appUserId, source)
         const completedSwaps = await this.storage.paymentStorage.ListCompletedTxSwaps(appUserId, payments)
         const pendingSwaps = await this.storage.paymentStorage.ListPendingTransactionSwaps(appUserId)
         const quotes: Types.TxSwapOperation[] = pendingSwaps.map(s => ({ quote: this.mapTransactionSwapQuote(s, getServiceFee) }))
@@ -626,8 +626,8 @@ export class Swaps {
             swaps: swaps.concat(quotes),
         }
     }
-    GetTxSwapQuotes = async (appUserId: string, amt: number, getServiceFee: (decodedAmt: number) => number): Promise<Types.TransactionSwapQuote[]> => {
-        assertSwapActor(appUserId)
+    GetTxSwapQuotes = async (appUserId: string, amt: number, getServiceFee: (decodedAmt: number) => number, source: SwapActorSource = 'user'): Promise<Types.TransactionSwapQuote[]> => {
+        assertSwapActor(appUserId, source)
         if (!isPositiveSats(amt)) {
             throw new Error("transaction_amount_sats must be a positive integer number of sats")
         }
@@ -713,8 +713,8 @@ export class Swaps {
         }
     }
 
-    async PayAddrWithSwap(appUserId: string, swapOpId: string, address: string, payInvoice: (invoice: string, amt: number) => Promise<void>) {
-        assertSwapActor(appUserId)
+    async PayAddrWithSwap(appUserId: string, swapOpId: string, address: string, payInvoice: (invoice: string, amt: number) => Promise<void>, source: SwapActorSource = 'user') {
+        assertSwapActor(appUserId, source)
         if (!this.settings.getSettings().swapsSettings.enableSwaps) {
             throw new Error("Swaps are not enabled")
         }

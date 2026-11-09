@@ -7,7 +7,7 @@ import LND from "../lnd/lnd.js";
 import SettingsManager from "./settingsManager.js";
 import { Swaps } from "../lnd/swaps/swaps.js";
 import { REVERSE_SWAP_PAYMENT_TIMEOUT_SECONDS } from "../lnd/swaps/reverseSwaps.js";
-import { ADMIN_SWAP_OWNER_ID } from "../lnd/swaps/swapOwnership.js";
+import { ADMIN_SWAP_ACTOR, ADMIN_SWAP_OWNER_ID } from "../lnd/swaps/swapOwnership.js";
 import { defaultInvoiceExpiry } from "../storage/paymentStorage.js";
 import { AddressReceivingTransaction } from "../storage/entity/AddressReceivingTransaction.js";
 import { RootOperation } from "../storage/entity/RootOperation.js";
@@ -606,7 +606,7 @@ export class AdminManager {
     }
 
     async ListAdminInvoiceSwaps(): Promise<Types.InvoiceSwapsList> {
-        return this.swaps.ListInvoiceSwaps(ADMIN_SWAP_OWNER_ID)
+        return this.swaps.ListInvoiceSwaps(ADMIN_SWAP_OWNER_ID, ADMIN_SWAP_ACTOR)
     }
 
     async GetAdminInvoiceSwapQuotes(req: Types.InvoiceSwapRequest): Promise<Types.InvoiceSwapQuoteList> {
@@ -614,7 +614,7 @@ export class AdminManager {
             throw new Error("amount_sats must be a positive integer number of sats")
         }
         const invoice = await this.lnd.NewInvoice(req.amount_sats, "Admin Swap", defaultInvoiceExpiry, { useProvider: false, from: 'system' })
-        const quotes = await this.swaps.GetInvoiceSwapQuotes(ADMIN_SWAP_OWNER_ID, invoice.payRequest, req.fees_req)
+        const quotes = await this.swaps.GetInvoiceSwapQuotes(ADMIN_SWAP_OWNER_ID, invoice.payRequest, req.fees_req, ADMIN_SWAP_ACTOR)
         return { quotes }
     }
 
@@ -634,7 +634,7 @@ export class AdminManager {
 
             await this.storage.metricsStorage.AddRootOperation("chain_payment", published.txId, amt + crafted.feeSats, true)
             return { txId: published.txId }
-        })
+        }, ADMIN_SWAP_ACTOR)
         return { tx_id: resolvedTxId }
     }
 
@@ -647,11 +647,11 @@ export class AdminManager {
     }
 
     async ListAdminTxSwaps(): Promise<Types.TxSwapsList> {
-        return this.swaps.ListTxSwaps(ADMIN_SWAP_OWNER_ID, [], p => undefined, amt => 0)
+        return this.swaps.ListTxSwaps(ADMIN_SWAP_OWNER_ID, [], p => undefined, amt => 0, ADMIN_SWAP_ACTOR)
     }
 
     async GetAdminTransactionSwapQuotes(req: Types.TransactionSwapRequest): Promise<Types.TransactionSwapQuoteList> {
-        const quotes = await this.swaps.GetTxSwapQuotes(ADMIN_SWAP_OWNER_ID, req.transaction_amount_sats, () => 0)
+        const quotes = await this.swaps.GetTxSwapQuotes(ADMIN_SWAP_OWNER_ID, req.transaction_amount_sats, () => 0, ADMIN_SWAP_ACTOR)
         return { quotes }
     }
     async PayAdminTransactionSwap(req: Types.PayAdminTransactionSwapRequest): Promise<Types.AdminTxSwapResponse> {
@@ -662,7 +662,7 @@ export class AdminManager {
             const r = Math.max(Math.ceil(routingLimit * amt), routingFloor)
             const payment = await this.lnd.PayInvoice(invoice, 0, { routingFeeLimit: r, serviceFee: 0, timeoutSeconds: REVERSE_SWAP_PAYMENT_TIMEOUT_SECONDS }, amt, { useProvider: false, from: 'system', forceLocalLnd: true })
             await this.storage.metricsStorage.AddRootOperation("invoice_payment", invoice, amt + payment.feeSat)
-        })
+        }, ADMIN_SWAP_ACTOR)
         return {
             tx_id: swap.txId,
             network_fee: swap.network_fee,

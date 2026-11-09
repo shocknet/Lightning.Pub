@@ -2,7 +2,16 @@ import { randomBytes } from 'crypto'
 import { Transaction } from 'bitcoinjs-lib'
 import { Swaps } from '../services/lnd/swaps/swaps.js'
 import { ReverseSwaps } from '../services/lnd/swaps/reverseSwaps.js'
-import { ADMIN_SWAP_OWNER_ID, isReservedAppUserIdentifier } from '../services/lnd/swaps/swapOwnership.js'
+import { Application } from '../services/storage/entity/Application.js'
+import { ApplicationUser } from '../services/storage/entity/ApplicationUser.js'
+import {
+    ADMIN_SWAP_ACTOR,
+    ADMIN_SWAP_OWNER_ID,
+    assertAdminSwapActor,
+    assertSwapActor,
+    assertUserSwapActor,
+    isReservedAppUserIdentifier,
+} from '../services/lnd/swaps/swapOwnership.js'
 import { StorageTestBase } from './testBase.js'
 
 export const ignore = false
@@ -15,8 +24,11 @@ const OTHER_DEST = 'bcrt1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qzf
 
 export default async (T: StorageTestBase) => {
     testReservedIdentifierHelper(T)
+    testUserPathRejectsAdminSentinel(T)
     await testCannotCreateReservedAppUser(T)
     await testReservedIdentifierCannotQuoteOrPaySwaps(T)
+    await testExistingSystemAdminCannotUseUserSwapApis(T)
+    await testRestoreSkipsReservedIdentifiers(T)
     await testAdminOwnerSeesLegacyAdminRows(T)
     await testAdminCanReserveLegacyAndNamespacedRows(T)
     await testDestinationIsAtomicallyReserved(T)
@@ -32,6 +44,18 @@ const testReservedIdentifierHelper = (T: StorageTestBase) => {
     T.expect(isReservedAppUserIdentifier('system:other')).to.equal(true)
     T.expect(isReservedAppUserIdentifier('alice')).to.equal(false)
     T.d('admin and system: prefixes are reserved')
+}
+
+const testUserPathRejectsAdminSentinel = (T: StorageTestBase) => {
+    T.d('starting user swap actor rejects the admin sentinel')
+    T.expect(() => assertUserSwapActor('system:admin')).to.throw('reserved user identifier')
+    T.expect(() => assertSwapActor('system:admin')).to.throw('reserved user identifier')
+    T.expect(() => assertSwapActor('system:admin', 'user')).to.throw('reserved user identifier')
+    T.expect(() => assertAdminSwapActor('system:admin')).to.not.throw()
+    T.expect(() => assertSwapActor('system:admin', 'admin')).to.not.throw()
+    T.expect(() => assertAdminSwapActor('alice')).to.throw('reserved user identifier')
+    T.expect(() => assertUserSwapActor('alice')).to.not.throw()
+    T.d('admin actor is a separate source, not a user identifier')
 }
 
 const testCannotCreateReservedAppUser = async (T: StorageTestBase) => {
@@ -74,7 +98,95 @@ const testReservedIdentifierCannotQuoteOrPaySwaps = async (T: StorageTestBase) =
     }
     T.expect(payThrew).to.equal(true)
     await T.storage.paymentStorage.DeleteTransactionSwap(saved.swap_operation_id)
-    T.d('a linked user named admin cannot attach a destination to admin swaps')
+
+    let systemAdminQuoteThrew = false
+    try {
+        await swaps.GetTxSwapQuotes(ADMIN_SWAP_OWNER_ID, 10_000, () => 0)
+    } catch (err: any) {
+        systemAdminQuoteThrew = true
+        T.expect(err.message).to.equal('reserved user identifier')
+    }
+    T.expect(systemAdminQuoteThrew).to.equal(true)
+
+    const listed = await swaps.ListTxSwaps(ADMIN_SWAP_OWNER_ID, [], () => undefined, () => 0, ADMIN_SWAP_ACTOR)
+    T.expect(Array.isArray(listed.swaps)).to.equal(true)
+    T.d('a linked user named admin or system:admin cannot use the user swap path')
+}
+
+const insertExistingAppUser = async (T: StorageTestBase, app: Application, identifier: string) => {
+    const user = await T.storage.dbs.Tx(tx => T.storage.userStorage.AddUser(0, tx))
+    return T.storage.dbs.CreateAndSave<ApplicationUser>('ApplicationUser', {
+        user,
+        application: app,
+        identifier,
+        topic_id: randomBytes(32).toString('hex'),
+    })
+}
+
+const testExistingSystemAdminCannotUseUserSwapApis = async (T: StorageTestBase) => {
+    T.d('starting existing system:admin application user is blocked from user swaps')
+    const app = await T.storage.applicationStorage.AddApplication(`exist-${randomBytes(4).toString('hex')}`, true)
+    await insertExistingAppUser(T, app, ADMIN_SWAP_OWNER_ID)
+    const { user, created } = await T.storage.applicationStorage.GetOrCreateApplicationUser(app, ADMIN_SWAP_OWNER_ID, 0)
+    T.expect(created).to.equal(false)
+    T.expect(user.identifier).to.equal(ADMIN_SWAP_OWNER_ID)
+
+    const swaps = makeSwaps(T).swaps
+    let quoteThrew = false
+    try {
+        await swaps.GetTxSwapQuotes(user.identifier, 10_000, () => 0)
+    } catch (err: any) {
+        quoteThrew = true
+        T.expect(err.message).to.equal('reserved user identifier')
+    }
+    T.expect(quoteThrew).to.equal(true)
+
+    const saved = await T.storage.paymentStorage.AddTransactionSwap(requiredSwap(ADMIN_SWAP_OWNER_ID, {
+        timeout_block_height: 920_000 + 1_008,
+    }))
+    let payThrew = false
+    try {
+        await swaps.PayAddrWithSwap(user.identifier, saved.swap_operation_id, DEST, async () => { })
+    } catch (err: any) {
+        payThrew = true
+        T.expect(err.message).to.equal('reserved user identifier')
+    }
+    T.expect(payThrew).to.equal(true)
+    await T.storage.paymentStorage.DeleteTransactionSwap(saved.swap_operation_id)
+    T.d('an existing system:admin user still cannot cross the admin swap boundary')
+}
+
+const testRestoreSkipsReservedIdentifiers = async (T: StorageTestBase) => {
+    T.d('starting restore rejects reserved application-user identifiers')
+    const app = await T.storage.applicationStorage.AddApplication(`restore-${randomBytes(4).toString('hex')}`, true)
+    const reservedUser = await T.storage.dbs.Tx(tx => T.storage.userStorage.AddUser(0, tx))
+    const okUser = await T.storage.dbs.Tx(tx => T.storage.userStorage.AddUser(0, tx))
+    const okIdentifier = `restored-${randomBytes(8).toString('hex')}`
+    const restored = await T.storage.dbs.Tx(tx => T.storage.applicationStorage.RestoreApplicationUsers([
+        {
+            user_id: reservedUser.user_id,
+            app_id: app.app_id,
+            identifier: ADMIN_SWAP_OWNER_ID,
+            callback_url: '',
+            topic_id: randomBytes(32).toString('hex'),
+            nostr_public_key: null,
+            owner_only_clink: false,
+        },
+        {
+            user_id: okUser.user_id,
+            app_id: app.app_id,
+            identifier: okIdentifier,
+            callback_url: '',
+            topic_id: randomBytes(32).toString('hex'),
+            nostr_public_key: null,
+            owner_only_clink: false,
+        },
+    ], tx))
+    T.expect(restored).to.equal(1)
+    T.expect(!!await T.storage.applicationStorage.GetApplicationUserIfExists(app, ADMIN_SWAP_OWNER_ID)).to.equal(false)
+    const ok = await T.storage.applicationStorage.GetApplicationUserIfExists(app, okIdentifier)
+    T.expect(ok?.identifier).to.equal(okIdentifier)
+    T.d('restore skipped system:admin and kept a normal application user')
 }
 
 const testAdminOwnerSeesLegacyAdminRows = async (T: StorageTestBase) => {

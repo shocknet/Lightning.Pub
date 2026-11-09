@@ -20,7 +20,7 @@ import { UserInvoicePayment } from '../storage/entity/UserInvoicePayment.js'
 import SettingsManager from './settingsManager.js'
 import { Swaps } from '../lnd/swaps/swaps.js'
 import { REVERSE_SWAP_PAYMENT_TIMEOUT_SECONDS, SWAP_INVOICE_MUST_USE_LND } from '../lnd/swaps/reverseSwaps.js'
-import { assertSwapActor } from '../lnd/swaps/swapOwnership.js'
+import { assertUserSwapActor } from '../lnd/swaps/swapOwnership.js'
 import { Transaction, OutputDetail } from '../../../proto/lnd/lightning.js'
 import { LndAddress } from '../lnd/lnd.js'
 import Metrics from '../metrics/index.js'
@@ -811,6 +811,7 @@ export default class {
     }
 
     async GetTransactionSwapQuotes(ctx: Types.UserContext, req: Types.TransactionSwapRequest): Promise<Types.TransactionSwapQuoteList> {
+        assertUserSwapActor(ctx.app_user_id)
         const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
         const quotes = await this.swaps.GetTxSwapQuotes(ctx.app_user_id, req.transaction_amount_sats, decodedAmt => {
             const isManagedUser = ctx.user_id !== app.owner.user_id
@@ -835,6 +836,7 @@ export default class {
 
     async PayAddressWithSwap(ctx: Types.UserContext, req: Types.PayAddressRequest): Promise<Types.PayAddressResponse> {
         this.log("paying external address")
+        assertUserSwapActor(ctx.app_user_id)
         if (!req.swap_operation_id) {
             throw new Error("request a swap quote before paying an external address")
         }
@@ -873,7 +875,7 @@ export default class {
         this.log("paying internal address")
         let amount = req.amountSats
         if (req.swap_operation_id) {
-            assertSwapActor(ctx.app_user_id)
+            assertUserSwapActor(ctx.app_user_id)
             const swap = await this.storage.paymentStorage.GetTransactionSwap(req.swap_operation_id, ctx.app_user_id)
             if (!swap) {
                 throw new Error("swap quote not found")
@@ -956,6 +958,7 @@ export default class {
     }
 
     async ListTxSwaps(ctx: Types.UserContext): Promise<Types.TxSwapsList> {
+        assertUserSwapActor(ctx.app_user_id)
         console.log("listing tx swaps", { appUserId: ctx.app_user_id })
         const payments = await this.storage.paymentStorage.ListTxSwapPayments(ctx.app_user_id)
         console.log("payments", payments.length)
