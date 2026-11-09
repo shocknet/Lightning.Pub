@@ -61,6 +61,7 @@ export class Swaps {
         void this.backupManager?.notifyBackupTable(id)
     }
 
+    /** Fail closed: recovery material must be backed up before funding, payment, or broadcast. */
     private protectSwapBackup = async (id: 'invoice_swaps' | 'transaction_swaps') => {
         await this.backupManager?.flushTablesNow(id)
     }
@@ -168,7 +169,6 @@ export class Swaps {
             throw new Error("refund transaction id mismatch")
         }
         await this.storage.paymentStorage.SetInvoiceSwapRefundHex(swapOperationId, refundAddress, result.publish.txHex)
-        await this.protectSwapBackup('invoice_swaps')
         return this.publishInvoiceSwapRefund(swapOperationId, refundAddress, result.publish.txHex)
     }
 
@@ -186,6 +186,7 @@ export class Swaps {
 
     private publishInvoiceSwapRefund = async (swapOperationId: string, refundAddress: string, refundTxHex: string): Promise<{ published: true, txId: string }> => {
         const txId = Transaction.fromHex(refundTxHex).getId()
+        await this.protectSwapBackup('invoice_swaps')
         const published = await this.lnd.BroadcastTransaction(refundTxHex)
         if (published.txId !== txId) {
             throw new Error("refund broadcast tx id mismatch")
@@ -326,6 +327,7 @@ export class Swaps {
                 return
             }
             try {
+                await this.protectSwapBackup('invoice_swaps')
                 await this.lnd.BroadcastTransaction(swap.lockup_tx_hex)
             } catch (err: any) {
                 this.log("failed to republish resumed invoice swap lockup", {
@@ -722,19 +724,18 @@ export class Swaps {
         if (txSwap.address_paid && txSwap.address_paid !== address) {
             throw new Error("swap already started with a different destination")
         }
-        if (txSwap.address_paid && txSwap.paid_at_unix) {
-            return txSwap
-        }
-        const reserved = await this.storage.paymentStorage.StartTransactionSwap(txSwap.swap_operation_id, address, appUserId)
-        if (reserved !== 1) {
-            const latest = await this.storage.paymentStorage.GetTransactionSwap(txSwap.swap_operation_id, appUserId)
-            if (!latest || (latest.address_paid && latest.address_paid !== address)) {
-                throw new Error("swap already started with a different destination")
+        if (!(txSwap.address_paid && txSwap.paid_at_unix)) {
+            const reserved = await this.storage.paymentStorage.StartTransactionSwap(txSwap.swap_operation_id, address, appUserId)
+            if (reserved !== 1) {
+                const latest = await this.storage.paymentStorage.GetTransactionSwap(txSwap.swap_operation_id, appUserId)
+                if (!latest || (latest.address_paid && latest.address_paid !== address)) {
+                    throw new Error("swap already started with a different destination")
+                }
+                if (!latest.address_paid || !latest.paid_at_unix) {
+                    throw new Error("failed to reserve swap destination")
+                }
+                txSwap = latest
             }
-            if (!latest.address_paid || !latest.paid_at_unix) {
-                throw new Error("failed to reserve swap destination")
-            }
-            return latest
         }
         await this.protectSwapBackup('transaction_swaps')
         const bound = await this.storage.paymentStorage.GetTransactionSwap(txSwap.swap_operation_id, appUserId)
@@ -789,6 +790,7 @@ export class Swaps {
     }
 
     private rebroadcastTransactionSwapClaim = async (swap: TransactionSwap) => {
+        await this.protectSwapBackup('transaction_swaps')
         const published = await this.lnd.BroadcastTransaction(swap.claim_tx_hex)
         await this.storage.paymentStorage.FinalizeTransactionSwap(swap.swap_operation_id, swap.address_paid, published.txId)
         this.notifySwapBackup('transaction_swaps')

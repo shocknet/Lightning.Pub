@@ -33,6 +33,7 @@ export default async (T: StorageTestBase) => {
     await testRefundPublishesLocallyWithoutProvider(T)
     await testStaleProviderAckDoesNotBlockRefund(T)
     await testRefundHexPersistedBeforeBroadcast(T)
+    await testRefundRetryFlushFailureDoesNotBroadcast(T)
     await testRefundSpendsTaprootNotDecoy(T)
     await testRefundRejectsDecoyOnlyLockup(T)
 }
@@ -203,6 +204,48 @@ const testRefundHexPersistedBeforeBroadcast = async (T: StorageTestBase) => {
     T.expect(broadcasts).to.deep.equal([row?.refund_tx_hex])
     await T.storage.paymentStorage.DeleteInvoiceSwap(saved.swap_operation_id)
     T.d('retry rebroadcast the saved hex instead of trusting a provider id')
+}
+
+const testRefundRetryFlushFailureDoesNotBroadcast = async (T: StorageTestBase) => {
+    T.d('starting refund retry does not broadcast if the backup flush fails')
+    const fixture = await buildSubmarineLockup()
+    const saved = await insertFundedRefundable(T, fixture)
+    const swaps = disabledSwaps(T)
+    swaps.SetLnd({
+        BroadcastTransaction: async () => { throw new Error('no peers') },
+        GetInfo: async () => ({ syncedToChain: true, blockHeight: TIMEOUT }),
+    } as any)
+    try {
+        await swaps.RefundInvoiceSwap(saved.swap_operation_id, 2, DEST, TIMEOUT)
+    } catch (err: any) {
+        T.expect(err.message).to.equal('no peers')
+    }
+    const row = await T.storage.paymentStorage.GetRefundableInvoiceSwap(saved.swap_operation_id)
+    T.expect(!!row?.refund_tx_hex).to.equal(true)
+
+    const broadcasts: string[] = []
+    swaps.SetLnd({
+        BroadcastTransaction: async (txHex: string) => {
+            broadcasts.push(txHex)
+            return { txId: Transaction.fromHex(txHex).getId() }
+        },
+        GetInfo: async () => ({ syncedToChain: true, blockHeight: TIMEOUT }),
+    } as any)
+    swaps.SetBackupManager({
+        notifyBackupTable: async () => { },
+        flushTablesNow: async () => { throw new Error('backup dest down') },
+    } as any)
+    let threw = false
+    try {
+        await swaps.RefundInvoiceSwap(saved.swap_operation_id, 2, DEST, TIMEOUT)
+    } catch (err: any) {
+        threw = true
+        T.expect(err.message).to.equal('backup dest down')
+    }
+    T.expect(threw).to.equal(true)
+    T.expect(broadcasts).to.deep.equal([])
+    await T.storage.paymentStorage.DeleteInvoiceSwap(saved.swap_operation_id)
+    T.d('persisted refund hex stayed unpublished without a successful backup')
 }
 
 const testRefundSpendsTaprootNotDecoy = async (T: StorageTestBase) => {

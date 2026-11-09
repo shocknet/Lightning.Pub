@@ -19,6 +19,11 @@ export default async (T: StorageTestBase) => {
     await testPayPersistsDestinationBeforeInvoice(T)
     await testPayPersistsClaimBeforeBroadcast(T)
     await testPayKeepsPersistedClaimRetryable(T)
+    await testReserveFlushFailureDoesNotPay(T)
+    await testAlreadyReservedFlushFailureDoesNotPay(T)
+    await testAlreadyReservedFlushSuccessStillPays(T)
+    await testConcurrentAlreadyReservedDoesNotPayDuringFailedFlush(T)
+    await testResumeClaimFlushFailureDoesNotBroadcast(T)
     await testResumeRebroadcastsPersistedClaim(T)
     await testResumeRebroadcastsFailedSwapWithClaim(T)
     await testResumeDoesNotBlockOnLockupWatch(T)
@@ -207,6 +212,141 @@ const testPayKeepsPersistedClaimRetryable = async (T: StorageTestBase) => {
     T.expect(unfinished.some(s => s.swap_operation_id === saved.swap_operation_id)).to.equal(true)
     await T.storage.paymentStorage.DeleteTransactionSwap(saved.swap_operation_id)
     T.d('persisted claim stayed unused so resume can rebroadcast')
+}
+
+const failingBackup = (flush: () => Promise<void> = async () => { throw new Error('backup dest down') }) => ({
+    notifyBackupTable: async () => { },
+    flushTablesNow: flush,
+} as any)
+
+const testReserveFlushFailureDoesNotPay = async (T: StorageTestBase) => {
+    T.d('starting PayAddrWithSwap does not pay if the destination backup flush fails')
+    const userId = `rev-flush-${randomBytes(8).toString('hex')}`
+    const saved = await T.storage.paymentStorage.AddTransactionSwap(requiredSwap(userId, {
+        timeout_block_height: 920_000 + 1_008,
+    }))
+    const { swaps, swapper } = makeSwaps(T)
+    swapper.VerifyReverseQuote = async () => ({ ok: true as const })
+    swaps.SetBackupManager(failingBackup())
+    let paid = false
+    let threw = false
+    try {
+        await swaps.PayAddrWithSwap(userId, saved.swap_operation_id, DEST, async () => { paid = true })
+    } catch (err: any) {
+        threw = true
+        T.expect(err.message).to.equal('backup dest down')
+    }
+    T.expect(threw).to.equal(true)
+    T.expect(paid).to.equal(false)
+    const row = await T.storage.paymentStorage.GetTransactionSwap(saved.swap_operation_id, userId)
+    T.expect(row?.address_paid).to.equal(DEST)
+    await T.storage.paymentStorage.DeleteTransactionSwap(saved.swap_operation_id)
+    T.d('invoice payment did not start after a failed destination backup')
+}
+
+const testAlreadyReservedFlushFailureDoesNotPay = async (T: StorageTestBase) => {
+    T.d('starting an already-reserved reverse swap still requires a successful backup flush')
+    const userId = `rev-retry-${randomBytes(8).toString('hex')}`
+    const saved = await T.storage.paymentStorage.AddTransactionSwap(requiredSwap(userId, {
+        timeout_block_height: 920_000 + 1_008,
+    }))
+    await T.storage.paymentStorage.StartTransactionSwap(saved.swap_operation_id, DEST, userId)
+    const { swaps, swapper } = makeSwaps(T)
+    swapper.VerifyReverseQuote = async () => ({ ok: true as const })
+    swaps.SetBackupManager(failingBackup())
+    let paid = false
+    let threw = false
+    try {
+        await swaps.PayAddrWithSwap(userId, saved.swap_operation_id, DEST, async () => { paid = true })
+    } catch (err: any) {
+        threw = true
+        T.expect(err.message).to.equal('backup dest down')
+    }
+    T.expect(threw).to.equal(true)
+    T.expect(paid).to.equal(false)
+    await T.storage.paymentStorage.DeleteTransactionSwap(saved.swap_operation_id)
+    T.d('retrying a reserved destination did not skip the backup barrier')
+}
+
+const testAlreadyReservedFlushSuccessStillPays = async (T: StorageTestBase) => {
+    T.d('starting an already-reserved reverse swap pays after a successful backup flush')
+    const userId = `rev-okflush-${randomBytes(8).toString('hex')}`
+    const saved = await T.storage.paymentStorage.AddTransactionSwap(requiredSwap(userId, {
+        timeout_block_height: 920_000 + 1_008,
+    }))
+    await T.storage.paymentStorage.StartTransactionSwap(saved.swap_operation_id, DEST, userId)
+    const { swaps, swapper } = makeSwaps(T)
+    swapper.VerifyReverseQuote = async () => ({ ok: true as const })
+    swapper.SubscribeToTransactionSwap = async (_data, done) => {
+        done({ ok: true, txId: Transaction.fromHex(CLAIM_HEX).getId() })
+    }
+    let flushCalls = 0
+    swaps.SetBackupManager(failingBackup(async () => { flushCalls++ }))
+    let paid = false
+    await swaps.PayAddrWithSwap(userId, saved.swap_operation_id, DEST, async () => { paid = true })
+    T.expect(paid).to.equal(true)
+    T.expect(flushCalls).to.be.greaterThan(0)
+    await T.storage.paymentStorage.DeleteTransactionSwap(saved.swap_operation_id)
+    T.d('same-destination retry paid only after the backup flush succeeded')
+}
+
+const testConcurrentAlreadyReservedDoesNotPayDuringFailedFlush = async (T: StorageTestBase) => {
+    T.d('starting concurrent same-destination pay waits for backup instead of skipping it')
+    const userId = `rev-conc-${randomBytes(8).toString('hex')}`
+    const saved = await T.storage.paymentStorage.AddTransactionSwap(requiredSwap(userId, {
+        timeout_block_height: 920_000 + 1_008,
+    }))
+    const { swaps, swapper } = makeSwaps(T)
+    swapper.VerifyReverseQuote = async () => ({ ok: true as const })
+    swapper.SubscribeToTransactionSwap = async (_data, done) => {
+        done({ ok: true, txId: Transaction.fromHex(CLAIM_HEX).getId() })
+    }
+    let releaseFlush!: (err?: Error) => void
+    const holdFlush = new Promise<void>((resolve, reject) => {
+        releaseFlush = (err) => err ? reject(err) : resolve()
+    })
+    void holdFlush.catch(() => { })
+    let flushStarted = 0
+    let firstEntered!: () => void
+    const firstFlush = new Promise<void>(resolve => { firstEntered = resolve })
+    swaps.SetBackupManager(failingBackup(async () => {
+        flushStarted++
+        if (flushStarted === 1) firstEntered()
+        await holdFlush
+    }))
+    let paid = 0
+    const pay = () => swaps.PayAddrWithSwap(userId, saved.swap_operation_id, DEST, async () => { paid++ })
+    const first = pay()
+    await firstFlush
+    const second = pay()
+    await new Promise(resolve => setTimeout(resolve, 50))
+    T.expect(paid).to.equal(0)
+    releaseFlush(new Error('backup dest down'))
+    const results = await Promise.allSettled([first, second])
+    T.expect(results.every(r => r.status === 'rejected')).to.equal(true)
+    T.expect(paid).to.equal(0)
+    await T.storage.paymentStorage.DeleteTransactionSwap(saved.swap_operation_id)
+    T.d('a concurrent retry did not start payment while the backup flush was still failing')
+}
+
+const testResumeClaimFlushFailureDoesNotBroadcast = async (T: StorageTestBase) => {
+    T.d('starting resume does not rebroadcast a persisted claim if the backup flush fails')
+    const userId = `rev-resumeflush-${randomBytes(8).toString('hex')}`
+    const saved = await T.storage.paymentStorage.AddTransactionSwap(requiredSwap(userId, {
+        paid_at_unix: 1,
+        address_paid: DEST,
+        claim_tx_hex: CLAIM_HEX,
+        timeout_block_height: 10,
+    }))
+    await deleteOtherUnfinished(T, saved.swap_operation_id)
+    const { swaps, broadcasts } = makeSwaps(T)
+    swaps.SetBackupManager(failingBackup())
+    await swaps.ResumeTransactionSwaps()
+    T.expect(broadcasts).to.deep.equal([])
+    const leftover = await T.storage.paymentStorage.ListUnfinishedTransactionSwaps()
+    T.expect(leftover.some(s => s.swap_operation_id === saved.swap_operation_id)).to.equal(true)
+    await T.storage.paymentStorage.DeleteTransactionSwap(saved.swap_operation_id)
+    T.d('startup resume kept the claim unpublished without a successful backup')
 }
 
 const testResumeRebroadcastsPersistedClaim = async (T: StorageTestBase) => {

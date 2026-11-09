@@ -24,6 +24,7 @@ export default async (T: StorageTestBase) => {
     await testUsedSuccessDoesNotVetoRefund(T)
     await testResumeInvoiceSwapWithoutLockupHex(T)
     await testResumeInvoiceSwapBroadcastRejectionDoesNotThrow(T)
+    await testResumeInvoiceSwapFlushFailureDoesNotBroadcast(T)
 }
 
 const testVerifyClaimPreimage = (T: StorageTestBase) => {
@@ -232,6 +233,54 @@ const testResumeInvoiceSwapBroadcastRejectionDoesNotThrow = async (T: StorageTes
         await T.storage.paymentStorage.DeleteInvoiceSwap(saved.swap_operation_id)
     }
     T.d('rejected lockup rebroadcast was caught and did not reject the resume callback')
+}
+
+const testResumeInvoiceSwapFlushFailureDoesNotBroadcast = async (T: StorageTestBase) => {
+    T.d('starting resume of a funded invoice swap does not broadcast if the backup flush fails')
+    const saved = await insertFundedSwap(T, { lockup_tx_hex: '020000000001aabb' })
+    const leftover = await T.storage.paymentStorage.ListUnfinishedInvoiceSwaps()
+    for (const swap of leftover) {
+        if (swap.swap_operation_id !== saved.swap_operation_id) {
+            await T.storage.paymentStorage.DeleteInvoiceSwap(swap.swap_operation_id)
+        }
+    }
+    const swapper = new SubmarineSwaps({ httpUrl: 'http://mock-boltz', wsUrl: 'ws://127.0.0.1:1', network: 'regtest' })
+    const swaps = new Swaps({
+        getSettings: () => ({
+            lndSettings: { network: 'regtest' as const },
+            swapsSettings: {
+                enableSwaps: true,
+                boltzHttpUrl: '',
+                boltzWebSocketUrl: '',
+                boltsHttpUrlAlt: '',
+                boltsWebSocketUrlAlt: '',
+            },
+        }),
+    } as any, T.storage)
+    swaps.subSwappers['http://mock-boltz'] = swapper
+    let waitingTxDone: Promise<void> = Promise.resolve()
+    swapper.SubscribeToInvoiceSwap = (_data, _done, waitingTx) => {
+        waitingTxDone = Promise.resolve().then(() => waitingTx())
+        return () => { }
+    }
+    let broadcast = false
+    swaps.SetLnd({
+        BroadcastTransaction: async () => {
+            broadcast = true
+            return { txId: 'should-not-broadcast' }
+        },
+    } as any)
+    swaps.SetBackupManager({
+        notifyBackupTable: async () => { },
+        flushTablesNow: async () => { throw new Error('backup dest down') },
+    } as any)
+    await swaps.ResumeInvoiceSwaps()
+    await waitingTxDone
+    T.expect(broadcast).to.equal(false)
+    const stillOpen = await T.storage.paymentStorage.ListUnfinishedInvoiceSwaps()
+    T.expect(stillOpen.some(s => s.swap_operation_id === saved.swap_operation_id)).to.equal(true)
+    await T.storage.paymentStorage.DeleteInvoiceSwap(saved.swap_operation_id)
+    T.d('failed backup flush blocked lockup republish on resume')
 }
 
 const setupSubmarine = (swapId = `swap-${randomBytes(8).toString('hex')}`): { swapper: SubmarineSwaps, data: InvoiceSwapData } => {
