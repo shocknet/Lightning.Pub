@@ -20,11 +20,15 @@ initEccLib(ecc)
 export default async (T: StorageTestBase) => {
     testVerifyClaimPreimage(T)
     await testProviderWebsocketDoesNotFinalize(T)
+    await testClaimedReconcilesLocalSettledInvoice(T)
+    await testClaimedWithoutLocalPreimageDoesNotFinalize(T)
     await testWrongIdClaimedDoesNotBlockRefund(T)
     await testUsedSuccessDoesNotVetoRefund(T)
     await testResumeInvoiceSwapWithoutLockupHex(T)
     await testResumeInvoiceSwapBroadcastRejectionDoesNotThrow(T)
     await testResumeInvoiceSwapFlushFailureDoesNotBroadcast(T)
+    await testResumeDoesNotFinalizeSettledInvoiceUntilClaimed(T)
+    await testResumeClaimedReconcilesLocalInvoice(T)
 }
 
 const testVerifyClaimPreimage = (T: StorageTestBase) => {
@@ -78,6 +82,68 @@ const testProviderWebsocketDoesNotFinalize = async (T: StorageTestBase) => {
     T.expect(waiting).to.equal(1)
     T.expect(preimages.length).to.equal(0)
     T.d('wrong-id and claimed/failure updates did not fund or finalize; invoice.set with matching id still funds')
+}
+
+const testClaimedReconcilesLocalSettledInvoice = async (T: StorageTestBase) => {
+    T.d('starting claimed status finalizes only with a verified local preimage')
+    const preimage = randomBytes(32)
+    const { swapper, data } = setupSubmarine()
+    data.info.paymentHash = createHash('sha256').update(preimage).digest('hex')
+    let lookups = 0
+    const preimages: string[] = []
+    await swapper.handleSwapInvoiceMessage(
+        Buffer.from(JSON.stringify({
+            event: 'update',
+            args: [{ id: data.createdResponse.id, status: 'transaction.claimed' }],
+        })),
+        data,
+        {
+            waitingTx: () => { },
+            onVerifiedPreimage: (value) => { preimages.push(value) },
+            reconcileSettledPreimage: async () => {
+                lookups++
+                return preimage.toString('hex')
+            },
+        },
+    )
+    T.expect(lookups).to.equal(1)
+    T.expect(preimages).to.deep.equal([preimage.toString('hex')])
+    T.d('claimed hint reconciled the local settled invoice without trusting the provider status')
+}
+
+const testClaimedWithoutLocalPreimageDoesNotFinalize = async (T: StorageTestBase) => {
+    T.d('starting claimed status without a local preimage leaves the swap open')
+    const { swapper, data } = setupSubmarine()
+    let finalized = false
+    await swapper.handleSwapInvoiceMessage(
+        Buffer.from(JSON.stringify({
+            event: 'update',
+            args: [{ id: data.createdResponse.id, status: 'transaction.claimed' }],
+        })),
+        data,
+        {
+            waitingTx: () => { },
+            onVerifiedPreimage: () => { finalized = true },
+            reconcileSettledPreimage: async () => undefined,
+        },
+    )
+    T.expect(finalized).to.equal(false)
+
+    const other = randomBytes(32)
+    await swapper.handleSwapInvoiceMessage(
+        Buffer.from(JSON.stringify({
+            event: 'update',
+            args: [{ id: data.createdResponse.id, status: 'transaction.claimed' }],
+        })),
+        data,
+        {
+            waitingTx: () => { },
+            onVerifiedPreimage: () => { finalized = true },
+            reconcileSettledPreimage: async () => other.toString('hex'),
+        },
+    )
+    T.expect(finalized).to.equal(false)
+    T.d('claimed without a matching local preimage did not finalize')
 }
 
 const testWrongIdClaimedDoesNotBlockRefund = async (T: StorageTestBase) => {
@@ -283,6 +349,114 @@ const testResumeInvoiceSwapFlushFailureDoesNotBroadcast = async (T: StorageTestB
     T.d('failed backup flush blocked lockup republish on resume')
 }
 
+const testResumeDoesNotFinalizeSettledInvoiceUntilClaimed = async (T: StorageTestBase) => {
+    T.d('starting resume of a settled invoice does not skip cooperative claim')
+    const preimage = randomBytes(32)
+    const saved = await insertFundedSwap(T, {
+        payment_hash: createHash('sha256').update(preimage).digest('hex'),
+    })
+    await keepOnlyInvoiceSwap(T, saved.swap_operation_id)
+    const swapper = new SubmarineSwaps({ httpUrl: 'http://mock-boltz', wsUrl: 'ws://127.0.0.1:1', network: 'regtest' })
+    const swaps = new Swaps({
+        getSettings: () => ({
+            lndSettings: { network: 'regtest' as const },
+            swapsSettings: {
+                enableSwaps: true,
+                boltzHttpUrl: '',
+                boltzWebSocketUrl: '',
+                boltsHttpUrlAlt: '',
+                boltsWebSocketUrlAlt: '',
+            },
+        }),
+    } as any, T.storage)
+    swaps.subSwappers['http://mock-boltz'] = swapper
+    let sawReconcile = false
+    let waitingTxDone: Promise<void> = Promise.resolve()
+    swapper.SubscribeToInvoiceSwap = (_data, _done, waitingTx, reconcile) => {
+        sawReconcile = typeof reconcile === 'function'
+        waitingTxDone = Promise.resolve().then(() => waitingTx())
+        return () => { }
+    }
+    let lookups = 0
+    swaps.SetLnd({
+        LookupSettledInvoicePreimage: async () => {
+            lookups++
+            return preimage.toString('hex')
+        },
+        BroadcastTransaction: async () => ({ txId: saved.tx_id }),
+    } as any)
+    await swaps.ResumeInvoiceSwaps()
+    await waitingTxDone
+    T.expect(sawReconcile).to.equal(true)
+    T.expect(lookups).to.equal(0)
+    const stillOpen = await T.storage.paymentStorage.ListUnfinishedInvoiceSwaps()
+    T.expect(stillOpen.some(s => s.swap_operation_id === saved.swap_operation_id)).to.equal(true)
+    await T.storage.paymentStorage.DeleteInvoiceSwap(saved.swap_operation_id)
+    T.d('resume left a settled invoice open until claimed so cooperative claim can still run')
+}
+
+const testResumeClaimedReconcilesLocalInvoice = async (T: StorageTestBase) => {
+    T.d('starting resume finalizes a claimed swap from the local settled invoice')
+    const preimage = randomBytes(32)
+    const saved = await insertFundedSwap(T, {
+        payment_hash: createHash('sha256').update(preimage).digest('hex'),
+    })
+    await keepOnlyInvoiceSwap(T, saved.swap_operation_id)
+    const swapper = new SubmarineSwaps({ httpUrl: 'http://mock-boltz', wsUrl: 'ws://127.0.0.1:1', network: 'regtest' })
+    const swaps = new Swaps({
+        getSettings: () => ({
+            lndSettings: { network: 'regtest' as const },
+            swapsSettings: {
+                enableSwaps: true,
+                boltzHttpUrl: '',
+                boltzWebSocketUrl: '',
+                boltsHttpUrlAlt: '',
+                boltsWebSocketUrlAlt: '',
+            },
+        }),
+    } as any, T.storage)
+    swaps.subSwappers['http://mock-boltz'] = swapper
+    let waitingTxDone: Promise<void> = Promise.resolve()
+    swapper.SubscribeToInvoiceSwap = (data, done, waitingTx, reconcile) => {
+        waitingTxDone = Promise.resolve().then(async () => {
+            await waitingTx()
+            await swapper.handleSwapInvoiceMessage(
+                Buffer.from(JSON.stringify({
+                    event: 'update',
+                    args: [{ id: data.createdResponse.id, status: 'transaction.claimed' }],
+                })),
+                data,
+                {
+                    waitingTx: () => { },
+                    onVerifiedPreimage: (value) => done({ ok: true, preimage: value }),
+                    reconcileSettledPreimage: reconcile,
+                },
+            )
+        })
+        return () => { }
+    }
+    swaps.SetLnd({
+        LookupSettledInvoicePreimage: async (hash: string) => {
+            T.expect(hash).to.equal(saved.payment_hash)
+            return preimage.toString('hex')
+        },
+        BroadcastTransaction: async () => ({ txId: saved.tx_id }),
+    } as any)
+    await swaps.ResumeInvoiceSwaps()
+    await waitingTxDone
+    let row = await T.storage.paymentStorage.GetRefundableInvoiceSwap(saved.swap_operation_id)
+    for (let i = 0; i < 40 && !row?.used; i++) {
+        await new Promise<void>(resolve => setImmediate(resolve))
+        row = await T.storage.paymentStorage.GetRefundableInvoiceSwap(saved.swap_operation_id)
+    }
+    const unfinished = await T.storage.paymentStorage.ListUnfinishedInvoiceSwaps()
+    T.expect(unfinished.some(s => s.swap_operation_id === saved.swap_operation_id)).to.equal(false)
+    T.expect(row?.used).to.equal(true)
+    T.expect(row?.preimage).to.equal(preimage.toString('hex'))
+    await T.storage.paymentStorage.DeleteInvoiceSwap(saved.swap_operation_id)
+    T.d('claimed on resume finalized from the local invoice preimage')
+}
+
 const setupSubmarine = (swapId = `swap-${randomBytes(8).toString('hex')}`): { swapper: SubmarineSwaps, data: InvoiceSwapData } => {
     const keys = ECPairFactory(ecc).makeRandom()
     const paymentHash = randomBytes(32).toString('hex')
@@ -302,6 +476,15 @@ const setupSubmarine = (swapId = `swap-${randomBytes(8).toString('hex')}`): { sw
         },
     }
     return { swapper, data }
+}
+
+const keepOnlyInvoiceSwap = async (T: StorageTestBase, keepId: string) => {
+    const leftover = await T.storage.paymentStorage.ListUnfinishedInvoiceSwaps()
+    for (const swap of leftover) {
+        if (swap.swap_operation_id !== keepId) {
+            await T.storage.paymentStorage.DeleteInvoiceSwap(swap.swap_operation_id)
+        }
+    }
 }
 
 const insertFundedSwap = async (T: StorageTestBase, override: Partial<InvoiceSwap> = {}) => {

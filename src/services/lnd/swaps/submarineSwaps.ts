@@ -566,7 +566,12 @@ export class SubmarineSwaps {
         return { ok: true, publish: { done: false, txHex, txId, usedCooperative: refundTxRes.usedCooperative } }
     }
 
-    SubscribeToInvoiceSwap = (data: InvoiceSwapData, swapDone: (result: InvoiceSwapResult) => void, waitingTx: () => void | Promise<void>) => {
+    SubscribeToInvoiceSwap = (
+        data: InvoiceSwapData,
+        swapDone: (result: InvoiceSwapResult) => void,
+        waitingTx: () => void | Promise<void>,
+        reconcileSettledPreimage?: () => Promise<string | undefined>,
+    ) => {
         this.log("subscribing to invoice swap", { id: data.createdResponse.id })
         const webSocket = new ws(`${this.wsUrl}/v2/ws`)
         const subReq = { op: 'subscribe', channel: 'swap.update', args: [data.createdResponse.id] }
@@ -617,6 +622,7 @@ export class SubmarineSwaps {
                 await this.handleSwapInvoiceMessage(rawMsg, data, {
                     waitingTx: requestTx,
                     onVerifiedPreimage: (preimage) => done({ ok: true, preimage }),
+                    reconcileSettledPreimage,
                 })
             } catch (err: any) {
                 this.log(ERROR, 'Error handling invoice WebSocket message', err.message)
@@ -629,9 +635,10 @@ export class SubmarineSwaps {
 
     /**
      * Provider websocket is informational except for invoice.set (fund) and
-     * claim.pending (verify preimage, then optionally cooperate). Statuses such
-     * as transaction.claimed must not finalize or fail the swap: a hostile
-     * update would otherwise disable timeout refunds of an unspent lockup.
+     * claim.pending (verify preimage, then optionally cooperate).
+     * transaction.claimed is untrusted: it is only a hint to reconcile a locally
+     * settled invoice. That does not skip cooperative claim; we still wait for
+     * claim.pending while the swap is in flight.
      */
     handleSwapInvoiceMessage = async (
         rawMsg: ws.RawData,
@@ -639,6 +646,7 @@ export class SubmarineSwaps {
         handlers: {
             waitingTx: () => void | Promise<void>
             onVerifiedPreimage?: (preimage: string) => void
+            reconcileSettledPreimage?: () => Promise<string | undefined>
         },
     ) => {
         let msg: any
@@ -677,9 +685,27 @@ export class SubmarineSwaps {
                 }
                 return
             }
-            case 'transaction.claimed':
-                this.log('Provider reported transaction.claimed - ignoring; completion requires a verified preimage')
+            case 'transaction.claimed': {
+                this.log('Provider reported transaction.claimed - reconciling independently')
+                let preimage: string | undefined
+                try {
+                    preimage = await handlers.reconcileSettledPreimage?.()
+                } catch (err: any) {
+                    this.log(ERROR, 'Failed to reconcile claimed invoice swap', err.message || err)
+                    return
+                }
+                if (!preimage) {
+                    this.log('No independent preimage for claimed swap; leaving open')
+                    return
+                }
+                const verified = verifySubmarineClaimPreimage(preimage, data.info.paymentHash)
+                if (!verified.ok) {
+                    this.log(ERROR, 'Reconciled claimed preimage failed verification', verified.error)
+                    return
+                }
+                handlers.onVerifiedPreimage?.(preimage)
                 return
+            }
             case 'swap.expired':
             case 'transaction.lockupFailed':
             case 'invoice.failedToPay':

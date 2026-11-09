@@ -1127,6 +1127,40 @@ export default class {
         return response
     }
 
+    /**
+     * Independent proof a local invoice was paid. Used to reconcile a submarine
+     * swap after transaction.claimed; not a substitute for cooperative claim.
+     */
+    async LookupSettledInvoicePreimage(paymentHashHex: string): Promise<string | undefined> {
+        this.log(DEBUG, "Looking up settled invoice preimage")
+        if (this.liquidProvider.getSettings().useOnlyLiquidityProvider) {
+            return undefined
+        }
+        let rHash: Buffer
+        try {
+            rHash = Buffer.from(paymentHashHex, 'hex')
+        } catch {
+            return undefined
+        }
+        if (rHash.length !== 32) {
+            return undefined
+        }
+        try {
+            const res = await this.lightning.lookupInvoice({ rHash, rHashStr: '' }, DeadLineMetadata())
+            if (res.response.state !== Invoice_InvoiceState.SETTLED) {
+                return undefined
+            }
+            const preimage = Buffer.from(res.response.rPreimage)
+            if (preimage.length !== 32) {
+                return undefined
+            }
+            return preimage.toString('hex')
+        } catch (err: any) {
+            this.log(DEBUG, "Invoice lookup for swap reconcile missed", err.message || err)
+            return undefined
+        }
+    }
+
     async GetAllInvoices(max: number, startOffset = 0): Promise<ListInvoiceResponse> {
         this.log(DEBUG, "Getting all paid invoices")
         if (this.liquidProvider.getSettings().useOnlyLiquidityProvider) {

@@ -347,7 +347,7 @@ export class Swaps {
                         close()
                         this.log("error paying address", err.message || err)
                         reject(err)
-                    }))
+                    }), () => this.lookupSettledInvoicePreimage(swap.payment_hash))
             })
         } catch (err) {
             delete this.waitingSwaps[swapOpId]
@@ -425,7 +425,34 @@ export class Swaps {
                     error: err.message || err,
                 })
             }
-        })
+        }, () => this.lookupSettledInvoicePreimage(swap.payment_hash))
+    }
+
+    /**
+     * Local invoice settlement is independent of the provider. Used only as a
+     * claimed-status hint so a missed claim.pending can still finalize. Must
+     * not be called just because the invoice is paid, or we would skip
+     * cooperative claim.
+     */
+    private lookupSettledInvoicePreimage = async (paymentHash: string): Promise<string | undefined> => {
+        if (!this.lnd?.LookupSettledInvoicePreimage) {
+            return undefined
+        }
+        try {
+            const preimage = await this.lnd.LookupSettledInvoicePreimage(paymentHash)
+            if (!preimage) {
+                return undefined
+            }
+            const verified = verifySubmarineClaimPreimage(preimage, paymentHash)
+            if (!verified.ok) {
+                this.log("local invoice preimage failed verification", { error: verified.error })
+                return undefined
+            }
+            return preimage
+        } catch (err: any) {
+            this.log("failed to look up settled invoice for swap reconcile", err.message || err)
+            return undefined
+        }
     }
 
     private getInvoiceSwapData = (swap: InvoiceSwap) => {
