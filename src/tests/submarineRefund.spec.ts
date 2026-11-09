@@ -10,7 +10,7 @@ import http from 'http'
 import * as ecc from 'tiny-secp256k1'
 import { SubmarineSwaps } from '../services/lnd/swaps/submarineSwaps.js'
 import { Swaps } from '../services/lnd/swaps/swaps.js'
-import { caughtErrorMessage, getNetwork, inspectRefundSpend, loggedPost, shouldReplacePersistedRefund, SWAP_PROVIDER_HTTP_TIMEOUT_MS } from '../services/lnd/swaps/swapHelpers.js'
+import { caughtErrorMessage, getNetwork, inspectRefundSpend, loggedGet, loggedPost, shouldReplacePersistedRefund, SWAP_PROVIDER_HTTP_TIMEOUT_MS, SWAP_PROVIDER_MAX_RESPONSE_BYTES } from '../services/lnd/swaps/swapHelpers.js'
 import { getLogger } from '../services/helpers/logger.js'
 import { StorageTestBase } from './testBase.js'
 
@@ -29,6 +29,8 @@ export default async (T: StorageTestBase) => {
     testCaughtErrorMessage(T)
     testShouldReplacePersistedRefund(T)
     await testProviderHttpTimesOut(T)
+    await testProviderHttpTrickleTimesOut(T)
+    await testProviderHttpRejectsOversizedBody(T)
     await testTimeoutRefundSkipsCooperative(T)
     await testInvalidPartialFallsBackToUnilateral(T)
     await testRefundPublishesLocallyWithoutProvider(T)
@@ -60,22 +62,107 @@ const testShouldReplacePersistedRefund = (T: StorageTestBase) => {
     T.d('only a strictly higher positive fee rate replaces a persisted refund')
 }
 
-const testProviderHttpTimesOut = async (T: StorageTestBase) => {
-    T.d('starting provider HTTP requests are bounded')
-    const server = http.createServer((_req, _res) => { /* never respond */ })
+const listenHangServer = async (handler: http.RequestListener) => {
+    const server = http.createServer(handler)
+    const sockets = new Set<{ destroy: () => void }>()
+    server.on('connection', socket => {
+        sockets.add(socket)
+        socket.on('close', () => sockets.delete(socket))
+    })
     await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
     const addr = server.address()
     if (!addr || typeof addr === 'string') {
+        for (const socket of sockets) socket.destroy()
+        server.close()
         throw new Error('failed to bind hang server')
     }
-    const started = Date.now()
-    const result = await loggedPost(getLogger({ component: 'hang-test' }), `http://127.0.0.1:${addr.port}/v2/hang`, {}, 200)
-    const elapsed = Date.now() - started
-    server.close()
-    T.expect(result.ok).to.equal(false)
-    T.expect(elapsed).to.be.lessThan(SWAP_PROVIDER_HTTP_TIMEOUT_MS)
-    T.expect(elapsed).to.be.lessThan(2_000)
-    T.d('hung provider request returned instead of stalling refund construction')
+    return {
+        url: `http://127.0.0.1:${addr.port}/v2/hang`,
+        close: () => {
+            for (const socket of sockets) socket.destroy()
+            sockets.clear()
+            server.close()
+        },
+    }
+}
+
+const testProviderHttpTimesOut = async (T: StorageTestBase) => {
+    T.d('starting provider HTTP requests are bounded')
+    const { url, close } = await listenHangServer((_req, _res) => { /* never respond */ })
+    try {
+        const started = Date.now()
+        const result = await loggedPost(getLogger({ component: 'hang-test' }), url, {}, 200)
+        const elapsed = Date.now() - started
+        T.expect(result.ok).to.equal(false)
+        T.expect(elapsed).to.be.lessThan(SWAP_PROVIDER_HTTP_TIMEOUT_MS)
+        T.expect(elapsed).to.be.lessThan(2_000)
+        T.d('hung provider request returned instead of stalling refund construction')
+    } finally {
+        close()
+    }
+}
+
+const testProviderHttpTrickleTimesOut = async (T: StorageTestBase) => {
+    T.d('starting provider HTTP trickle bodies are bounded')
+    const timers: NodeJS.Timeout[] = []
+    const { url, close } = await listenHangServer((_req, res) => {
+        res.writeHead(200, { 'Content-Type': 'application/json' })
+        const drip = setInterval(() => {
+            if (res.destroyed || !res.writable) {
+                clearInterval(drip)
+                return
+            }
+            res.write(' ')
+        }, 20)
+        // If abort is broken, finish so the client fails an assertion instead of hanging.
+        const finish = setTimeout(() => {
+            clearInterval(drip)
+            if (!res.destroyed && !res.writableEnded) {
+                res.end('{}')
+            }
+        }, 800)
+        const stop = () => {
+            clearInterval(drip)
+            clearTimeout(finish)
+        }
+        timers.push(drip, finish)
+        res.on('close', stop)
+        res.on('error', stop)
+    })
+    try {
+        const log = getLogger({ component: 'trickle-test' })
+        const started = Date.now()
+        const posted = await loggedPost(log, url, {}, 200)
+        const gotten = await loggedGet(log, url, 200)
+        const elapsed = Date.now() - started
+        T.expect(posted.ok).to.equal(false)
+        T.expect(gotten.ok).to.equal(false)
+        T.expect(elapsed).to.be.lessThan(700)
+        T.d('trickling provider body was aborted instead of completing after the idle timeout')
+    } finally {
+        for (const timer of timers) {
+            clearInterval(timer)
+            clearTimeout(timer)
+        }
+        close()
+    }
+}
+
+const testProviderHttpRejectsOversizedBody = async (T: StorageTestBase) => {
+    T.d('starting provider HTTP rejects oversized bodies')
+    // Valid JSON over the cap: without maxContentLength axios would parse this as success.
+    const payload = `{"pad":"${'a'.repeat(SWAP_PROVIDER_MAX_RESPONSE_BYTES)}"}`
+    const { url, close } = await listenHangServer((_req, res) => {
+        res.writeHead(200, { 'Content-Type': 'application/json' })
+        res.end(payload)
+    })
+    try {
+        const result = await loggedGet(getLogger({ component: 'size-test' }), url, 2_000)
+        T.expect(result.ok).to.equal(false)
+        T.d('oversized provider body was rejected')
+    } finally {
+        close()
+    }
 }
 
 const testTimeoutRefundSkipsCooperative = async (T: StorageTestBase) => {

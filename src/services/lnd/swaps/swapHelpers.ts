@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { AxiosRequestConfig } from 'axios';
 import { Network, Transaction } from 'bitcoinjs-lib';
 // import bolt11 from 'bolt11';
 import {
@@ -11,6 +11,12 @@ import { BTCNetwork } from '../../main/settings.js';
 /** Bound every provider HTTP call so a hung peer cannot stall refund/claim fallback. */
 export const SWAP_PROVIDER_HTTP_TIMEOUT_MS = 10_000
 
+/**
+ * Cap provider bodies so a streaming peer cannot grow memory without bound.
+ * Quotes, musig nonces, and a standard lockup tx hex all fit well under 1 MiB.
+ */
+export const SWAP_PROVIDER_MAX_RESPONSE_BYTES = 1_048_576
+
 export const caughtErrorMessage = (error: unknown): string => {
     if (typeof error === 'string' && error) {
         return error
@@ -21,9 +27,29 @@ export const caughtErrorMessage = (error: unknown): string => {
     return String(error)
 }
 
+/**
+ * Axios `timeout` is a socket idle timer and resets as bytes arrive, so a
+ * cooperative peer that trickles the body never times out. Abort is a wall-clock
+ * deadline covering headers and body; maxContentLength caps size.
+ */
+const withProviderDeadline = async <T>(timeoutMs: number, send: (config: AxiosRequestConfig) => Promise<T>): Promise<T> => {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), timeoutMs)
+    try {
+        return await send({
+            timeout: timeoutMs,
+            signal: controller.signal,
+            maxContentLength: SWAP_PROVIDER_MAX_RESPONSE_BYTES,
+            maxBodyLength: SWAP_PROVIDER_MAX_RESPONSE_BYTES,
+        })
+    } finally {
+        clearTimeout(timer)
+    }
+}
+
 export const loggedPost = async <T>(log: PubLogger, url: string, req: any, timeoutMs = SWAP_PROVIDER_HTTP_TIMEOUT_MS): Promise<{ ok: true, data: T } | { ok: false, error: string }> => {
     try {
-        const { data } = await axios.post(url, req, { timeout: timeoutMs })
+        const { data } = await withProviderDeadline(timeoutMs, config => axios.post(url, req, config))
         return { ok: true, data: data as T }
     } catch (err: any) {
         if (err.response?.data) {
@@ -37,7 +63,7 @@ export const loggedPost = async <T>(log: PubLogger, url: string, req: any, timeo
 
 export const loggedGet = async <T>(log: PubLogger, url: string, timeoutMs = SWAP_PROVIDER_HTTP_TIMEOUT_MS): Promise<{ ok: true, data: T } | { ok: false, error: string }> => {
     try {
-        const { data } = await axios.get(url, { timeout: timeoutMs })
+        const { data } = await withProviderDeadline(timeoutMs, config => axios.get(url, config))
         return { ok: true, data: data as T }
     } catch (err: any) {
         if (err.response?.data) {
