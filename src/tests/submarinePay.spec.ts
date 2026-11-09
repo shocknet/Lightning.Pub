@@ -1,0 +1,274 @@
+import { Transaction } from 'bitcoinjs-lib'
+import { randomBytes } from 'crypto'
+import { Swaps } from '../services/lnd/swaps/swaps.js'
+import { SubmarineSwaps } from '../services/lnd/swaps/submarineSwaps.js'
+import { StorageTestBase } from './testBase.js'
+
+export const ignore = false
+export const dev = false
+export const requires = 'storage' as const
+
+const MOCK_URL = 'http://mock-boltz'
+const LOCKUP_A = dummyTxHex('aa')
+const LOCKUP_B = dummyTxHex('bb')
+const TX_A = Transaction.fromHex(LOCKUP_A).getId()
+const TX_B = Transaction.fromHex(LOCKUP_B).getId()
+
+export default async (T: StorageTestBase) => {
+    await testFundingPersistRejectsReplacement(T)
+    await testFundingPersistIsIdempotentForSameTx(T)
+    await testConcurrentPayIsRejectedWhileInFlight(T)
+    await testRetryAfterPersistErrorRepublishesStoredLockup(T)
+    await testDelayedSecondPayDoesNotReplaceStoredFunding(T)
+    await testVerifyFailureReleasesGuard(T)
+}
+
+function dummyTxHex(tag: string) {
+    const tx = new Transaction()
+    tx.version = 2
+    tx.addInput(Buffer.alloc(32), 0)
+    tx.addOutput(Buffer.from('6a' + tag.padEnd(2, '0'), 'hex'), 0)
+    return tx.toHex()
+}
+
+const invoiceSwap = (userId: string, extra: Record<string, unknown> = {}) => ({
+    app_user_id: userId,
+    swap_quote_id: `quote-${randomBytes(8).toString('hex')}`,
+    swap_tree: '{}',
+    claim_public_key: 'aa'.repeat(33),
+    payment_hash: 'bb'.repeat(32),
+    timeout_block_height: 920_000 + 144,
+    invoice: 'lnbcrt-test',
+    invoice_amount: 100_000,
+    transaction_amount: 101_000,
+    swap_fee_sats: 1_000,
+    chain_fee_sats: 200,
+    sat_per_v_byte: 2,
+    ephemeral_public_key: 'cc'.repeat(33),
+    address: 'bcrt1qlockup',
+    ephemeral_private_key: 'dd'.repeat(32),
+    service_url: MOCK_URL,
+    ...extra,
+})
+
+const mockSettings = {
+    getSettings: () => ({
+        lndSettings: { network: 'regtest' as const },
+        swapsSettings: {
+            enableSwaps: true,
+            boltzHttpUrl: '',
+            boltzWebSocketUrl: '',
+            boltsHttpUrlAlt: '',
+            boltsWebSocketUrlAlt: '',
+        },
+    }),
+}
+
+const deleteOtherUnfinished = async (T: StorageTestBase, keepId: string) => {
+    const leftover = await T.storage.paymentStorage.ListUnfinishedInvoiceSwaps()
+    for (const swap of leftover) {
+        if (swap.swap_operation_id !== keepId) {
+            await T.storage.paymentStorage.DeleteInvoiceSwap(swap.swap_operation_id)
+        }
+    }
+}
+
+const makeSwaps = (T: StorageTestBase) => {
+    const swapper = new SubmarineSwaps({ httpUrl: MOCK_URL, wsUrl: 'ws://127.0.0.1:1', network: 'regtest' })
+    const swaps = new Swaps(mockSettings as any, T.storage)
+    swaps.subSwappers[MOCK_URL] = swapper
+    const broadcasts: string[] = []
+    swaps.SetLnd({
+        GetInfo: async () => ({ syncedToChain: true, blockHeight: 5 }),
+        BroadcastTransaction: async (txHex: string) => {
+            broadcasts.push(txHex)
+            return { txId: Transaction.fromHex(txHex).getId() }
+        },
+    } as any)
+    swapper.VerifySubmarineQuote = async () => ({ ok: true as const })
+    swapper.SubscribeToInvoiceSwap = (_data, _done, waitingTx) => {
+        void Promise.resolve().then(() => waitingTx())
+        return () => { }
+    }
+    return { swaps, swapper, broadcasts }
+}
+
+const testFundingPersistRejectsReplacement = async (T: StorageTestBase) => {
+    T.d('starting invoice swap funding persist rejects a second transaction')
+    const userId = `sub-rep-${randomBytes(8).toString('hex')}`
+    const saved = await T.storage.paymentStorage.AddInvoiceSwap(invoiceSwap(userId))
+    const first = await T.storage.paymentStorage.SetInvoiceSwapTxId(saved.swap_operation_id, TX_A, 200, LOCKUP_A)
+    const second = await T.storage.paymentStorage.SetInvoiceSwapTxId(saved.swap_operation_id, TX_B, 250, LOCKUP_B)
+    T.expect(first).to.equal(1)
+    T.expect(second).to.equal(0)
+    const row = await T.storage.paymentStorage.GetInvoiceSwap(saved.swap_operation_id, userId)
+    T.expect(row?.tx_id).to.equal(TX_A)
+    T.expect(row?.lockup_tx_hex).to.equal(LOCKUP_A)
+    await T.storage.paymentStorage.DeleteInvoiceSwap(saved.swap_operation_id)
+    T.d('a second lockup cannot overwrite a persisted funding transaction')
+}
+
+const testFundingPersistIsIdempotentForSameTx = async (T: StorageTestBase) => {
+    T.d('starting invoice swap funding persist is idempotent for the same tx')
+    const userId = `sub-idemp-${randomBytes(8).toString('hex')}`
+    const saved = await T.storage.paymentStorage.AddInvoiceSwap(invoiceSwap(userId))
+    const first = await T.storage.paymentStorage.SetInvoiceSwapTxId(saved.swap_operation_id, TX_A, 200, LOCKUP_A)
+    const again = await T.storage.paymentStorage.SetInvoiceSwapTxId(saved.swap_operation_id, TX_A, 200, LOCKUP_A)
+    T.expect(first).to.equal(1)
+    T.expect(again).to.equal(1)
+    const row = await T.storage.paymentStorage.GetInvoiceSwap(saved.swap_operation_id, userId)
+    T.expect(row?.tx_id).to.equal(TX_A)
+    await T.storage.paymentStorage.DeleteInvoiceSwap(saved.swap_operation_id)
+    T.d('retrying persist of the same lockup is accepted')
+}
+
+const testConcurrentPayIsRejectedWhileInFlight = async (T: StorageTestBase) => {
+    T.d('starting concurrent invoice swap pay is rejected while the first is in flight')
+    const userId = `sub-conc-${randomBytes(8).toString('hex')}`
+    const saved = await T.storage.paymentStorage.AddInvoiceSwap(invoiceSwap(userId))
+    await deleteOtherUnfinished(T, saved.swap_operation_id)
+    const { swaps, swapper } = makeSwaps(T)
+    let releaseVerify!: () => void
+    const holdVerify = new Promise<void>(resolve => { releaseVerify = resolve })
+    let verifyStarted!: () => void
+    const firstVerify = new Promise<void>(resolve => { verifyStarted = resolve })
+    let verifyCalls = 0
+    swapper.VerifySubmarineQuote = async () => {
+        verifyCalls++
+        if (verifyCalls === 1) {
+            verifyStarted()
+            await holdVerify
+        }
+        return { ok: true as const }
+    }
+    const pay = () => swaps.PayInvoiceSwap(userId, saved.swap_operation_id, undefined, async () => ({ txId: TX_A }))
+    const first = pay()
+    await firstVerify
+    let secondError = ''
+    try {
+        await pay()
+    } catch (err: any) {
+        secondError = err.message || String(err)
+    }
+    T.expect(secondError).to.equal('swap already in progress')
+    releaseVerify()
+    T.expect(await first).to.equal(TX_A)
+    await T.storage.paymentStorage.DeleteInvoiceSwap(saved.swap_operation_id)
+    T.d('the in-memory guard is acquired before quote verification')
+}
+
+const testRetryAfterPersistErrorRepublishesStoredLockup = async (T: StorageTestBase) => {
+    T.d('starting invoice swap pay retries the stored lockup after a publication error')
+    const userId = `sub-retry-${randomBytes(8).toString('hex')}`
+    const saved = await T.storage.paymentStorage.AddInvoiceSwap(invoiceSwap(userId))
+    await deleteOtherUnfinished(T, saved.swap_operation_id)
+    const { swaps, broadcasts } = makeSwaps(T)
+    let payCalls = 0
+    const payAddress = async () => {
+        payCalls++
+        const persisted = await T.storage.paymentStorage.SetInvoiceSwapTxId(saved.swap_operation_id, TX_A, 200, LOCKUP_A)
+        T.expect(persisted).to.equal(1)
+        throw new Error('backup dest down')
+    }
+    let firstError = ''
+    try {
+        await swaps.PayInvoiceSwap(userId, saved.swap_operation_id, undefined, payAddress)
+    } catch (err: any) {
+        firstError = err.message || String(err)
+    }
+    T.expect(firstError).to.equal('backup dest down')
+    T.expect(payCalls).to.equal(1)
+    T.expect(broadcasts).to.deep.equal([])
+
+    const retried = await swaps.PayInvoiceSwap(userId, saved.swap_operation_id, undefined, async () => {
+        payCalls++
+        await T.storage.paymentStorage.SetInvoiceSwapTxId(saved.swap_operation_id, TX_B, 250, LOCKUP_B)
+        return { txId: TX_B }
+    })
+    T.expect(retried).to.equal(TX_A)
+    T.expect(payCalls).to.equal(1)
+    T.expect(broadcasts).to.deep.equal([LOCKUP_A])
+    const row = await T.storage.paymentStorage.GetInvoiceSwap(saved.swap_operation_id, userId)
+    T.expect(row?.tx_id).to.equal(TX_A)
+    T.expect(row?.lockup_tx_hex).to.equal(LOCKUP_A)
+    await T.storage.paymentStorage.DeleteInvoiceSwap(saved.swap_operation_id)
+    T.d('a later pay republished A and did not construct B')
+}
+
+const testDelayedSecondPayDoesNotReplaceStoredFunding = async (T: StorageTestBase) => {
+    T.d('starting a delayed second invoice swap pay cannot replace persisted funding')
+    const userId = `sub-delay-${randomBytes(8).toString('hex')}`
+    const saved = await T.storage.paymentStorage.AddInvoiceSwap(invoiceSwap(userId))
+    await deleteOtherUnfinished(T, saved.swap_operation_id)
+    const { swaps, broadcasts } = makeSwaps(T)
+    let releasePay!: (err?: Error) => void
+    const holdPay = new Promise<void>((resolve, reject) => {
+        releasePay = (err) => err ? reject(err) : resolve()
+    })
+    void holdPay.catch(() => { })
+    let persisted!: () => void
+    const firstPersist = new Promise<void>(resolve => { persisted = resolve })
+    let payCalls = 0
+    const first = swaps.PayInvoiceSwap(userId, saved.swap_operation_id, undefined, async () => {
+        payCalls++
+        await T.storage.paymentStorage.SetInvoiceSwapTxId(saved.swap_operation_id, TX_A, 200, LOCKUP_A)
+        persisted()
+        await holdPay
+        return { txId: TX_A }
+    })
+    await firstPersist
+    let secondError = ''
+    try {
+        await swaps.PayInvoiceSwap(userId, saved.swap_operation_id, undefined, async () => {
+            payCalls++
+            await T.storage.paymentStorage.SetInvoiceSwapTxId(saved.swap_operation_id, TX_B, 250, LOCKUP_B)
+            return { txId: TX_B }
+        })
+    } catch (err: any) {
+        secondError = err.message || String(err)
+    }
+    T.expect(secondError).to.equal('swap already in progress')
+    T.expect(payCalls).to.equal(1)
+    releasePay(new Error('backup dest down'))
+    let firstError = ''
+    try {
+        await first
+    } catch (err: any) {
+        firstError = err.message || String(err)
+    }
+    T.expect(firstError).to.equal('backup dest down')
+
+    const retried = await swaps.PayInvoiceSwap(userId, saved.swap_operation_id, undefined, async () => {
+        payCalls++
+        await T.storage.paymentStorage.SetInvoiceSwapTxId(saved.swap_operation_id, TX_B, 250, LOCKUP_B)
+        return { txId: TX_B }
+    })
+    T.expect(retried).to.equal(TX_A)
+    T.expect(payCalls).to.equal(1)
+    T.expect(broadcasts).to.deep.equal([LOCKUP_A])
+    const row = await T.storage.paymentStorage.GetInvoiceSwap(saved.swap_operation_id, userId)
+    T.expect(row?.tx_id).to.equal(TX_A)
+    await T.storage.paymentStorage.DeleteInvoiceSwap(saved.swap_operation_id)
+    T.d('the delayed request did not overwrite A; retry republished A')
+}
+
+const testVerifyFailureReleasesGuard = async (T: StorageTestBase) => {
+    T.d('starting a quote verification failure releases the invoice swap guard')
+    const userId = `sub-guard-${randomBytes(8).toString('hex')}`
+    const saved = await T.storage.paymentStorage.AddInvoiceSwap(invoiceSwap(userId))
+    await deleteOtherUnfinished(T, saved.swap_operation_id)
+    const { swaps, swapper } = makeSwaps(T)
+    swapper.VerifySubmarineQuote = async () => ({ ok: false as const, error: 'bad quote' })
+    let firstError = ''
+    try {
+        await swaps.PayInvoiceSwap(userId, saved.swap_operation_id, undefined, async () => ({ txId: TX_A }))
+    } catch (err: any) {
+        firstError = err.message || String(err)
+    }
+    T.expect(firstError).to.equal('swap quote failed verification before pay: bad quote')
+    swapper.VerifySubmarineQuote = async () => ({ ok: true as const })
+    const paid = await swaps.PayInvoiceSwap(userId, saved.swap_operation_id, undefined, async () => ({ txId: TX_A }))
+    T.expect(paid).to.equal(TX_A)
+    await T.storage.paymentStorage.DeleteInvoiceSwap(saved.swap_operation_id)
+    T.d('a later pay can proceed after a failed verification')
+}

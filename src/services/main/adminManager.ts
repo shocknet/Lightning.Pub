@@ -622,7 +622,10 @@ export class AdminManager {
         const resolvedTxId = await this.swaps.PayInvoiceSwap(ADMIN_SWAP_OWNER_ID, req.swap_operation_id, req.sat_per_v_byte, async (addr, amt, satPerVByte) => {
             const crafted = await this.lnd.CraftAddressPayment(addr, amt, satPerVByte)
             // Persist before broadcast so a crash cannot leave an unpaid-looking row after coins are sent.
-            await this.storage.paymentStorage.SetInvoiceSwapTxId(req.swap_operation_id, crafted.txId, crafted.feeSats, crafted.txHex)
+            const persisted = await this.storage.paymentStorage.SetInvoiceSwapTxId(req.swap_operation_id, crafted.txId, crafted.feeSats, crafted.txHex)
+            if (persisted !== 1) {
+                throw new Error("swap already funded with a different transaction")
+            }
             this.log("persisted admin swap lockup", { swapOpId: req.swap_operation_id, txId: crafted.txId })
             await this.backupManager?.flushTablesNow('invoice_swaps')
 

@@ -845,11 +845,7 @@ export default class {
     }
 
     async GetInvoiceSwap(swapOperationId: string, appUserId: string, txId?: string) {
-        const swap = await this.dbs.FindOne<InvoiceSwap>('InvoiceSwap', { where: { swap_operation_id: swapOperationId, used: false, app_user_id: this.swapOwnerWhere(appUserId) } }, txId)
-        if (!swap || swap.tx_id) {
-            return null
-        }
-        return swap
+        return this.dbs.FindOne<InvoiceSwap>('InvoiceSwap', { where: { swap_operation_id: swapOperationId, used: false, app_user_id: this.swapOwnerWhere(appUserId) } }, txId)
     }
 
     async FinalizeInvoiceSwap(swapOperationId: string, preimage: string, txId?: string) {
@@ -878,7 +874,18 @@ export default class {
         if (lockupTxHex) {
             update.lockup_tx_hex = lockupTxHex
         }
-        return this.dbs.Update<InvoiceSwap>('InvoiceSwap', { swap_operation_id: swapOperationId }, update, txId)
+        const affected = await this.dbs.Update<InvoiceSwap>('InvoiceSwap', {
+            swap_operation_id: swapOperationId,
+            tx_id: "",
+        }, update, txId)
+        if (affected === 1) {
+            return 1
+        }
+        const existing = await this.dbs.FindOne<InvoiceSwap>('InvoiceSwap', { where: { swap_operation_id: swapOperationId } }, txId)
+        if (existing && existing.tx_id === chainTxId) {
+            return 1
+        }
+        return 0
     }
 
     async FailInvoiceSwap(swapOperationId: string, failureReason: string, txId?: string) {

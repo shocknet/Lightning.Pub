@@ -205,64 +205,86 @@ export class Swaps {
         if (!swapOpId) {
             throw new Error("swap operation id is required")
         }
-        const swap = await this.storage.paymentStorage.GetInvoiceSwap(swapOpId, appUserId)
-        if (!swap) {
-            throw new Error("swap not found")
-        }
-        const satPerVByte = satPerVByteOverride ?? swap.sat_per_v_byte
-        if (!isPositiveSats(satPerVByte)) {
-            throw new Error("sat per v byte is required (set fees_req on quote or pass sat_per_v_byte on pay)")
-        }
-        const swapper = this.subSwappers[swap.service_url]
-        if (!swapper) {
-            throw new Error("swapper service not found")
-        }
-        const expectedLockupAmount = swap.invoice_amount + swap.swap_fee_sats
-        const data = this.getInvoiceSwapData(swap)
-        const verifyQuote = async () => {
-            const currentHeight = await this.trustedChainTip()
-            const verified = await swapper.VerifySubmarineQuote({
-                paymentHashHex: swap.payment_hash,
-                refundPrivateKeyHex: swap.ephemeral_private_key,
-                expectedLockupAmount,
-                currentHeight,
-                created: data.createdResponse,
-            })
-            if (!verified.ok) {
-                throw new Error(`swap quote failed verification before pay: ${verified.error}`)
-            }
-        }
-        await verifyQuote()
         if (this.waitingSwaps[swapOpId]) {
             throw new Error("swap already in progress")
         }
         this.waitingSwaps[swapOpId] = true
-        return new Promise<string>((resolve, reject) => {
-            const close = swapper.SubscribeToInvoiceSwap(data, async (result) => {
-                if (result.ok) {
-                    const verified = verifySubmarineClaimPreimage(result.preimage, swap.payment_hash)
-                    if (!verified.ok) {
-                        this.log("refusing to finalize invoice swap without a verified preimage", { swapOpId, error: verified.error })
-                        return
-                    }
-                    await this.storage.paymentStorage.FinalizeInvoiceSwap(swapOpId, result.preimage)
-                    this.notifySwapBackup('invoice_swaps')
-                    this.log("invoice swap completed", { swapOpId })
-                } else {
-                    await this.storage.paymentStorage.FailInvoiceSwap(swapOpId, result.error)
-                    this.notifySwapBackup('invoice_swaps')
-                    this.log("invoice swap failed", { swapOpId, error: result.error })
+        try {
+            const swap = await this.storage.paymentStorage.GetInvoiceSwap(swapOpId, appUserId)
+            if (!swap) {
+                throw new Error("swap not found")
+            }
+            const satPerVByte = satPerVByteOverride ?? swap.sat_per_v_byte
+            if (!isPositiveSats(satPerVByte)) {
+                throw new Error("sat per v byte is required (set fees_req on quote or pass sat_per_v_byte on pay)")
+            }
+            const swapper = this.subSwappers[swap.service_url]
+            if (!swapper) {
+                throw new Error("swapper service not found")
+            }
+            const expectedLockupAmount = swap.invoice_amount + swap.swap_fee_sats
+            const data = this.getInvoiceSwapData(swap)
+            const verifyQuote = async () => {
+                const currentHeight = await this.trustedChainTip()
+                const verified = await swapper.VerifySubmarineQuote({
+                    paymentHashHex: swap.payment_hash,
+                    refundPrivateKeyHex: swap.ephemeral_private_key,
+                    expectedLockupAmount,
+                    currentHeight,
+                    created: data.createdResponse,
+                })
+                if (!verified.ok) {
+                    throw new Error(`swap quote failed verification before pay: ${verified.error}`)
                 }
-            }, () => verifyQuote()
-                .then(() => payAddress(swap.address, swap.transaction_amount, satPerVByte))
-                .then(res => resolve(res.txId))
-                .catch(err => {
-                    close()
-                    delete this.waitingSwaps[swapOpId]
-                    this.log("error paying address", err.message || err)
-                    reject(err)
-                }))
-        })
+            }
+            await verifyQuote()
+            const fundLockup = async () => {
+                const latest = await this.storage.paymentStorage.GetInvoiceSwap(swapOpId, appUserId)
+                if (!latest) {
+                    throw new Error("swap not found")
+                }
+                if (latest.tx_id) {
+                    if (!latest.lockup_tx_hex) {
+                        throw new Error("swap already funded; republish requires persisted lockup hex")
+                    }
+                    await this.protectSwapBackup('invoice_swaps')
+                    const published = await this.lnd.BroadcastTransaction(latest.lockup_tx_hex)
+                    if (published.txId !== latest.tx_id) {
+                        throw new Error("republished lockup tx id mismatch")
+                    }
+                    return { txId: published.txId }
+                }
+                return payAddress(latest.address, latest.transaction_amount, satPerVByte)
+            }
+            return await new Promise<string>((resolve, reject) => {
+                const close = swapper.SubscribeToInvoiceSwap(data, async (result) => {
+                    if (result.ok) {
+                        const verified = verifySubmarineClaimPreimage(result.preimage, swap.payment_hash)
+                        if (!verified.ok) {
+                            this.log("refusing to finalize invoice swap without a verified preimage", { swapOpId, error: verified.error })
+                            return
+                        }
+                        await this.storage.paymentStorage.FinalizeInvoiceSwap(swapOpId, result.preimage)
+                        this.notifySwapBackup('invoice_swaps')
+                        this.log("invoice swap completed", { swapOpId })
+                    } else {
+                        await this.storage.paymentStorage.FailInvoiceSwap(swapOpId, result.error)
+                        this.notifySwapBackup('invoice_swaps')
+                        this.log("invoice swap failed", { swapOpId, error: result.error })
+                    }
+                }, () => verifyQuote()
+                    .then(() => fundLockup())
+                    .then(res => resolve(res.txId))
+                    .catch(err => {
+                        close()
+                        this.log("error paying address", err.message || err)
+                        reject(err)
+                    }))
+            })
+        } catch (err) {
+            delete this.waitingSwaps[swapOpId]
+            throw err
+        }
     }
 
     ResumeInvoiceSwaps = async () => {
