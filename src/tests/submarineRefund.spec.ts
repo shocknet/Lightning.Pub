@@ -1,6 +1,6 @@
 import secp256k1ZkpModule from '@vulpemventures/secp256k1-zkp'
 const zkpInit = (secp256k1ZkpModule as any).default || secp256k1ZkpModule
-import { initEccLib, Transaction, address } from 'bitcoinjs-lib'
+import { initEccLib, Transaction, address, payments } from 'bitcoinjs-lib'
 import {
     Musig, SwapTreeSerializer, TaprootUtils, Scripts, swapTree, detectSwap, OutputType,
 } from 'boltz-core'
@@ -10,7 +10,7 @@ import http from 'http'
 import * as ecc from 'tiny-secp256k1'
 import { SubmarineSwaps } from '../services/lnd/swaps/submarineSwaps.js'
 import { Swaps } from '../services/lnd/swaps/swaps.js'
-import { caughtErrorMessage, getNetwork, loggedPost, SWAP_PROVIDER_HTTP_TIMEOUT_MS } from '../services/lnd/swaps/swapHelpers.js'
+import { caughtErrorMessage, getNetwork, inspectRefundSpend, loggedPost, shouldReplacePersistedRefund, SWAP_PROVIDER_HTTP_TIMEOUT_MS } from '../services/lnd/swaps/swapHelpers.js'
 import { getLogger } from '../services/helpers/logger.js'
 import { StorageTestBase } from './testBase.js'
 
@@ -27,6 +27,7 @@ const LOCKUP_SATS = 100_000
 
 export default async (T: StorageTestBase) => {
     testCaughtErrorMessage(T)
+    testShouldReplacePersistedRefund(T)
     await testProviderHttpTimesOut(T)
     await testTimeoutRefundSkipsCooperative(T)
     await testInvalidPartialFallsBackToUnilateral(T)
@@ -34,6 +35,9 @@ export default async (T: StorageTestBase) => {
     await testStaleProviderAckDoesNotBlockRefund(T)
     await testRefundHexPersistedBeforeBroadcast(T)
     await testRefundRetryFlushFailureDoesNotBroadcast(T)
+    await testRefundRejectsZeroFee(T)
+    await testRefundRetryAtHigherFeeReplacesHex(T)
+    await testRefundLowerFeeRetryRebroadcasts(T)
     await testRefundSpendsTaprootNotDecoy(T)
     await testRefundRejectsDecoyOnlyLockup(T)
 }
@@ -44,6 +48,16 @@ const testCaughtErrorMessage = (T: StorageTestBase) => {
     T.expect(caughtErrorMessage(new Error('boom'))).to.equal('boom')
     T.expect(caughtErrorMessage(undefined)).to.equal('undefined')
     T.d('string throws are not read as undefined')
+}
+
+const testShouldReplacePersistedRefund = (T: StorageTestBase) => {
+    T.d('starting persisted refund replacement policy')
+    T.expect(shouldReplacePersistedRefund(0, 20)).to.equal(true)
+    T.expect(shouldReplacePersistedRefund(1, 20)).to.equal(true)
+    T.expect(shouldReplacePersistedRefund(20, 20)).to.equal(false)
+    T.expect(shouldReplacePersistedRefund(20, 1)).to.equal(false)
+    T.expect(shouldReplacePersistedRefund(0, 0)).to.equal(false)
+    T.d('only a strictly higher positive fee rate replaces a persisted refund')
 }
 
 const testProviderHttpTimesOut = async (T: StorageTestBase) => {
@@ -246,6 +260,119 @@ const testRefundRetryFlushFailureDoesNotBroadcast = async (T: StorageTestBase) =
     T.expect(broadcasts).to.deep.equal([])
     await T.storage.paymentStorage.DeleteInvoiceSwap(saved.swap_operation_id)
     T.d('persisted refund hex stayed unpublished without a successful backup')
+}
+
+const testRefundRejectsZeroFee = async (T: StorageTestBase) => {
+    T.d('starting refund rejects a zero sat/vbyte fee')
+    const fixture = await buildSubmarineLockup()
+    const saved = await insertFundedRefundable(T, fixture)
+    const swaps = disabledSwaps(T)
+    const broadcasts: string[] = []
+    swaps.SetLnd({
+        BroadcastTransaction: async (txHex: string) => {
+            broadcasts.push(txHex)
+            return { txId: Transaction.fromHex(txHex).getId() }
+        },
+        GetInfo: async () => ({ syncedToChain: true, blockHeight: TIMEOUT }),
+    } as any)
+    let threw = false
+    try {
+        await swaps.RefundInvoiceSwap(saved.swap_operation_id, 0, DEST, TIMEOUT)
+    } catch (err: any) {
+        threw = true
+        T.expect(err.message).to.equal('sat per v byte must be a positive integer')
+    }
+    T.expect(threw).to.equal(true)
+    T.expect(broadcasts).to.deep.equal([])
+    const row = await T.storage.paymentStorage.GetRefundableInvoiceSwap(saved.swap_operation_id)
+    T.expect(row?.refund_tx_hex || '').to.equal('')
+    await T.storage.paymentStorage.DeleteInvoiceSwap(saved.swap_operation_id)
+    T.d('zero-fee refunds are refused before persist or broadcast')
+}
+
+const testRefundRetryAtHigherFeeReplacesHex = async (T: StorageTestBase) => {
+    T.d('starting a higher-fee refund retry replaces the persisted hex')
+    const fixture = await buildSubmarineLockup()
+    const saved = await insertFundedRefundable(T, fixture)
+    const swaps = disabledSwaps(T)
+    swaps.SetLnd({
+        BroadcastTransaction: async () => { throw new Error('min relay fee not met') },
+        GetInfo: async () => ({ syncedToChain: true, blockHeight: TIMEOUT }),
+    } as any)
+    try {
+        await swaps.RefundInvoiceSwap(saved.swap_operation_id, 1, DEST, TIMEOUT)
+    } catch (err: any) {
+        T.expect(err.message).to.equal('min relay fee not met')
+    }
+    const persisted = await T.storage.paymentStorage.GetRefundableInvoiceSwap(saved.swap_operation_id)
+    T.expect(!!persisted?.refund_tx_hex).to.equal(true)
+    T.expect(persisted?.refund_address).to.equal(DEST)
+    const lockupTx = Transaction.fromHex(fixture.lockupHex)
+    const original = inspectRefundSpend(Transaction.fromHex(persisted!.refund_tx_hex), lockupTx)
+    T.expect(original.satPerVbyte).to.equal(1)
+
+    const otherDest = payments.p2wpkh({
+        pubkey: Buffer.from(ECPairFactory(ecc).makeRandom().publicKey),
+        network: getNetwork('regtest'),
+    }).address
+    if (!otherDest) {
+        throw new Error('failed to derive a second refund address')
+    }
+    const broadcasts: string[] = []
+    swaps.SetLnd({
+        BroadcastTransaction: async (txHex: string) => {
+            broadcasts.push(txHex)
+            return { txId: Transaction.fromHex(txHex).getId() }
+        },
+        GetInfo: async () => ({ syncedToChain: true, blockHeight: TIMEOUT }),
+    } as any)
+    const retried = await swaps.RefundInvoiceSwap(saved.swap_operation_id, 20, otherDest, TIMEOUT)
+    T.expect(broadcasts.length).to.equal(1)
+    T.expect(broadcasts[0]).to.not.equal(persisted?.refund_tx_hex)
+    const replacement = inspectRefundSpend(Transaction.fromHex(broadcasts[0]), lockupTx)
+    T.expect(replacement.prevTxId).to.equal(original.prevTxId)
+    T.expect(replacement.vout).to.equal(original.vout)
+    T.expect(replacement.outputScript.equals(original.outputScript)).to.equal(true)
+    T.expect(replacement.feeSats).to.be.greaterThan(original.feeSats)
+    T.expect(replacement.satPerVbyte).to.be.greaterThan(original.satPerVbyte)
+    T.expect(retried.txId).to.equal(Transaction.fromHex(broadcasts[0]).getId())
+    const row = await T.storage.paymentStorage.GetRefundableInvoiceSwap(saved.swap_operation_id)
+    T.expect(row?.refund_tx_hex).to.equal(broadcasts[0])
+    T.expect(row?.refund_address).to.equal(DEST)
+    await T.storage.paymentStorage.DeleteInvoiceSwap(saved.swap_operation_id)
+    T.d('retry at 20 sat/vbyte published a higher-fee spend of the same outpoint to the persisted destination')
+}
+
+const testRefundLowerFeeRetryRebroadcasts = async (T: StorageTestBase) => {
+    T.d('starting a lower-fee refund retry rebroadcasts the persisted hex')
+    const fixture = await buildSubmarineLockup()
+    const saved = await insertFundedRefundable(T, fixture)
+    const swaps = disabledSwaps(T)
+    swaps.SetLnd({
+        BroadcastTransaction: async () => { throw new Error('no peers') },
+        GetInfo: async () => ({ syncedToChain: true, blockHeight: TIMEOUT }),
+    } as any)
+    try {
+        await swaps.RefundInvoiceSwap(saved.swap_operation_id, 20, DEST, TIMEOUT)
+    } catch (err: any) {
+        T.expect(err.message).to.equal('no peers')
+    }
+    const persisted = await T.storage.paymentStorage.GetRefundableInvoiceSwap(saved.swap_operation_id)
+    T.expect(!!persisted?.refund_tx_hex).to.equal(true)
+
+    const broadcasts: string[] = []
+    swaps.SetLnd({
+        BroadcastTransaction: async (txHex: string) => {
+            broadcasts.push(txHex)
+            return { txId: Transaction.fromHex(txHex).getId() }
+        },
+        GetInfo: async () => ({ syncedToChain: true, blockHeight: TIMEOUT }),
+    } as any)
+    const retried = await swaps.RefundInvoiceSwap(saved.swap_operation_id, 1, DEST, TIMEOUT)
+    T.expect(broadcasts).to.deep.equal([persisted?.refund_tx_hex])
+    T.expect(retried.txId).to.equal(Transaction.fromHex(broadcasts[0]).getId())
+    await T.storage.paymentStorage.DeleteInvoiceSwap(saved.swap_operation_id)
+    T.d('a lower requested fee did not replace the persisted refund')
 }
 
 const testRefundSpendsTaprootNotDecoy = async (T: StorageTestBase) => {

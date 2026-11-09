@@ -5,7 +5,7 @@ import {
     Networks, OutputType, Scripts,
 } from 'boltz-core';
 import { PubLogger, ERROR } from '../../helpers/logger.js';
-import { isNonNegativeIndex, isNonNegativeSats } from '../../helpers/sats.js';
+import { isNonNegativeIndex, isNonNegativeSats, isPositiveSats } from '../../helpers/sats.js';
 import { BTCNetwork } from '../../main/settings.js';
 
 /** Bound every provider HTTP call so a hung peer cannot stall refund/claim fallback. */
@@ -111,6 +111,63 @@ export const scriptDustLimit = (script: Buffer): number => {
         ? 32 + 4 + 1 + Math.floor(107 / 4) + 4
         : 32 + 4 + 1 + 107 + 4
     return Math.ceil(3_000 * (outputSize + inputSize) / 1000)
+}
+
+/** Matches boltz-core targetFee: (virtualSize + input count) * sat/vbyte. */
+export const refundTargetVbytes = (tx: Transaction): number => tx.virtualSize() + tx.ins.length
+
+export type RefundSpendView = {
+    feeSats: number
+    satPerVbyte: number
+    prevTxId: string
+    vout: number
+    outputScript: Buffer
+    outputValue: number
+}
+
+export const inspectRefundSpend = (refundTx: Transaction, lockupTx: Transaction): RefundSpendView => {
+    if (refundTx.ins.length !== 1 || refundTx.outs.length !== 1) {
+        throw new Error('refund must be a single-input single-output spend')
+    }
+    const vin = refundTx.ins[0]
+    if (!vin.hash.equals(lockupTx.getHash())) {
+        throw new Error('refund does not spend the persisted lockup')
+    }
+    if (!isNonNegativeIndex(vin.index) || vin.index >= lockupTx.outs.length) {
+        throw new Error('refund spends an invalid lockup output')
+    }
+    const inputValue = lockupTx.outs[vin.index].value
+    const output = refundTx.outs[0]
+    if (!isNonNegativeSats(inputValue) || !isNonNegativeSats(output.value) || output.value > inputValue) {
+        throw new Error('invalid refund amounts')
+    }
+    const feeSats = inputValue - output.value
+    const vbytes = refundTargetVbytes(refundTx)
+    if (!isPositiveSats(vbytes)) {
+        throw new Error('invalid refund size')
+    }
+    return {
+        feeSats,
+        satPerVbyte: Math.floor(feeSats / vbytes),
+        prevTxId: lockupTx.getId(),
+        vout: vin.index,
+        outputScript: output.script,
+        outputValue: output.value,
+    }
+}
+
+export const assertRefundOutputSpendable = (view: RefundSpendView): void => {
+    const dust = scriptDustLimit(view.outputScript)
+    if (dust <= 0) {
+        throw new Error('refund destination is unspendable')
+    }
+    if (view.outputValue < dust) {
+        throw new Error(`refund output ${view.outputValue} is below dust limit ${dust}`)
+    }
+}
+
+export const shouldReplacePersistedRefund = (existingSatPerVbyte: number, requestedSatPerVbyte: number): boolean => {
+    return isPositiveSats(requestedSatPerVbyte) && requestedSatPerVbyte > existingSatPerVbyte
 }
 
 export const isExactTaprootSwapOutput = (
