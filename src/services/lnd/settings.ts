@@ -9,6 +9,9 @@ export type ChannelBalance = {
     channelId: string;
     localBalanceSats: number;
     remoteBalanceSats: number;
+    active: boolean;
+    commitFeeSats?: number;
+    initiator?: boolean;
     htlcs: { incoming: boolean, amount: number }[]
 }
 export type BalanceInfo = {
@@ -16,13 +19,17 @@ export type BalanceInfo = {
     unconfirmedBalance: number;
     totalBalance: number;
     channelsBalance: ChannelBalance[];
+    /** Sum of local balances plus initiator commit fees still owned in open channels. */
+    totalChannelsBalance: number;
 }
 
-export type AddressPaidCb = (txOutput: TxOutput, address: string, amount: number, used: 'lnd' | 'provider', broadcastHeight?: number) => Promise<void>
-export type InvoicePaidCb = (paymentRequest: string, amount: number, used: 'lnd' | 'provider') => Promise<void>
+export type UnlockLndCb = () => Promise<'created' | 'unlocked' | 'noaction'>
+export type AddressPaidCb = (txOutput: TxOutput, address: string, amount: number, used: 'lnd' | 'provider' | 'internal', broadcastHeight?: number) => Promise<void>
+export type InvoicePaidCb = (paymentRequest: string, amount: number, used: 'lnd' | 'provider' | 'internal') => Promise<void>
 export type NewBlockCb = (height: number, skipMetrics?: boolean) => Promise<void>
 export type HtlcCb = (event: HtlcEvent) => void
 export type ChannelEventCb = (event: ChannelEventUpdate, channels: Channel[]) => void
+export type NewAddressCb = (address: string, total: number) => void
 
 export type NodeInfo = {
     alias: string

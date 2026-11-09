@@ -23,13 +23,22 @@ import { Transaction, OutputDetail } from '../../../proto/lnd/lightning.js'
 import { LndAddress } from '../lnd/lnd.js'
 import Metrics from '../metrics/index.js'
 import { TxPointSettings } from '../storage/tlv/stateBundler.js'
+import { clampPageLimit, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from '../helpers/pageLimit.js'
 import { PaymentSideEffects } from './paymentSideEffects.js'
-import { AssertDebitFrequency } from './debitTypes.js'
+import { BackupManager } from '../backup/backupManager.js'
+import { AssertDebitFrequency } from '../CLINK/debitTypes.js'
+import { InvoiceAlreadyFailedError, InvoiceAlreadyPaidError, InvoicePaymentInProgressError, UserBannedError } from './invoicePaymentErrors.js'
+import { assertIntegerSats } from '../helpers/sats.js'
+
+const canonicalBolt11 = (invoice: string) => invoice.toLowerCase()
+
+export type OutgoingInvoiceFailedCb = (invoice: string, txId: string) => Promise<void>
 
 type PayInvoiceOptionals = {
     swapOperationId?: string
     ack?: (op: Types.UserOperation) => void
     assertDebitFrequency?: AssertDebitFrequency
+    onPaymentAccepted?: (txId: string) => Promise<void>
 }
 
 type PayExternalOptionals = PayInvoiceOptionals & {
@@ -60,8 +69,6 @@ interface UserOperationInfo {
 export type PendingTx = { type: 'incoming', tx: AddressReceivingTransaction } | { type: 'outgoing', tx: UserTransactionPayment }
 const defaultLnurlPayMetadata = (text: string) => `[["text/plain", "${text}"]]`
 const defaultLnAddressMetadata = (text: string, id: string) => `[["text/plain", "${text}"],["text/identifier", "${id}"]]`
-const confInOne = 1000 * 1000
-const confInTwo = 100 * 1000 * 1000
 
 /** Some clients (e.g. Primal) URL-encode zap request nostr events in offer/LNURL-pay payloads. */
 function normalizeZapEventPayload(raw: string): string {
@@ -86,6 +93,7 @@ export default class {
     lnd: LND
     addressPaidCb: AddressPaidCb
     newBlockCb: NewBlockCb
+    outgoingInvoiceFailedCb: OutgoingInvoiceFailedCb
     log = getLogger({ component: "PaymentManager" })
     watchDog: Watchdog
     liquidityManager: LiquidityManager
@@ -94,7 +102,8 @@ export default class {
     invoiceLock: InvoiceLock
     metrics: Metrics
     paymentSideEffects: PaymentSideEffects
-    constructor(storage: Storage, metrics: Metrics, lnd: LND, swaps: Swaps, settings: SettingsManager, liquidityManager: LiquidityManager, sideEffects: PaymentSideEffects, utils: Utils, addressPaidCb: AddressPaidCb, newBlockCb: NewBlockCb) {
+    backupManager: BackupManager
+    constructor(storage: Storage, metrics: Metrics, lnd: LND, swaps: Swaps, settings: SettingsManager, liquidityManager: LiquidityManager, sideEffects: PaymentSideEffects, utils: Utils, addressPaidCb: AddressPaidCb, newBlockCb: NewBlockCb, backupManager: BackupManager, outgoingInvoiceFailedCb: OutgoingInvoiceFailedCb) {
         this.storage = storage
         this.metrics = metrics
         this.settings = settings
@@ -102,10 +111,12 @@ export default class {
         this.liquidityManager = liquidityManager
         this.utils = utils
         this.paymentSideEffects = sideEffects
-        this.watchDog = new Watchdog(settings, this.liquidityManager, this.lnd, this.storage, this.utils, this.liquidityManager.rugPullTracker)
+        this.backupManager = backupManager
+        this.watchDog = new Watchdog(settings, this.liquidityManager, this.lnd, this.storage, this.utils, this.liquidityManager.rugPullTracker, this.backupManager)
         this.swaps = swaps
         this.addressPaidCb = addressPaidCb
         this.newBlockCb = newBlockCb
+        this.outgoingInvoiceFailedCb = outgoingInvoiceFailedCb
         this.invoiceLock = new InvoiceLock()
     }
 
@@ -146,7 +157,9 @@ export default class {
             await this.storage.StartTransaction(async tx => {
                 await this.storage.userStorage.IncrementUserBalance(p.user.user_id, fullAmount, "payment_refund:" + p.invoice, tx)
                 await this.storage.paymentStorage.UpdateExternalPayment(p.serial_id, 0, 0, false, undefined, tx)
+                await this.outgoingInvoiceFailedCb(p.invoice, tx)
             }, "refund failed provider payment")
+            this.backupManager.notifyBackupTable('user_balances')
             this.utils.stateBundler.AddTxPointFailed('paidAnInvoice', fullAmount, { used: 'provider', from: 'user' })
             return
         } else if (state.paid_at_unix > 0) {
@@ -169,6 +182,8 @@ export default class {
                 await this.lnd.liquidProvider.SettleProviderPayment(p.invoice, providerTotal, tx)
 
             })
+
+            this.backupManager.notifyBackupTable('user_balances')
             const user = await this.storage.userStorage.GetUser(p.user.user_id)
             this.storage.eventsLog.LogEvent({ type: 'invoice_payment', userId: p.user.user_id, appId: p.linkedApplication?.app_id || "", appUserId: "", balance: user.balance_sats, data: p.invoice, amount: p.paid_amount })
             const txPoint: TxPointSettings = { used: 'provider', from: 'user', timeDiscount: true }
@@ -215,6 +230,7 @@ export default class {
                 await this.storage.StartTransaction(async tx => {
                     await this.storage.userStorage.IncrementUserBalance(p.user.user_id, fullAmount, "payment_refund:" + p.invoice, tx)
                     await this.storage.paymentStorage.UpdateExternalPayment(p.serial_id, 0, 0, false, undefined, tx)
+                    await this.outgoingInvoiceFailedCb(p.invoice, tx)
                 }, "refund failed pending payment")
                 this.utils.stateBundler.AddTxPointFailed('paidAnInvoice', fullAmount, { used: 'lnd', from: 'user' })
                 return
@@ -242,6 +258,7 @@ export default class {
                     }
                 })
 
+                this.backupManager.notifyBackupTable('user_balances')
                 const user = await this.storage.userStorage.GetUser(p.user.user_id)
                 this.storage.eventsLog.LogEvent({ type: 'invoice_payment', userId: p.user.user_id, appId: p.linkedApplication?.app_id || "", appUserId: "", balance: user.balance_sats, data: p.invoice, amount: p.paid_amount })
 
@@ -254,7 +271,9 @@ export default class {
                 await this.storage.StartTransaction(async tx => {
                     await this.storage.userStorage.IncrementUserBalance(p.user.user_id, fullAmount, "payment_refund:" + p.invoice, tx)
                     await this.storage.paymentStorage.UpdateExternalPayment(p.serial_id, 0, 0, false, undefined, tx)
+                    await this.outgoingInvoiceFailedCb(p.invoice, tx)
                 }, "refund failed pending payment")
+                this.backupManager.notifyBackupTable('user_balances')
                 this.utils.stateBundler.AddTxPointFailed('paidAnInvoice', fullAmount, { used: 'lnd', from: 'user' })
                 return
             default:
@@ -436,6 +455,10 @@ export default class {
         if (!this.settings.getSettings().lndSettings.mockLnd) {
             throw new Error("mock disabled, cannot set invoice as paid")
         }
+        assertIntegerSats(req.amount, "amount")
+        if (req.amount < 0) {
+            throw new Error("amount cannot be negative")
+        }
         await this.lnd.SetMockInvoiceAsPaid(req.invoice, req.amount)
     }
 
@@ -443,8 +466,13 @@ export default class {
         if (!this.settings.getSettings().lndSettings.mockLnd) {
             throw new Error("mock disabled, cannot set invoice as paid")
         }
+        assertIntegerSats(balance, "balance")
+        if (balance < 0) {
+            throw new Error("balance cannot be negative")
+        }
         getLogger({})("setting mock balance...")
         await this.storage.userStorage.UpdateUser(userId, { balance_sats: balance })
+        this.backupManager.notifyBackupTable('user_balances')
     }
 
     async NewAddress(ctx: Types.UserContext, req: Types.NewAddressRequest): Promise<Types.NewAddressResponse> {
@@ -467,6 +495,10 @@ export default class {
         const user = await this.storage.userStorage.GetUser(userId)
         if (user.locked) {
             throw new Error("user is banned, cannot generate invoice")
+        }
+        assertIntegerSats(req.amountSats, "amount")
+        if (!Number.isSafeInteger(options.expiry)) {
+            throw new Error("expiry must be an integer number of seconds")
         }
         if (req.amountSats <= 0) {
             throw new Error("amount cannot be zero or negative")
@@ -502,76 +534,114 @@ export default class {
         }
     }
 
+    async assertInvoiceDbConflict(invoice: string) {
+        invoice = canonicalBolt11(invoice)
+        const internalInvoice = await this.storage.paymentStorage.GetInvoiceOwner(invoice)
+        if (internalInvoice && internalInvoice.paid_at_unix > 0) {
+            throw new InvoiceAlreadyPaidError()
+        }
+        const existing = await this.storage.paymentStorage.GetPaymentOwner(invoice)
+        if (existing) {
+            if (existing.paid_at_unix > 0) {
+                throw new InvoiceAlreadyPaidError()
+            }
+            if (existing.paid_at_unix < 0) {
+                throw new InvoiceAlreadyFailedError()
+            }
+            throw new InvoicePaymentInProgressError("payment already in progress")
+        }
+    }
+
+    async withExclusiveInvoiceCheck(invoice: string, onExclusive: () => Promise<void>) {
+        invoice = canonicalBolt11(invoice)
+        if (!this.invoiceLock.tryLock(invoice)) {
+            throw new InvoicePaymentInProgressError()
+        }
+        try {
+            await this.assertInvoiceDbConflict(invoice)
+            await onExclusive()
+        } finally {
+            this.invoiceLock.unlock(invoice)
+        }
+    }
+
     async PayInvoice(userId: string, req: Types.PayInvoiceRequest, linkedApplication: Application, optionals: PayInvoiceOptionals = {}): Promise<Types.PayInvoiceResponse & { operation: Types.UserOperation }> {
         await this.watchDog.PaymentRequested()
-        const maybeBanned = await this.storage.userStorage.GetUser(userId)
-        if (maybeBanned.locked) {
-            throw new Error("user is banned, cannot send payment")
+        req = { ...req, invoice: canonicalBolt11(req.invoice) }
+        if (!this.invoiceLock.tryLock(req.invoice)) {
+            throw new InvoicePaymentInProgressError()
         }
-        if (req.expected_fees) {
-            const { serviceFeeFloor, serviceFeeBps } = req.expected_fees
-            const serviceFixed = this.settings.getSettings().serviceFeeSettings.serviceFeeFloor
-            const serviceBps = this.settings.getSettings().serviceFeeSettings.serviceFeeBps
-            if (serviceFixed !== serviceFeeFloor || serviceBps !== serviceFeeBps) {
-                throw new Error("fees do not match the expected fees")
-            }
-        }
-        const decoded = await this.lnd.DecodeInvoice(req.invoice)
-        if (decoded.numSatoshis < 0 || req.amount < 0) {
-            throw new Error("amount cannot be negative")
-        }
-        if (decoded.numSatoshis === 0) {
-            throw new Error("invoice has no amount")
-        }
-        if (req.amount !== 0) {
-            throw new Error("invoice has value, do not provide amount the the request")
-        }
-        const payAmount = Number(decoded.numSatoshis)
-        const isManagedUser = userId !== linkedApplication.owner.user_id
-        const serviceFee = this.getSendServiceFee(Types.UserOperationType.OUTGOING_INVOICE, payAmount, isManagedUser)
-        const internalInvoice = await this.storage.paymentStorage.GetInvoiceOwner(req.invoice)
-        if (internalInvoice && internalInvoice.paid_at_unix > 0) {
-            throw new Error("this invoice was already paid")
-        }
-        const invoiceAlreadyPaid = await this.storage.paymentStorage.GetPaymentOwner(req.invoice)
-        if (invoiceAlreadyPaid && invoiceAlreadyPaid.paid_at_unix > 0) {
-            throw new Error("this invoice was already paid")
-        }
-        let paymentInfo = { preimage: "", amtPaid: 0, networkFee: 0, serialId: 0 }
-        if (this.invoiceLock.isLocked(req.invoice)) {
-            throw new Error("this invoice is already being paid")
-        }
-        this.invoiceLock.lock(req.invoice)
         try {
+            const maybeBanned = await this.storage.userStorage.GetUser(userId)
+            if (maybeBanned.locked) {
+                throw new UserBannedError()
+            }
+            if (req.expected_fees) {
+                const { serviceFeeFloor, serviceFeeBps } = req.expected_fees
+                const serviceFixed = this.settings.getSettings().serviceFeeSettings.serviceFeeFloor
+                const serviceBps = this.settings.getSettings().serviceFeeSettings.serviceFeeBps
+                if (serviceFixed !== serviceFeeFloor || serviceBps !== serviceFeeBps) {
+                    throw new Error("fees do not match the expected fees")
+                }
+            }
+            const decoded = await this.lnd.DecodeInvoice(req.invoice)
+            if (decoded.numSatoshis < 0 || req.amount < 0) {
+                throw new Error("amount cannot be negative")
+            }
+            assertIntegerSats(decoded.numSatoshis, "amount")
+            assertIntegerSats(req.amount, "amount")
+            if (decoded.numSatoshis === 0) {
+                throw new Error("invoice has no amount")
+            }
+            if (req.amount !== 0) {
+                throw new Error("invoice has value, do not provide amount the the request")
+            }
+            const payAmount = Number(decoded.numSatoshis)
+            const isManagedUser = userId !== linkedApplication.owner.user_id
+            const serviceFee = this.getSendServiceFee(Types.UserOperationType.OUTGOING_INVOICE, payAmount, isManagedUser)
+            await this.assertInvoiceDbConflict(req.invoice)
+            const internalInvoice = await this.storage.paymentStorage.GetInvoiceOwner(req.invoice)
+            let paymentInfo: {preimage:string, amtPaid:number, networkFee:number, serialId:number} 
             if (internalInvoice) {
                 paymentInfo = await this.PayInternalInvoice(userId, internalInvoice, { payAmount, serviceFee }, linkedApplication, {
                     debitNpub: req.debit_npub,
                     assertDebitFrequency: optionals.assertDebitFrequency,
+                    onPaymentAccepted: optionals.onPaymentAccepted,
                 })
             } else {
                 paymentInfo = await this.PayExternalInvoice(userId, req.invoice, { payAmount, serviceFee, amountForLnd: req.amount }, linkedApplication, { ...optionals, debitNpub: req.debit_npub })
             }
             this.invoiceLock.unlock(req.invoice)
+            const feeDiff = serviceFee - paymentInfo.networkFee
+            if (isManagedUser && feeDiff > 0) {
+                await this.storage.userStorage.IncrementUserBalance(linkedApplication.owner.user_id, feeDiff, "fees")
+                this.backupManager.notifyBackupTable('user_balances')
+            }
+            const user = await this.storage.userStorage.GetUser(userId)
+            this.storage.eventsLog.LogEvent({ type: 'invoice_payment', userId, appId: linkedApplication.app_id, appUserId: "", balance: user.balance_sats, data: req.invoice, amount: payAmount })
+            const opId = `${Types.UserOperationType.OUTGOING_INVOICE}-${paymentInfo.serialId}`
+            const operation = this.newInvoicePaymentOperation({ invoice: req.invoice, opId, amount: paymentInfo.amtPaid, networkFee: paymentInfo.networkFee, serviceFee: serviceFee, confirmed: true, paidAtUnix: Math.floor(Date.now() / 1000) })
+            return {
+                preimage: paymentInfo.preimage,
+                amount_paid: paymentInfo.amtPaid,
+                operation_id: opId,
+                network_fee: 0,
+                service_fee: serviceFee,
+                latest_balance: user.balance_sats,
+                operation
+            }
         } catch (err) {
             this.invoiceLock.unlock(req.invoice)
             throw err
         }
-        const feeDiff = serviceFee - paymentInfo.networkFee
-        if (isManagedUser && feeDiff > 0) {
-            await this.storage.userStorage.IncrementUserBalance(linkedApplication.owner.user_id, feeDiff, "fees")
+    }
+
+    async applyPaymentTxGuards(txId: string, userId: string, payAmount: number, serviceFee: number, optionals: PayInvoiceOptionals) {
+        if (optionals.assertDebitFrequency) {
+            await optionals.assertDebitFrequency({ userId, payAmount, serviceFee, txId })
         }
-        const user = await this.storage.userStorage.GetUser(userId)
-        this.storage.eventsLog.LogEvent({ type: 'invoice_payment', userId, appId: linkedApplication.app_id, appUserId: "", balance: user.balance_sats, data: req.invoice, amount: payAmount })
-        const opId = `${Types.UserOperationType.OUTGOING_INVOICE}-${paymentInfo.serialId}`
-        const operation = this.newInvoicePaymentOperation({ invoice: req.invoice, opId, amount: paymentInfo.amtPaid, networkFee: paymentInfo.networkFee, serviceFee: serviceFee, confirmed: true, paidAtUnix: Math.floor(Date.now() / 1000) })
-        return {
-            preimage: paymentInfo.preimage,
-            amount_paid: paymentInfo.amtPaid,
-            operation_id: opId,
-            network_fee: 0,
-            service_fee: serviceFee,
-            latest_balance: user.balance_sats,
-            operation
+        if (optionals.onPaymentAccepted) {
+            await optionals.onPaymentAccepted(txId)
         }
     }
 
@@ -583,11 +653,11 @@ export default class {
         const existingPendingPayment = await this.storage.paymentStorage.GetPaymentOwner(invoice)
         if (existingPendingPayment) {
             if (existingPendingPayment.paid_at_unix > 0) {
-                throw new Error("this invoice was already paid")
+                throw new InvoiceAlreadyPaidError()
             } else if (existingPendingPayment.paid_at_unix < 0) {
-                throw new Error("this invoice was already paid and failed, try another invoice")
+                throw new InvoiceAlreadyFailedError()
             }
-            throw new Error("payment already in progress")
+            throw new InvoicePaymentInProgressError("payment already in progress")
         }
 
         const { amountForLnd, payAmount, serviceFee } = amounts
@@ -596,12 +666,11 @@ export default class {
         const use = await this.liquidityManager.beforeOutInvoicePayment(payAmount, serviceFee)
         const provider = use === 'provider' ? this.lnd.liquidProvider.GetProviderPubkey() : undefined
         const pendingPayment = await this.storage.StartTransaction(async tx => {
-            if (optionals.assertDebitFrequency) {
-                await optionals.assertDebitFrequency({ userId, payAmount, serviceFee, txId: tx })
-            }
+            await this.applyPaymentTxGuards(tx, userId, payAmount, serviceFee, optionals)
             await this.storage.userStorage.DecrementUserBalance(userId, totalAmountToDecrement, invoice, tx)
             return await this.storage.paymentStorage.AddPendingExternalPayment(userId, invoice, { payAmount, serviceFee, networkFee: 0 }, linkedApplication, provider, tx, optionals)
         }, "payment started")
+        this.backupManager.notifyBackupTable('user_balances')
         this.log("ready to pay")
         const opId = `${Types.UserOperationType.OUTGOING_INVOICE}-${pendingPayment.serial_id}`
         const op = this.newInvoicePaymentOperation({ invoice, opId, amount: payAmount, networkFee: 0, serviceFee: serviceFee, confirmed: false, paidAtUnix: 0 })
@@ -634,10 +703,12 @@ export default class {
                 await this.storage.StartTransaction(async tx => {
                     await this.storage.userStorage.IncrementUserBalance(userId, totalAmountToDecrement, "payment_refund:" +invoice, tx)
                     await this.storage.paymentStorage.UpdateExternalPayment(pendingPayment.serial_id, 0, 0, false, undefined, tx)
+                    await this.outgoingInvoiceFailedCb(invoice, tx)
                 }, "refund failed pending payment")
             } else {
                 this.log(ERROR, "payment attempt errored without confirmed failure, leaving pending", pendingPayment.serial_id, err)
             }
+            this.backupManager.notifyBackupTable('user_balances')
             throw err
         }
     }
@@ -660,23 +731,26 @@ export default class {
         }
     }
 
-    async PayInternalInvoice(userId: string, internalInvoice: UserReceivingInvoice, amounts: { payAmount: number, serviceFee: number }, linkedApplication: Application, optionals: { debitNpub?: string, assertDebitFrequency?: AssertDebitFrequency } = {}) {
+    async PayInternalInvoice(userId: string, internalInvoice: UserReceivingInvoice, amounts: { payAmount: number, serviceFee: number }, linkedApplication: Application, optionals: { debitNpub?: string, assertDebitFrequency?: AssertDebitFrequency, onPaymentAccepted?: (txId: string) => Promise<void> } = {}) {
+        assertIntegerSats(amounts.payAmount, "amount")
+        assertIntegerSats(amounts.serviceFee, "service fee")
+        if (amounts.serviceFee < 0) {
+            throw new Error("service fee cannot be negative")
+        }
         if (amounts.payAmount <= 0) {
             throw new Error("amount cannot be zero or negative")
         }
         if (internalInvoice.paid_at_unix > 0) {
-            throw new Error("this invoice was already paid")
+            throw new InvoiceAlreadyPaidError()
         }
         const { payAmount, serviceFee } = amounts
-        const { debitNpub, assertDebitFrequency } = optionals
+        const { debitNpub } = optionals
         const totalAmountToDecrement = payAmount + serviceFee
         let newPayment: UserInvoicePayment
         let paidInvoice: UserReceivingInvoice
         try {
             ({ newPayment, paidInvoice } = await this.storage.StartTransaction(async tx => {
-                if (assertDebitFrequency) {
-                    await assertDebitFrequency({ userId, payAmount, serviceFee, txId: tx })
-                }
+                await this.applyPaymentTxGuards(tx, userId, payAmount, serviceFee, optionals)
                 await this.storage.userStorage.DecrementUserBalance(userId, totalAmountToDecrement, internalInvoice.invoice, tx)
                 const internal = true
                 const credited = await this.CreditIncomingInvoice(internalInvoice.invoice, payAmount, internal, tx)
@@ -684,10 +758,12 @@ export default class {
                 return { newPayment: payment, paidInvoice: credited }
             }))
         } catch (err) {
+            this.backupManager.notifyBackupTable('user_balances')
             this.utils.stateBundler.AddTxPointFailed('paidAnInvoice', totalAmountToDecrement, { used: 'internal', from: 'user' }, linkedApplication.app_id)
             throw err
         }
 
+        this.backupManager.notifyBackupTable('user_balances')
         this.liquidityManager.afterInInvoicePaid()
         this.utils.stateBundler.AddTxPoint('invoiceWasPaid', payAmount, { used: 'internal', from: 'system', timeDiscount: true }, paidInvoice.linkedApplication!.app_id)
         this.log("invoice credited successfully to user", paidInvoice.user.user_id, 'internal', payAmount, internalInvoice.invoice)
@@ -699,6 +775,7 @@ export default class {
 
 
     async CreditIncomingInvoice(invoice: string, amount: number, internal: boolean, txId: string) {
+        assertIntegerSats(amount, "amount")
         if (amount <= 0) {
             throw new Error("amount cannot be zero or negative")
         }
@@ -783,6 +860,7 @@ export default class {
                 amount = swap.transaction_amount - swap.chain_fee_sats
             }
         }
+        assertIntegerSats(amount, "amount")
         if (amount <= 0) {
             throw new Error("invalid tx amount")
         }
@@ -804,6 +882,7 @@ export default class {
             const newTx = await this.storage.paymentStorage.AddUserTransactionPayment(ctx.user_id, req.address, txId, 0, amount, chainFees, serviceFee, internalAddress, blockHeight, app, tx)
             return { newTx, receivingTx }
         })
+        this.backupManager.notifyBackupTable('user_balances')
         const operationId = `${Types.UserOperationType.INCOMING_TX}-${receivingTx.serial_id}`
         const op = { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_TX, identifier: req.address, operationId, network_fee: 0, service_fee: receivingTx.service_fee, confirmed: true, tx_hash: txId, internal: true }
         try {
@@ -824,6 +903,10 @@ export default class {
     }
 
     async CreditAddress(address: string, txOutput: TxOutput, amount: number, internal: boolean, txBroadcastHeight: number, dbTxId: string) {
+        assertIntegerSats(amount, "amount")
+        if (amount <= 0) {
+            throw new Error("amount cannot be zero or negative")
+        }
         const userAddress = await this.storage.paymentStorage.GetAddressOwner(address, dbTxId)
         if (!userAddress) {
             throw new Error("address not found")
@@ -1037,7 +1120,7 @@ export default class {
             throw new Error("invalid lnurl pay to handle")
         }
         const amountMillis = +ctx.amount
-        if (isNaN(amountMillis)) {
+        if (!Number.isSafeInteger(amountMillis) || amountMillis <= 0) {
             throw new Error("invalid amount in lnurl pay to handle")
         }
         const { maxSendable, minSendable } = await this.GetMinAndMaxSendable()
@@ -1045,12 +1128,15 @@ export default class {
             throw new Error("amount out of range")
         }
         let zapInfo: ZapInfo | undefined
-        if (ctx.nostr) {
+        if (ctx.nostr && typeof ctx.nostr === 'string') {
             zapInfo = this.validateZapEvent(ctx.nostr, amountMillis)
+        }
+        if (typeof ctx.k1 !== 'string') {
+            throw new Error("invalid k1 in lnurl pay to handle")
         }
         const key = await this.storage.paymentStorage.UseUserEphemeralKey(ctx.k1, 'pay', true)
         const sats = amountMillis / 1000
-        if (!Number.isInteger(sats)) {
+        if (!Number.isSafeInteger(sats) || sats <= 0) {
             throw new Error("millisats amount must be integer sats amount")
         }
         if (!key.linkedApplication) {
@@ -1161,18 +1247,19 @@ export default class {
         }
     }
 
-    async GetUserOperations(userId: string, req: Types.GetUserOperationsRequest): Promise<Types.GetUserOperationsResponse> {
+    async GetUserOperations(userId: string, req: Types.GetUserOperationsRequest, admin: boolean = false): Promise<Types.GetUserOperationsResponse> {
         const user = await this.storage.userStorage.GetUser(userId)
-        if (user.locked) {
+        if (user.locked && !admin) {
             throw new Error("user is banned, cannot retrieve operations")
         }
+        const maxSize = admin ? clampPageLimit(req.max_size, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE) : req.max_size
         const [outgoingInvoices, outgoingTransactions, incomingInvoices, incomingTransactions, incomingUserToUser, outgoingUserToUser] = await Promise.all([
-            this.storage.paymentStorage.GetUserInvoicePayments(userId, req.latestOutgoingInvoice.id, req.max_size), //
-            this.storage.paymentStorage.GetUserTransactionPayments(userId, req.latestOutgoingTx.id, req.max_size),
-            this.storage.paymentStorage.GetUserInvoicesFlaggedAsPaid(user.serial_id, req.latestIncomingInvoice.id, req.latestIncomingInvoice.ts, req.max_size),
-            this.storage.paymentStorage.GetUserReceivingTransactions(userId, req.latestIncomingTx.id, req.max_size),
-            this.storage.paymentStorage.GetUserToUserReceivedPayments(userId, req.latestIncomingUserToUserPayment.id, req.max_size),
-            this.storage.paymentStorage.GetUserToUserSentPayments(userId, req.latestOutgoingUserToUserPayment.id, req.max_size)
+            this.storage.paymentStorage.GetUserInvoicePayments(userId, req.latestOutgoingInvoice.id, maxSize), //
+            this.storage.paymentStorage.GetUserTransactionPayments(userId, req.latestOutgoingTx.id, maxSize),
+            this.storage.paymentStorage.GetUserInvoicesFlaggedAsPaid(user.serial_id, req.latestIncomingInvoice.id, req.latestIncomingInvoice.ts, maxSize),
+            this.storage.paymentStorage.GetUserReceivingTransactions(userId, req.latestIncomingTx.id, maxSize),
+            this.storage.paymentStorage.GetUserToUserReceivedPayments(userId, req.latestIncomingUserToUserPayment.id, maxSize),
+            this.storage.paymentStorage.GetUserToUserSentPayments(userId, req.latestOutgoingUserToUserPayment.id, maxSize)
         ])
         return {
             latestIncomingInvoiceOperations: this.mapOperations(incomingInvoices, Types.UserOperationType.INCOMING_INVOICE, true),
@@ -1180,11 +1267,16 @@ export default class {
             latestOutgoingInvoiceOperations: this.mapOperations(outgoingInvoices, Types.UserOperationType.OUTGOING_INVOICE, false),
             latestOutgoingTxOperations: this.mapOperations(outgoingTransactions, Types.UserOperationType.OUTGOING_TX, false),
             latestIncomingUserToUserPayemnts: this.mapOperations(incomingUserToUser, Types.UserOperationType.INCOMING_USER_TO_USER, true),
-            latestOutgoingUserToUserPayemnts: this.mapOperations(outgoingUserToUser, Types.UserOperationType.OUTGOING_USER_TO_USER, false)
+            latestOutgoingUserToUserPayemnts: this.mapOperations(outgoingUserToUser, Types.UserOperationType.OUTGOING_USER_TO_USER, false),
+            user_id: userId
         }
     }
 
     async SendUserToUserPayment(fromUserId: string, toUserId: string, amount: number, linkedApplication: Application): Promise<{ amount: number, fees: number }> {
+        assertIntegerSats(amount, "amount")
+        if (amount <= 0) {
+            throw new Error("amount cannot be zero or negative")
+        }
         const payment = await this.storage.StartTransaction(async tx => {
             const fromUser = await this.storage.userStorage.GetUser(fromUserId, tx)
             const toUser = await this.storage.userStorage.GetUser(toUserId, tx)
@@ -1206,6 +1298,7 @@ export default class {
             }
             return paymentEntry
         })
+        this.backupManager.notifyBackupTable('user_balances')
         const fromUser = await this.storage.userStorage.GetUser(fromUserId)
         const toUser = await this.storage.userStorage.GetUser(toUserId)
         this.storage.eventsLog.LogEvent({ type: 'u2u_sender', userId: fromUserId, appId: linkedApplication.app_id, appUserId: "", balance: fromUser.balance_sats, data: toUserId, amount: payment.paid_amount + payment.service_fees })
@@ -1217,7 +1310,9 @@ export default class {
         try {
             const info = await this.lnd.GetTx(txHash)
             const { numConfirmations: confs, amount: amt } = info
-            if (confs > 2 || (amt <= confInTwo && confs > 1) || (amt <= confInOne && confs > 0)) {
+            const { tier1LimitSats, tier1Confs, tier2LimitSats, tier2Confs, tier3Confs } = this.settings.getSettings().lndSettings
+            const needed = amt <= tier1LimitSats ? tier1Confs : amt <= tier2LimitSats ? tier2Confs : tier3Confs
+            if (confs >= needed) {
                 return confs
             }
         } catch (err: any) {
@@ -1271,6 +1366,13 @@ export default class {
 
 class InvoiceLock {
     locked: Record<string, boolean> = {}
+    tryLock(invoice: string) {
+        if (this.locked[invoice]) {
+            return false
+        }
+        this.locked[invoice] = true
+        return true
+    }
     lock(invoice: string) {
         this.locked[invoice] = true
     }

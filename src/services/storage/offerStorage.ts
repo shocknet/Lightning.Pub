@@ -1,6 +1,9 @@
 import crypto from 'crypto';
 import { UserOffer } from "./entity/UserOffer.js";
 import { StorageInterface } from "./db/storageInterface.js";
+import { mapUserOfferBackupRow, UserOfferRow } from '../backup/segments.js';
+import { getLogger } from '../helpers/logger.js';
+import { DEFAULT_OFFER_LABEL } from '../helpers/offerValidation.js';
 export default class {
 
 
@@ -8,16 +11,51 @@ export default class {
     constructor(dbs: StorageInterface) {
         this.dbs = dbs
     }
+
+    async GetAllUserOffers(txId?: string) {
+        return this.dbs.Find<UserOffer>('UserOffer', {}, txId)
+    }
+
+    async ExportUserOffers(txId?: string): Promise<UserOfferRow[]> {
+        const offers = await this.GetAllUserOffers(txId)
+        return offers.map(mapUserOfferBackupRow)
+    }
+
+    async RestoreUserOffers(offers: UserOfferRow[], txId: string): Promise<number> {
+        let restoredOffers = 0;
+        for (const offer of offers) {
+            try {
+                await this.dbs.CreateAndSave<UserOffer>('UserOffer', {
+                    app_user_id: offer.app_user_id,
+                    offer_id: offer.offer_id,
+                    management_pubkey: offer.management_pubkey,
+                    label: offer.label,
+                    price_sats: offer.price_sats,
+                    callback_url: offer.callback_url || null,
+                    payer_data: offer.payer_data,
+                    bearer_token: offer.bearer_token,
+                    rejectUnauthorized: offer.rejectUnauthorized,
+                    blind: offer.blind,
+                }, txId)
+                restoredOffers++;
+            } catch (error: any) {
+                getLogger({ component: "backupRestore" })("error restoring user offer", error.message)
+            }
+        }
+        return restoredOffers;
+    }
+
     async AddDefaultUserOffer(appUserId: string): Promise<UserOffer> {
         return this.dbs.CreateAndSave<UserOffer>('UserOffer', {
             app_user_id: appUserId,
             offer_id: appUserId,
-            label: 'Default CLINK Offer',
+            label: DEFAULT_OFFER_LABEL,
         })
     }
     async AddUserOffer(appUserId: string, req: Partial<UserOffer>): Promise<UserOffer> {
         const offer = await this.dbs.CreateAndSave<UserOffer>('UserOffer', {
             ...req,
+            callback_url: req.callback_url || null,
             app_user_id: appUserId,
             offer_id: crypto.randomBytes(34).toString('hex')
         })
@@ -33,7 +71,9 @@ export default class {
     }
 
     async UpdateUserOffer(app_user_id: string, offerId: string, req: Partial<UserOffer>, txId?: string) {
-        return this.dbs.Update<UserOffer>('UserOffer', { app_user_id, offer_id: offerId }, req, txId)
+        const update = { ...req }
+        if (update.callback_url !== undefined) update.callback_url = update.callback_url || null
+        return this.dbs.Update<UserOffer>('UserOffer', { app_user_id, offer_id: offerId }, update, txId)
     }
 
     async GetUserOffers(app_user_id: string): Promise<UserOffer[]> {

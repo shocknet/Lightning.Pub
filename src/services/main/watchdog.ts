@@ -8,6 +8,7 @@ import Storage from '../storage/index.js'
 import { LiquidityManager } from "./liquidityManager.js";
 import { RugPullTracker } from "./rugPullTracker.js";
 import SettingsManager from "./settingsManager.js";
+import { BackupManager } from "../backup/backupManager.js";
 
 export class Watchdog {
     queue: FunctionQueue<void>
@@ -30,7 +31,8 @@ export class Watchdog {
     interval: NodeJS.Timer;
     lndPubKey: string;
     lastHandlerRootOpsAtUnix = 0
-    constructor(settings: SettingsManager, liquidityManager: LiquidityManager, lnd: LND, storage: Storage, utils: Utils, rugPullTracker: RugPullTracker) {
+    backupManager: BackupManager
+    constructor(settings: SettingsManager, liquidityManager: LiquidityManager, lnd: LND, storage: Storage, utils: Utils, rugPullTracker: RugPullTracker, backupManager: BackupManager) {
         this.lnd = lnd;
         this.settings = settings;
         this.storage = storage;
@@ -38,6 +40,7 @@ export class Watchdog {
         this.liquidityManager = liquidityManager
         this.utils = utils
         this.rugPullTracker = rugPullTracker
+        this.backupManager = backupManager
         this.queue = new FunctionQueue("watchdog_queue", () => this.StartCheck())
     }
 
@@ -62,6 +65,9 @@ export class Watchdog {
             return
         }
         this.log("Starting watchdog")
+        if (this.locksDisabled()) {
+            this.log("DISABLE_WATCHDOG enabled, checks will run but outgoing operations will not be locked")
+        }
         this.startedAtUnix = Math.floor(Date.now() / 1000)
         const info = await this.lnd.GetInfo()
         this.lndPubKey = info.identityPubkey
@@ -204,11 +210,13 @@ export class Watchdog {
 
     updateDisruption = async (isDisrupted: boolean, absoluteDiff: number, lndWithDeltaUsers: number) => {
         const tracker = await this.getTracker()
-        this.storage.liquidityStorage.UpdateTrackedProviderBalance('lnd', this.lndPubKey, lndWithDeltaUsers)
+        await this.storage.liquidityStorage.UpdateTrackedProviderBalance('lnd', this.lndPubKey, lndWithDeltaUsers)
+        this.backupManager.notifyBackupTable('tracked_providers')
         const maxDiffSats = this.settings.getSettings().watchDogSettings.maxDiffSats
         if (isDisrupted) {
             if (tracker.latest_distruption_at_unix === 0) {
                 await this.storage.liquidityStorage.UpdateTrackedProviderDisruption('lnd', this.lndPubKey, Math.floor(Date.now() / 1000))
+                this.backupManager.notifyBackupTable('tracked_providers')
                 this.log("detected lnd loss of", absoluteDiff, "sats,", absoluteDiff - maxDiffSats, "above the max allowed")
             } else {
                 this.log("ongoing lnd loss of", absoluteDiff, "sats,", absoluteDiff - maxDiffSats, "above the max allowed")
@@ -216,6 +224,7 @@ export class Watchdog {
         } else {
             if (tracker.latest_distruption_at_unix !== 0) {
                 await this.storage.liquidityStorage.UpdateTrackedProviderDisruption('lnd', this.lndPubKey, 0)
+                this.backupManager.notifyBackupTable('tracked_providers')
                 this.log("loss cleared after: ", Math.floor(Date.now() / 1000) - tracker.latest_distruption_at_unix, "seconds")
             } else if (absoluteDiff > 0) {
                 this.log("lnd balance increased more than users balance by", absoluteDiff)
@@ -250,9 +259,13 @@ export class Watchdog {
         const historyMismatch = newLatest > knownMaxIndex
         const deny = await this.checkBalanceUpdate(deltaLnd, deltaUsers)
         if (historyMismatch) {
-            getLogger({ component: 'bark' })("History mismatch detected in absolute update, locking outgoing operations")
-            this.lnd.LockOutgoingOperations()
-            return
+            if (this.locksDisabled()) {
+                getLogger({ component: 'bark' })("History mismatch detected in absolute update, DISABLE_WATCHDOG set so outgoing operations stay unlocked")
+            } else {
+                getLogger({ component: 'bark' })("History mismatch detected in absolute update, locking outgoing operations")
+                this.lnd.LockOutgoingOperations()
+                return
+            }
         }
         if (deny) {
             this.log("Balance mismatch detected in absolute update, but history is ok")
@@ -293,10 +306,14 @@ export class Watchdog {
         }
     }
 
+    locksDisabled = () => this.settings.getSettings().watchDogSettings.disabled
+
     getTracker = async () => {
         const tracker = await this.storage.liquidityStorage.GetTrackedProvider('lnd', this.lndPubKey)
         if (!tracker) {
-            return this.storage.liquidityStorage.CreateTrackedProvider('lnd', this.lndPubKey, 0)
+            const created = await this.storage.liquidityStorage.CreateTrackedProvider('lnd', this.lndPubKey, 0)
+            this.backupManager.notifyBackupTable('tracked_providers')
+            return created
         }
         return tracker
     }

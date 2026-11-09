@@ -6,6 +6,9 @@ export class NostrSender {
     private onReadyCallbacks: (() => void)[] = []
     private pendingSends: { initiator: SendInitiator, data: SendData, relays?: string[] | undefined }[] = []
     private log = getLogger({ component: "nostrSender" })
+    constructor() {
+        this.log("creating nostr sender")
+    }
 
     AttachNostrSend(nostrSend: NostrSend) {
         this._nostrSend = nostrSend

@@ -60,10 +60,32 @@ const testSuccesfulReceivedExternalChainPayment = async (T: TestBase) => {
     await mineAndWaitForUserBalance(T, T.user2.userId, 1000)
     T.d("mined 1 blocks to confirm the payment")
     T.d("user2 balance is now 1000")
-    const payment2 = await T.externalAccessToOtherLnd.PayAddress(user2Address.address, 1000, 3, "test", { from: 'system', useProvider: false })
-    expect(payment2.txid).to.not.be.undefined
-    T.d("paid 1000 sats to user2's external chain address again")
-    await mineAndWaitForUserBalance(T, T.user2.userId, 2000)
-    T.d("mined 1 blocks to confirm the payment")
-    T.d("user2 balance is now 2000")
+    await testTier1ConfsRequired(T, user2Address.address)
+}
+
+const setTier1Confs = (T: TestBase, confs: number) => {
+    T.main.settings.OverrideTestSettings(s => {
+        s.lndSettings.tier1Confs = confs
+        return s
+    })
+}
+
+const testTier1ConfsRequired = async (T: TestBase, address: string) => {
+    const originalConfs = T.main.settings.getSettings().lndSettings.tier1Confs
+    setTier1Confs(T, 2)
+    try {
+        const payment = await T.externalAccessToOtherLnd.PayAddress(address, 1000, 3, "test", { from: 'system', useProvider: false })
+        expect(payment.txid).to.not.be.undefined
+        T.d("paid 1000 sats to user2's external chain address again, with tier1 requiring 2 confs")
+        await T.chainTools.mine(1)
+        const { blockHeight } = await T.main.lnd.GetInfo()
+        await T.main.newBlockCb(blockHeight, true)
+        const user = await T.main.storage.userStorage.GetUser(T.user2.userId)
+        expect(user.balance_sats).to.be.equal(1000)
+        T.d("user2 balance is still 1000 after 1 conf")
+        await mineAndWaitForUserBalance(T, T.user2.userId, 2000)
+        T.d("user2 balance is now 2000 after 2 confs")
+    } finally {
+        setTier1Confs(T, originalConfs)
+    }
 }
