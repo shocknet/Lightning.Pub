@@ -1,12 +1,15 @@
 import { Transaction } from 'bitcoinjs-lib'
 
-export type KnownTx = { txHash: string }
+export type KnownTx = { txHash: string, numConfirmations?: number }
 
 const sameTxId = (left: string, right: string): boolean =>
     left.toLowerCase() === right.toLowerCase()
 
 const asError = (err: unknown): Error =>
     err instanceof Error ? err : new Error(String(err))
+
+const isConfirmedKnownTx = (known: KnownTx | null, txId: string): boolean =>
+    !!known && sameTxId(known.txHash, txId) && (known.numConfirmations ?? 0) > 0
 
 /**
  * LND / bitcoind mempool-duplicate text. Used only after we submitted this hex
@@ -23,9 +26,10 @@ export const isAlreadyBroadcastError = (message: string): boolean => {
  * Publish via `publish`, then return the locally computed txid.
  *
  * LND reports broadcast failure in PublishResponse.publishError, not gRPC
- * status. A nonempty error or thrown RPC is still success when `lookupKnownTx`
- * finds this txid, or when the error is a mempool duplicate of the tx we just
- * submitted. Other publish errors are not treated as success.
+ * status. A nonempty error or thrown RPC is still success when the tx is
+ * confirmed on chain, or when the error is a mempool duplicate of the tx we
+ * just submitted. Wallet history alone is not acceptance: an evicted or
+ * policy-rejected tx can remain in GetTransaction with 0 confirmations.
  */
 export const broadcastPublishedTx = async (
     txHex: string,
@@ -51,7 +55,7 @@ export const broadcastPublishedTx = async (
     } catch {
         known = null
     }
-    if (known && sameTxId(known.txHash, txId)) {
+    if (isConfirmedKnownTx(known, txId)) {
         return { txId }
     }
     if (isAlreadyBroadcastError(asError(publishErr).message)) {

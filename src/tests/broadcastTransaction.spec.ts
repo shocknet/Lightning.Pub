@@ -15,18 +15,30 @@ const dummyTxHex = (): string => {
 }
 
 const unknown = async (): Promise<KnownTx | null> => null
-const knownFor = (txId: string) => async (id: string): Promise<KnownTx | null> =>
-    id === txId ? { txHash: txId } : null
+const knownFor = (txId: string, numConfirmations = 0) => async (id: string): Promise<KnownTx | null> =>
+    id === txId ? { txHash: txId, numConfirmations } : null
+
+const expectRejected = async (T: StorageTestBase, run: () => Promise<unknown>, message: string) => {
+    let rejected = false
+    try {
+        await run()
+    } catch (err: any) {
+        rejected = true
+        T.expect(err.message).to.equal(message)
+    }
+    T.expect(rejected).to.equal(true)
+}
 
 export default async (T: StorageTestBase) => {
     await testBroadcastPublishedTx(T)
 }
 
 const testBroadcastPublishedTx = async (T: StorageTestBase) => {
-    T.d('starting broadcastPublishedTx uses tx lookup, with mempool-duplicate fallback')
+    T.d('starting broadcastPublishedTx uses confirmed lookup, with mempool-duplicate fallback')
     const txHex = dummyTxHex()
     const expectedTxId = Transaction.fromHex(txHex).getId()
-    const known = knownFor(expectedTxId)
+    const unconfirmed = knownFor(expectedTxId, 0)
+    const confirmed = knownFor(expectedTxId, 1)
 
     T.expect(isAlreadyBroadcastError('already have transaction')).to.equal(true)
     T.expect(isAlreadyBroadcastError('already in mempool')).to.equal(true)
@@ -44,26 +56,46 @@ const testBroadcastPublishedTx = async (T: StorageTestBase) => {
     await broadcastPublishedTx(txHex, async () => ({ publishError: '' }), unusedLookup)
     T.expect(lookedUp).to.equal(false)
 
-    const alreadyKnown = await broadcastPublishedTx(
+    const confirmedKnown = await broadcastPublishedTx(
         txHex,
         async () => ({ publishError: 'insufficient fee' }),
-        known,
+        confirmed,
     )
-    T.expect(alreadyKnown.txId).to.equal(expectedTxId)
+    T.expect(confirmedKnown.txId).to.equal(expectedTxId)
 
-    const thrownKnown = await broadcastPublishedTx(
+    const confirmedThrown = await broadcastPublishedTx(
         txHex,
         async () => { throw new Error('min relay fee not met') },
-        known,
+        confirmed,
     )
-    T.expect(thrownKnown.txId).to.equal(expectedTxId)
+    T.expect(confirmedThrown.txId).to.equal(expectedTxId)
 
-    const mixedCase = await broadcastPublishedTx(
+    const mixedCaseConfirmed = await broadcastPublishedTx(
         txHex,
         async () => ({ publishError: 'anything' }),
-        async () => ({ txHash: expectedTxId.toUpperCase() }),
+        async () => ({ txHash: expectedTxId.toUpperCase(), numConfirmations: 2 }),
     )
-    T.expect(mixedCase.txId).to.equal(expectedTxId)
+    T.expect(mixedCaseConfirmed.txId).to.equal(expectedTxId)
+
+    await expectRejected(
+        T,
+        () => broadcastPublishedTx(txHex, async () => ({ publishError: 'insufficient fee' }), unconfirmed),
+        'insufficient fee',
+    )
+    await expectRejected(
+        T,
+        () => broadcastPublishedTx(txHex, async () => { throw new Error('min relay fee not met') }, unconfirmed),
+        'min relay fee not met',
+    )
+    await expectRejected(
+        T,
+        () => broadcastPublishedTx(
+            txHex,
+            async () => ({ publishError: 'insufficient fee' }),
+            async () => ({ txHash: expectedTxId }),
+        ),
+        'insufficient fee',
+    )
 
     const mempoolDup = await broadcastPublishedTx(
         txHex,
@@ -71,6 +103,13 @@ const testBroadcastPublishedTx = async (T: StorageTestBase) => {
         unknown,
     )
     T.expect(mempoolDup.txId).to.equal(expectedTxId)
+
+    const mempoolDupUnconfirmed = await broadcastPublishedTx(
+        txHex,
+        async () => ({ publishError: 'already have transaction' }),
+        unconfirmed,
+    )
+    T.expect(mempoolDupUnconfirmed.txId).to.equal(expectedTxId)
 
     const mempoolDupThrown = await broadcastPublishedTx(
         txHex,
@@ -82,29 +121,22 @@ const testBroadcastPublishedTx = async (T: StorageTestBase) => {
     const mempoolDupWrongLookup = await broadcastPublishedTx(
         txHex,
         async () => ({ publishError: 'txn-already-known' }),
-        async () => ({ txHash: 'ab'.repeat(32) }),
+        async () => ({ txHash: 'ab'.repeat(32), numConfirmations: 6 }),
     )
     T.expect(mempoolDupWrongLookup.txId).to.equal(expectedTxId)
 
-    let rejected = false
-    try {
-        await broadcastPublishedTx(txHex, async () => ({ publishError: 'insufficient fee' }), unknown)
-    } catch (err: any) {
-        rejected = true
-        T.expect(err.message).to.equal('insufficient fee')
-    }
-    T.expect(rejected).to.equal(true)
-
-    rejected = false
-    try {
-        await broadcastPublishedTx(txHex, async () => {
+    await expectRejected(
+        T,
+        () => broadcastPublishedTx(txHex, async () => ({ publishError: 'insufficient fee' }), unknown),
+        'insufficient fee',
+    )
+    await expectRejected(
+        T,
+        () => broadcastPublishedTx(txHex, async () => {
             throw new Error('min relay fee not met')
-        }, unknown)
-    } catch (err: any) {
-        rejected = true
-        T.expect(err.message).to.equal('min relay fee not met')
-    }
-    T.expect(rejected).to.equal(true)
+        }, unknown),
+        'min relay fee not met',
+    )
 
-    T.d('rejected broadcasts throw unless LND already has this txid or reports a mempool duplicate')
+    T.d('rejected broadcasts throw unless this txid is confirmed or LND reports a mempool duplicate')
 }

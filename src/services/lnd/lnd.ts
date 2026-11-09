@@ -208,8 +208,10 @@ export default class {
     /**
      * Publish a tx via our node. The returned txid is computed locally from the
      * hex. If LND reports a publishError or the RPC throws, success is recorded
-     * when GetTx already has this txid, or when the error is a mempool duplicate
-     * of this hex (swap claims are not wallet txs, so GetTx often misses them).
+     * when GetTx shows this txid confirmed on chain, or when the error is a
+     * mempool duplicate of this hex (swap claims are not wallet txs, so GetTx
+     * often misses them). Unconfirmed wallet history is not treated as
+     * acceptance: an evicted or policy-rejected tx can remain in GetTx.
      */
     async BroadcastTransaction(txHex: string): Promise<{ txId: string }> {
         return broadcastPublishedTx(
@@ -218,7 +220,7 @@ export default class {
             async (txId) => {
                 try {
                     const tx = await this.GetTx(txId)
-                    return tx.txHash ? { txHash: tx.txHash } : null
+                    return tx.txHash ? { txHash: tx.txHash, numConfirmations: tx.numConfirmations } : null
                 } catch {
                     return null
                 }
