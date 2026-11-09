@@ -25,7 +25,7 @@ const mapToOfferConfig = (appUserId: string, offer: UserOffer, { pubkey, relay }
     return {
         label: offer.label,
         price_sats: offer.price_sats,
-        callback_url: offer.callback_url,
+        callback_url: offer.callback_url ?? "",
         payer_data: offer.payer_data || [],
         offer_id: offer.offer_id,
         noffer: noffer,
@@ -258,7 +258,7 @@ export class OfferManager {
         }
         const memo = offerReq.description || userOffer.label
         const res = await this.applicationManager.AddAppUserInvoice(appId, {
-            http_callback_url: userOffer.callback_url, payer_identifier: userOffer.app_user_id, receiver_identifier: userOffer.app_user_id,
+            http_callback_url: userOffer.callback_url ?? "", payer_identifier: userOffer.app_user_id, receiver_identifier: userOffer.app_user_id,
             invoice_req: { amountSats: amt, memo, zap: offerReq.zap, expiry, blind: userOffer.blind },
             payer_data: validated ? { data: validated } : undefined,
             offer_string: offer,
