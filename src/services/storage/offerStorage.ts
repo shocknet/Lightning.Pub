@@ -31,7 +31,7 @@ export default class {
                     management_pubkey: offer.management_pubkey,
                     label: offer.label,
                     price_sats: offer.price_sats,
-                    callback_url: offer.callback_url,
+                    callback_url: offer.callback_url || null,
                     payer_data: offer.payer_data,
                     bearer_token: offer.bearer_token,
                     rejectUnauthorized: offer.rejectUnauthorized,
@@ -55,6 +55,7 @@ export default class {
     async AddUserOffer(appUserId: string, req: Partial<UserOffer>): Promise<UserOffer> {
         const offer = await this.dbs.CreateAndSave<UserOffer>('UserOffer', {
             ...req,
+            callback_url: req.callback_url || null,
             app_user_id: appUserId,
             offer_id: crypto.randomBytes(34).toString('hex')
         })
@@ -70,7 +71,9 @@ export default class {
     }
 
     async UpdateUserOffer(app_user_id: string, offerId: string, req: Partial<UserOffer>, txId?: string) {
-        return this.dbs.Update<UserOffer>('UserOffer', { app_user_id, offer_id: offerId }, req, txId)
+        const update = { ...req }
+        if (update.callback_url !== undefined) update.callback_url = update.callback_url || null
+        return this.dbs.Update<UserOffer>('UserOffer', { app_user_id, offer_id: offerId }, update, txId)
     }
 
     async GetUserOffers(app_user_id: string): Promise<UserOffer[]> {
