@@ -289,6 +289,12 @@ export class DebitManager {
                     if (e instanceof NdebitError) {
                         throw e
                     }
+                    if (e instanceof InvoiceAlreadyPaidError) {
+                        this.invalidRequest(invoiceAlreadyPaidReason, gfy6Reason.invoiceAlreadyPaid)
+                    }
+                    if (e instanceof InvoiceAlreadyFailedError) {
+                        this.invalidRequest(invoiceAlreadyFailedReason, gfy6Reason.invoiceAlreadyFailed)
+                    }
                     if (e instanceof InvoicePaymentInProgressError) {
                         this.invalidRequest(invoicePaymentInProgressReason, gfy6Reason.invoiceInProgress)
                     }
