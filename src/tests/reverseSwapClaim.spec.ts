@@ -71,10 +71,12 @@ export default async (T: StorageTestBase) => {
     await testWatchLockupSpendAbortIsUnsafeSynchronously(T)
     await testSavedClaimIsReusedWithoutRebuild(T)
     await testSavedClaimPublishFailureRebuilds(T)
+    await testSavedClaimBelowWindowRebuilds(T)
     await testUnrelatedSavedHexStillRebuilds(T)
     await testSavedClaimStillBlockedAfterRefundHeight(T)
     await testZeroProviderFeeDoesNotBroadcast(T)
-    await testHighLiveRateHonorsQuotedAmount(T)
+    await testHighLiveRateDoesNotDisclosePreimage(T)
+    await testSavedUnderfeeClaimDoesNotDisclose(T)
     await testInsufficientMinRelayDoesNotBroadcast(T)
 }
 
@@ -213,9 +215,15 @@ const testClaimPublishesUnilateralWithoutProvider = async (T: StorageTestBase) =
     T.d('starting claim publishes a local script-path spend without a provider round-trip')
     const { swapper, data, lockupHex, preimage } = await setupClaim(T)
     const published: string[] = []
+    let confTarget: number | undefined
     const result = await swapper.claimConfirmedLockup(data, lockupHex, safeClaimDeps({
+        getClaimFeeRates: async (target) => {
+            confTarget = target
+            return { satPerVbyte: 1, minRelaySatPerVbyte: 1 }
+        },
         publish: async (txHex) => { published.push(txHex) },
     }))
+    T.expect(confTarget).to.equal(data.createdResponse.timeoutBlockHeight - TIP)
     T.expect(result.ok, !result.ok ? result.error : '').to.equal(true)
     if (!result.ok) {
         return
@@ -524,7 +532,6 @@ const testSavedClaimIsReusedWithoutRebuild = async (T: StorageTestBase) => {
     const persisted: string[] = []
     const claimed = await swapper.claimConfirmedLockup(data, lockupHex, safeClaimDeps({
         savedClaimHex: saved,
-        getClaimFeeRates: async () => ({ satPerVbyte: 5, minRelaySatPerVbyte: 1 }),
         persistClaim: async (txHex) => { persisted.push(txHex) },
         publish: async (txHex) => { published.push(txHex) },
     }))
@@ -534,7 +541,7 @@ const testSavedClaimIsReusedWithoutRebuild = async (T: StorageTestBase) => {
     if (claimed.ok) {
         T.expect(claimed.txId).to.equal(Transaction.fromHex(saved).getId())
     }
-    T.d('a crash after persist reused the same hex even when live fees would rebuild a different claim')
+    T.d('a crash after persist reused the same hex when it still met the remaining-window feerate')
 }
 
 const testSavedClaimPublishFailureRebuilds = async (T: StorageTestBase) => {
@@ -543,22 +550,42 @@ const testSavedClaimPublishFailureRebuilds = async (T: StorageTestBase) => {
     const saved = await persistUnpublishedClaim(T, swapper, data, lockupHex)
     const published: string[] = []
     const persisted: string[] = []
+    let publishAttempts = 0
     const claimed = await swapper.claimConfirmedLockup(data, lockupHex, safeClaimDeps({
         savedClaimHex: saved,
-        getClaimFeeRates: async () => ({ satPerVbyte: 5, minRelaySatPerVbyte: 1 }),
         persistClaim: async (txHex) => { persisted.push(txHex) },
         publish: async (txHex) => {
-            if (txHex === saved) {
-                throw new Error('min relay fee not met')
+            publishAttempts += 1
+            if (publishAttempts === 1) {
+                throw new Error('no peers')
             }
             published.push(txHex)
         },
     }))
     T.expect(claimed.ok, !claimed.ok ? claimed.error : '').to.equal(true)
     T.expect(persisted.length).to.equal(1)
+    T.expect(published).to.deep.equal(persisted)
+    T.d('a saved signature that publish rejected was reconstructed and retried')
+}
+
+const testSavedClaimBelowWindowRebuilds = async (T: StorageTestBase) => {
+    T.d('starting a saved claim below the window rate reconstructs when the budget can pay it')
+    const { swapper, data, lockupHex } = await setupClaim(T, 2_000)
+    const saved = await persistUnpublishedClaim(T, swapper, data, lockupHex)
+    const published: string[] = []
+    const persisted: string[] = []
+    const claimed = await swapper.claimConfirmedLockup(data, lockupHex, safeClaimDeps({
+        savedClaimHex: saved,
+        getClaimFeeRates: async () => ({ satPerVbyte: 5, minRelaySatPerVbyte: 1 }),
+        persistClaim: async (txHex) => { persisted.push(txHex) },
+        publish: async (txHex) => { published.push(txHex) },
+    }))
+    T.expect(claimed.ok, !claimed.ok ? claimed.error : '').to.equal(true)
+    T.expect(persisted.length).to.equal(1)
     T.expect(persisted[0]).to.not.equal(saved)
     T.expect(published).to.deep.equal(persisted)
-    T.d('a saved signature that LND rejected was replaced with a currently relayable claim')
+    T.expect(published).to.not.include(saved)
+    T.d('an underfee saved signature was not disclosed; a window-adequate claim was built instead')
 }
 
 const testUnrelatedSavedHexStillRebuilds = async (T: StorageTestBase) => {
@@ -619,23 +646,49 @@ const testZeroProviderFeeDoesNotBroadcast = async (T: StorageTestBase) => {
     T.d('a zero quoted miner budget kept the preimage off the wire')
 }
 
-const testHighLiveRateHonorsQuotedAmount = async (T: StorageTestBase) => {
-    T.d('starting a high live feerate still caps the claim to the quoted miner budget')
-    const { swapper, data, lockupHex, preimage } = await setupClaim(T)
+const testHighLiveRateDoesNotDisclosePreimage = async (T: StorageTestBase) => {
+    T.d('starting a high remaining-window feerate does not disclose below that rate')
+    const { swapper, data, lockupHex } = await setupClaim(T)
     const published: string[] = []
+    let persisted = false
+    let confTarget: number | undefined
     const result = await swapper.claimConfirmedLockup(data, lockupHex, safeClaimDeps({
-        getClaimFeeRates: async () => ({ satPerVbyte: 50, minRelaySatPerVbyte: 1 }),
+        getClaimFeeRates: async (target) => {
+            confTarget = target
+            return { satPerVbyte: 50, minRelaySatPerVbyte: 1 }
+        },
+        persistClaim: async () => { persisted = true },
         publish: async (txHex) => { published.push(txHex) },
     }))
-    T.expect(result.ok, !result.ok ? result.error : '').to.equal(true)
-    T.expect(published.length).to.equal(1)
-    const claimTx = Transaction.fromHex(published[0])
-    T.expect(Buffer.from(claimTx.ins[0].witness[1]).equals(Buffer.from(preimage, 'hex'))).to.equal(true)
-    const fee = AMOUNTS.onchainAmount - claimTx.outs[0].value
-    T.expect(fee).to.be.at.least(claimTx.virtualSize())
-    T.expect(fee).to.be.at.most(AMOUNTS.minerFee)
-    T.expect(claimTx.outs[0].value).to.be.at.least(RECEIVE_SATS)
-    T.d('next-block congestion did not eat the quoted receive amount')
+    T.expect(confTarget).to.equal(data.createdResponse.timeoutBlockHeight - TIP)
+    T.expect(result.ok).to.equal(false)
+    if (!result.ok) {
+        T.expect(result.error).to.match(/cannot pay 50 sat\/vbyte for the remaining claim window/)
+    }
+    T.expect(persisted).to.equal(false)
+    T.expect(published.length).to.equal(0)
+    T.d('an underfunded remaining-window claim kept the preimage off the wire')
+}
+
+const testSavedUnderfeeClaimDoesNotDisclose = async (T: StorageTestBase) => {
+    T.d('starting a saved unpublished claim does not disclose if it cannot meet the remaining-window feerate')
+    const { swapper, data, lockupHex } = await setupClaim(T)
+    const saved = await persistUnpublishedClaim(T, swapper, data, lockupHex)
+    const published: string[] = []
+    const persisted: string[] = []
+    const claimed = await swapper.claimConfirmedLockup(data, lockupHex, safeClaimDeps({
+        savedClaimHex: saved,
+        getClaimFeeRates: async () => ({ satPerVbyte: 50, minRelaySatPerVbyte: 1 }),
+        persistClaim: async (txHex) => { persisted.push(txHex) },
+        publish: async (txHex) => { published.push(txHex) },
+    }))
+    T.expect(claimed.ok).to.equal(false)
+    if (!claimed.ok) {
+        T.expect(claimed.error).to.match(/cannot pay 50 sat\/vbyte for the remaining claim window/)
+    }
+    T.expect(persisted).to.deep.equal([])
+    T.expect(published.length).to.equal(0)
+    T.d('reusing a cheap saved signature did not bypass the remaining-window fee check')
 }
 
 const testInsufficientMinRelayDoesNotBroadcast = async (T: StorageTestBase) => {

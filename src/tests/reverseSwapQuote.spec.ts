@@ -147,20 +147,24 @@ const testClaimBudget = async (T: StorageTestBase) => {
         T.expect(invalidRate.error).to.equal('invalid local claim fee rate 0')
     }
 
-    const capped = resolveClaimFeeRate(50, 1, AMOUNTS.minerFee, REVERSE_CLAIM_VBYTE_BUDGET)
-    T.expect(capped.ok, !capped.ok ? capped.error : '').to.equal(true)
-    if (capped.ok) {
-        T.expect(capped.satPerVbyte).to.equal(Math.floor(AMOUNTS.minerFee / REVERSE_CLAIM_VBYTE_BUDGET))
-        T.expect(capped.satPerVbyte).to.equal(1)
+    const windowFits = resolveClaimFeeRate(1, 1, AMOUNTS.minerFee, REVERSE_CLAIM_VBYTE_BUDGET)
+    T.expect(windowFits.ok, !windowFits.ok ? windowFits.error : '').to.equal(true)
+    if (windowFits.ok) {
+        T.expect(windowFits.satPerVbyte).to.equal(1)
     }
-    const liveFits = resolveClaimFeeRate(1, 1, AMOUNTS.minerFee, REVERSE_CLAIM_VBYTE_BUDGET)
-    T.expect(liveFits.ok, !liveFits.ok ? liveFits.error : '').to.equal(true)
-    if (liveFits.ok) {
-        T.expect(liveFits.satPerVbyte).to.equal(1)
+    const exactWindow = resolveClaimFeeRate(2, 1, 400, REVERSE_CLAIM_VBYTE_BUDGET)
+    T.expect(exactWindow.ok, !exactWindow.ok ? exactWindow.error : '').to.equal(true)
+    if (exactWindow.ok) {
+        T.expect(exactWindow.satPerVbyte).to.equal(2)
+    }
+    const underWindow = resolveClaimFeeRate(50, 1, AMOUNTS.minerFee, REVERSE_CLAIM_VBYTE_BUDGET)
+    T.expect(underWindow.ok).to.equal(false)
+    if (!underWindow.ok) {
+        T.expect(underWindow.error).to.equal(`quoted miner budget ${AMOUNTS.minerFee} cannot pay 50 sat/vbyte for the remaining claim window`)
     }
     const highRelay = resolveClaimFeeRate(50, 3, AMOUNTS.minerFee, REVERSE_CLAIM_VBYTE_BUDGET)
     T.expect(highRelay.ok).to.equal(false)
-    T.d('quote-time miner fee budget is checked against min relay; live feerate is capped to that budget')
+    T.d('quote-time miner fee budget is checked against min relay; claim-time does not cap below the remaining-window feerate')
 }
 
 const testVerifyRejectsMismatchedHashAndUnverifiedTree = async (T: StorageTestBase) => {

@@ -84,7 +84,7 @@ export type ReverseClaimFeeRates = {
 export type ReverseClaimDeps = {
     publish: (txHex: string) => Promise<void>
     persistClaim?: (txHex: string) => Promise<void>
-    getClaimFeeRates: () => Promise<ReverseClaimFeeRates>
+    getClaimFeeRates: (confTarget: number) => Promise<ReverseClaimFeeRates>
     getChainTip: () => Promise<number>
     watchLockupSpend: (req: ReverseLockupSpendQuery) => LockupSpendGuard | Promise<LockupSpendGuard>
     heightHint?: number
@@ -92,8 +92,7 @@ export type ReverseClaimDeps = {
     watchHeights?: (onHeight: (height: number) => void, abort: AbortSignal) => void
     /**
      * Unpublished crash-recovery signature. Tried after first-disclosure
-     * checks, before reconstructing: a successful prior broadcast may already
-     * be in the mempool under this hex.
+     * checks, including remaining-window fees, before reconstructing.
      */
     savedClaimHex?: string
 }
@@ -246,7 +245,8 @@ export const resolveClaimSatPerVbyte = (satPerVbyte: number): { ok: true, satPer
 /**
  * Provider miner fees are a lockup budget, not a claim feerate. Refuse quotes
  * that cannot pay a locally sized script-path spend at min relay. Next-block
- * estimates are not an admission floor: the claim is capped to this budget.
+ * estimates are not an admission floor; claim-time still refuses disclosure
+ * if this budget cannot meet the remaining-window feerate.
  */
 export const checkReverseClaimBudget = (
     minerFee: number,
@@ -274,9 +274,9 @@ export const checkReverseClaimBudget = (
 }
 
 /**
- * Claim sat/vbyte: at least min relay, at most the quoted miner budget, and
- * never above the live estimate. Honors the quoted receive amount; a congested
- * mempool may confirm slower instead of eating the destination output.
+ * First-disclosure sat/vbyte: at least the remaining-window estimate and min
+ * relay, at most the quoted miner budget. Do not cap below that target; a
+ * relayable-but-slow claim discloses the preimage to a competing refund.
  */
 export const resolveClaimFeeRate = (
     liveSatPerVbyte: number,
@@ -297,11 +297,11 @@ export const resolveClaimFeeRate = (
         return budget
     }
     const maxRate = Math.floor(minerFee / vbytes)
-    const satPerVbyte = Math.min(Math.max(live.satPerVbyte, minRelay.satPerVbyte), maxRate)
-    if (satPerVbyte < minRelay.satPerVbyte) {
-        return { ok: false, error: `quoted miner budget ${minerFee} cannot pay min relay ${minRelay.satPerVbyte} sat/vbyte` }
+    const required = Math.max(live.satPerVbyte, minRelay.satPerVbyte)
+    if (maxRate < required) {
+        return { ok: false, error: `quoted miner budget ${minerFee} cannot pay ${required} sat/vbyte for the remaining claim window` }
     }
-    return { ok: true, satPerVbyte }
+    return { ok: true, satPerVbyte: required }
 }
 
 /** Matches boltz-core targetFee: (virtualSize + input count) * sat/vbyte. */
@@ -782,27 +782,9 @@ export class ReverseSwaps {
             }
             guard = spendable.guard
 
-            const savedHex = this.matchingSavedClaimHex(deps.savedClaimHex, parsed, data.info.preimage)
-            if (savedHex) {
-                const beforeSavedPublish = await this.claimPublicationBlocked(data, deps, guard)
-                if (beforeSavedPublish) {
-                    return beforeSavedPublish
-                }
-                try {
-                    await deps.publish(savedHex)
-                    const txId = Transaction.fromHex(savedHex).getId()
-                    this.log('Reverse-swap claim published', { txId })
-                    return { ok: true, txId }
-                } catch (err: any) {
-                    this.log('saved reverse-swap claim was not accepted; reconstructing', {
-                        error: err.message || err,
-                    })
-                }
-            }
-
             let feeRates: ReverseClaimFeeRates
             try {
-                feeRates = await deps.getClaimFeeRates()
+                feeRates = await deps.getClaimFeeRates(spendable.confTarget)
             } catch (err: any) {
                 return { ok: false, error: `failed to read local claim fee rate: ${err.message || err}` }
             }
@@ -822,6 +804,33 @@ export class ReverseSwaps {
             )
             if (!rate.ok) {
                 return rate
+            }
+
+            const savedHex = this.matchingSavedClaimHex(deps.savedClaimHex, parsed, data.info.preimage)
+            if (savedHex) {
+                const saved = Transaction.fromHex(savedHex)
+                const savedRelayable = checkUnilateralClaimRelayable(
+                    saved,
+                    parsed.swapOutput.value,
+                    rate.satPerVbyte,
+                    data.info.chainFee,
+                )
+                if (savedRelayable.ok) {
+                    const beforeSavedPublish = await this.claimPublicationBlocked(data, deps, guard)
+                    if (beforeSavedPublish) {
+                        return beforeSavedPublish
+                    }
+                    try {
+                        await deps.publish(savedHex)
+                        const txId = saved.getId()
+                        this.log('Reverse-swap claim published', { txId })
+                        return { ok: true, txId }
+                    } catch (err: any) {
+                        this.log('saved reverse-swap claim was not accepted; reconstructing', {
+                            error: err.message || err,
+                        })
+                    }
+                }
             }
 
             let unilateral: Transaction
@@ -928,7 +937,7 @@ export class ReverseSwaps {
         data: TransactionSwapData,
         parsed: ParsedLockup,
         deps: ReverseClaimDeps,
-    ): Promise<{ ok: true, guard: LockupSpendGuard } | { ok: false, error: string }> => {
+    ): Promise<{ ok: true, guard: LockupSpendGuard, confTarget: number } | { ok: false, error: string }> => {
         let tip: number
         try {
             tip = await deps.getChainTip()
@@ -962,7 +971,7 @@ export class ReverseSwaps {
                 guard.stop()
                 return unsafe
             }
-            return { ok: true, guard }
+            return { ok: true, guard, confTarget: data.createdResponse.timeoutBlockHeight - tip }
         } catch (err: any) {
             guard.stop()
             return { ok: false, error: `failed to check lockup spend status: ${err.message || err}` }
@@ -997,9 +1006,9 @@ export class ReverseSwaps {
 
     /**
      * Reuse a persisted signature only when it still spends this independently
-     * confirmed lockup and carries our preimage. Fee/relay policy is left to
-     * publish(): a mempool duplicate of this hex is success even if live
-     * min-relay has risen.
+     * confirmed lockup and carries our preimage. Remaining-window fee policy is
+     * applied by the caller before first disclosure; publish() may still reject
+     * a duplicate that no longer meets live min-relay.
      */
     private matchingSavedClaimHex = (
         savedHex: string | undefined,

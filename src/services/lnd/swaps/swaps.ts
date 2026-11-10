@@ -508,8 +508,8 @@ export class Swaps {
         return Math.max(1, Math.min(currentHeight, swap.timeout_block_height - MAX_REVERSE_TIMEOUT_BLOCKS))
     }
 
-    private async localClaimFeeRates(): Promise<{ satPerVbyte: number, minRelaySatPerVbyte: number }> {
-        const fee = await this.lnd.EstimateSatPerVbyte(1)
+    private async localClaimFeeRates(confTarget = 1): Promise<{ satPerVbyte: number, minRelaySatPerVbyte: number }> {
+        const fee = await this.lnd.EstimateSatPerVbyte(confTarget)
         const minRelaySatPerVbyte = Math.max(MIN_CLAIM_SAT_PER_VBYTE, fee.minRelaySatPerVbyte)
         const satPerVbyte = Math.max(minRelaySatPerVbyte, fee.satPerVbyte)
         if (!Number.isSafeInteger(minRelaySatPerVbyte) || minRelaySatPerVbyte < MIN_CLAIM_SAT_PER_VBYTE) {
@@ -986,7 +986,7 @@ export class Swaps {
                     return confirmed
                 },
                 persistClaim: (txHex) => this.persistTransactionSwapClaim(swap.swap_operation_id, txHex),
-                getClaimFeeRates: () => this.localClaimFeeRates(),
+                getClaimFeeRates: (confTarget) => this.localClaimFeeRates(confTarget),
                 publish: async (txHex) => {
                     await this.lnd.BroadcastTransaction(txHex)
                     await this.markTransactionSwapClaimPublished(swap.swap_operation_id)
