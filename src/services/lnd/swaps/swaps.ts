@@ -889,7 +889,8 @@ export class Swaps {
 
     /**
      * Re-run first-disclosure checks on a signed but unpublished claim. Do not
-     * pay the invoice again: lockup/claim is the remaining work.
+     * pay the invoice again: lockup/claim is the remaining work. The live path
+     * tries this saved hex first, then reconstructs if publish rejects it.
      */
     private claimSavedTransactionSwap = async (txSwap: TransactionSwap, currentHeight: number) => {
         const swapOpId = txSwap.swap_operation_id
@@ -995,6 +996,7 @@ export class Swaps {
                 watchHeights: (onHeight, signal) => this.lnd.WatchBlockHeights?.(onHeight, signal),
                 heightHint: currentHeight,
                 abortSignal,
+                savedClaimHex: swap.claim_tx_hex || undefined,
             })
         })
     }
@@ -1009,6 +1011,11 @@ export class Swaps {
             this.log("rebroadcast resumed reverse-swap claim", { swapOpId: swap.swap_operation_id, txId: Transaction.fromHex(swap.claim_tx_hex).getId() })
             return
         }
+        if (this.waitingSwaps[swap.swap_operation_id]) {
+            this.log("skipping reverse swap resume; swap already in progress", { swapOpId: swap.swap_operation_id })
+            return
+        }
+        this.waitingSwaps[swap.swap_operation_id] = true
         void this.watchResumedTransactionSwap(swap)
     }
 
@@ -1026,6 +1033,8 @@ export class Swaps {
             this.log("resumed reverse swap claimed", { swapOpId: swap.swap_operation_id, txId: swapResult.txId })
         } catch (err: any) {
             this.log("error watching resumed reverse swap", { swapOpId: swap.swap_operation_id, error: err.message || err })
+        } finally {
+            delete this.waitingSwaps[swap.swap_operation_id]
         }
     }
 }

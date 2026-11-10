@@ -69,6 +69,10 @@ export default async (T: StorageTestBase) => {
     await testExpiryDuringPersistDoesNotDisclosePreimage(T)
     await testAbortDuringPersistDoesNotDisclosePreimage(T)
     await testWatchLockupSpendAbortIsUnsafeSynchronously(T)
+    await testSavedClaimIsReusedWithoutRebuild(T)
+    await testSavedClaimPublishFailureRebuilds(T)
+    await testUnrelatedSavedHexStillRebuilds(T)
+    await testSavedClaimStillBlockedAfterRefundHeight(T)
     await testZeroProviderFeeDoesNotBroadcast(T)
     await testHighLiveRateHonorsQuotedAmount(T)
     await testInsufficientMinRelayDoesNotBroadcast(T)
@@ -491,6 +495,109 @@ const testWatchLockupSpendAbortIsUnsafeSynchronously = async (T: StorageTestBase
     T.expect(onError).to.not.equal(undefined)
     guard.stop()
     T.d('spend-watch cancellation was unsafe without waiting for the stream error')
+}
+
+const persistUnpublishedClaim = async (
+    T: StorageTestBase,
+    swapper: ReverseSwaps,
+    data: TransactionSwapData,
+    lockupHex: string,
+) => {
+    let saved = ''
+    const first = await swapper.claimConfirmedLockup(data, lockupHex, safeClaimDeps({
+        persistClaim: async (txHex) => { saved = txHex },
+        publish: async () => { throw new Error('no peers') },
+    }))
+    T.expect(first.ok).to.equal(false)
+    if (!first.ok) {
+        T.expect(first.error).to.equal('no peers')
+    }
+    T.expect(saved.length).to.be.greaterThan(0)
+    return saved
+}
+
+const testSavedClaimIsReusedWithoutRebuild = async (T: StorageTestBase) => {
+    T.d('starting retry publishes the saved unpublished claim instead of a new signature')
+    const { swapper, data, lockupHex } = await setupClaim(T)
+    const saved = await persistUnpublishedClaim(T, swapper, data, lockupHex)
+    const published: string[] = []
+    const persisted: string[] = []
+    const claimed = await swapper.claimConfirmedLockup(data, lockupHex, safeClaimDeps({
+        savedClaimHex: saved,
+        getClaimFeeRates: async () => ({ satPerVbyte: 5, minRelaySatPerVbyte: 1 }),
+        persistClaim: async (txHex) => { persisted.push(txHex) },
+        publish: async (txHex) => { published.push(txHex) },
+    }))
+    T.expect(claimed.ok, !claimed.ok ? claimed.error : '').to.equal(true)
+    T.expect(published).to.deep.equal([saved])
+    T.expect(persisted).to.deep.equal([])
+    if (claimed.ok) {
+        T.expect(claimed.txId).to.equal(Transaction.fromHex(saved).getId())
+    }
+    T.d('a crash after persist reused the same hex even when live fees would rebuild a different claim')
+}
+
+const testSavedClaimPublishFailureRebuilds = async (T: StorageTestBase) => {
+    T.d('starting retry reconstructs when the saved unpublished claim is not accepted')
+    const { swapper, data, lockupHex } = await setupClaim(T)
+    const saved = await persistUnpublishedClaim(T, swapper, data, lockupHex)
+    const published: string[] = []
+    const persisted: string[] = []
+    const claimed = await swapper.claimConfirmedLockup(data, lockupHex, safeClaimDeps({
+        savedClaimHex: saved,
+        getClaimFeeRates: async () => ({ satPerVbyte: 5, minRelaySatPerVbyte: 1 }),
+        persistClaim: async (txHex) => { persisted.push(txHex) },
+        publish: async (txHex) => {
+            if (txHex === saved) {
+                throw new Error('min relay fee not met')
+            }
+            published.push(txHex)
+        },
+    }))
+    T.expect(claimed.ok, !claimed.ok ? claimed.error : '').to.equal(true)
+    T.expect(persisted.length).to.equal(1)
+    T.expect(persisted[0]).to.not.equal(saved)
+    T.expect(published).to.deep.equal(persisted)
+    T.d('a saved signature that LND rejected was replaced with a currently relayable claim')
+}
+
+const testUnrelatedSavedHexStillRebuilds = async (T: StorageTestBase) => {
+    T.d('starting a saved hex that does not spend this lockup is ignored')
+    const { swapper, data, lockupHex } = await setupClaim(T)
+    const dummy = new Transaction()
+    dummy.version = 2
+    dummy.addInput(DUMMY_PREVOUT, 0)
+    dummy.addOutput(address.toOutputScript(DEST, getNetwork('regtest')), 1)
+    const published: string[] = []
+    const persisted: string[] = []
+    const claimed = await swapper.claimConfirmedLockup(data, lockupHex, safeClaimDeps({
+        savedClaimHex: dummy.toHex(),
+        persistClaim: async (txHex) => { persisted.push(txHex) },
+        publish: async (txHex) => { published.push(txHex) },
+    }))
+    T.expect(claimed.ok, !claimed.ok ? claimed.error : '').to.equal(true)
+    T.expect(persisted.length).to.equal(1)
+    T.expect(published).to.deep.equal(persisted)
+    T.expect(published[0]).to.not.equal(dummy.toHex())
+    T.d('an unrelated stored hex did not skip reconstruction against the confirmed lockup')
+}
+
+const testSavedClaimStillBlockedAfterRefundHeight = async (T: StorageTestBase) => {
+    T.d('starting a matching saved claim still refuses disclosure after the refund height')
+    const { swapper, data, lockupHex } = await setupClaim(T)
+    const saved = await persistUnpublishedClaim(T, swapper, data, lockupHex)
+    const published: string[] = []
+    const claimed = await swapper.claimConfirmedLockup(data, lockupHex, safeClaimDeps({
+        savedClaimHex: saved,
+        getChainTip: async () => data.createdResponse.timeoutBlockHeight,
+        publish: async (txHex) => { published.push(txHex) },
+    }))
+    T.expect(claimed.ok).to.equal(false)
+    if (!claimed.ok) {
+        T.expect(claimed.error).to.equal(`refund already valid at block ${data.createdResponse.timeoutBlockHeight} (tip ${data.createdResponse.timeoutBlockHeight})`)
+    }
+    T.expect(published.length).to.equal(0)
+    T.d('reusing a saved signature did not bypass the claim window')
 }
 
 const testZeroProviderFeeDoesNotBroadcast = async (T: StorageTestBase) => {

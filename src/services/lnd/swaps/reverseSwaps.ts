@@ -90,6 +90,12 @@ export type ReverseClaimDeps = {
     heightHint?: number
     abortSignal?: AbortSignal
     watchHeights?: (onHeight: (height: number) => void, abort: AbortSignal) => void
+    /**
+     * Unpublished crash-recovery signature. Tried after first-disclosure
+     * checks, before reconstructing: a successful prior broadcast may already
+     * be in the mempool under this hex.
+     */
+    savedClaimHex?: string
 }
 
 export type ReverseClaimChain = ReverseClaimDeps & {
@@ -776,6 +782,24 @@ export class ReverseSwaps {
             }
             guard = spendable.guard
 
+            const savedHex = this.matchingSavedClaimHex(deps.savedClaimHex, parsed, data.info.preimage)
+            if (savedHex) {
+                const beforeSavedPublish = await this.claimPublicationBlocked(data, deps, guard)
+                if (beforeSavedPublish) {
+                    return beforeSavedPublish
+                }
+                try {
+                    await deps.publish(savedHex)
+                    const txId = Transaction.fromHex(savedHex).getId()
+                    this.log('Reverse-swap claim published', { txId })
+                    return { ok: true, txId }
+                } catch (err: any) {
+                    this.log('saved reverse-swap claim was not accepted; reconstructing', {
+                        error: err.message || err,
+                    })
+                }
+            }
+
             let feeRates: ReverseClaimFeeRates
             try {
                 feeRates = await deps.getClaimFeeRates()
@@ -820,7 +844,8 @@ export class ReverseSwaps {
             // Persist the script-path spend before broadcasting so a crash still
             // has a locally relayable claim to rebroadcast. Persistence is not
             // disclosure: unpublished saved claims must still pass the checks
-            // below (and the same checks on resume) before the preimage goes out.
+            // above (saved hex) or below (reconstructed hex), and the same
+            // checks on resume, before the preimage goes out.
             try {
                 await deps.persistClaim?.(unilateral.toHex())
             } catch (err: any) {
@@ -968,6 +993,40 @@ export class ReverseSwaps {
             return this.lockupSpendUnsafe(guard) ?? { ok: false, error: 'claim aborted before publication' }
         }
         return this.lockupSpendUnsafe(guard)
+    }
+
+    /**
+     * Reuse a persisted signature only when it still spends this independently
+     * confirmed lockup and carries our preimage. Fee/relay policy is left to
+     * publish(): a mempool duplicate of this hex is success even if live
+     * min-relay has risen.
+     */
+    private matchingSavedClaimHex = (
+        savedHex: string | undefined,
+        parsed: ParsedLockup,
+        preimage: Buffer,
+    ): string | undefined => {
+        if (!savedHex) {
+            return undefined
+        }
+        let claim: Transaction
+        try {
+            claim = Transaction.fromHex(savedHex)
+        } catch {
+            return undefined
+        }
+        if (claim.ins.length !== 1 || claim.outs.length !== 1) {
+            return undefined
+        }
+        const vin = claim.ins[0]
+        if (vin.index !== parsed.swapOutput.vout || !vin.hash.equals(parsed.lockupTx.getHash())) {
+            return undefined
+        }
+        const hasPreimage = (vin.witness || []).some(item => Buffer.from(item).equals(preimage))
+        if (!hasPreimage) {
+            return undefined
+        }
+        return savedHex
     }
 
     private lockupSpendUnsafe = (guard: LockupSpendGuard): { ok: false, error: string } | undefined => {
