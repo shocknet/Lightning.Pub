@@ -20,6 +20,7 @@ import {
     checkReverseClaimBudget,
     checkReverseClaimWindow,
     checkReverseTimeout,
+    isReverseClaimExposed,
     resolveClaimFeeRate,
 } from '../services/lnd/swaps/reverseSwaps.js'
 import { getNetwork } from '../services/lnd/swaps/swapHelpers.js'
@@ -40,6 +41,7 @@ initEccLib(ecc)
 export default async (T: StorageTestBase) => {
     await testTimeoutWindow(T)
     await testClaimWindow(T)
+    await testClaimExposureMarker(T)
     await testClaimBudget(T)
     await testVerifyRejectsMismatchedHashAndUnverifiedTree(T)
     await testQuoteMethodRejectsAndDoesNotPersist(T)
@@ -114,6 +116,17 @@ const testClaimWindow = async (T: StorageTestBase) => {
     reject(TIP + 1_008, 0, 'untrusted chain tip')
 
     T.d('claim window allows a shorter remaining runway than quote-time and refuses refund-eligible tips')
+}
+
+const testClaimExposureMarker = async (T: StorageTestBase) => {
+    T.d('starting reverse claim exposure is publication, not a stored signature')
+    T.expect(isReverseClaimExposed({})).to.equal(false)
+    T.expect(isReverseClaimExposed({ claim_tx_hex: '0200' })).to.equal(false)
+    T.expect(isReverseClaimExposed({ claim_published: true })).to.equal(false)
+    T.expect(isReverseClaimExposed({ claim_tx_hex: '', claim_published: true })).to.equal(false)
+    T.expect(isReverseClaimExposed({ claim_tx_hex: '0200', claim_published: false })).to.equal(false)
+    T.expect(isReverseClaimExposed({ claim_tx_hex: '0200', claim_published: true })).to.equal(true)
+    T.d('only a successful publish marks a reverse-swap claim as already exposed')
 }
 
 const testClaimBudget = async (T: StorageTestBase) => {

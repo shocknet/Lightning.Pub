@@ -67,6 +67,7 @@ const testExportKeepsPublishedSwapRecovery = async (T: StorageTestBase) => {
         tx_id: '55'.repeat(32),
         completed_at_unix: 9,
         claim_tx_hex: '020000000002done',
+        claim_published: true,
         lockup_tx_hex: '020000000003done',
     }))
 
@@ -94,6 +95,7 @@ const testExportKeepsPublishedSwapRecovery = async (T: StorageTestBase) => {
     const exportedClaim = reverseRows.find(s => s.swap_operation_id === reverseDone.swap_operation_id)
     T.expect(exportedClaim?.ephemeral_private_key).to.equal(reverseDone.ephemeral_private_key)
     T.expect(exportedClaim?.claim_tx_hex).to.equal('020000000002done')
+    T.expect(exportedClaim?.claim_published).to.equal(true)
     T.expect(exportedClaim?.preimage).to.equal(reverseDone.preimage)
 
     T.d('swap backups keep funded submarine and started reverse recovery rows, including after publication')

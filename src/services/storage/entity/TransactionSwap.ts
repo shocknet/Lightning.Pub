@@ -72,6 +72,10 @@ export class TransactionSwap {
     @Column({ default: "", type: "text" })
     claim_tx_hex: string
 
+    // Set only after BroadcastTransaction succeeds. A stored signature is not disclosure.
+    @Column({ default: false })
+    claim_published: boolean
+
     @Column({ default: "", type: "text" })
     lockup_tx_hex: string
 

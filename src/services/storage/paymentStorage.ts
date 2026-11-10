@@ -675,6 +675,13 @@ export default class {
     async SetTransactionSwapClaimTx(swapOperationId: string, claimTxHex: string, txId?: string) {
         return this.dbs.Update<TransactionSwap>('TransactionSwap', { swap_operation_id: swapOperationId }, {
             claim_tx_hex: claimTxHex,
+            claim_published: false,
+        }, txId)
+    }
+
+    async MarkTransactionSwapClaimPublished(swapOperationId: string, txId?: string) {
+        return this.dbs.Update<TransactionSwap>('TransactionSwap', { swap_operation_id: swapOperationId }, {
+            claim_published: true,
         }, txId)
     }
 
@@ -805,6 +812,7 @@ export default class {
                     paid_at_unix: swap.paid_at_unix,
                     address_paid: swap.address_paid,
                     claim_tx_hex: swap.claim_tx_hex,
+                    claim_published: !!swap.claim_published,
                     lockup_tx_hex: swap.lockup_tx_hex,
                     service_url: swap.service_url,
                 }, txId)

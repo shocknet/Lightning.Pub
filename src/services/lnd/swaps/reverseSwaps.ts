@@ -192,6 +192,16 @@ export const checkReverseTimeout = (
 }
 
 /**
+ * A persisted reverse-swap signature is crash-recovery material, not proof the
+ * preimage was disclosed. Resume may rebroadcast without first-disclosure
+ * checks only after a successful publish (or a restored claim_published flag).
+ */
+export const isReverseClaimExposed = (swap: {
+    claim_tx_hex?: string
+    claim_published?: boolean
+}): boolean => !!(swap.claim_tx_hex && swap.claim_published)
+
+/**
  * Claim-time refund window against a trusted tip. Unlike checkReverseTimeout,
  * this does not require the original 72-block start window: confirmation wait
  * consumes some of that. It still refuses disclosure once the refund is valid
@@ -808,7 +818,9 @@ export class ReverseSwaps {
             }
 
             // Persist the script-path spend before broadcasting so a crash still
-            // has a locally relayable claim to rebroadcast.
+            // has a locally relayable claim to rebroadcast. Persistence is not
+            // disclosure: unpublished saved claims must still pass the checks
+            // below (and the same checks on resume) before the preimage goes out.
             try {
                 await deps.persistClaim?.(unilateral.toHex())
             } catch (err: any) {

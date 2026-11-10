@@ -11,7 +11,9 @@
 // Swap shards keep funded/started recovery rows. A stored refund or claim
 // transaction id is publication, not independently confirmed spending, so it
 // must not prune: an unconfirmed spend can be evicted, and earlier shards are
-// garbage-collected. Unused quotes can be recreated and are omitted.
+// garbage-collected. A stored reverse-swap claim hex is only a signature;
+// claim_published is the disclosure marker. Unused quotes can be recreated
+// and are omitted.
 import type { User } from '../storage/entity/User.js'
 import type { Application } from '../storage/entity/Application.js'
 import type { ApplicationUser } from '../storage/entity/ApplicationUser.js'
@@ -798,6 +800,7 @@ export type TransactionSwapRow = {
     paid_at_unix: number
     address_paid: string
     claim_tx_hex: string
+    claim_published: boolean
     lockup_tx_hex: string
     service_url: string
 }
@@ -825,6 +828,7 @@ export const mapTransactionSwapBackupRow = (swap: TransactionSwap): TransactionS
     paid_at_unix: unixFromBackup(swap.paid_at_unix),
     address_paid: swap.address_paid || '',
     claim_tx_hex: swap.claim_tx_hex || '',
+    claim_published: !!swap.claim_published,
     lockup_tx_hex: swap.lockup_tx_hex || '',
     service_url: swap.service_url || '',
 })
@@ -855,6 +859,9 @@ export const encodeTransactionSwapRow = (row: TransactionSwapRow): Uint8Array =>
     putString(tlv, 23, row.claim_tx_hex, true)
     putString(tlv, 24, row.lockup_tx_hex, true)
     putString(tlv, 25, row.service_url, true)
+    if (row.claim_published) {
+        tlv[26] = [boolToBytes(true)]
+    }
     return encodeTLV(tlv)
 }
 
@@ -885,5 +892,6 @@ export const decodeTransactionSwapRow = (data: Uint8Array): TransactionSwapRow =
         claim_tx_hex: tlvString(tlv, 23),
         lockup_tx_hex: tlvString(tlv, 24),
         service_url: tlvString(tlv, 25),
+        claim_published: tlvBool(tlv, 26),
     }
 }
