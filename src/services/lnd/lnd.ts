@@ -290,7 +290,9 @@ export default class {
      * Watch a Taproot lockup outpoint for spends. Taproot watches require the
      * outpoint (script-only is not supported). Confirmed historical spends are
      * dispatched immediately on bitcoind; this is not a mempool guarantee.
-     * Stream errors fail closed. stop() is idempotent.
+     * Stream errors fail closed. Abort is recorded synchronously so publication
+     * cannot race the stream's later onError. stop() is idempotent teardown
+     * and is not itself a failure.
      */
     WatchLockupSpend(req: {
         txHash: Uint8Array
@@ -309,23 +311,34 @@ export default class {
             throw new Error('lockup spend lookup aborted')
         }
         const combined = new AbortController()
-        const abortWatch = () => combined.abort()
-        req.abort?.addEventListener('abort', abortWatch)
-        this.abortController.signal.addEventListener('abort', abortWatch)
         let stopped = false
         let sawSpend = false
         let failure: Error | undefined
-        const stop = settleOnce(() => {
-            stopped = true
-            req.abort?.removeEventListener('abort', abortWatch)
-            this.abortController.signal.removeEventListener('abort', abortWatch)
-            abortWatch()
-        })
         let reportOutcome: (result: { kind: 'spent' } | { kind: 'failed', error: Error }) => void = () => undefined
         const outcome = new Promise<{ kind: 'spent' } | { kind: 'failed', error: Error }>(resolve => {
             reportOutcome = resolve
         })
         const emit = settleOnce(() => undefined)
+        const failAborted = () => {
+            if (stopped) {
+                return
+            }
+            const err = failure ?? new Error('lockup spend lookup aborted')
+            failure = err
+            emit(() => reportOutcome({ kind: 'failed', error: err }))
+        }
+        const abortWatch = () => {
+            failAborted()
+            combined.abort()
+        }
+        req.abort?.addEventListener('abort', abortWatch)
+        this.abortController.signal.addEventListener('abort', abortWatch)
+        const stop = settleOnce(() => {
+            stopped = true
+            req.abort?.removeEventListener('abort', abortWatch)
+            this.abortController.signal.removeEventListener('abort', abortWatch)
+            combined.abort()
+        })
         const stream = this.chainNotifier.registerSpendNtfn({
             outpoint: { hash: req.txHash, index: req.vout },
             script: req.script,
@@ -348,8 +361,9 @@ export default class {
             if (!combined.signal.aborted) {
                 this.log(ERROR, 'Error waiting for lockup spend', error)
             }
-            failure = err
-            emit(() => reportOutcome({ kind: 'failed', error: err }))
+            const reported = failure ?? err
+            failure = reported
+            emit(() => reportOutcome({ kind: 'failed', error: reported }))
         })
         return {
             isSpent: () => sawSpend,

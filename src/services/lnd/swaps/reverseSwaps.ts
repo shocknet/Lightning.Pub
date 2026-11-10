@@ -827,7 +827,7 @@ export class ReverseSwaps {
                 return { ok: false, error: `failed to persist reverse-swap claim: ${err.message || err}` }
             }
 
-            const beforePublish = this.lockupSpendUnsafe(guard)
+            const beforePublish = await this.claimPublicationBlocked(data, deps, guard)
             if (beforePublish) {
                 return beforePublish
             }
@@ -942,6 +942,32 @@ export class ReverseSwaps {
             guard.stop()
             return { ok: false, error: `failed to check lockup spend status: ${err.message || err}` }
         }
+    }
+
+    /**
+     * Persistence, fee lookup, and signing are async. Re-check abort, a fresh
+     * trusted tip, and spend-watch state immediately before the preimage goes
+     * out: the height watcher may have closed the window while we were preparing.
+     */
+    private claimPublicationBlocked = async (
+        data: TransactionSwapData,
+        deps: ReverseClaimDeps,
+        guard: LockupSpendGuard,
+    ): Promise<{ ok: false, error: string } | undefined> => {
+        let tip: number
+        try {
+            tip = await deps.getChainTip()
+        } catch (err: any) {
+            return { ok: false, error: `failed to read chain tip before claim: ${err.message || err}` }
+        }
+        const window = checkReverseClaimWindow(data.createdResponse.timeoutBlockHeight, tip)
+        if (!window.ok) {
+            return window
+        }
+        if (deps.abortSignal?.aborted) {
+            return this.lockupSpendUnsafe(guard) ?? { ok: false, error: 'claim aborted before publication' }
+        }
+        return this.lockupSpendUnsafe(guard)
     }
 
     private lockupSpendUnsafe = (guard: LockupSpendGuard): { ok: false, error: string } | undefined => {

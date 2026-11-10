@@ -18,6 +18,7 @@ import {
     TransactionSwapData,
     calculateReverseQuoteAmounts,
 } from '../services/lnd/swaps/reverseSwaps.js'
+import Lnd from '../services/lnd/lnd.js'
 import { getNetwork } from '../services/lnd/swaps/swapHelpers.js'
 import { StorageTestBase } from './testBase.js'
 
@@ -65,6 +66,9 @@ export default async (T: StorageTestBase) => {
     await testSpendWatchFailureDoesNotDisclosePreimage(T)
     await testClaimWindowClosingDoesNotDisclosePreimage(T)
     await testTimeoutDuringWaitDoesNotDisclosePreimage(T)
+    await testExpiryDuringPersistDoesNotDisclosePreimage(T)
+    await testAbortDuringPersistDoesNotDisclosePreimage(T)
+    await testWatchLockupSpendAbortIsUnsafeSynchronously(T)
     await testZeroProviderFeeDoesNotBroadcast(T)
     await testHighLiveRateHonorsQuotedAmount(T)
     await testInsufficientMinRelayDoesNotBroadcast(T)
@@ -401,6 +405,92 @@ const testTimeoutDuringWaitDoesNotDisclosePreimage = async (T: StorageTestBase) 
     }
     T.expect(published.length).to.equal(0)
     T.d('a lockup confirmed after the refund deadline did not disclose the preimage')
+}
+
+const testExpiryDuringPersistDoesNotDisclosePreimage = async (T: StorageTestBase) => {
+    T.d('starting subscribe does not publish if the refund height arrives during persistence')
+    const { swapper, data, lockupHex } = await setupClaim(T)
+    let tip = TIP
+    let onHeight: ((height: number) => void) | undefined
+    let persistStarted: () => void = () => { }
+    const persisting = new Promise<void>(resolve => { persistStarted = resolve })
+    let releasePersist: () => void = () => { }
+    const persistHold = new Promise<void>(resolve => { releasePersist = resolve })
+    const published: string[] = []
+    const done = new Promise<{ ok: true, txId: string } | { ok: false, error: string }>((resolve) => {
+        void swapper.SubscribeToTransactionSwap(data, resolve, {
+            ...safeClaimDeps({
+                getChainTip: async () => tip,
+                persistClaim: async () => {
+                    persistStarted()
+                    await persistHold
+                },
+                publish: async (txHex) => { published.push(txHex) },
+            }),
+            watchHeights: (listener) => { onHeight = listener },
+            heightHint: TIP,
+            waitForLockup: async () => ({ txHex: lockupHex }),
+        })
+    })
+    await persisting
+    tip = data.createdResponse.timeoutBlockHeight
+    onHeight?.(tip)
+    releasePersist()
+    const result = await done
+    T.expect(result.ok).to.equal(false)
+    if (!result.ok) {
+        T.expect(result.error).to.equal(`refund already valid at block ${data.createdResponse.timeoutBlockHeight} (tip ${data.createdResponse.timeoutBlockHeight})`)
+    }
+    T.expect(published.length).to.equal(0)
+    T.d('a tip at the refund height during persistence did not disclose the preimage')
+}
+
+const testAbortDuringPersistDoesNotDisclosePreimage = async (T: StorageTestBase) => {
+    T.d('starting claim does not publish if preparation is cancelled while the tip still looks safe')
+    const { swapper, data, lockupHex } = await setupClaim(T)
+    const abort = new AbortController()
+    const published: string[] = []
+    const claimed = await swapper.claimConfirmedLockup(data, lockupHex, safeClaimDeps({
+        abortSignal: abort.signal,
+        persistClaim: async () => { abort.abort() },
+        publish: async (txHex) => { published.push(txHex) },
+    }))
+    T.expect(claimed.ok).to.equal(false)
+    if (!claimed.ok) {
+        T.expect(claimed.error).to.equal('claim aborted before publication')
+    }
+    T.expect(published.length).to.equal(0)
+    T.d('an abort during persistence kept the preimage secret even with a stale tip')
+}
+
+const testWatchLockupSpendAbortIsUnsafeSynchronously = async (T: StorageTestBase) => {
+    T.d('starting WatchLockupSpend records abort before the stream error arrives')
+    const abort = new AbortController()
+    let onError: ((error: unknown) => void) | undefined
+    const lnd = Object.create(Lnd.prototype) as any
+    lnd.log = () => { }
+    lnd.abortController = new AbortController()
+    lnd.chainNotifier = {
+        registerSpendNtfn: () => ({
+            responses: {
+                onMessage: () => { },
+                onError: (cb: (error: unknown) => void) => { onError = cb },
+            },
+        }),
+    }
+    const guard = lnd.WatchLockupSpend({
+        txHash: Buffer.alloc(32),
+        vout: 0,
+        script: Buffer.alloc(32),
+        heightHint: 1,
+        abort: abort.signal,
+    })
+    T.expect(guard.failure()).to.equal(undefined)
+    abort.abort()
+    T.expect(guard.failure()?.message).to.equal('lockup spend lookup aborted')
+    T.expect(onError).to.not.equal(undefined)
+    guard.stop()
+    T.d('spend-watch cancellation was unsafe without waiting for the stream error')
 }
 
 const testZeroProviderFeeDoesNotBroadcast = async (T: StorageTestBase) => {
