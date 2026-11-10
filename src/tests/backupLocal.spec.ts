@@ -171,6 +171,7 @@ export default async (T: StorageTestBase) => {
     await testShutdownFinalLocalNotBlockedByInFlightRemote(T)
     await testShutdownRemoteOnlyIsBounded(T)
     await testShutdownFailedLocalDoesNotWaitOnRemote(T)
+    await testShutdownDoesNotSucceedCriticalFlushWithoutCommit(T)
     await testUploadAllTablesSurvivesRemoteFailure(T)
     await testConfiguredDestsDedupsCloudSftpAlias(T)
     await testConfiguredDestsKeepsDistinctRemotes(T)
@@ -2470,6 +2471,36 @@ const testShutdownRemoteOnlyIsBounded = async (T: StorageTestBase) => {
     ;(backup as any).publishRemotes = () => new Promise(() => { /* stall until process teardown */ })
     await withTimeout(backup.shutdown(), 2000, 'remote-only shutdown waited on the remote with no deadline')
     T.d('remote-only shutdown returns within the remote deadline')
+}
+
+const testShutdownDoesNotSucceedCriticalFlushWithoutCommit = async (T: StorageTestBase) => {
+    T.d('starting testShutdownDoesNotSucceedCriticalFlushWithoutCommit')
+    const backup = new BackupManager(T.storage, await sftpOnlySettings(T))
+    backup.waitInFlightMs = 50
+    backup.shutdownFlushMs = 200
+    await backup.InitKeys(TEST_SEED)
+    await backup.AddressUpdate(1)
+    backup.ChannelBackupUpdate(SAMPLE_SCB)
+    const remote = holdRemotePublishes(backup)
+    const flush = backup.flushTablesNow('invoice_swaps')
+    try {
+        await waitUntil(remote.entered, 2000, 'critical flush did not start the remote upload')
+        const shutdown = backup.shutdown()
+        let flushError: string | undefined
+        try {
+            await withTimeout(flush, 2000, 'critical flush did not settle after shutdown')
+        } catch (err: any) {
+            flushError = err.message
+        }
+        T.expect(!!flushError).to.equal(true)
+        T.expect(flushError).to.include('interrupted before any destination committed')
+        await withTimeout(shutdown, 2000, 'shutdown hung after interrupting the critical flush')
+    } finally {
+        remote.release()
+        if (!backup.shuttingDown) await backup.shutdown()
+        await flush.catch(() => undefined)
+    }
+    T.d('shutdown does not let a safety-critical flush succeed without a committed destination')
 }
 
 const testShutdownFailedLocalDoesNotWaitOnRemote = async (T: StorageTestBase) => {

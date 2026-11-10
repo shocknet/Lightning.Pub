@@ -411,8 +411,10 @@ export class BackupManager {
                 this.fullRefreshRequired = false
             }
         }
-        if (!result.anyOk && result.failures.length > 0) {
-            throw new Error(result.failures.join('; '))
+        if (!result.anyOk) {
+            throw new Error(result.failures.length > 0
+                ? result.failures.join('; ')
+                : 'backup interrupted before any destination committed')
         }
         if (result.failures.length > 0) {
             this.log(`backup batch ${generation} partial: ${result.failures.join('; ')}`)
@@ -591,7 +593,8 @@ export class BackupManager {
         const remoteP = this.enqueueRemote(() => this.publishRemotes(remotes, generation, shards))
         // A failed local write leaves anyOk false. Remote-only configs never set it.
         // Both still have to take the bounded path, and so does a remote that started
-        // before shutdown flipped the flag.
+        // before shutdown flipped the flag. The waiter must still fail if nothing
+        // committed; shutdown tracks the remote separately on a deadline.
         if (!this.shuttingDown) {
             const outcome = await this.remoteResultOrShutdown(remoteP)
             if (outcome !== 'shutdown') {
@@ -602,6 +605,9 @@ export class BackupManager {
             }
         }
         this.trackShutdownRemote(generation, remoteP)
+        if (!anyOk) {
+            failures.push('backup interrupted before any destination committed')
+        }
         return { anyOk, failures, retryable }
     }
 
