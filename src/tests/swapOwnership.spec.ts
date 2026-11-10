@@ -28,7 +28,7 @@ export default async (T: StorageTestBase) => {
     await testCannotCreateReservedAppUser(T)
     await testReservedIdentifierCannotQuoteOrPaySwaps(T)
     await testExistingSystemAdminCannotUseUserSwapApis(T)
-    await testRestoreSkipsReservedIdentifiers(T)
+    await testRestorePreservesReservedIdentifiers(T)
     await testAdminOwnerSeesLegacyAdminRows(T)
     await testAdminCanReserveLegacyAndNamespacedRows(T)
     await testDestinationIsAtomicallyReserved(T)
@@ -156,8 +156,8 @@ const testExistingSystemAdminCannotUseUserSwapApis = async (T: StorageTestBase) 
     T.d('an existing system:admin user still cannot cross the admin swap boundary')
 }
 
-const testRestoreSkipsReservedIdentifiers = async (T: StorageTestBase) => {
-    T.d('starting restore rejects reserved application-user identifiers')
+const testRestorePreservesReservedIdentifiers = async (T: StorageTestBase) => {
+    T.d('starting restore preserves historical reserved application-user identifiers')
     const app = await T.storage.applicationStorage.AddApplication(`restore-${randomBytes(4).toString('hex')}`, true)
     const reservedUser = await T.storage.dbs.Tx(tx => T.storage.userStorage.AddUser(0, tx))
     const okUser = await T.storage.dbs.Tx(tx => T.storage.userStorage.AddUser(0, tx))
@@ -182,11 +182,22 @@ const testRestoreSkipsReservedIdentifiers = async (T: StorageTestBase) => {
             owner_only_clink: false,
         },
     ], tx))
-    T.expect(restored).to.equal(1)
-    T.expect(!!await T.storage.applicationStorage.GetApplicationUserIfExists(app, ADMIN_SWAP_OWNER_ID)).to.equal(false)
+    T.expect(restored).to.equal(2)
+    const reserved = await T.storage.applicationStorage.GetApplicationUserIfExists(app, ADMIN_SWAP_OWNER_ID)
+    T.expect(reserved?.identifier).to.equal(ADMIN_SWAP_OWNER_ID)
     const ok = await T.storage.applicationStorage.GetApplicationUserIfExists(app, okIdentifier)
     T.expect(ok?.identifier).to.equal(okIdentifier)
-    T.d('restore skipped system:admin and kept a normal application user')
+
+    const swaps = makeSwaps(T).swaps
+    let quoteThrew = false
+    try {
+        await swaps.GetTxSwapQuotes(ADMIN_SWAP_OWNER_ID, 10_000, () => 0)
+    } catch (err: any) {
+        quoteThrew = true
+        T.expect(err.message).to.equal('reserved user identifier')
+    }
+    T.expect(quoteThrew).to.equal(true)
+    T.d('restore kept system:admin and a normal application user; swap access stays denied')
 }
 
 const testAdminOwnerSeesLegacyAdminRows = async (T: StorageTestBase) => {

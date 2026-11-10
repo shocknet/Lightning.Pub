@@ -175,9 +175,6 @@ export default class {
         let restoredAppUsers = 0;
         for (const appUser of appUsers) {
             try {
-                if (isReservedAppUserIdentifier(appUser.identifier)) {
-                    throw new Error("reserved user identifier")
-                }
                 const user = await this.userStorage.GetUser(appUser.user_id, txId)
                 const application = await this.GetApplication(appUser.app_id, txId)
                 await this.dbs.CreateAndSave<ApplicationUser>('ApplicationUser', {
