@@ -21,6 +21,11 @@ export default async (T: StorageTestBase) => {
     await testRetryAfterPersistErrorRepublishesStoredLockup(T)
     await testDelayedSecondPayDoesNotReplaceStoredFunding(T)
     await testVerifyFailureReleasesGuard(T)
+    await testSiblingPersistIsRejectedAfterFirstFunding(T)
+    await testSiblingPayIsRejectedAfterFirstFunding(T)
+    await testConcurrentSiblingPayIsRejectedWhileFirstInFlight(T)
+    await testSiblingPayAllowedAfterVerifyFailureReleasesReservation(T)
+    await testPendingListHidesUnfundedSibling(T)
 }
 
 function dummyTxHex(tag: string) {
@@ -271,4 +276,173 @@ const testVerifyFailureReleasesGuard = async (T: StorageTestBase) => {
     T.expect(paid).to.equal(TX_A)
     await T.storage.paymentStorage.DeleteInvoiceSwap(saved.swap_operation_id)
     T.d('a later pay can proceed after a failed verification')
+}
+
+const siblingPair = async (T: StorageTestBase, userId: string) => {
+    const paymentHash = randomBytes(32).toString('hex')
+    const primary = await T.storage.paymentStorage.AddInvoiceSwap(invoiceSwap(userId, {
+        payment_hash: paymentHash,
+        address: 'bcrt1qprimary',
+    }))
+    const alternate = await T.storage.paymentStorage.AddInvoiceSwap(invoiceSwap(userId, {
+        payment_hash: paymentHash,
+        address: 'bcrt1qalternate',
+    }))
+    return { paymentHash, primary, alternate }
+}
+
+const clearPayGuards = (swaps: Swaps) => {
+    for (const key of Object.keys(swaps.waitingSwaps)) {
+        delete swaps.waitingSwaps[key]
+    }
+}
+
+const testSiblingPersistIsRejectedAfterFirstFunding = async (T: StorageTestBase) => {
+    T.d('starting sibling invoice swap persist is rejected after the first funding')
+    const userId = `sub-sib-persist-${randomBytes(8).toString('hex')}`
+    const { primary, alternate } = await siblingPair(T, userId)
+    const first = await T.storage.paymentStorage.SetInvoiceSwapTxId(primary.swap_operation_id, TX_A, 200, LOCKUP_A)
+    const second = await T.storage.paymentStorage.SetInvoiceSwapTxId(alternate.swap_operation_id, TX_B, 250, LOCKUP_B)
+    T.expect(first).to.equal(1)
+    T.expect(second).to.equal(0)
+    const funded = await T.storage.paymentStorage.GetInvoiceSwap(primary.swap_operation_id, userId)
+    const sibling = await T.storage.paymentStorage.GetInvoiceSwap(alternate.swap_operation_id, userId)
+    T.expect(funded?.tx_id).to.equal(TX_A)
+    T.expect(sibling?.tx_id).to.equal("")
+    await T.storage.paymentStorage.DeleteInvoiceSwap(primary.swap_operation_id)
+    await T.storage.paymentStorage.DeleteInvoiceSwap(alternate.swap_operation_id)
+    T.d('funding one quote durably blocks persist of its sibling')
+}
+
+const testSiblingPayIsRejectedAfterFirstFunding = async (T: StorageTestBase) => {
+    T.d('starting sibling invoice swap pay is rejected after the first funding')
+    const userId = `sub-sib-pay-${randomBytes(8).toString('hex')}`
+    const { primary, alternate } = await siblingPair(T, userId)
+    const leftover = await T.storage.paymentStorage.ListUnfinishedInvoiceSwaps()
+    for (const swap of leftover) {
+        if (swap.swap_operation_id !== primary.swap_operation_id && swap.swap_operation_id !== alternate.swap_operation_id) {
+            await T.storage.paymentStorage.DeleteInvoiceSwap(swap.swap_operation_id)
+        }
+    }
+    const { swaps } = makeSwaps(T)
+    const paid = await swaps.PayInvoiceSwap(userId, primary.swap_operation_id, undefined, async () => {
+        const persisted = await T.storage.paymentStorage.SetInvoiceSwapTxId(primary.swap_operation_id, TX_A, 200, LOCKUP_A)
+        T.expect(persisted).to.equal(1)
+        return { txId: TX_A }
+    })
+    T.expect(paid).to.equal(TX_A)
+    clearPayGuards(swaps)
+    let siblingError = ''
+    try {
+        await swaps.PayInvoiceSwap(userId, alternate.swap_operation_id, undefined, async () => {
+            await T.storage.paymentStorage.SetInvoiceSwapTxId(alternate.swap_operation_id, TX_B, 250, LOCKUP_B)
+            return { txId: TX_B }
+        })
+    } catch (err: any) {
+        siblingError = err.message || String(err)
+    }
+    T.expect(siblingError).to.equal('invoice already reserved by a sibling quote')
+    const sibling = await T.storage.paymentStorage.GetInvoiceSwap(alternate.swap_operation_id, userId)
+    T.expect(sibling?.tx_id).to.equal("")
+    await T.storage.paymentStorage.DeleteInvoiceSwap(primary.swap_operation_id)
+    await T.storage.paymentStorage.DeleteInvoiceSwap(alternate.swap_operation_id)
+    T.d('a later pay of the sibling is rejected even after in-memory guards are cleared')
+}
+
+const testConcurrentSiblingPayIsRejectedWhileFirstInFlight = async (T: StorageTestBase) => {
+    T.d('starting concurrent sibling invoice swap pay is rejected while the first is in flight')
+    const userId = `sub-sib-conc-${randomBytes(8).toString('hex')}`
+    const { primary, alternate } = await siblingPair(T, userId)
+    const leftover = await T.storage.paymentStorage.ListUnfinishedInvoiceSwaps()
+    for (const swap of leftover) {
+        if (swap.swap_operation_id !== primary.swap_operation_id && swap.swap_operation_id !== alternate.swap_operation_id) {
+            await T.storage.paymentStorage.DeleteInvoiceSwap(swap.swap_operation_id)
+        }
+    }
+    const { swaps, swapper } = makeSwaps(T)
+    let releaseVerify!: () => void
+    const holdVerify = new Promise<void>(resolve => { releaseVerify = resolve })
+    let verifyStarted!: () => void
+    const firstVerify = new Promise<void>(resolve => { verifyStarted = resolve })
+    let verifyCalls = 0
+    swapper.VerifySubmarineQuote = async () => {
+        verifyCalls++
+        if (verifyCalls === 1) {
+            verifyStarted()
+            await holdVerify
+        }
+        return { ok: true as const }
+    }
+    const first = swaps.PayInvoiceSwap(userId, primary.swap_operation_id, undefined, async () => {
+        await T.storage.paymentStorage.SetInvoiceSwapTxId(primary.swap_operation_id, TX_A, 200, LOCKUP_A)
+        return { txId: TX_A }
+    })
+    await firstVerify
+    let secondError = ''
+    try {
+        await swaps.PayInvoiceSwap(userId, alternate.swap_operation_id, undefined, async () => {
+            await T.storage.paymentStorage.SetInvoiceSwapTxId(alternate.swap_operation_id, TX_B, 250, LOCKUP_B)
+            return { txId: TX_B }
+        })
+    } catch (err: any) {
+        secondError = err.message || String(err)
+    }
+    T.expect(secondError).to.equal('swap already in progress')
+    releaseVerify()
+    T.expect(await first).to.equal(TX_A)
+    const sibling = await T.storage.paymentStorage.GetInvoiceSwap(alternate.swap_operation_id, userId)
+    T.expect(sibling?.tx_id).to.equal("")
+    await T.storage.paymentStorage.DeleteInvoiceSwap(primary.swap_operation_id)
+    await T.storage.paymentStorage.DeleteInvoiceSwap(alternate.swap_operation_id)
+    T.d('the payment-hash guard is acquired before quote verification')
+}
+
+const testSiblingPayAllowedAfterVerifyFailureReleasesReservation = async (T: StorageTestBase) => {
+    T.d('starting sibling invoice swap pay is allowed after a verify failure releases the reservation')
+    const userId = `sub-sib-rel-${randomBytes(8).toString('hex')}`
+    const { primary, alternate } = await siblingPair(T, userId)
+    const leftover = await T.storage.paymentStorage.ListUnfinishedInvoiceSwaps()
+    for (const swap of leftover) {
+        if (swap.swap_operation_id !== primary.swap_operation_id && swap.swap_operation_id !== alternate.swap_operation_id) {
+            await T.storage.paymentStorage.DeleteInvoiceSwap(swap.swap_operation_id)
+        }
+    }
+    const { swaps, swapper } = makeSwaps(T)
+    swapper.VerifySubmarineQuote = async () => ({ ok: false as const, error: 'bad quote' })
+    let firstError = ''
+    try {
+        await swaps.PayInvoiceSwap(userId, primary.swap_operation_id, undefined, async () => ({ txId: TX_A }))
+    } catch (err: any) {
+        firstError = err.message || String(err)
+    }
+    T.expect(firstError).to.equal('swap quote failed verification before pay: bad quote')
+    swapper.VerifySubmarineQuote = async () => ({ ok: true as const })
+    const paid = await swaps.PayInvoiceSwap(userId, alternate.swap_operation_id, undefined, async () => {
+        const persisted = await T.storage.paymentStorage.SetInvoiceSwapTxId(alternate.swap_operation_id, TX_B, 250, LOCKUP_B)
+        T.expect(persisted).to.equal(1)
+        return { txId: TX_B }
+    })
+    T.expect(paid).to.equal(TX_B)
+    const primaryRow = await T.storage.paymentStorage.GetInvoiceSwap(primary.swap_operation_id, userId)
+    T.expect(primaryRow?.tx_id).to.equal("")
+    await T.storage.paymentStorage.DeleteInvoiceSwap(primary.swap_operation_id)
+    await T.storage.paymentStorage.DeleteInvoiceSwap(alternate.swap_operation_id)
+    T.d('a sibling can be funded after the first quote fails verification')
+}
+
+const testPendingListHidesUnfundedSibling = async (T: StorageTestBase) => {
+    T.d('starting pending invoice swaps hide an unfunded sibling after one quote is funded')
+    const userId = `sub-sib-list-${randomBytes(8).toString('hex')}`
+    const { primary, alternate } = await siblingPair(T, userId)
+    const before = await T.storage.paymentStorage.ListPendingInvoiceSwaps(userId)
+    T.expect(before.map(s => s.swap_operation_id).sort()).to.deep.equal(
+        [primary.swap_operation_id, alternate.swap_operation_id].sort()
+    )
+    const first = await T.storage.paymentStorage.SetInvoiceSwapTxId(primary.swap_operation_id, TX_A, 200, LOCKUP_A)
+    T.expect(first).to.equal(1)
+    const after = await T.storage.paymentStorage.ListPendingInvoiceSwaps(userId)
+    T.expect(after.map(s => s.swap_operation_id)).to.deep.equal([primary.swap_operation_id])
+    await T.storage.paymentStorage.DeleteInvoiceSwap(primary.swap_operation_id)
+    await T.storage.paymentStorage.DeleteInvoiceSwap(alternate.swap_operation_id)
+    T.d('the unfunded sibling is not listed as a payable quote')
 }

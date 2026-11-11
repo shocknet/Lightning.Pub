@@ -277,11 +277,20 @@ export class Swaps {
             throw new Error("swap already in progress")
         }
         this.waitingSwaps[swapOpId] = true
+        let paymentHash = ""
+        let hashGuard = false
+        let reserved = false
         try {
             const swap = await this.storage.paymentStorage.GetInvoiceSwap(swapOpId, appUserId)
             if (!swap) {
                 throw new Error("swap not found")
             }
+            paymentHash = swap.payment_hash
+            if (this.waitingSwaps[paymentHash]) {
+                throw new Error("swap already in progress")
+            }
+            this.waitingSwaps[paymentHash] = true
+            hashGuard = true
             const satPerVByte = satPerVByteOverride ?? swap.sat_per_v_byte
             if (!isPositiveSats(satPerVByte)) {
                 throw new Error("sat per v byte is required (set fees_req on quote or pass sat_per_v_byte on pay)")
@@ -290,6 +299,8 @@ export class Swaps {
             if (!swapper) {
                 throw new Error("swapper service not found")
             }
+            await this.storage.paymentStorage.ReserveInvoiceSwapFunding(swapOpId, paymentHash)
+            reserved = true
             const expectedLockupAmount = swap.invoice_amount + swap.swap_fee_sats
             const data = this.getInvoiceSwapData(swap)
             const verifyQuote = async () => {
@@ -350,7 +361,17 @@ export class Swaps {
                     }), () => this.lookupSettledInvoicePreimage(swap.payment_hash))
             })
         } catch (err) {
+            if (reserved) {
+                try {
+                    await this.storage.paymentStorage.ReleaseInvoiceSwapFunding(swapOpId)
+                } catch (releaseErr: any) {
+                    this.log("failed to release invoice swap funding reservation", releaseErr.message || releaseErr)
+                }
+            }
             delete this.waitingSwaps[swapOpId]
+            if (hashGuard && paymentHash) {
+                delete this.waitingSwaps[paymentHash]
+            }
             throw err
         }
     }

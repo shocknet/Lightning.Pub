@@ -16,6 +16,7 @@ import { LoggedEvent } from './eventsLog.js';
 import { StorageInterface } from './db/storageInterface.js';
 import { TransactionSwap } from './entity/TransactionSwap.js';
 import { InvoiceSwap } from './entity/InvoiceSwap.js';
+import { InvoiceSwapFundingLock } from './entity/InvoiceSwapFundingLock.js';
 import { InvoiceSwapRow, isInvoiceSwapBackupRow, isTransactionSwapBackupRow, mapInvoiceSwapBackupRow, TransactionSwapRow, mapTransactionSwapBackupRow } from '../backup/segments.js';
 import { swapOwnerIds } from '../lnd/swaps/swapOwnership.js';
 import { getLogger } from '../helpers/logger.js';
@@ -773,6 +774,9 @@ export default class {
                     refund_tx_hex: swap.refund_tx_hex,
                     service_url: swap.service_url,
                 }, txId)
+                if (swap.tx_id) {
+                    await this.claimInvoiceSwapFundingLock(swap.payment_hash, swap.swap_operation_id, txId)
+                }
                 restored++
             } catch (error: any) {
                 getLogger({ component: "backupRestore" })("error restoring invoice swap", error.message)
@@ -853,6 +857,41 @@ export default class {
         return this.dbs.CreateAndSave<InvoiceSwap>('InvoiceSwap', swap)
     }
 
+    async ReserveInvoiceSwapFunding(swapOperationId: string, paymentHash: string, txId?: string) {
+        const run = async (tx: string) => {
+            const row = await this.dbs.FindOne<InvoiceSwap>('InvoiceSwap', { where: { swap_operation_id: swapOperationId } }, tx)
+            if (!row) {
+                throw new Error("swap not found")
+            }
+            if (row.payment_hash !== paymentHash) {
+                throw new Error("payment hash mismatch")
+            }
+            if (row.tx_id) {
+                return 'ok' as const
+            }
+            if (await this.invoiceSwapHashHeldByOther(paymentHash, swapOperationId, tx)) {
+                return 'sibling' as const
+            }
+            const claimed = await this.claimInvoiceSwapFundingLock(paymentHash, swapOperationId, tx)
+            return claimed ? 'ok' as const : 'sibling' as const
+        }
+        const result = txId ? await run(txId) : await this.dbs.Tx(tx => run(tx), 'reserve invoice swap funding')
+        if (result === 'sibling') {
+            throw new Error("invoice already reserved by a sibling quote")
+        }
+    }
+
+    async ReleaseInvoiceSwapFunding(swapOperationId: string, txId?: string) {
+        const row = await this.dbs.FindOne<InvoiceSwap>('InvoiceSwap', { where: { swap_operation_id: swapOperationId } }, txId)
+        if (!row || row.tx_id) {
+            return 0
+        }
+        return this.dbs.Delete<InvoiceSwapFundingLock>('InvoiceSwapFundingLock', {
+            payment_hash: row.payment_hash,
+            swap_operation_id: swapOperationId,
+        }, txId)
+    }
+
     async GetInvoiceSwap(swapOperationId: string, appUserId: string, txId?: string) {
         return this.dbs.FindOne<InvoiceSwap>('InvoiceSwap', { where: { swap_operation_id: swapOperationId, used: false, app_user_id: this.swapOwnerWhere(appUserId) } }, txId)
     }
@@ -883,18 +922,41 @@ export default class {
         if (lockupTxHex) {
             update.lockup_tx_hex = lockupTxHex
         }
-        const affected = await this.dbs.Update<InvoiceSwap>('InvoiceSwap', {
-            swap_operation_id: swapOperationId,
-            tx_id: "",
-        }, update, txId)
-        if (affected === 1) {
-            return 1
+        const run = async (tx: string) => {
+            const current = await this.dbs.FindOne<InvoiceSwap>('InvoiceSwap', { where: { swap_operation_id: swapOperationId } }, tx)
+            if (!current) {
+                return 0
+            }
+            if (current.tx_id === chainTxId) {
+                return 1
+            }
+            if (current.tx_id) {
+                return 0
+            }
+            if (await this.invoiceSwapHashHeldByOther(current.payment_hash, swapOperationId, tx)) {
+                return 0
+            }
+            const claimed = await this.claimInvoiceSwapFundingLock(current.payment_hash, swapOperationId, tx)
+            if (!claimed) {
+                return 0
+            }
+            const affected = await this.dbs.Update<InvoiceSwap>('InvoiceSwap', {
+                swap_operation_id: swapOperationId,
+                tx_id: "",
+            }, update, tx)
+            if (affected === 1) {
+                return 1
+            }
+            const existing = await this.dbs.FindOne<InvoiceSwap>('InvoiceSwap', { where: { swap_operation_id: swapOperationId } }, tx)
+            if (existing && existing.tx_id === chainTxId) {
+                return 1
+            }
+            return 0
         }
-        const existing = await this.dbs.FindOne<InvoiceSwap>('InvoiceSwap', { where: { swap_operation_id: swapOperationId } }, txId)
-        if (existing && existing.tx_id === chainTxId) {
-            return 1
+        if (txId) {
+            return run(txId)
         }
-        return 0
+        return this.dbs.Tx(tx => run(tx), 'set invoice swap tx id')
     }
 
     async FailInvoiceSwap(swapOperationId: string, failureReason: string, txId?: string) {
@@ -907,10 +969,26 @@ export default class {
     }
 
     async DeleteInvoiceSwap(swapOperationId: string, txId?: string) {
+        const row = await this.dbs.FindOne<InvoiceSwap>('InvoiceSwap', { where: { swap_operation_id: swapOperationId } }, txId)
+        if (row) {
+            await this.dbs.Delete<InvoiceSwapFundingLock>('InvoiceSwapFundingLock', {
+                payment_hash: row.payment_hash,
+                swap_operation_id: swapOperationId,
+            }, txId)
+        }
         return this.dbs.Delete<InvoiceSwap>('InvoiceSwap', { swap_operation_id: swapOperationId }, txId)
     }
 
     async DeleteExpiredInvoiceSwaps(currentHeight: number, txId?: string) {
+        const expired = await this.dbs.Find<InvoiceSwap>('InvoiceSwap', {
+            where: { timeout_block_height: LessThan(currentHeight), used: false, tx_id: "" },
+        }, txId)
+        for (const swap of expired) {
+            await this.dbs.Delete<InvoiceSwapFundingLock>('InvoiceSwapFundingLock', {
+                payment_hash: swap.payment_hash,
+                swap_operation_id: swap.swap_operation_id,
+            }, txId)
+        }
         return this.dbs.Delete<InvoiceSwap>('InvoiceSwap', { timeout_block_height: LessThan(currentHeight), used: false, tx_id: "" }, txId)
     }
 
@@ -919,7 +997,28 @@ export default class {
     }
 
     async ListPendingInvoiceSwaps(appUserId: string, txId?: string) {
-        return this.dbs.Find<InvoiceSwap>('InvoiceSwap', { where: { used: false, app_user_id: this.swapOwnerWhere(appUserId) } }, txId)
+        const pending = await this.dbs.Find<InvoiceSwap>('InvoiceSwap', { where: { used: false, app_user_id: this.swapOwnerWhere(appUserId) } }, txId)
+        if (pending.length === 0) {
+            return pending
+        }
+        const hashes = [...new Set(pending.map(s => s.payment_hash))]
+        const related = await this.dbs.Find<InvoiceSwap>('InvoiceSwap', { where: { payment_hash: In(hashes) } }, txId)
+        const locks = await this.dbs.Find<InvoiceSwapFundingLock>('InvoiceSwapFundingLock', { where: { payment_hash: In(hashes) } }, txId)
+        const holder = new Map<string, string>()
+        for (const swap of related) {
+            if (swap.tx_id) {
+                holder.set(swap.payment_hash, swap.swap_operation_id)
+            }
+        }
+        for (const lock of locks) {
+            if (!holder.has(lock.payment_hash)) {
+                holder.set(lock.payment_hash, lock.swap_operation_id)
+            }
+        }
+        return pending.filter(swap => {
+            const reservedBy = holder.get(swap.payment_hash)
+            return !reservedBy || reservedBy === swap.swap_operation_id
+        })
     }
 
     async ListUnfinishedInvoiceSwaps(txId?: string) {
@@ -960,6 +1059,44 @@ export default class {
         return swap
     }
 
+    private async invoiceSwapHashHeldByOther(paymentHash: string, swapOperationId: string, txId?: string) {
+        const siblings = await this.dbs.Find<InvoiceSwap>('InvoiceSwap', { where: { payment_hash: paymentHash } }, txId)
+        if (siblings.some(s => s.tx_id && s.swap_operation_id !== swapOperationId)) {
+            return true
+        }
+        const lock = await this.dbs.FindOne<InvoiceSwapFundingLock>('InvoiceSwapFundingLock', { where: { payment_hash: paymentHash } }, txId)
+        return !!lock && lock.swap_operation_id !== swapOperationId
+    }
+
+    private async claimInvoiceSwapFundingLock(paymentHash: string, swapOperationId: string, txId?: string) {
+        const existing = await this.dbs.FindOne<InvoiceSwapFundingLock>('InvoiceSwapFundingLock', { where: { payment_hash: paymentHash } }, txId)
+        if (existing) {
+            return existing.swap_operation_id === swapOperationId
+        }
+        try {
+            await this.dbs.CreateAndSave<InvoiceSwapFundingLock>('InvoiceSwapFundingLock', {
+                payment_hash: paymentHash,
+                swap_operation_id: swapOperationId,
+            }, txId)
+            return true
+        } catch (e) {
+            if (!isSqliteUniqueConstraintError(e)) {
+                throw e
+            }
+            const again = await this.dbs.FindOne<InvoiceSwapFundingLock>('InvoiceSwapFundingLock', { where: { payment_hash: paymentHash } }, txId)
+            return !!again && again.swap_operation_id === swapOperationId
+        }
+    }
+
+}
+
+const isSqliteUniqueConstraintError = (e: unknown) => {
+    const err = e as { code?: string, message?: string, driverError?: { code?: string, message?: string } }
+    const code = err.code || err.driverError?.code || ""
+    const message = err.message || err.driverError?.message || ""
+    return code.includes("SQLITE_CONSTRAINT")
+        || /UNIQUE constraint failed/i.test(message)
+        || /SQLITE_CONSTRAINT_UNIQUE/i.test(message)
 }
 
 const orFail = async <T>(resultPromise: Promise<T | null>, message: string) => {
