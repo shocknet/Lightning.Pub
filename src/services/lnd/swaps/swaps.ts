@@ -15,7 +15,9 @@ import { TransactionSwap } from '../../storage/entity/TransactionSwap.js';
 import { BackupManager } from '../../backup/backupManager.js';
 import { address, Transaction } from 'bitcoinjs-lib';
 import {
+    assertLockupMatchesFunding,
     assertRefundOutputSpendable,
+    caughtErrorMessage,
     getNetwork,
     inspectRefundSpend,
     RefundSpendView,
@@ -152,29 +154,56 @@ export class Swaps {
         if (!isPositiveSats(satPerVByte)) {
             throw new Error("sat per v byte must be a positive integer")
         }
+        await this.ensureVerifiedInvoiceSwapLockup(swap)
         if (swap.refund_tx_hex) {
             const persisted = this.readPersistedRefund(swap)
-            if (!persisted || !shouldReplacePersistedRefund(persisted.view.satPerVbyte, satPerVByte)) {
-                const destination = persisted?.destination || swap.refund_address || refundAddress
+            if (persisted && !shouldReplacePersistedRefund(persisted.view.satPerVbyte, satPerVByte)) {
+                const destination = persisted.destination || swap.refund_address || refundAddress
                 return this.publishInvoiceSwapRefund(swapOperationId, destination, swap.refund_tx_hex)
             }
-            this.log("replacing persisted invoice-swap refund with a higher fee", {
+            if (persisted) {
+                this.log("replacing persisted invoice-swap refund with a higher fee", {
+                    swapOperationId,
+                    existingSatPerVbyte: persisted.view.satPerVbyte,
+                    satPerVByte,
+                })
+                return this.constructAndPublishInvoiceSwapRefund(swap, satPerVByte, persisted.destination, currentHeight, persisted.view)
+            }
+            this.log("reconstructing invoice-swap refund; persisted hex does not spend the verified lockup", {
                 swapOperationId,
-                existingSatPerVbyte: persisted.view.satPerVbyte,
-                satPerVByte,
             })
-            return this.constructAndPublishInvoiceSwapRefund(swap, satPerVByte, persisted.destination, currentHeight, persisted.view)
         }
         return this.constructAndPublishInvoiceSwapRefund(swap, satPerVByte, refundAddress, currentHeight)
+    }
+
+    /** Refunds spend the persisted lockup only. A provider must not supply it. */
+    private ensureVerifiedInvoiceSwapLockup = async (swap: InvoiceSwap) => {
+        if (!swap.lockup_tx_hex) {
+            throw new Error('lockup transaction hex is required')
+        }
+        const network = getNetwork(this.settings.getSettings().lndSettings.network)
+        assertLockupMatchesFunding(Transaction.fromHex(swap.lockup_tx_hex), {
+            txId: swap.tx_id,
+            outputScript: address.toOutputScript(swap.address, network),
+            amountSats: swap.transaction_amount,
+        })
     }
 
     private readPersistedRefund = (swap: InvoiceSwap): { view: RefundSpendView, destination: string } | null => {
         if (!swap.refund_tx_hex || !swap.lockup_tx_hex) {
             return null
         }
-        const view = inspectRefundSpend(Transaction.fromHex(swap.refund_tx_hex), Transaction.fromHex(swap.lockup_tx_hex))
-        const network = getNetwork(this.settings.getSettings().lndSettings.network)
-        return { view, destination: address.fromOutputScript(view.outputScript, network) }
+        try {
+            const view = inspectRefundSpend(Transaction.fromHex(swap.refund_tx_hex), Transaction.fromHex(swap.lockup_tx_hex))
+            const network = getNetwork(this.settings.getSettings().lndSettings.network)
+            return { view, destination: address.fromOutputScript(view.outputScript, network) }
+        } catch (err: unknown) {
+            this.log("ignoring persisted refund that does not spend the verified lockup", {
+                swapOperationId: swap.swap_operation_id,
+                error: caughtErrorMessage(err),
+            })
+            return null
+        }
     }
 
     private constructAndPublishInvoiceSwapRefund = async (
@@ -205,11 +234,10 @@ export class Swaps {
         if (refundTx.getId() !== result.publish.txId) {
             throw new Error("refund transaction id mismatch")
         }
-        if (swap.lockup_tx_hex) {
-            this.assertConstructedRefund(refundTx, Transaction.fromHex(swap.lockup_tx_hex), satPerVByte, replacing)
-        } else if (replacing) {
-            throw new Error("lockup hex is required to replace a persisted refund")
+        if (!swap.lockup_tx_hex) {
+            throw new Error("lockup hex is required to construct a refund")
         }
+        this.assertConstructedRefund(refundTx, Transaction.fromHex(swap.lockup_tx_hex), satPerVByte, replacing)
         await this.storage.paymentStorage.SetInvoiceSwapRefundHex(swap.swap_operation_id, refundAddress, result.publish.txHex)
         return this.publishInvoiceSwapRefund(swap.swap_operation_id, refundAddress, result.publish.txHex)
     }

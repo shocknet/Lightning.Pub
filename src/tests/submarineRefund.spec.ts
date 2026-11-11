@@ -10,7 +10,7 @@ import http from 'http'
 import * as ecc from 'tiny-secp256k1'
 import { SubmarineSwaps } from '../services/lnd/swaps/submarineSwaps.js'
 import { Swaps } from '../services/lnd/swaps/swaps.js'
-import { caughtErrorMessage, getNetwork, inspectRefundSpend, loggedGet, loggedPost, shouldReplacePersistedRefund, SWAP_PROVIDER_HTTP_TIMEOUT_MS, SWAP_PROVIDER_MAX_RESPONSE_BYTES } from '../services/lnd/swaps/swapHelpers.js'
+import { assertLockupMatchesFunding, caughtErrorMessage, getNetwork, inspectRefundSpend, loggedGet, loggedPost, shouldReplacePersistedRefund, SWAP_PROVIDER_HTTP_TIMEOUT_MS, SWAP_PROVIDER_MAX_RESPONSE_BYTES } from '../services/lnd/swaps/swapHelpers.js'
 import { getLogger } from '../services/helpers/logger.js'
 import { StorageTestBase } from './testBase.js'
 
@@ -28,6 +28,7 @@ const LOCKUP_SATS = 100_000
 export default async (T: StorageTestBase) => {
     testCaughtErrorMessage(T)
     testShouldReplacePersistedRefund(T)
+    testAssertLockupMatchesFunding(T)
     await testProviderHttpTimesOut(T)
     await testProviderHttpTrickleTimesOut(T)
     await testProviderHttpRejectsOversizedBody(T)
@@ -42,6 +43,10 @@ export default async (T: StorageTestBase) => {
     await testRefundLowerFeeRetryRebroadcasts(T)
     await testRefundSpendsTaprootNotDecoy(T)
     await testRefundRejectsDecoyOnlyLockup(T)
+    await testRefundRejectsMissingLockupHex(T)
+    await testRefundRejectsMismatchedLockupHex(T)
+    await testRefundRejectsUnderpaidLockupHex(T)
+    await testRefundDoesNotRepublishWrongOutpoint(T)
 }
 
 const testCaughtErrorMessage = (T: StorageTestBase) => {
@@ -60,6 +65,33 @@ const testShouldReplacePersistedRefund = (T: StorageTestBase) => {
     T.expect(shouldReplacePersistedRefund(20, 1)).to.equal(false)
     T.expect(shouldReplacePersistedRefund(0, 0)).to.equal(false)
     T.d('only a strictly higher positive fee rate replaces a persisted refund')
+}
+
+const testAssertLockupMatchesFunding = (T: StorageTestBase) => {
+    T.d('starting lockup funding bind checks txid and amount')
+    const lockup = new Transaction()
+    lockup.version = 2
+    lockup.addInput(Buffer.alloc(32), 0)
+    const script = address.toOutputScript(DEST, getNetwork('regtest'))
+    lockup.addOutput(script, LOCKUP_SATS)
+    const expected = { txId: lockup.getId(), outputScript: script, amountSats: LOCKUP_SATS }
+    assertLockupMatchesFunding(lockup, expected)
+
+    const wrongId = { ...expected, txId: randomBytes(32).toString('hex') }
+    T.expect(() => assertLockupMatchesFunding(lockup, wrongId)).to.throw('lockup transaction does not match stored funding id')
+
+    const wrongAmount = { ...expected, amountSats: 1_000 }
+    T.expect(() => assertLockupMatchesFunding(lockup, wrongAmount)).to.throw('lockup output does not match expected amount 1000')
+
+    const otherScript = payments.p2wpkh({
+        pubkey: Buffer.from(ECPairFactory(ecc).makeRandom().publicKey),
+        network: getNetwork('regtest'),
+    }).output
+    if (!otherScript) {
+        throw new Error('failed to derive a decoy script')
+    }
+    T.expect(() => assertLockupMatchesFunding(lockup, { ...expected, outputScript: otherScript })).to.throw('lockup transaction does not pay the expected swap output')
+    T.d('txid, amount, and script must all match the stored funding')
 }
 
 const listenHangServer = async (handler: http.RequestListener) => {
@@ -519,6 +551,154 @@ const testRefundRejectsDecoyOnlyLockup = async (T: StorageTestBase) => {
     T.d('a P2WSH-only lockup is not treated as a refundable Taproot output')
 }
 
+const testRefundRejectsMissingLockupHex = async (T: StorageTestBase) => {
+    T.d('starting refund refuses a funded row with no lockup hex')
+    const fixture = await buildSubmarineLockup()
+    const saved = await insertFundedRefundable(T, fixture, { lockup_tx_hex: '' })
+    const swaps = disabledSwaps(T)
+    const broadcasts: string[] = []
+    swaps.SetLnd({
+        BroadcastTransaction: async (txHex: string) => {
+            broadcasts.push(txHex)
+            return { txId: Transaction.fromHex(txHex).getId() }
+        },
+        GetInfo: async () => ({ syncedToChain: true, blockHeight: TIMEOUT }),
+    } as any)
+    let threw = false
+    try {
+        await swaps.RefundInvoiceSwap(saved.swap_operation_id, 2, DEST, TIMEOUT)
+    } catch (err: any) {
+        threw = true
+        T.expect(err.message).to.equal('lockup transaction hex is required')
+    }
+    T.expect(threw).to.equal(true)
+    T.expect(broadcasts).to.deep.equal([])
+    const row = await T.storage.paymentStorage.GetRefundableInvoiceSwap(saved.swap_operation_id)
+    T.expect(row?.refund_tx_hex || '').to.equal('')
+    await T.storage.paymentStorage.DeleteInvoiceSwap(saved.swap_operation_id)
+    T.d('missing lockup hex fails closed instead of fetching from a provider')
+}
+
+const testRefundRejectsMismatchedLockupHex = async (T: StorageTestBase) => {
+    T.d('starting refund rejects a stored lockup whose txid does not match funding')
+    const fixture = await buildSubmarineLockup()
+    const genuine = Transaction.fromHex(fixture.lockupHex)
+    const substitute = lockupPayingScript(genuine.outs[0].script, LOCKUP_SATS)
+    T.expect(substitute.getId()).to.not.equal(genuine.getId())
+    const saved = await insertFundedRefundable(T, fixture, { lockup_tx_hex: substitute.toHex() })
+    const swaps = disabledSwaps(T)
+    const broadcasts: string[] = []
+    swaps.SetLnd({
+        BroadcastTransaction: async (txHex: string) => {
+            broadcasts.push(txHex)
+            return { txId: Transaction.fromHex(txHex).getId() }
+        },
+        GetInfo: async () => ({ syncedToChain: true, blockHeight: TIMEOUT }),
+    } as any)
+    let threw = false
+    try {
+        await swaps.RefundInvoiceSwap(saved.swap_operation_id, 2, DEST, TIMEOUT)
+    } catch (err: any) {
+        threw = true
+        T.expect(err.message).to.equal('lockup transaction does not match stored funding id')
+    }
+    T.expect(threw).to.equal(true)
+    T.expect(broadcasts).to.deep.equal([])
+    const row = await T.storage.paymentStorage.GetRefundableInvoiceSwap(saved.swap_operation_id)
+    T.expect(row?.refund_tx_hex || '').to.equal('')
+    await T.storage.paymentStorage.DeleteInvoiceSwap(saved.swap_operation_id)
+    T.d('a stored hex that does not match the funding id is not refunded')
+}
+
+const testRefundRejectsUnderpaidLockupHex = async (T: StorageTestBase) => {
+    T.d('starting refund rejects a stored lockup with the wrong amount')
+    const fixture = await buildSubmarineLockup()
+    const genuine = Transaction.fromHex(fixture.lockupHex)
+    const underpaid = lockupPayingScript(genuine.outs[0].script, 1_000)
+    const saved = await insertFundedRefundable(T, fixture, {
+        lockup_tx_hex: underpaid.toHex(),
+        tx_id: underpaid.getId(),
+    })
+    const swaps = disabledSwaps(T)
+    const broadcasts: string[] = []
+    swaps.SetLnd({
+        BroadcastTransaction: async (txHex: string) => {
+            broadcasts.push(txHex)
+            return { txId: Transaction.fromHex(txHex).getId() }
+        },
+        GetInfo: async () => ({ syncedToChain: true, blockHeight: TIMEOUT }),
+    } as any)
+    let threw = false
+    try {
+        await swaps.RefundInvoiceSwap(saved.swap_operation_id, 2, DEST, TIMEOUT)
+    } catch (err: any) {
+        threw = true
+        T.expect(err.message).to.equal('lockup output does not match expected amount 100000')
+    }
+    T.expect(threw).to.equal(true)
+    T.expect(broadcasts).to.deep.equal([])
+    const row = await T.storage.paymentStorage.GetRefundableInvoiceSwap(saved.swap_operation_id)
+    T.expect(row?.refund_tx_hex || '').to.equal('')
+    await T.storage.paymentStorage.DeleteInvoiceSwap(saved.swap_operation_id)
+    T.d('an underpaid P2TR is not treated as the funded lockup')
+}
+
+const testRefundDoesNotRepublishWrongOutpoint = async (T: StorageTestBase) => {
+    T.d('starting a leftover refund of a substituted lockup is reconstructed against the verified funding')
+    const fixture = await buildSubmarineLockup()
+    const genuine = Transaction.fromHex(fixture.lockupHex)
+    const substitute = lockupPayingScript(genuine.outs[0].script, LOCKUP_SATS)
+    const swapper = new SubmarineSwaps({ httpUrl: 'http://mock-boltz', wsUrl: 'ws://127.0.0.1:1', network: 'regtest' })
+    const poison = await swapper.RefundSwap({
+        swapId: fixture.swapId,
+        claimPublicKey: fixture.claimPublicKey,
+        swapTree: fixture.swapTree,
+        timeoutBlockHeight: TIMEOUT,
+        privateKeyHex: fixture.refundPriv,
+        refundAddress: DEST,
+        currentHeight: TIMEOUT,
+        lockupTxHex: substitute.toHex(),
+        feePerVbyte: 2,
+        allowEarlyRefund: false,
+    })
+    T.expect(poison.ok, !poison.ok ? poison.error : '').to.equal(true)
+    if (!poison.ok) {
+        throw new Error(poison.error)
+    }
+    const saved = await insertFundedRefundable(T, fixture, {
+        refund_tx_hex: poison.publish.txHex,
+        refund_address: DEST,
+    })
+    const swaps = disabledSwaps(T)
+    const broadcasts: string[] = []
+    swaps.SetLnd({
+        BroadcastTransaction: async (txHex: string) => {
+            broadcasts.push(txHex)
+            return { txId: Transaction.fromHex(txHex).getId() }
+        },
+        GetInfo: async () => ({ syncedToChain: true, blockHeight: TIMEOUT }),
+    } as any)
+    const result = await swaps.RefundInvoiceSwap(saved.swap_operation_id, 2, DEST, TIMEOUT)
+    T.expect(broadcasts.length).to.equal(1)
+    T.expect(broadcasts[0]).to.not.equal(poison.publish.txHex)
+    const refundTx = Transaction.fromHex(broadcasts[0])
+    T.expect(refundTx.ins[0].hash.equals(genuine.getHash())).to.equal(true)
+    T.expect(refundTx.ins[0].hash.equals(substitute.getHash())).to.equal(false)
+    T.expect(result.txId).to.equal(refundTx.getId())
+    const row = await T.storage.paymentStorage.GetRefundableInvoiceSwap(saved.swap_operation_id)
+    T.expect(row?.refund_tx_hex).to.equal(broadcasts[0])
+    await T.storage.paymentStorage.DeleteInvoiceSwap(saved.swap_operation_id)
+    T.d('the bound lockup refund replaced a leftover spend of the wrong outpoint')
+}
+
+const lockupPayingScript = (script: Buffer, value: number) => {
+    const tx = new Transaction()
+    tx.version = 2
+    tx.addInput(randomBytes(32), 0)
+    tx.addOutput(script, value)
+    return tx
+}
+
 const disabledSwaps = (T: StorageTestBase) => {
     return new Swaps({
         getSettings: () => ({
@@ -551,7 +731,7 @@ const insertFundedRefundable = async (T: StorageTestBase, fixture: Awaited<Retur
         ephemeral_private_key: fixture.refundPriv,
         address: fixture.lockupAddress,
         service_url: 'http://old-provider-that-was-removed',
-        tx_id: randomBytes(32).toString('hex'),
+        tx_id: Transaction.fromHex(fixture.lockupHex).getId(),
         lockup_tx_hex: fixture.lockupHex,
         ...extra,
     })

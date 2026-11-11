@@ -286,14 +286,6 @@ export class SubmarineSwaps {
     }
 
     /**
-     * Get the lockup transaction for a swap from Boltz
-     */
-    private getLockupTransaction = async (swapId: string): Promise<{ ok: true, data: { hex: string } } | { ok: false, error: string }> => {
-        const url = `${this.httpUrl}/v2/swap/submarine/${swapId}/transaction`
-        return await loggedGet<{ hex: string }>(this.log, url)
-    }
-
-    /**
      * Get partial refund signature from Boltz for cooperative refund.
      * HTTP is bounded; a hung provider must not block the unilateral path.
      */
@@ -481,7 +473,7 @@ export class SubmarineSwaps {
      * @param privateKey - The refund private key (hex string)
      * @param refundAddress - The address to refund to
      * @param currentHeight - The current block height
-     * @param lockupTxHex - The lockup transaction hex (optional, will fetch from Boltz if not provided)
+     * @param lockupTxHex - The persisted lockup transaction hex
      * @param feePerVbyte - Fee rate in sat/vbyte (optional, will use default if not provided)
      */
     RefundSwap = async (params: {
@@ -492,7 +484,7 @@ export class SubmarineSwaps {
         privateKeyHex: string,
         refundAddress: string,
         currentHeight: number,
-        lockupTxHex?: string,
+        lockupTxHex: string,
         feePerVbyte?: number,
         allowEarlyRefund?: boolean
     }): Promise<{ ok: true, publish: { done: false, txHex: string, txId: string, usedCooperative: boolean } } | { ok: false, error: string }> => {
@@ -500,22 +492,11 @@ export class SubmarineSwaps {
 
         this.log('Starting refund process for swap:', swapId)
 
-        // Get the lockup transaction (from parameter or, if a provider is configured, fetch it).
-        // Independent timeout refunds must not require a live provider URL.
-        let lockupTx: Transaction
-        if (lockupTxHex) {
-            this.log('Using provided lockup transaction hex')
-            lockupTx = Transaction.fromHex(lockupTxHex)
-        } else if (this.httpUrl) {
-            this.log('Fetching lockup transaction from Boltz')
-            const lockupTxRes = await this.getLockupTransaction(swapId)
-            if (!lockupTxRes.ok) {
-                return { ok: false, error: `Failed to get lockup transaction: ${lockupTxRes.error}` }
-            }
-            lockupTx = Transaction.fromHex(lockupTxRes.data.hex)
-        } else {
-            return { ok: false, error: 'lockup transaction hex is required for independent refund' }
+        if (!lockupTxHex) {
+            return { ok: false, error: 'lockup transaction hex is required' }
         }
+        this.log('Using provided lockup transaction hex')
+        const lockupTx = Transaction.fromHex(lockupTxHex)
         this.log('Lockup transaction retrieved:', lockupTx.getId())
 
         const hasTimedOut = currentHeight >= timeoutBlockHeight

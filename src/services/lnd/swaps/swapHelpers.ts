@@ -122,6 +122,41 @@ export const findTaprootSwapOutput = (
     return undefined
 }
 
+export type LockupFundingExpectation = {
+    txId: string
+    outputScript: Buffer
+    amountSats: number
+}
+
+/**
+ * Bind a lockup transaction to the locally stored funding id and amount.
+ * Script matching alone is not enough: a second payment to the same P2TR
+ * address can refund the wrong outpoint.
+ */
+export const assertLockupMatchesFunding = (
+    lockupTx: Transaction,
+    expected: LockupFundingExpectation,
+): void => {
+    if (!expected.txId) {
+        throw new Error('stored funding id is required')
+    }
+    if (lockupTx.getId() !== expected.txId) {
+        throw new Error('lockup transaction does not match stored funding id')
+    }
+    if (!isPositiveSats(expected.amountSats)) {
+        throw new Error('expected lockup amount must be a positive integer')
+    }
+    const matching = lockupTx.outs.filter(output =>
+        expected.outputScript.equals(output.script) && isNonNegativeSats(output.value)
+    )
+    if (matching.length === 0) {
+        throw new Error('lockup transaction does not pay the expected swap output')
+    }
+    if (!matching.some(output => output.value === expected.amountSats)) {
+        throw new Error(`lockup output does not match expected amount ${expected.amountSats}`)
+    }
+}
+
 /**
  * Bitcoin Core dust with the default 3 sat/vbyte dustRelayFee.
  * OP_RETURN / empty scripts are unspendable (limit 0) and are not valid claim
