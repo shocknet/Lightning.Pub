@@ -82,6 +82,11 @@ export type ReverseClaimFeeRates = {
 }
 
 export type ReverseClaimDeps = {
+    /**
+     * Reject only when the transaction was not accepted. Post-broadcast
+     * database or backup failures must not throw: a saved claim would then be
+     * reconstructed after the preimage is already on the wire.
+     */
     publish: (txHex: string) => Promise<void>
     persistClaim?: (txHex: string) => Promise<void>
     getClaimFeeRates: (confTarget: number) => Promise<ReverseClaimFeeRates>
@@ -200,6 +205,8 @@ export const checkReverseTimeout = (
  * A persisted reverse-swap signature is crash-recovery material, not proof the
  * preimage was disclosed. Resume may rebroadcast without first-disclosure
  * checks only after a successful publish (or a restored claim_published flag).
+ * claim_published: false is not proof of secrecy after a crash between
+ * broadcast and the marker, or a restore of an earlier backup.
  */
 export const isReverseClaimExposed = (swap: {
     claim_tx_hex?: string
