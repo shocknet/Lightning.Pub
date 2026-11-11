@@ -45,6 +45,7 @@ import { TxSwapClaim1788000000000 } from './1788000000000-tx_swap_claim.js'
 import { RefundTxHex1789000000000 } from './1789000000000-refund_tx_hex.js'
 import { TxSwapClaimPublished1790000000000 } from './1790000000000-tx_swap_claim_published.js'
 import { InvoiceSwapFundingLock1791000000000 } from './1791000000000-invoice_swap_funding_lock.js'
+import { OptionalOfferCallback1794220000000 } from './1794220000000-optional_offer_callback.js'
 
 import { LndMetrics1703170330183 } from './1703170330183-lnd_metrics.js'
 import { ChannelRouting1709316653538 } from './1709316653538-channel_routing.js'
@@ -70,7 +71,7 @@ export const allMigrations = [Initial1703170309875, LspOrder1718387847693, Liqui
     ConsumedDebitK1Invoice1787850000002, ConsumedDebitK1Hold1787850000003, ConsumedDebitK1Attempts1787850000004, ConsumedDebitK1InvoiceIdx1787850000005,
     ConsumedDebitK1ReleasedAt1787850000006, ConsumedDebitK1CreatedAtUnix1787850000007, ApplicationUserOwnerOnlyClink1786649280000,
     TxSwapClaim1788000000000, RefundTxHex1789000000000, TxSwapClaimPublished1790000000000,
-    InvoiceSwapFundingLock1791000000000]
+    InvoiceSwapFundingLock1791000000000, OptionalOfferCallback1794220000000]
 
 
 export const allMetricsMigrations = [LndMetrics1703170330183, ChannelRouting1709316653538, HtlcCount1724266887195, BalanceEvents1724860966825,

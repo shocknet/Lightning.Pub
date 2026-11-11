@@ -11,6 +11,14 @@ export const assertValidOfferPriceSats = (priceSats: number): void => {
     assertIntegerSats(priceSats, "price_sats")
 }
 
+export const assertNoReservedOfferPayerData = (payerData?: string[] | null): void => {
+    for (const field of payerData || []) {
+        if (field === "amount" || field === "invoice") {
+            throw new Error(`payer_data field ${field} is reserved`)
+        }
+    }
+}
+
 export const isDefaultUserOffer = (appUserId: string, offerId: string): boolean =>
     appUserId === offerId
 

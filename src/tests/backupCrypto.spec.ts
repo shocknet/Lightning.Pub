@@ -132,7 +132,7 @@ const testNonHexIdsAndFractionalPriceRoundTrip = async (T: StorageTestBase) => {
         management_pubkey: 'aa'.repeat(16),
         label: 'coffee',
         price_sats: 1.5,
-        callback_url: '',
+        callback_url: null,
         bearer_token: '',
         rejectUnauthorized: true,
         blind: false,

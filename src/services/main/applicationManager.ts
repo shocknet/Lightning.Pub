@@ -188,7 +188,7 @@ export default class {
         return invoice
     }
 
-    async AddAppUserInvoice(appId: string, req: Types.AddAppUserInvoiceRequest, clinkRequester?: { pub: string, eventId: string }): Promise<Types.NewInvoiceResponse> {
+    async AddAppUserInvoice(appId: string, req: Omit<Types.AddAppUserInvoiceRequest, "payer_data"> & { payer_data?: { data: InboundOptionals["payerData"] } }, clinkRequester?: { pub: string, eventId: string }): Promise<Types.NewInvoiceResponse> {
         assertCallbackUrlAllowed(req.http_callback_url)
         const app = await this.storage.applicationStorage.GetApplication(appId)
         const log = getLogger({ appName: app.name })

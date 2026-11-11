@@ -365,7 +365,7 @@ export type UserOfferRow = {
     management_pubkey: string
     label: string
     price_sats: number
-    callback_url: string
+    callback_url: string | null
     bearer_token: string
     rejectUnauthorized: boolean
     blind: boolean
@@ -392,7 +392,7 @@ export const encodeUserOfferRow = (row: UserOfferRow): Uint8Array => {
         4: backupIdToBytes(row.management_pubkey),
         5: splitChunk(stringToBytes(row.label), 255),
         6: [priceToBytes(row.price_sats)],
-        7: splitChunk(stringToBytes(row.callback_url), 255),
+        7: splitChunk(stringToBytes(row.callback_url ?? ""), 255),
         8: splitChunk(stringToBytes(row.bearer_token), 255),
         9: [boolToBytes(row.rejectUnauthorized)],
         10: [boolToBytes(row.blind)],
@@ -412,7 +412,7 @@ export const decodeUserOfferRow = (data: Uint8Array): UserOfferRow => {
         management_pubkey: backupIdFromBytes(tlv[4]),
         label: stringFromBytes(joinChunks(tlv[5])),
         price_sats: priceFromBytes(tlv[6][0]),
-        callback_url: stringFromBytes(joinChunks(tlv[7])),
+        callback_url: stringFromBytes(joinChunks(tlv[7])) || null,
         bearer_token: stringFromBytes(joinChunks(tlv[8])),
         rejectUnauthorized: boolFromBytes(tlv[9][0]),
         blind: boolFromBytes(tlv[10][0]),

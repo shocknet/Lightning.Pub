@@ -154,7 +154,7 @@ const generateUserOfferRow = (base: number): UserOfferRow => {
         management_pubkey: randomHex,
         label: `test-user-offer-${base}`,
         price_sats: base === 0 ? 1.5 : 1000,
-        callback_url: ``,
+        callback_url: null,
         bearer_token: "random-bearer-token",
         rejectUnauthorized: true,
         blind: false,

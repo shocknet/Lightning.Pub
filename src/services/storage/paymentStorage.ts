@@ -3,7 +3,7 @@ import { And, Between, Equal, FindOperator, In, IsNull, LessThan, LessThanOrEqua
 import { User } from './entity/User.js';
 import { UserTransactionPayment } from './entity/UserTransactionPayment.js';
 import { EphemeralKeyType, UserEphemeralKey } from './entity/UserEphemeralKey.js';
-import { UserReceivingInvoice, ZapInfo } from './entity/UserReceivingInvoice.js';
+import { UserReceivingInvoice, ZapInfo, InvoicePayerData } from './entity/UserReceivingInvoice.js';
 import { UserReceivingAddress } from './entity/UserReceivingAddress.js';
 import { Product } from './entity/Product.js';
 import UserStorage from './userStorage.js';
@@ -20,7 +20,7 @@ import { InvoiceSwapFundingLock } from './entity/InvoiceSwapFundingLock.js';
 import { InvoiceSwapRow, isInvoiceSwapBackupRow, isTransactionSwapBackupRow, mapInvoiceSwapBackupRow, TransactionSwapRow, mapTransactionSwapBackupRow } from '../backup/segments.js';
 import { swapOwnerIds } from '../lnd/swaps/swapOwnership.js';
 import { getLogger } from '../helpers/logger.js';
-export type InboundOptionals = { product?: Product, callbackUrl?: string, expiry: number, expectedPayer?: User, linkedApplication?: Application, zapInfo?: ZapInfo, offerId?: string, payerData?: Record<string, string>, rejectUnauthorized?: boolean, token?: string, blind?: boolean, clinkRequesterPub?: string, clinkRequesterEventId?: string }
+export type InboundOptionals = { product?: Product, callbackUrl?: string, expiry: number, expectedPayer?: User, linkedApplication?: Application, zapInfo?: ZapInfo, offerId?: string, payerData?: InvoicePayerData, rejectUnauthorized?: boolean, token?: string, blind?: boolean, clinkRequesterPub?: string, clinkRequesterEventId?: string }
 export const defaultInvoiceExpiry = 60 * 60
 export type AppOperationTotals = {
     received: number
