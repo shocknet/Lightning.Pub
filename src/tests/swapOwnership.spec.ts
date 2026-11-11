@@ -123,6 +123,14 @@ const insertExistingAppUser = async (T: StorageTestBase, app: Application, ident
     })
 }
 
+const deleteAppUserByIdentifier = async (T: StorageTestBase, identifier: string) => {
+    const existing = await T.storage.dbs.FindOne<ApplicationUser>('ApplicationUser', { where: { identifier } })
+    if (!existing) {
+        return
+    }
+    await T.storage.dbs.Delete<ApplicationUser>('ApplicationUser', existing.serial_id)
+}
+
 const testExistingSystemAdminCannotUseUserSwapApis = async (T: StorageTestBase) => {
     T.d('starting existing system:admin application user is blocked from user swaps')
     const app = await T.storage.applicationStorage.AddApplication(`exist-${randomBytes(4).toString('hex')}`, true)
@@ -153,11 +161,13 @@ const testExistingSystemAdminCannotUseUserSwapApis = async (T: StorageTestBase) 
     }
     T.expect(payThrew).to.equal(true)
     await T.storage.paymentStorage.DeleteTransactionSwap(saved.swap_operation_id)
+    await deleteAppUserByIdentifier(T, ADMIN_SWAP_OWNER_ID)
     T.d('an existing system:admin user still cannot cross the admin swap boundary')
 }
 
 const testRestorePreservesReservedIdentifiers = async (T: StorageTestBase) => {
     T.d('starting restore preserves historical reserved application-user identifiers')
+    await deleteAppUserByIdentifier(T, ADMIN_SWAP_OWNER_ID)
     const app = await T.storage.applicationStorage.AddApplication(`restore-${randomBytes(4).toString('hex')}`, true)
     const reservedUser = await T.storage.dbs.Tx(tx => T.storage.userStorage.AddUser(0, tx))
     const okUser = await T.storage.dbs.Tx(tx => T.storage.userStorage.AddUser(0, tx))
@@ -197,6 +207,7 @@ const testRestorePreservesReservedIdentifiers = async (T: StorageTestBase) => {
         T.expect(err.message).to.equal('reserved user identifier')
     }
     T.expect(quoteThrew).to.equal(true)
+    await deleteAppUserByIdentifier(T, ADMIN_SWAP_OWNER_ID)
     T.d('restore kept system:admin and a normal application user; swap access stays denied')
 }
 
