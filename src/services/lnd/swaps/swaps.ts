@@ -8,7 +8,7 @@ import Storage from '../../storage/index.js';
 import LND from '../lnd.js';
 import { UserInvoicePayment } from '../../storage/entity/UserInvoicePayment.js';
 import { ReverseSwaps, TransactionSwapData, calculateReverseQuoteAmounts, checkReverseClaimBudget, checkReverseClaimWindow, isReverseClaimExposed, MAX_REVERSE_TIMEOUT_BLOCKS, MIN_CLAIM_SAT_PER_VBYTE } from './reverseSwaps.js';
-import { SubmarineSwaps, calculateSubmarineLockupAmount, verifySubmarineClaimPreimage } from './submarineSwaps.js';
+import { SubmarineSwaps, calculateSubmarineLockupAmount, checkSubmarineRecoveryWindow, verifySubmarineClaimPreimage } from './submarineSwaps.js';
 import { assertSwapActor, SwapActorSource } from './swapOwnership.js';
 import { InvoiceSwap } from '../../storage/entity/InvoiceSwap.js';
 import { TransactionSwap } from '../../storage/entity/TransactionSwap.js';
@@ -332,13 +332,27 @@ export class Swaps {
             const expectedLockupAmount = swap.invoice_amount + swap.swap_fee_sats
             const data = this.getInvoiceSwapData(swap)
             const verifyQuote = async () => {
+                const latest = await this.storage.paymentStorage.GetInvoiceSwap(swapOpId, appUserId)
+                if (!latest) {
+                    throw new Error("swap not found")
+                }
                 const currentHeight = await this.trustedChainTip()
+                if (latest.tx_id) {
+                    if (!latest.lockup_tx_hex) {
+                        throw new Error("swap already funded; republish requires persisted lockup hex")
+                    }
+                    const recovered = checkSubmarineRecoveryWindow(latest.timeout_block_height, currentHeight)
+                    if (!recovered.ok) {
+                        throw new Error(`swap lockup recovery refused: ${recovered.error}`)
+                    }
+                    return
+                }
                 const verified = await swapper.VerifySubmarineQuote({
-                    paymentHashHex: swap.payment_hash,
-                    refundPrivateKeyHex: swap.ephemeral_private_key,
+                    paymentHashHex: latest.payment_hash,
+                    refundPrivateKeyHex: latest.ephemeral_private_key,
                     expectedLockupAmount,
                     currentHeight,
-                    created: data.createdResponse,
+                    created: this.getInvoiceSwapData(latest).createdResponse,
                 })
                 if (!verified.ok) {
                     throw new Error(`swap quote failed verification before pay: ${verified.error}`)

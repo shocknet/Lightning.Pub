@@ -2,6 +2,7 @@ import {
     MAX_SUBMARINE_TIMEOUT_BLOCKS,
     MIN_SUBMARINE_TIMEOUT_BLOCKS,
     SUBMARINE_LOCKTIME_THRESHOLD,
+    checkSubmarineRecoveryWindow,
     checkSubmarineTimeout,
 } from "../services/lnd/swaps/submarineSwaps.js"
 import { StorageTestBase } from "./testBase.js"
@@ -53,4 +54,32 @@ export default async (T: StorageTestBase) => {
     reject(TIP + 1_008, SUBMARINE_LOCKTIME_THRESHOLD, "untrusted chain tip")
 
     T.d("submarine timeout window rejects fractions, expired quotes, and far-future heights")
+
+    T.d("starting submarine recovery window checks")
+    const recoverAccept = (timeout: number, tip = TIP) => {
+        const result = checkSubmarineRecoveryWindow(timeout, tip)
+        T.expect(result.ok, !result.ok ? result.error : "").to.equal(true)
+    }
+    const recoverReject = (timeout: number, tip: number, error: string) => {
+        const result = checkSubmarineRecoveryWindow(timeout, tip)
+        T.expect(result.ok).to.equal(false)
+        if (!result.ok) {
+            T.expect(result.error).to.equal(error)
+        }
+    }
+
+    recoverAccept(TIP + MIN_SUBMARINE_TIMEOUT_BLOCKS)
+    recoverAccept(TIP + MIN_SUBMARINE_TIMEOUT_BLOCKS, TIP + 1)
+    recoverAccept(TIP + 1)
+    recoverAccept(TIP)
+    recoverAccept(TIP - 1)
+    recoverAccept(TIP + MAX_SUBMARINE_TIMEOUT_BLOCKS + 1)
+
+    recoverReject(0.5, TIP, "invalid timeoutBlockHeight from swap service")
+    recoverReject(0, TIP, "invalid timeoutBlockHeight from swap service")
+    recoverReject(SUBMARINE_LOCKTIME_THRESHOLD, TIP, "invalid timeoutBlockHeight from swap service")
+    recoverReject(TIP + 1_008, 0, "untrusted chain tip")
+    recoverReject(TIP + 1_008, SUBMARINE_LOCKTIME_THRESHOLD, "untrusted chain tip")
+
+    T.d("submarine recovery window skips the new-funding floor and still requires a trusted tip")
 }

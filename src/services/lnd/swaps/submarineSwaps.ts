@@ -100,6 +100,25 @@ export const checkSubmarineTimeout = (
     return { ok: true }
 }
 
+/**
+ * Persisted-lockup rebroadcast against a trusted tip. Unlike checkSubmarineTimeout,
+ * this does not require the original 144-block start window: a block may have been
+ * mined between persist and retry. Expiry does not block rebroadcast either; an
+ * unpublished lockup must still land so a timeout refund can spend it.
+ */
+export const checkSubmarineRecoveryWindow = (
+    timeoutBlockHeight: number,
+    currentHeight: number,
+): { ok: true } | { ok: false, error: string } => {
+    if (!Number.isSafeInteger(currentHeight) || currentHeight <= 0 || currentHeight >= SUBMARINE_LOCKTIME_THRESHOLD) {
+        return { ok: false, error: 'untrusted chain tip' }
+    }
+    if (!Number.isSafeInteger(timeoutBlockHeight) || timeoutBlockHeight <= 0 || timeoutBlockHeight >= SUBMARINE_LOCKTIME_THRESHOLD) {
+        return { ok: false, error: 'invalid timeoutBlockHeight from swap service' }
+    }
+    return { ok: true }
+}
+
 /** Boltz submarine: amountToSend = invoice + ceil(invoice * pct) + claim miner fee */
 export const calculateSubmarineLockupAmount = (invoiceAmountSats: number, fees: InvoiceSwapFees): number => {
     const percentageFee = Math.ceil((fees.percentage / 100) * invoiceAmountSats)

@@ -1,7 +1,7 @@
 import { Transaction } from 'bitcoinjs-lib'
 import { randomBytes } from 'crypto'
 import { Swaps } from '../services/lnd/swaps/swaps.js'
-import { SubmarineSwaps } from '../services/lnd/swaps/submarineSwaps.js'
+import { checkSubmarineTimeout, MIN_SUBMARINE_TIMEOUT_BLOCKS, SubmarineSwaps } from '../services/lnd/swaps/submarineSwaps.js'
 import { StorageTestBase } from './testBase.js'
 
 export const ignore = false
@@ -19,6 +19,8 @@ export default async (T: StorageTestBase) => {
     await testFundingPersistIsIdempotentForSameTx(T)
     await testConcurrentPayIsRejectedWhileInFlight(T)
     await testRetryAfterPersistErrorRepublishesStoredLockup(T)
+    await testRetryAfterPersistDoesNotRequireNewFundingWindow(T)
+    await testNewFundingStillRequiresTimeoutWindow(T)
     await testDelayedSecondPayDoesNotReplaceStoredFunding(T)
     await testVerifyFailureReleasesGuard(T)
     await testSiblingPersistIsRejectedAfterFirstFunding(T)
@@ -198,6 +200,111 @@ const testRetryAfterPersistErrorRepublishesStoredLockup = async (T: StorageTestB
     T.expect(row?.lockup_tx_hex).to.equal(LOCKUP_A)
     await T.storage.paymentStorage.DeleteInvoiceSwap(saved.swap_operation_id)
     T.d('a later pay republished A and did not construct B')
+}
+
+const admissionVerify = () => async (params: {
+    created: { timeoutBlockHeight: number }
+    currentHeight: number
+}) => {
+    const timeout = checkSubmarineTimeout(params.created.timeoutBlockHeight, params.currentHeight)
+    if (!timeout.ok) {
+        return timeout
+    }
+    return { ok: true as const }
+}
+
+const testRetryAfterPersistDoesNotRequireNewFundingWindow = async (T: StorageTestBase) => {
+    T.d('starting invoice swap pay retries a persisted lockup after the new-funding window elapses')
+    const tipHeight = 920_000
+    const userId = `sub-retry-win-${randomBytes(8).toString('hex')}`
+    const saved = await T.storage.paymentStorage.AddInvoiceSwap(invoiceSwap(userId, {
+        timeout_block_height: tipHeight + MIN_SUBMARINE_TIMEOUT_BLOCKS,
+    }))
+    await deleteOtherUnfinished(T, saved.swap_operation_id)
+    const { swaps, swapper, broadcasts } = makeSwaps(T)
+    const tip = { height: tipHeight }
+    const broadcastsFromRetry: string[] = []
+    swaps.SetLnd({
+        GetInfo: async () => ({ syncedToChain: true, blockHeight: tip.height }),
+        BroadcastTransaction: async (txHex: string) => {
+            broadcastsFromRetry.push(txHex)
+            broadcasts.push(txHex)
+            return { txId: Transaction.fromHex(txHex).getId() }
+        },
+    } as any)
+    let verifyCalls = 0
+    const admit = admissionVerify()
+    swapper.VerifySubmarineQuote = async (params) => {
+        verifyCalls++
+        return admit(params)
+    }
+    let payCalls = 0
+    let firstError = ''
+    try {
+        await swaps.PayInvoiceSwap(userId, saved.swap_operation_id, undefined, async () => {
+            payCalls++
+            const persisted = await T.storage.paymentStorage.SetInvoiceSwapTxId(saved.swap_operation_id, TX_A, 200, LOCKUP_A)
+            T.expect(persisted).to.equal(1)
+            throw new Error('backup dest down')
+        })
+    } catch (err: any) {
+        firstError = err.message || String(err)
+    }
+    T.expect(firstError).to.equal('backup dest down')
+    T.expect(payCalls).to.equal(1)
+    T.expect(verifyCalls).to.equal(2)
+    T.expect(broadcastsFromRetry).to.deep.equal([])
+
+    tip.height = tipHeight + 1
+    const stillAdmits = checkSubmarineTimeout(tipHeight + MIN_SUBMARINE_TIMEOUT_BLOCKS, tip.height)
+    T.expect(stillAdmits.ok).to.equal(false)
+
+    const retried = await swaps.PayInvoiceSwap(userId, saved.swap_operation_id, undefined, async () => {
+        payCalls++
+        await T.storage.paymentStorage.SetInvoiceSwapTxId(saved.swap_operation_id, TX_B, 250, LOCKUP_B)
+        return { txId: TX_B }
+    })
+    T.expect(retried).to.equal(TX_A)
+    T.expect(payCalls).to.equal(1)
+    T.expect(verifyCalls).to.equal(2)
+    T.expect(broadcastsFromRetry).to.deep.equal([LOCKUP_A])
+    const row = await T.storage.paymentStorage.GetInvoiceSwap(saved.swap_operation_id, userId)
+    T.expect(row?.tx_id).to.equal(TX_A)
+    T.expect(row?.lockup_tx_hex).to.equal(LOCKUP_A)
+    await T.storage.paymentStorage.DeleteInvoiceSwap(saved.swap_operation_id)
+    T.d('retry republished the persisted lockup after only 143 blocks remained')
+}
+
+const testNewFundingStillRequiresTimeoutWindow = async (T: StorageTestBase) => {
+    T.d('starting a new invoice swap pay still requires the 144-block funding window')
+    const tipHeight = 920_000
+    const userId = `sub-admit-win-${randomBytes(8).toString('hex')}`
+    const saved = await T.storage.paymentStorage.AddInvoiceSwap(invoiceSwap(userId, {
+        timeout_block_height: tipHeight + MIN_SUBMARINE_TIMEOUT_BLOCKS,
+    }))
+    await deleteOtherUnfinished(T, saved.swap_operation_id)
+    const { swaps, swapper } = makeSwaps(T)
+    swaps.SetLnd({
+        GetInfo: async () => ({ syncedToChain: true, blockHeight: tipHeight + 1 }),
+        BroadcastTransaction: async (txHex: string) => ({ txId: Transaction.fromHex(txHex).getId() }),
+    } as any)
+    swapper.VerifySubmarineQuote = admissionVerify()
+    let payCalls = 0
+    let payError = ''
+    try {
+        await swaps.PayInvoiceSwap(userId, saved.swap_operation_id, undefined, async () => {
+            payCalls++
+            return { txId: TX_A }
+        })
+    } catch (err: any) {
+        payError = err.message || String(err)
+    }
+    T.expect(payError).to.equal(
+        `swap quote failed verification before pay: timeoutBlockHeight ${tipHeight + MIN_SUBMARINE_TIMEOUT_BLOCKS} is sooner than ${MIN_SUBMARINE_TIMEOUT_BLOCKS} blocks from tip ${tipHeight + 1}`,
+    )
+    T.expect(payCalls).to.equal(0)
+    await T.storage.paymentStorage.DeleteInvoiceSwap(saved.swap_operation_id)
+    T.d('an unfunded quote still cannot pay inside the last 143 blocks')
 }
 
 const testDelayedSecondPayDoesNotReplaceStoredFunding = async (T: StorageTestBase) => {
