@@ -160,7 +160,18 @@ export default class {
         if (existing) {
             return existing
         }
-        return this.AddRootOperation(opType, id, amount, pending, dbTxId)
+        try {
+            return await this.AddRootOperation(opType, id, amount, pending, dbTxId)
+        } catch (e) {
+            if (!isSqliteUniqueConstraintError(e)) {
+                throw e
+            }
+            const again = await this.GetRootOperation(opType, id, dbTxId)
+            if (!again) {
+                throw e
+            }
+            return again
+        }
     }
 
     async GetRootOperation(opType: RootOperationType, id: string, txId?: string) {
@@ -245,4 +256,13 @@ const getTimeQuery = ({ from, to }: { from?: number, to?: number }): FindManyOpt
 const getTodayUnix = () => {
     const now = new Date()
     return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() / 1000
+}
+
+const isSqliteUniqueConstraintError = (e: unknown) => {
+    const err = e as { code?: string, message?: string, driverError?: { code?: string, message?: string } }
+    const code = err.code || err.driverError?.code || ""
+    const message = err.message || err.driverError?.message || ""
+    return code.includes("SQLITE_CONSTRAINT")
+        || /UNIQUE constraint failed/i.test(message)
+        || /SQLITE_CONSTRAINT_UNIQUE/i.test(message)
 }

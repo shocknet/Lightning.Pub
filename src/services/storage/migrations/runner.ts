@@ -56,6 +56,7 @@ import { RootOpsTime1745428134124 } from './1745428134124-root_ops_time.js'
 import { ChannelEvents1750777346411 } from './1750777346411-channel_events.js'
 
 import { RootOpPending1771524665409 } from './1771524665409-root_op_pending.js'
+import { RootOpUnique1795000000000 } from './1795000000000-root_op_unique.js'
 
 
 
@@ -75,7 +76,8 @@ export const allMigrations = [Initial1703170309875, LspOrder1718387847693, Liqui
 
 
 export const allMetricsMigrations = [LndMetrics1703170330183, ChannelRouting1709316653538, HtlcCount1724266887195, BalanceEvents1724860966825,
-    RootOps1732566440447, RootOpsTime1745428134124, ChannelEvents1750777346411, RootOpPending1771524665409]
+    RootOps1732566440447, RootOpsTime1745428134124, ChannelEvents1750777346411, RootOpPending1771524665409,
+    RootOpUnique1795000000000]
 /* export const TypeOrmMigrationRunner = async (log: PubLogger, storageManager: Storage, settings: DbSettings, arg: string | undefined): Promise<boolean> => {
     await connectAndMigrate(log, storageManager, allMigrations, allMetricsMigrations)
     return false

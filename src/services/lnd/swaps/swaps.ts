@@ -221,6 +221,17 @@ export class Swaps {
         })
     }
 
+    /** Rebroadcast the stored funding tx only. Hex must match the persisted id and amount. */
+    private republishPersistedInvoiceSwapLockup = async (swap: InvoiceSwap) => {
+        await this.ensureVerifiedInvoiceSwapLockup(swap)
+        await this.protectSwapBackup('invoice_swaps')
+        const published = await this.lnd.BroadcastTransaction(swap.lockup_tx_hex)
+        if (published.txId !== swap.tx_id) {
+            throw new Error("republished lockup tx id mismatch")
+        }
+        return published
+    }
+
     private readPersistedRefund = (swap: InvoiceSwap): { view: RefundSpendView, destination: string } | null => {
         if (!swap.refund_tx_hex || !swap.lockup_tx_hex) {
             return null
@@ -373,6 +384,7 @@ export class Swaps {
                     if (!latest.lockup_tx_hex) {
                         throw new Error("swap already funded; republish requires persisted lockup hex")
                     }
+                    await this.ensureVerifiedInvoiceSwapLockup(latest)
                     const recovered = checkSubmarineRecoveryWindow(latest.timeout_block_height, currentHeight)
                     if (!recovered.ok) {
                         throw new Error(`swap lockup recovery refused: ${recovered.error}`)
@@ -400,11 +412,7 @@ export class Swaps {
                     if (!latest.lockup_tx_hex) {
                         throw new Error("swap already funded; republish requires persisted lockup hex")
                     }
-                    await this.protectSwapBackup('invoice_swaps')
-                    const published = await this.lnd.BroadcastTransaction(latest.lockup_tx_hex)
-                    if (published.txId !== latest.tx_id) {
-                        throw new Error("republished lockup tx id mismatch")
-                    }
+                    const published = await this.republishPersistedInvoiceSwapLockup(latest)
                     await this.recordAdminLockupRootOp(latest, published.txId)
                     return { txId: published.txId }
                 }
@@ -516,10 +524,9 @@ export class Swaps {
                 return
             }
             try {
-                await this.protectSwapBackup('invoice_swaps')
-                const published = await this.lnd.BroadcastTransaction(swap.lockup_tx_hex)
+                const published = await this.republishPersistedInvoiceSwapLockup(swap)
                 try {
-                    await this.recordAdminLockupRootOp(swap, published.txId || swap.tx_id)
+                    await this.recordAdminLockupRootOp(swap, published.txId)
                 } catch (err: any) {
                     this.log("failed to record resumed admin lockup root op", {
                         swapOpId: swap.swap_operation_id,

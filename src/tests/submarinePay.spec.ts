@@ -1,8 +1,9 @@
-import { Transaction } from 'bitcoinjs-lib'
+import { Transaction, address } from 'bitcoinjs-lib'
 import { randomBytes } from 'crypto'
 import { Swaps } from '../services/lnd/swaps/swaps.js'
 import { ADMIN_SWAP_ACTOR, ADMIN_SWAP_OWNER_ID } from '../services/lnd/swaps/swapOwnership.js'
 import { checkSubmarineTimeout, MIN_SUBMARINE_TIMEOUT_BLOCKS, SubmarineSwaps } from '../services/lnd/swaps/submarineSwaps.js'
+import { getNetwork } from '../services/lnd/swaps/swapHelpers.js'
 import { StorageTestBase } from './testBase.js'
 
 export const ignore = false
@@ -10,6 +11,8 @@ export const dev = false
 export const requires = 'storage' as const
 
 const MOCK_URL = 'http://mock-boltz'
+const DEST = 'bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080'
+const LOCKUP_SATS = 101_000
 const LOCKUP_A = dummyTxHex('aa')
 const LOCKUP_B = dummyTxHex('bb')
 const TX_A = Transaction.fromHex(LOCKUP_A).getId()
@@ -30,17 +33,23 @@ export default async (T: StorageTestBase) => {
     await testSiblingPayAllowedAfterVerifyFailureReleasesReservation(T)
     await testPendingListHidesUnfundedSibling(T)
     await testEnsureRootOperationIsIdempotent(T)
+    await testEnsureRootOperationSurvivesInsertRace(T)
+    await testAddRootOperationRejectsDuplicate(T)
     await testUserPayDoesNotRecordRootOp(T)
     await testAdminFreshPayRecordsRootOp(T)
     await testAdminRetryAfterPersistRecordsRootOpOnce(T)
     await testAdminResumeRecordsRootOpOnce(T)
+    await testRetryRejectsMismatchedPersistedLockup(T)
+    await testResumeDoesNotBroadcastMismatchedPersistedLockup(T)
 }
 
-function dummyTxHex(tag: string) {
+function dummyTxHex(tag: string, amount = LOCKUP_SATS) {
     const tx = new Transaction()
     tx.version = 2
-    tx.addInput(Buffer.alloc(32), 0)
-    tx.addOutput(Buffer.from('6a' + tag.padEnd(2, '0'), 'hex'), 0)
+    const prev = Buffer.alloc(32)
+    Buffer.from(tag, 'hex').copy(prev)
+    tx.addInput(prev, 0)
+    tx.addOutput(address.toOutputScript(DEST, getNetwork('regtest')), amount)
     return tx.toHex()
 }
 
@@ -53,12 +62,12 @@ const invoiceSwap = (userId: string, extra: Record<string, unknown> = {}) => ({
     timeout_block_height: 920_000 + 144,
     invoice: 'lnbcrt-test',
     invoice_amount: 100_000,
-    transaction_amount: 101_000,
+    transaction_amount: LOCKUP_SATS,
     swap_fee_sats: 1_000,
     chain_fee_sats: 200,
     sat_per_v_byte: 2,
     ephemeral_public_key: 'cc'.repeat(33),
-    address: 'bcrt1qlockup',
+    address: DEST,
     ephemeral_private_key: 'dd'.repeat(32),
     service_url: MOCK_URL,
     ...extra,
@@ -579,6 +588,33 @@ const testEnsureRootOperationIsIdempotent = async (T: StorageTestBase) => {
     T.d('a second ensure kept the original pending chain payment')
 }
 
+const testEnsureRootOperationSurvivesInsertRace = async (T: StorageTestBase) => {
+    T.d('starting concurrent EnsureRootOperation inserts at most one chain payment')
+    const txId = randomBytes(32).toString('hex')
+    const [first, second] = await Promise.all([
+        T.storage.metricsStorage.EnsureRootOperation('chain_payment', txId, 12_345, true),
+        T.storage.metricsStorage.EnsureRootOperation('chain_payment', txId, 99_999, true),
+    ])
+    T.expect(first.serial_id).to.equal(second.serial_id)
+    await expectOnePendingChainPayment(T, txId, first.operation_amount)
+    T.d('a unique constraint collision kept a single pending chain payment')
+}
+
+const testAddRootOperationRejectsDuplicate = async (T: StorageTestBase) => {
+    T.d('starting AddRootOperation refuses a second row for the same chain payment')
+    const txId = randomBytes(32).toString('hex')
+    await T.storage.metricsStorage.AddRootOperation('chain_payment', txId, 12_345, true)
+    let threw = false
+    try {
+        await T.storage.metricsStorage.AddRootOperation('chain_payment', txId, 99_999, true)
+    } catch {
+        threw = true
+    }
+    T.expect(threw).to.equal(true)
+    await expectOnePendingChainPayment(T, txId, 12_345)
+    T.d('the unique index rejected a duplicate chain payment insert')
+}
+
 const testUserPayDoesNotRecordRootOp = async (T: StorageTestBase) => {
     T.d('starting a user invoice swap pay does not record a chain_payment root op')
     const userId = `sub-user-root-${randomBytes(8).toString('hex')}`
@@ -687,4 +723,48 @@ const testAdminResumeRecordsRootOpOnce = async (T: StorageTestBase) => {
     await expectOnePendingChainPayment(T, txId, saved.transaction_amount + 200)
     await T.storage.paymentStorage.DeleteInvoiceSwap(saved.swap_operation_id)
     T.d('resume republished the admin lockup and did not duplicate the root op')
+}
+
+const testRetryRejectsMismatchedPersistedLockup = async (T: StorageTestBase) => {
+    T.d('starting invoice swap pay refuses to republish a lockup that does not match funding')
+    const userId = `sub-mismatch-${randomBytes(8).toString('hex')}`
+    const saved = await T.storage.paymentStorage.AddInvoiceSwap(invoiceSwap(userId))
+    await deleteOtherUnfinished(T, saved.swap_operation_id)
+    T.expect(await T.storage.paymentStorage.SetInvoiceSwapTxId(saved.swap_operation_id, TX_A, 200, LOCKUP_A)).to.equal(1)
+    await T.storage.paymentStorage.UpdateInvoiceSwap(saved.swap_operation_id, { lockup_tx_hex: LOCKUP_B })
+    const { swaps, broadcasts } = makeSwaps(T)
+    let threw = false
+    try {
+        await swaps.PayInvoiceSwap(userId, saved.swap_operation_id, undefined, async () => ({ txId: TX_B }))
+    } catch (err: any) {
+        threw = true
+        T.expect(err.message).to.equal('lockup transaction does not match stored funding id')
+    }
+    T.expect(threw).to.equal(true)
+    T.expect(broadcasts).to.deep.equal([])
+    await T.storage.paymentStorage.DeleteInvoiceSwap(saved.swap_operation_id)
+    T.d('a substituted lockup hex was not broadcast on retry')
+}
+
+const testResumeDoesNotBroadcastMismatchedPersistedLockup = async (T: StorageTestBase) => {
+    T.d('starting resume refuses to republish a lockup that does not match funding')
+    const saved = await T.storage.paymentStorage.AddInvoiceSwap(invoiceSwap(ADMIN_SWAP_OWNER_ID, {
+        payment_hash: randomBytes(32).toString('hex'),
+    }))
+    T.expect(await T.storage.paymentStorage.SetInvoiceSwapTxId(saved.swap_operation_id, TX_A, 200, LOCKUP_A)).to.equal(1)
+    await T.storage.paymentStorage.UpdateInvoiceSwap(saved.swap_operation_id, { lockup_tx_hex: LOCKUP_B })
+    await deleteOtherUnfinished(T, saved.swap_operation_id)
+    const { swaps, swapper, broadcasts } = makeSwaps(T)
+    let waitingTxDone: Promise<void> = Promise.resolve()
+    swapper.SubscribeToInvoiceSwap = (_data, _done, waitingTx) => {
+        waitingTxDone = Promise.resolve().then(() => waitingTx())
+        return () => { }
+    }
+    await swaps.ResumeInvoiceSwaps()
+    await waitingTxDone
+    T.expect(broadcasts).to.deep.equal([])
+    T.expect(!!await T.storage.metricsStorage.GetRootOperation('chain_payment', TX_A)).to.equal(false)
+    T.expect(!!await T.storage.metricsStorage.GetRootOperation('chain_payment', TX_B)).to.equal(false)
+    await T.storage.paymentStorage.DeleteInvoiceSwap(saved.swap_operation_id)
+    T.d('resume logged the mismatch and did not broadcast the substituted hex')
 }

@@ -1,7 +1,8 @@
 import { createHash, randomBytes } from 'crypto'
-import { initEccLib } from 'bitcoinjs-lib'
+import { initEccLib, Transaction, address } from 'bitcoinjs-lib'
 import { ECPairFactory } from 'ecpair'
 import * as ecc from 'tiny-secp256k1'
+import { getNetwork } from '../services/lnd/swaps/swapHelpers.js'
 import {
     SubmarineSwaps,
     verifySubmarineClaimPreimage,
@@ -16,6 +17,19 @@ export const dev = false
 export const requires = 'storage' as const
 
 initEccLib(ecc)
+
+const DEST = 'bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080'
+const LOCKUP_SATS = 101_000
+
+const matchingLockup = (tag: string) => {
+    const tx = new Transaction()
+    tx.version = 2
+    const prev = Buffer.alloc(32)
+    Buffer.from(tag, 'utf8').copy(prev)
+    tx.addInput(prev, 0)
+    tx.addOutput(address.toOutputScript(DEST, getNetwork('regtest')), LOCKUP_SATS)
+    return tx
+}
 
 export default async (T: StorageTestBase) => {
     testVerifyClaimPreimage(T)
@@ -244,7 +258,7 @@ const testResumeInvoiceSwapWithoutLockupHex = async (T: StorageTestBase) => {
 
 const testResumeInvoiceSwapBroadcastRejectionDoesNotThrow = async (T: StorageTestBase) => {
     T.d('starting resume of a funded invoice swap survives a rejected lockup rebroadcast')
-    const saved = await insertFundedSwap(T, { lockup_tx_hex: '020000000001aabb' })
+    const saved = await insertFundedSwap(T)
     const leftover = await T.storage.paymentStorage.ListUnfinishedInvoiceSwaps()
     for (const swap of leftover) {
         if (swap.swap_operation_id !== saved.swap_operation_id) {
@@ -303,7 +317,7 @@ const testResumeInvoiceSwapBroadcastRejectionDoesNotThrow = async (T: StorageTes
 
 const testResumeInvoiceSwapFlushFailureDoesNotBroadcast = async (T: StorageTestBase) => {
     T.d('starting resume of a funded invoice swap does not broadcast if the backup flush fails')
-    const saved = await insertFundedSwap(T, { lockup_tx_hex: '020000000001aabb' })
+    const saved = await insertFundedSwap(T)
     const leftover = await T.storage.paymentStorage.ListUnfinishedInvoiceSwaps()
     for (const swap of leftover) {
         if (swap.swap_operation_id !== saved.swap_operation_id) {
@@ -492,6 +506,7 @@ const insertFundedSwap = async (T: StorageTestBase, override: Partial<InvoiceSwa
     if (!keys.privateKey) {
         throw new Error('failed to generate keys')
     }
+    const lockup = matchingLockup(randomBytes(8).toString('hex'))
     return T.storage.paymentStorage.AddInvoiceSwap({
         app_user_id: 'admin',
         swap_quote_id: `quote-${randomBytes(8).toString('hex')}`,
@@ -501,15 +516,15 @@ const insertFundedSwap = async (T: StorageTestBase, override: Partial<InvoiceSwa
         timeout_block_height: 920_000 + 144,
         invoice: 'lnbcrt-test',
         invoice_amount: 100_000,
-        transaction_amount: 101_000,
+        transaction_amount: LOCKUP_SATS,
         swap_fee_sats: 1_000,
         chain_fee_sats: 200,
         ephemeral_public_key: Buffer.from(keys.publicKey).toString('hex'),
         ephemeral_private_key: Buffer.from(keys.privateKey).toString('hex'),
-        address: 'bcrt1qlockup',
+        address: DEST,
         service_url: 'http://mock-boltz',
-        tx_id: randomBytes(32).toString('hex'),
-        lockup_tx_hex: '00',
+        tx_id: lockup.getId(),
+        lockup_tx_hex: lockup.toHex(),
         ...override,
     })
 }
