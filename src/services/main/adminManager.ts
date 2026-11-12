@@ -632,7 +632,7 @@ export class AdminManager {
             const published = await this.lnd.BroadcastTransaction(crafted.txHex)
             this.log("published admin swap lockup", { swapOpId: req.swap_operation_id, txId: published.txId })
 
-            await this.storage.metricsStorage.AddRootOperation("chain_payment", published.txId, amt + crafted.feeSats, true)
+            await this.storage.metricsStorage.EnsureRootOperation("chain_payment", published.txId, amt + crafted.feeSats, true)
             return { txId: published.txId }
         }, ADMIN_SWAP_ACTOR)
         return { tx_id: resolvedTxId }

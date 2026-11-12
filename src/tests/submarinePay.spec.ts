@@ -1,6 +1,7 @@
 import { Transaction } from 'bitcoinjs-lib'
 import { randomBytes } from 'crypto'
 import { Swaps } from '../services/lnd/swaps/swaps.js'
+import { ADMIN_SWAP_ACTOR, ADMIN_SWAP_OWNER_ID } from '../services/lnd/swaps/swapOwnership.js'
 import { checkSubmarineTimeout, MIN_SUBMARINE_TIMEOUT_BLOCKS, SubmarineSwaps } from '../services/lnd/swaps/submarineSwaps.js'
 import { StorageTestBase } from './testBase.js'
 
@@ -28,6 +29,11 @@ export default async (T: StorageTestBase) => {
     await testConcurrentSiblingPayIsRejectedWhileFirstInFlight(T)
     await testSiblingPayAllowedAfterVerifyFailureReleasesReservation(T)
     await testPendingListHidesUnfundedSibling(T)
+    await testEnsureRootOperationIsIdempotent(T)
+    await testUserPayDoesNotRecordRootOp(T)
+    await testAdminFreshPayRecordsRootOp(T)
+    await testAdminRetryAfterPersistRecordsRootOpOnce(T)
+    await testAdminResumeRecordsRootOpOnce(T)
 }
 
 function dummyTxHex(tag: string) {
@@ -198,6 +204,7 @@ const testRetryAfterPersistErrorRepublishesStoredLockup = async (T: StorageTestB
     const row = await T.storage.paymentStorage.GetInvoiceSwap(saved.swap_operation_id, userId)
     T.expect(row?.tx_id).to.equal(TX_A)
     T.expect(row?.lockup_tx_hex).to.equal(LOCKUP_A)
+    T.expect(!!await T.storage.metricsStorage.GetRootOperation('chain_payment', TX_A)).to.equal(false)
     await T.storage.paymentStorage.DeleteInvoiceSwap(saved.swap_operation_id)
     T.d('a later pay republished A and did not construct B')
 }
@@ -552,4 +559,132 @@ const testPendingListHidesUnfundedSibling = async (T: StorageTestBase) => {
     await T.storage.paymentStorage.DeleteInvoiceSwap(primary.swap_operation_id)
     await T.storage.paymentStorage.DeleteInvoiceSwap(alternate.swap_operation_id)
     T.d('the unfunded sibling is not listed as a payable quote')
+}
+
+const expectOnePendingChainPayment = async (T: StorageTestBase, txId: string, amount: number) => {
+    const ops = await T.storage.metricsStorage.GetRootOperationsByIdentifiers('chain_payment', [txId])
+    T.expect(ops.length).to.equal(1)
+    T.expect(ops[0].operation_amount).to.equal(amount)
+    T.expect(ops[0].pending).to.equal(true)
+}
+
+const testEnsureRootOperationIsIdempotent = async (T: StorageTestBase) => {
+    T.d('starting EnsureRootOperation does not duplicate a chain payment')
+    const txId = randomBytes(32).toString('hex')
+    const first = await T.storage.metricsStorage.EnsureRootOperation('chain_payment', txId, 12_345, true)
+    const again = await T.storage.metricsStorage.EnsureRootOperation('chain_payment', txId, 99_999, true)
+    T.expect(again.serial_id).to.equal(first.serial_id)
+    T.expect(again.operation_amount).to.equal(12_345)
+    await expectOnePendingChainPayment(T, txId, 12_345)
+    T.d('a second ensure kept the original pending chain payment')
+}
+
+const testUserPayDoesNotRecordRootOp = async (T: StorageTestBase) => {
+    T.d('starting a user invoice swap pay does not record a chain_payment root op')
+    const userId = `sub-user-root-${randomBytes(8).toString('hex')}`
+    const lockup = dummyTxHex('11')
+    const txId = Transaction.fromHex(lockup).getId()
+    const saved = await T.storage.paymentStorage.AddInvoiceSwap(invoiceSwap(userId, {
+        payment_hash: randomBytes(32).toString('hex'),
+    }))
+    await deleteOtherUnfinished(T, saved.swap_operation_id)
+    const { swaps } = makeSwaps(T)
+    const paid = await swaps.PayInvoiceSwap(userId, saved.swap_operation_id, undefined, async () => {
+        const persisted = await T.storage.paymentStorage.SetInvoiceSwapTxId(saved.swap_operation_id, txId, 200, lockup)
+        T.expect(persisted).to.equal(1)
+        return { txId }
+    })
+    T.expect(paid).to.equal(txId)
+    T.expect(!!await T.storage.metricsStorage.GetRootOperation('chain_payment', txId)).to.equal(false)
+    await T.storage.paymentStorage.DeleteInvoiceSwap(saved.swap_operation_id)
+    T.d('user lockup publication left watchdog root ops untouched')
+}
+
+const testAdminFreshPayRecordsRootOp = async (T: StorageTestBase) => {
+    T.d('starting an admin invoice swap pay records a pending chain_payment root op')
+    const lockup = dummyTxHex('22')
+    const txId = Transaction.fromHex(lockup).getId()
+    const saved = await T.storage.paymentStorage.AddInvoiceSwap(invoiceSwap(ADMIN_SWAP_OWNER_ID, {
+        payment_hash: randomBytes(32).toString('hex'),
+    }))
+    await deleteOtherUnfinished(T, saved.swap_operation_id)
+    const { swaps } = makeSwaps(T)
+    const paid = await swaps.PayInvoiceSwap(ADMIN_SWAP_OWNER_ID, saved.swap_operation_id, undefined, async () => {
+        const persisted = await T.storage.paymentStorage.SetInvoiceSwapTxId(saved.swap_operation_id, txId, 250, lockup)
+        T.expect(persisted).to.equal(1)
+        return { txId }
+    }, ADMIN_SWAP_ACTOR)
+    T.expect(paid).to.equal(txId)
+    await expectOnePendingChainPayment(T, txId, saved.transaction_amount + 250)
+    await T.storage.paymentStorage.DeleteInvoiceSwap(saved.swap_operation_id)
+    T.d('fresh admin publication wrote one pending chain_payment')
+}
+
+const testAdminRetryAfterPersistRecordsRootOpOnce = async (T: StorageTestBase) => {
+    T.d('starting an admin invoice swap retry records the root op after republish')
+    const lockupA = dummyTxHex('33')
+    const lockupB = dummyTxHex('44')
+    const txA = Transaction.fromHex(lockupA).getId()
+    const txB = Transaction.fromHex(lockupB).getId()
+    const saved = await T.storage.paymentStorage.AddInvoiceSwap(invoiceSwap(ADMIN_SWAP_OWNER_ID, {
+        payment_hash: randomBytes(32).toString('hex'),
+    }))
+    await deleteOtherUnfinished(T, saved.swap_operation_id)
+    const { swaps, broadcasts } = makeSwaps(T)
+    let payCalls = 0
+    let firstError = ''
+    try {
+        await swaps.PayInvoiceSwap(ADMIN_SWAP_OWNER_ID, saved.swap_operation_id, undefined, async () => {
+            payCalls++
+            const persisted = await T.storage.paymentStorage.SetInvoiceSwapTxId(saved.swap_operation_id, txA, 200, lockupA)
+            T.expect(persisted).to.equal(1)
+            throw new Error('backup dest down')
+        }, ADMIN_SWAP_ACTOR)
+    } catch (err: any) {
+        firstError = err.message || String(err)
+    }
+    T.expect(firstError).to.equal('backup dest down')
+    T.expect(payCalls).to.equal(1)
+    T.expect(!!await T.storage.metricsStorage.GetRootOperation('chain_payment', txA)).to.equal(false)
+
+    const retried = await swaps.PayInvoiceSwap(ADMIN_SWAP_OWNER_ID, saved.swap_operation_id, undefined, async () => {
+        payCalls++
+        await T.storage.paymentStorage.SetInvoiceSwapTxId(saved.swap_operation_id, txB, 250, lockupB)
+        return { txId: txB }
+    }, ADMIN_SWAP_ACTOR)
+    T.expect(retried).to.equal(txA)
+    T.expect(payCalls).to.equal(1)
+    T.expect(broadcasts).to.deep.equal([lockupA])
+    await expectOnePendingChainPayment(T, txA, saved.transaction_amount + 200)
+    T.expect(!!await T.storage.metricsStorage.GetRootOperation('chain_payment', txB)).to.equal(false)
+    await T.storage.paymentStorage.DeleteInvoiceSwap(saved.swap_operation_id)
+    T.d('retry republished the persisted lockup and wrote one chain_payment')
+}
+
+const testAdminResumeRecordsRootOpOnce = async (T: StorageTestBase) => {
+    T.d('starting resume of an admin invoice swap records the lockup root op once')
+    const lockup = dummyTxHex('55')
+    const txId = Transaction.fromHex(lockup).getId()
+    const saved = await T.storage.paymentStorage.AddInvoiceSwap(invoiceSwap(ADMIN_SWAP_OWNER_ID, {
+        payment_hash: randomBytes(32).toString('hex'),
+    }))
+    T.expect(await T.storage.paymentStorage.SetInvoiceSwapTxId(saved.swap_operation_id, txId, 200, lockup)).to.equal(1)
+    await deleteOtherUnfinished(T, saved.swap_operation_id)
+    const { swaps, swapper, broadcasts } = makeSwaps(T)
+    let waitingTxDone: Promise<void> = Promise.resolve()
+    swapper.SubscribeToInvoiceSwap = (_data, _done, waitingTx) => {
+        waitingTxDone = Promise.resolve().then(() => waitingTx())
+        return () => { }
+    }
+    await swaps.ResumeInvoiceSwaps()
+    await waitingTxDone
+    T.expect(broadcasts).to.deep.equal([lockup])
+    await expectOnePendingChainPayment(T, txId, saved.transaction_amount + 200)
+
+    await swaps.ResumeInvoiceSwaps()
+    await waitingTxDone
+    T.expect(broadcasts).to.deep.equal([lockup, lockup])
+    await expectOnePendingChainPayment(T, txId, saved.transaction_amount + 200)
+    await T.storage.paymentStorage.DeleteInvoiceSwap(saved.swap_operation_id)
+    T.d('resume republished the admin lockup and did not duplicate the root op')
 }

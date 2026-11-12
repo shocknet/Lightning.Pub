@@ -9,7 +9,7 @@ import LND from '../lnd.js';
 import { UserInvoicePayment } from '../../storage/entity/UserInvoicePayment.js';
 import { ReverseSwaps, TransactionSwapData, calculateReverseQuoteAmounts, checkReverseClaimBudget, checkReverseClaimWindow, isReverseClaimExposed, MAX_REVERSE_TIMEOUT_BLOCKS, MIN_CLAIM_SAT_PER_VBYTE } from './reverseSwaps.js';
 import { SubmarineSwaps, calculateSubmarineLockupAmount, checkSubmarineRecoveryWindow, verifySubmarineClaimPreimage } from './submarineSwaps.js';
-import { assertSwapActor, SwapActorSource } from './swapOwnership.js';
+import { assertSwapActor, isAdminSwapOwner, SwapActorSource } from './swapOwnership.js';
 import { InvoiceSwap } from '../../storage/entity/InvoiceSwap.js';
 import { TransactionSwap } from '../../storage/entity/TransactionSwap.js';
 import { BackupManager } from '../../backup/backupManager.js';
@@ -74,6 +74,38 @@ export class Swaps {
     /** Fail closed: recovery material must be backed up before funding, payment, or broadcast. */
     private protectSwapBackup = async (id: 'invoice_swaps' | 'transaction_swaps') => {
         await this.backupManager?.flushTablesNow(id)
+    }
+
+    /**
+     * Admin lockups spend node coins without a user debit. Watchdog can only
+     * neutralize that outflow (and pending change) if a chain_payment root op
+     * exists. Fresh, retry, and resume publication must all record it.
+     */
+    private recordAdminLockupRootOp = async (swap: InvoiceSwap | null | undefined, publishedTxId: string) => {
+        if (!swap || !publishedTxId || !isAdminSwapOwner(swap.app_user_id)) {
+            return
+        }
+        if (swap.tx_id && swap.tx_id !== publishedTxId) {
+            this.log("refusing admin lockup root op with tx id mismatch", {
+                swapOpId: swap.swap_operation_id,
+                persistedTxId: swap.tx_id,
+                publishedTxId,
+            })
+            return
+        }
+        if (!swap.tx_id) {
+            return
+        }
+        const amount = swap.transaction_amount + swap.chain_fee_sats
+        if (!isPositiveSats(amount)) {
+            this.log("refusing admin lockup root op without a positive amount", {
+                swapOpId: swap.swap_operation_id,
+                txId: publishedTxId,
+                amount,
+            })
+            return
+        }
+        await this.storage.metricsStorage.EnsureRootOperation("chain_payment", publishedTxId, amount, true)
     }
 
     GetKeys = (privateKey: string) => {
@@ -373,9 +405,13 @@ export class Swaps {
                     if (published.txId !== latest.tx_id) {
                         throw new Error("republished lockup tx id mismatch")
                     }
+                    await this.recordAdminLockupRootOp(latest, published.txId)
                     return { txId: published.txId }
                 }
-                return payAddress(latest.address, latest.transaction_amount, satPerVByte)
+                const paid = await payAddress(latest.address, latest.transaction_amount, satPerVByte)
+                const funded = await this.storage.paymentStorage.GetInvoiceSwap(swapOpId, appUserId)
+                await this.recordAdminLockupRootOp(funded ?? latest, paid.txId)
+                return paid
             }
             return await new Promise<string>((resolve, reject) => {
                 const close = swapper.SubscribeToInvoiceSwap(data, async (result) => {
@@ -481,7 +517,15 @@ export class Swaps {
             }
             try {
                 await this.protectSwapBackup('invoice_swaps')
-                await this.lnd.BroadcastTransaction(swap.lockup_tx_hex)
+                const published = await this.lnd.BroadcastTransaction(swap.lockup_tx_hex)
+                try {
+                    await this.recordAdminLockupRootOp(swap, published.txId || swap.tx_id)
+                } catch (err: any) {
+                    this.log("failed to record resumed admin lockup root op", {
+                        swapOpId: swap.swap_operation_id,
+                        error: err.message || err,
+                    })
+                }
             } catch (err: any) {
                 this.log("failed to republish resumed invoice swap lockup", {
                     swapOpId: swap.swap_operation_id,

@@ -155,6 +155,14 @@ export default class {
         }, dbTxId)
     }
 
+    async EnsureRootOperation(opType: RootOperationType, id: string, amount: number, pending = false, dbTxId?: string) {
+        const existing = await this.GetRootOperation(opType, id, dbTxId)
+        if (existing) {
+            return existing
+        }
+        return this.AddRootOperation(opType, id, amount, pending, dbTxId)
+    }
+
     async GetRootOperation(opType: RootOperationType, id: string, txId?: string) {
         return this.dbs.FindOne<RootOperation>('RootOperation', { where: { operation_type: opType, operation_identifier: id } }, txId)
     }
