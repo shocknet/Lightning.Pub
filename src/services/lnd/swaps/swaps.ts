@@ -1402,7 +1402,19 @@ export class Swaps {
                     error: err.message || err,
                 })
             }
-            const latest = await this.storage.paymentStorage.GetTransactionSwapRecord(swapOpId) || swap
+            let latest = swap
+            try {
+                latest = await this.storage.paymentStorage.GetTransactionSwapRecord(swapOpId) || swap
+            } catch (err: any) {
+                this.log("failed to read reverse-swap claim record before confirmation watch", {
+                    swapOpId,
+                    error: err.message || err,
+                })
+                if (!this.stopped && !abortSignal.aborted) {
+                    await this.waitForRetry(abortSignal)
+                }
+                continue
+            }
             if (latest.tx_id) {
                 return
             }
