@@ -9,6 +9,7 @@ Lightning.Pub can automatically save an encrypted backup of your accounts, balan
 - User accounts and their saved balances.
 - Applications and their connection keys, settings, offers, products, and access permissions.
 - Your Lightning wallet's address count and channel recovery backup.
+- Recovery material for in-flight swaps only: claim and refund private keys, preimages, swap scripts, destinations, funding and claim transactions, and execution state. Unused quotes and refunded submarine swaps are not kept. A submarine swap that looks complete is still kept until a refund is recorded, because a provider preimage is not proof the lockup was spent. These keys are random and cannot be reconstructed from the recovery phrase. Pub writes this material to the backup before it funds a swap or broadcasts a claim.
 
 This is not a full copy of your node. Payment history is not included, and recovering channel funds does not mean reopening the channels as they were. See [Limits and Precautions](#limits-and-precautions) before relying on a restore.
 

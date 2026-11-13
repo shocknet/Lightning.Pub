@@ -16,6 +16,10 @@ import { LoggedEvent } from './eventsLog.js';
 import { StorageInterface } from './db/storageInterface.js';
 import { TransactionSwap } from './entity/TransactionSwap.js';
 import { InvoiceSwap } from './entity/InvoiceSwap.js';
+import { InvoiceSwapFundingLock } from './entity/InvoiceSwapFundingLock.js';
+import { InvoiceSwapRow, isInvoiceSwapBackupRow, isTransactionSwapBackupRow, mapInvoiceSwapBackupRow, TransactionSwapRow, mapTransactionSwapBackupRow } from '../backup/segments.js';
+import { swapOwnerIds } from '../lnd/swaps/swapOwnership.js';
+import { getLogger } from '../helpers/logger.js';
 export type InboundOptionals = { product?: Product, callbackUrl?: string, expiry: number, expectedPayer?: User, linkedApplication?: Application, zapInfo?: ZapInfo, offerId?: string, payerData?: InvoicePayerData, rejectUnauthorized?: boolean, token?: string, blind?: boolean, clinkRequesterPub?: string, clinkRequesterEventId?: string }
 export const defaultInvoiceExpiry = 60 * 60
 export type AppOperationTotals = {
@@ -646,14 +650,50 @@ export default class {
         return this.dbs.CreateAndSave<TransactionSwap>('TransactionSwap', swap)
     }
 
-    async GetTransactionSwap(swapOperationId: string, appUserId: string, txId?: string) {
-        return this.dbs.FindOne<TransactionSwap>('TransactionSwap', { where: { swap_operation_id: swapOperationId, used: false, app_user_id: appUserId } }, txId)
+    private swapOwnerWhere(appUserId: string) {
+        const ids = swapOwnerIds(appUserId)
+        return ids.length === 1 ? ids[0] : In(ids)
     }
 
-    async SetTransactionSwapPaid(swapOperationId: string, txId?: string) {
+    async GetTransactionSwap(swapOperationId: string, appUserId: string, txId?: string) {
+        return this.dbs.FindOne<TransactionSwap>('TransactionSwap', { where: { swap_operation_id: swapOperationId, used: false, app_user_id: this.swapOwnerWhere(appUserId) } }, txId)
+    }
+
+    async GetTransactionSwapRecord(swapOperationId: string, txId?: string) {
+        return this.dbs.FindOne<TransactionSwap>('TransactionSwap', { where: { swap_operation_id: swapOperationId } }, txId)
+    }
+
+    async StartTransactionSwap(swapOperationId: string, address: string, appUserId: string, txId?: string) {
         const now = Math.floor(Date.now() / 1000)
-        return this.dbs.Update<TransactionSwap>('TransactionSwap', { swap_operation_id: swapOperationId }, {
+        return this.dbs.Update<TransactionSwap>('TransactionSwap', {
+            swap_operation_id: swapOperationId,
+            used: false,
+            app_user_id: this.swapOwnerWhere(appUserId),
+            paid_at_unix: 0,
+            address_paid: "",
+        }, {
             paid_at_unix: now,
+            address_paid: address,
+        }, txId)
+    }
+
+    async SetTransactionSwapClaimTx(swapOperationId: string, claimTxHex: string, txId?: string) {
+        // Do not clear claim_published. Exposure is monotonic: reconstructing a
+        // claim after a publication attempt must not look like secrecy.
+        return this.dbs.Update<TransactionSwap>('TransactionSwap', { swap_operation_id: swapOperationId }, {
+            claim_tx_hex: claimTxHex,
+        }, txId)
+    }
+
+    async MarkTransactionSwapClaimPublished(swapOperationId: string, txId?: string) {
+        return this.dbs.Update<TransactionSwap>('TransactionSwap', { swap_operation_id: swapOperationId }, {
+            claim_published: true,
+        }, txId)
+    }
+
+    async SetTransactionSwapLockupTx(swapOperationId: string, lockupTxHex: string, txId?: string) {
+        return this.dbs.Update<TransactionSwap>('TransactionSwap', { swap_operation_id: swapOperationId }, {
+            lockup_tx_hex: lockupTxHex,
         }, txId)
     }
 
@@ -663,6 +703,7 @@ export default class {
             used: true,
             tx_id: chainTxId,
             address_paid: address,
+            failure_reason: '',
             completed_at_unix: now,
         }, txId)
     }
@@ -677,24 +718,147 @@ export default class {
         }, txId)
     }
 
+    async FailConfirmedTransactionSwap(swapOperationId: string, address: string, chainTxId: string, failureReason: string, txId?: string) {
+        const now = Math.floor(Date.now() / 1000)
+        return this.dbs.Update<TransactionSwap>('TransactionSwap', { swap_operation_id: swapOperationId }, {
+            used: true,
+            tx_id: chainTxId,
+            failure_reason: failureReason,
+            address_paid: address,
+            completed_at_unix: now,
+        }, txId)
+    }
+
     async DeleteTransactionSwap(swapOperationId: string, txId?: string) {
         return this.dbs.Delete<TransactionSwap>('TransactionSwap', { swap_operation_id: swapOperationId }, txId)
     }
 
     async DeleteExpiredTransactionSwaps(currentHeight: number, txId?: string) {
-        return this.dbs.Delete<TransactionSwap>('TransactionSwap', { timeout_block_height: LessThan(currentHeight), used: false }, txId)
+        // Started reverse swaps keep their claim/refund keys even after timeout.
+        // Only never-started quotes (paid_at_unix = 0) may be deleted.
+        return this.dbs.Delete<TransactionSwap>('TransactionSwap', {
+            timeout_block_height: LessThan(currentHeight),
+            used: false,
+            paid_at_unix: 0,
+        }, txId)
+    }
+
+    async ListUnfinishedTransactionSwaps(txId?: string) {
+        const swaps = await this.dbs.Find<TransactionSwap>('TransactionSwap', {}, txId)
+        // tx_id is a confirmed lockup spend. used=true without one is still
+        // claimable when a claim or confirmed lockup was persisted before
+        // FailTransactionSwap.
+        return swaps.filter(s => s.paid_at_unix > 0 && !s.tx_id && (!s.used || !!s.claim_tx_hex || !!s.lockup_tx_hex))
+    }
+
+    async ExportInvoiceSwaps(txId?: string): Promise<InvoiceSwapRow[]> {
+        const swaps = await this.dbs.Find<InvoiceSwap>('InvoiceSwap', {}, txId)
+        return swaps.filter(isInvoiceSwapBackupRow).map(mapInvoiceSwapBackupRow)
+    }
+
+    async RestoreInvoiceSwaps(swaps: InvoiceSwapRow[], txId: string): Promise<number> {
+        let restored = 0
+        for (const swap of swaps) {
+            try {
+                await this.dbs.CreateAndSave<InvoiceSwap>('InvoiceSwap', {
+                    swap_operation_id: swap.swap_operation_id,
+                    app_user_id: swap.app_user_id,
+                    swap_quote_id: swap.swap_quote_id,
+                    swap_tree: swap.swap_tree,
+                    claim_public_key: swap.claim_public_key,
+                    payment_hash: swap.payment_hash,
+                    timeout_block_height: swap.timeout_block_height,
+                    invoice: swap.invoice,
+                    invoice_amount: swap.invoice_amount,
+                    transaction_amount: swap.transaction_amount,
+                    swap_fee_sats: swap.swap_fee_sats,
+                    chain_fee_sats: swap.chain_fee_sats,
+                    sat_per_v_byte: swap.sat_per_v_byte,
+                    ephemeral_public_key: swap.ephemeral_public_key,
+                    address: swap.address,
+                    ephemeral_private_key: swap.ephemeral_private_key,
+                    used: swap.used,
+                    completed_at_unix: swap.completed_at_unix,
+                    paid_at_unix: swap.paid_at_unix,
+                    preimage: swap.preimage,
+                    failure_reason: swap.failure_reason,
+                    tx_id: swap.tx_id,
+                    lockup_tx_hex: swap.lockup_tx_hex,
+                    refund_address: swap.refund_address,
+                    refund_at_unix: swap.refund_at_unix,
+                    refund_tx_id: swap.refund_tx_id,
+                    refund_tx_hex: swap.refund_tx_hex,
+                    service_url: swap.service_url,
+                }, txId)
+                if (swap.tx_id) {
+                    await this.claimInvoiceSwapFundingLock(swap.payment_hash, swap.swap_operation_id, txId)
+                }
+                restored++
+            } catch (error: any) {
+                getLogger({ component: "backupRestore" })("error restoring invoice swap", error.message)
+            }
+        }
+        return restored
+    }
+
+    async ExportTransactionSwaps(txId?: string): Promise<TransactionSwapRow[]> {
+        const swaps = await this.dbs.Find<TransactionSwap>('TransactionSwap', {}, txId)
+        return swaps.filter(isTransactionSwapBackupRow).map(mapTransactionSwapBackupRow)
+    }
+
+    async RestoreTransactionSwaps(swaps: TransactionSwapRow[], txId: string): Promise<number> {
+        let restored = 0
+        for (const swap of swaps) {
+            try {
+                await this.dbs.CreateAndSave<TransactionSwap>('TransactionSwap', {
+                    swap_operation_id: swap.swap_operation_id,
+                    app_user_id: swap.app_user_id,
+                    swap_quote_id: swap.swap_quote_id,
+                    swap_tree: swap.swap_tree,
+                    lockup_address: swap.lockup_address,
+                    refund_public_key: swap.refund_public_key,
+                    timeout_block_height: swap.timeout_block_height,
+                    invoice: swap.invoice,
+                    invoice_amount: swap.invoice_amount,
+                    transaction_amount: swap.transaction_amount,
+                    swap_fee_sats: swap.swap_fee_sats,
+                    chain_fee_sats: swap.chain_fee_sats,
+                    preimage: swap.preimage,
+                    ephemeral_public_key: swap.ephemeral_public_key,
+                    ephemeral_private_key: swap.ephemeral_private_key,
+                    used: swap.used,
+                    failure_reason: swap.failure_reason,
+                    tx_id: swap.tx_id,
+                    completed_at_unix: swap.completed_at_unix,
+                    paid_at_unix: swap.paid_at_unix,
+                    address_paid: swap.address_paid,
+                    claim_tx_hex: swap.claim_tx_hex,
+                    claim_published: !!swap.claim_published,
+                    lockup_tx_hex: swap.lockup_tx_hex,
+                    service_url: swap.service_url,
+                }, txId)
+                restored++
+            } catch (error: any) {
+                getLogger({ component: "backupRestore" })("error restoring transaction swap", error.message)
+            }
+        }
+        return restored
     }
 
     async ListPendingTransactionSwaps(appUserId: string, txId?: string) {
-        return this.dbs.Find<TransactionSwap>('TransactionSwap', { where: { used: false, app_user_id: appUserId } }, txId)
+        return this.dbs.Find<TransactionSwap>('TransactionSwap', { where: { used: false, app_user_id: this.swapOwnerWhere(appUserId) } }, txId)
     }
 
     async ListTxSwapPayments(userId: string, txId?: string) {
         return this.dbs.Find<UserInvoicePayment>('UserInvoicePayment', { where: { swap_operation_id: Not(IsNull()), user: { user_id: userId } } }, txId)
     }
 
+    async GetInvoicePaymentBySwapOperationId(swapOperationId: string, txId?: string) {
+        return this.dbs.FindOne<UserInvoicePayment>('UserInvoicePayment', { where: { swap_operation_id: swapOperationId } }, txId)
+    }
+
     async ListCompletedTxSwaps(appUserId: string, payments: UserInvoicePayment[], txId?: string) {
-        const completed = await this.dbs.Find<TransactionSwap>('TransactionSwap', { where: { used: true, app_user_id: appUserId } }, txId)
+        const completed = await this.dbs.Find<TransactionSwap>('TransactionSwap', { where: { used: true, app_user_id: this.swapOwnerWhere(appUserId) } }, txId)
         // const payments = await this.dbs.Find<UserInvoicePayment>('UserInvoicePayment', { where: { swap_operation_id: Not(IsNull()), } }, txId)
         const paymentsMap = new Map<string, UserInvoicePayment>()
         payments.forEach(p => {
@@ -709,18 +873,53 @@ export default class {
         return this.dbs.CreateAndSave<InvoiceSwap>('InvoiceSwap', swap)
     }
 
-    async GetInvoiceSwap(swapOperationId: string, appUserId: string, txId?: string) {
-        const swap = await this.dbs.FindOne<InvoiceSwap>('InvoiceSwap', { where: { swap_operation_id: swapOperationId, used: false, app_user_id: appUserId } }, txId)
-        if (!swap || swap.tx_id) {
-            return null
+    async ReserveInvoiceSwapFunding(swapOperationId: string, paymentHash: string, txId?: string) {
+        const run = async (tx: string) => {
+            const row = await this.dbs.FindOne<InvoiceSwap>('InvoiceSwap', { where: { swap_operation_id: swapOperationId } }, tx)
+            if (!row) {
+                throw new Error("swap not found")
+            }
+            if (row.payment_hash !== paymentHash) {
+                throw new Error("payment hash mismatch")
+            }
+            if (row.tx_id) {
+                return 'ok' as const
+            }
+            if (await this.invoiceSwapHashHeldByOther(paymentHash, swapOperationId, tx)) {
+                return 'sibling' as const
+            }
+            const claimed = await this.claimInvoiceSwapFundingLock(paymentHash, swapOperationId, tx)
+            return claimed ? 'ok' as const : 'sibling' as const
         }
-        return swap
+        const result = txId ? await run(txId) : await this.dbs.Tx(tx => run(tx), 'reserve invoice swap funding')
+        if (result === 'sibling') {
+            throw new Error("invoice already reserved by a sibling quote")
+        }
     }
 
-    async FinalizeInvoiceSwap(swapOperationId: string, txId?: string) {
+    async ReleaseInvoiceSwapFunding(swapOperationId: string, txId?: string) {
+        const row = await this.dbs.FindOne<InvoiceSwap>('InvoiceSwap', { where: { swap_operation_id: swapOperationId } }, txId)
+        if (!row || row.tx_id) {
+            return 0
+        }
+        return this.dbs.Delete<InvoiceSwapFundingLock>('InvoiceSwapFundingLock', {
+            payment_hash: row.payment_hash,
+            swap_operation_id: swapOperationId,
+        }, txId)
+    }
+
+    async GetInvoiceSwap(swapOperationId: string, appUserId: string, txId?: string) {
+        return this.dbs.FindOne<InvoiceSwap>('InvoiceSwap', { where: { swap_operation_id: swapOperationId, used: false, app_user_id: this.swapOwnerWhere(appUserId) } }, txId)
+    }
+
+    async FinalizeInvoiceSwap(swapOperationId: string, preimage: string, txId?: string) {
+        if (!preimage) {
+            throw new Error('cannot finalize invoice swap without a verified preimage')
+        }
         const now = Math.floor(Date.now() / 1000)
         return this.dbs.Update<InvoiceSwap>('InvoiceSwap', { swap_operation_id: swapOperationId }, {
             used: true,
+            preimage,
             completed_at_unix: now,
         }, txId)
     }
@@ -739,7 +938,41 @@ export default class {
         if (lockupTxHex) {
             update.lockup_tx_hex = lockupTxHex
         }
-        return this.dbs.Update<InvoiceSwap>('InvoiceSwap', { swap_operation_id: swapOperationId }, update, txId)
+        const run = async (tx: string) => {
+            const current = await this.dbs.FindOne<InvoiceSwap>('InvoiceSwap', { where: { swap_operation_id: swapOperationId } }, tx)
+            if (!current) {
+                return 0
+            }
+            if (current.tx_id === chainTxId) {
+                return 1
+            }
+            if (current.tx_id) {
+                return 0
+            }
+            if (await this.invoiceSwapHashHeldByOther(current.payment_hash, swapOperationId, tx)) {
+                return 0
+            }
+            const claimed = await this.claimInvoiceSwapFundingLock(current.payment_hash, swapOperationId, tx)
+            if (!claimed) {
+                return 0
+            }
+            const affected = await this.dbs.Update<InvoiceSwap>('InvoiceSwap', {
+                swap_operation_id: swapOperationId,
+                tx_id: "",
+            }, update, tx)
+            if (affected === 1) {
+                return 1
+            }
+            const existing = await this.dbs.FindOne<InvoiceSwap>('InvoiceSwap', { where: { swap_operation_id: swapOperationId } }, tx)
+            if (existing && existing.tx_id === chainTxId) {
+                return 1
+            }
+            return 0
+        }
+        if (txId) {
+            return run(txId)
+        }
+        return this.dbs.Tx(tx => run(tx), 'set invoice swap tx id')
     }
 
     async FailInvoiceSwap(swapOperationId: string, failureReason: string, txId?: string) {
@@ -752,19 +985,56 @@ export default class {
     }
 
     async DeleteInvoiceSwap(swapOperationId: string, txId?: string) {
+        const row = await this.dbs.FindOne<InvoiceSwap>('InvoiceSwap', { where: { swap_operation_id: swapOperationId } }, txId)
+        if (row) {
+            await this.dbs.Delete<InvoiceSwapFundingLock>('InvoiceSwapFundingLock', {
+                payment_hash: row.payment_hash,
+                swap_operation_id: swapOperationId,
+            }, txId)
+        }
         return this.dbs.Delete<InvoiceSwap>('InvoiceSwap', { swap_operation_id: swapOperationId }, txId)
     }
 
     async DeleteExpiredInvoiceSwaps(currentHeight: number, txId?: string) {
+        const expired = await this.dbs.Find<InvoiceSwap>('InvoiceSwap', {
+            where: { timeout_block_height: LessThan(currentHeight), used: false, tx_id: "" },
+        }, txId)
+        for (const swap of expired) {
+            await this.dbs.Delete<InvoiceSwapFundingLock>('InvoiceSwapFundingLock', {
+                payment_hash: swap.payment_hash,
+                swap_operation_id: swap.swap_operation_id,
+            }, txId)
+        }
         return this.dbs.Delete<InvoiceSwap>('InvoiceSwap', { timeout_block_height: LessThan(currentHeight), used: false, tx_id: "" }, txId)
     }
 
     async ListCompletedInvoiceSwaps(appUserId: string, txId?: string) {
-        return this.dbs.Find<InvoiceSwap>('InvoiceSwap', { where: { used: true, app_user_id: appUserId } }, txId)
+        return this.dbs.Find<InvoiceSwap>('InvoiceSwap', { where: { used: true, app_user_id: this.swapOwnerWhere(appUserId) } }, txId)
     }
 
     async ListPendingInvoiceSwaps(appUserId: string, txId?: string) {
-        return this.dbs.Find<InvoiceSwap>('InvoiceSwap', { where: { used: false, app_user_id: appUserId } }, txId)
+        const pending = await this.dbs.Find<InvoiceSwap>('InvoiceSwap', { where: { used: false, app_user_id: this.swapOwnerWhere(appUserId) } }, txId)
+        if (pending.length === 0) {
+            return pending
+        }
+        const hashes = [...new Set(pending.map(s => s.payment_hash))]
+        const related = await this.dbs.Find<InvoiceSwap>('InvoiceSwap', { where: { payment_hash: In(hashes) } }, txId)
+        const locks = await this.dbs.Find<InvoiceSwapFundingLock>('InvoiceSwapFundingLock', { where: { payment_hash: In(hashes) } }, txId)
+        const holder = new Map<string, string>()
+        for (const swap of related) {
+            if (swap.tx_id) {
+                holder.set(swap.payment_hash, swap.swap_operation_id)
+            }
+        }
+        for (const lock of locks) {
+            if (!holder.has(lock.payment_hash)) {
+                holder.set(lock.payment_hash, lock.swap_operation_id)
+            }
+        }
+        return pending.filter(swap => {
+            const reservedBy = holder.get(swap.payment_hash)
+            return !reservedBy || reservedBy === swap.swap_operation_id
+        })
     }
 
     async ListUnfinishedInvoiceSwaps(txId?: string) {
@@ -772,13 +1042,26 @@ export default class {
         return swaps.filter(s => !!s.tx_id)
     }
 
-    async UpdateRefundInvoiceSwap(swapOperationId: string, refundAddress: string, refundTxId: string, txId?: string) {
+    async SetInvoiceSwapRefundHex(swapOperationId: string, refundAddress: string, refundTxHex: string, txId?: string) {
         const now = Math.floor(Date.now() / 1000)
         return this.dbs.Update<InvoiceSwap>('InvoiceSwap', { swap_operation_id: swapOperationId }, {
             refund_address: refundAddress,
             refund_at_unix: now,
-            refund_tx_id: refundTxId,
+            refund_tx_hex: refundTxHex,
         }, txId)
+    }
+
+    async UpdateRefundInvoiceSwap(swapOperationId: string, refundAddress: string, refundTxId: string, refundTxHex?: string, txId?: string) {
+        const now = Math.floor(Date.now() / 1000)
+        const update: Partial<InvoiceSwap> = {
+            refund_address: refundAddress,
+            refund_at_unix: now,
+            refund_tx_id: refundTxId,
+        }
+        if (refundTxHex) {
+            update.refund_tx_hex = refundTxHex
+        }
+        return this.dbs.Update<InvoiceSwap>('InvoiceSwap', { swap_operation_id: swapOperationId }, update, txId)
     }
 
     async GetRefundableInvoiceSwap(swapOperationId: string, txId?: string) {
@@ -786,12 +1069,50 @@ export default class {
         if (!swap || !swap.tx_id) {
             return null
         }
-        if (swap.used && !swap.failure_reason) {
-            return null
-        }
+        // used / provider-reported success is not a veto. A timeout refund of an
+        // unspent lockup must remain available even after a false claimed event
+        // or a paid invoice the provider never claimed on-chain.
         return swap
     }
 
+    private async invoiceSwapHashHeldByOther(paymentHash: string, swapOperationId: string, txId?: string) {
+        const siblings = await this.dbs.Find<InvoiceSwap>('InvoiceSwap', { where: { payment_hash: paymentHash } }, txId)
+        if (siblings.some(s => s.tx_id && s.swap_operation_id !== swapOperationId)) {
+            return true
+        }
+        const lock = await this.dbs.FindOne<InvoiceSwapFundingLock>('InvoiceSwapFundingLock', { where: { payment_hash: paymentHash } }, txId)
+        return !!lock && lock.swap_operation_id !== swapOperationId
+    }
+
+    private async claimInvoiceSwapFundingLock(paymentHash: string, swapOperationId: string, txId?: string) {
+        const existing = await this.dbs.FindOne<InvoiceSwapFundingLock>('InvoiceSwapFundingLock', { where: { payment_hash: paymentHash } }, txId)
+        if (existing) {
+            return existing.swap_operation_id === swapOperationId
+        }
+        try {
+            await this.dbs.CreateAndSave<InvoiceSwapFundingLock>('InvoiceSwapFundingLock', {
+                payment_hash: paymentHash,
+                swap_operation_id: swapOperationId,
+            }, txId)
+            return true
+        } catch (e) {
+            if (!isSqliteUniqueConstraintError(e)) {
+                throw e
+            }
+            const again = await this.dbs.FindOne<InvoiceSwapFundingLock>('InvoiceSwapFundingLock', { where: { payment_hash: paymentHash } }, txId)
+            return !!again && again.swap_operation_id === swapOperationId
+        }
+    }
+
+}
+
+const isSqliteUniqueConstraintError = (e: unknown) => {
+    const err = e as { code?: string, message?: string, driverError?: { code?: string, message?: string } }
+    const code = err.code || err.driverError?.code || ""
+    const message = err.message || err.driverError?.message || ""
+    return code.includes("SQLITE_CONSTRAINT")
+        || /UNIQUE constraint failed/i.test(message)
+        || /SQLITE_CONSTRAINT_UNIQUE/i.test(message)
 }
 
 const orFail = async <T>(resultPromise: Promise<T | null>, message: string) => {

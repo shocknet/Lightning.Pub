@@ -155,7 +155,7 @@ export default (mainHandler: Main): Types.ServerMethods => {
         RefundAdminInvoiceSwap: async ({ ctx, req }) => {
             const err = Types.RefundAdminInvoiceSwapRequestValidate(req, {
                 swap_operation_id_CustomCheck: id => id !== '',
-                sat_per_v_byte_CustomCheck: isNonNegativeSats,
+                sat_per_v_byte_CustomCheck: isPositiveSats,
             })
             if (err != null) throw new Error(err.message)
             return mainHandler.adminManager.RefundAdminInvoiceSwap(req)

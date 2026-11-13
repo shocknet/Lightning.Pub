@@ -57,6 +57,8 @@ export class TransactionSwap {
     @Column({ default: "" })
     failure_reason: string
 
+    // Confirmed lockup spend txid (our claim or a competing spend). Broadcast
+    // of the claim is claim_published, not this field.
     @Column({ default: "" })
     tx_id: string
 
@@ -68,6 +70,19 @@ export class TransactionSwap {
 
     @Column({ default: "" })
     address_paid: string
+
+    @Column({ default: "", type: "text" })
+    claim_tx_hex: string
+
+    // Set before BroadcastTransaction so a crash still resumes as disclosure.
+    // A stored signature is not disclosure until this is set. Once true, this
+    // must not be cleared: reconstructed claims keep the same preimage and false
+    // is not proof of secrecy after a crash or an earlier backup restore.
+    @Column({ default: false })
+    claim_published: boolean
+
+    @Column({ default: "", type: "text" })
+    lockup_tx_hex: string
 
     @Column({ default: "" })
     service_url: string

@@ -12,7 +12,7 @@ import { ChainNotifierClient } from '../../../proto/lnd/chainnotifier.client.js'
 import { GetInfoResponse, AddressType, NewAddressResponse, AddInvoiceResponse, Invoice_InvoiceState, PayReq, Payment_PaymentStatus, Payment, PaymentFailureReason, SendCoinsResponse, EstimateFeeResponse, ChannelBalanceResponse, TransactionDetails, ListChannelsResponse, ClosedChannelsResponse, PendingChannelsResponse, ForwardingHistoryResponse, CoinSelectionStrategy, OpenStatusUpdate, CloseStatusUpdate, PendingUpdate, ChannelEventUpdate_UpdateType, ListPaymentsResponse, ListInvoiceResponse } from '../../../proto/lnd/lightning.js'
 import { OpenChannelReq } from './openChannelReq.js';
 import { AddInvoiceReq } from './addInvoiceReq.js';
-import { PayInvoiceReq } from './payInvoiceReq.js';
+import { DEFAULT_PAYMENT_TIMEOUT_SECONDS, PayInvoiceReq } from './payInvoiceReq.js';
 import { SendCoinsReq } from './sendCoinsReq.js';
 import { AddressPaidCb, InvoicePaidCb, NodeInfo, Invoice, DecodedInvoice, PaidInvoice, NewBlockCb, HtlcCb, BalanceInfo, ChannelEventCb, UnlockLndCb, NewAddressCb } from './settings.js';
 import { ERROR, getLogger, DEBUG, INFO } from '../helpers/logger.js';
@@ -25,10 +25,35 @@ import SettingsManager from '../main/settingsManager.js';
 import { LndNodeSettings, LndSettings } from '../main/settings.js';
 import { ListAddressesResponse, PublishResponse, ChangeAddressType } from '../../../proto/lnd/walletkit.js';
 import { isPaymentNotInitiatedError } from './trackPaymentError.js';
+import { broadcastPublishedTx } from './publishError.js';
 import { Transaction } from 'bitcoinjs-lib'
+import type { ConfirmedLockupSpend, LockupSpend, LockupSpendGuard, LockupSpendOutcome } from './swaps/reverseSwaps.js'
 
 const DeadLineMetadata = (deadline = 10 * 1000) => ({ deadline: Date.now() + deadline })
 const GET_PAYMENT_FROM_HASH_TIMEOUT_MS = 10 * 1000
+const SAT_PER_KW_PER_VBYTE = 250
+
+const satPerKwToSatPerVbyte = (satPerKw: bigint | number): number => {
+    const kw = typeof satPerKw === 'bigint' ? Number(satPerKw) : satPerKw
+    if (!Number.isFinite(kw) || kw <= 0) {
+        return 0
+    }
+    return Math.ceil(kw / SAT_PER_KW_PER_VBYTE)
+}
+
+const spendingTxIdFromDetails = (details: { rawSpendingTx: Uint8Array, spendingTxHash: Uint8Array }): string => {
+    if (details.rawSpendingTx?.length) {
+        try {
+            return Transaction.fromBuffer(Buffer.from(details.rawSpendingTx)).getId()
+        } catch {
+            // fall through to the hash
+        }
+    }
+    if (details.spendingTxHash?.length === 32) {
+        return Buffer.from(details.spendingTxHash).reverse().toString('hex')
+    }
+    return ''
+}
 
 const settleOnce = (onSettle: () => void) => {
     let settled = false
@@ -42,7 +67,7 @@ const settleOnce = (onSettle: () => void) => {
     }
 }
 const deadLndRetrySeconds = 20
-type TxActionOptions = { useProvider: boolean, from: 'user' | 'system' }
+type TxActionOptions = { useProvider: boolean, from: 'user' | 'system', forceLocalLnd?: boolean }
 
 export type LndHooks = {
     unlockLnd: UnlockLndCb
@@ -182,11 +207,282 @@ export default class {
         })
     }
 
+    /**
+     * Raw WalletKit PublishTransaction. LND reports broadcast failure in
+     * PublishResponse.publishError rather than the gRPC status, so a nonempty
+     * error is still a successful RPC. Call BroadcastTransaction for any
+     * publication that records a txid or reports success to the user.
+     */
     async PublishTransaction(txHex: string): Promise<PublishResponse> {
         const res = await this.walletKit.publishTransaction({
             txHex: Buffer.from(txHex, 'hex'), label: ""
         }, DeadLineMetadata())
         return res.response
+    }
+
+    /**
+     * Publish a tx via our node. The returned txid is computed locally from the
+     * hex. If LND reports a publishError or the RPC throws, success is recorded
+     * when GetTx shows this txid confirmed on chain, or when the error is a
+     * mempool duplicate of this hex (swap claims are not wallet txs, so GetTx
+     * often misses them). Unconfirmed wallet history is not treated as
+     * acceptance: an evicted or policy-rejected tx can remain in GetTx.
+     */
+    async BroadcastTransaction(txHex: string): Promise<{ txId: string }> {
+        return broadcastPublishedTx(
+            txHex,
+            () => this.PublishTransaction(txHex),
+            async (txId) => {
+                try {
+                    const tx = await this.GetTx(txId)
+                    return tx.txHash ? { txHash: tx.txHash, numConfirmations: tx.numConfirmations } : null
+                } catch {
+                    return null
+                }
+            },
+        )
+    }
+
+    /**
+     * How long RegisterSpendNtfn is given to report a spend LND already knows.
+     * A quiet wait is not treated as unspent proof: the watch stays armed until
+     * stop() so a late historical spend still blocks preimage disclosure.
+     */
+    outputSpendLookupMs = 10_000
+
+    /**
+     * Wait until an output script has numConfs on our chain. txid is left zeroed
+     * so this matches the script itself, not a provider-supplied transaction id.
+     */
+    async WaitForScriptConfirmations(
+        script: Buffer,
+        numConfs: number,
+        heightHint: number,
+        abort?: AbortSignal,
+    ): Promise<{ txHex: string, blockHeight: number }> {
+        if (abort?.aborted) {
+            throw new Error('lockup confirmation watch aborted')
+        }
+        const combined = new AbortController()
+        const abortWatch = () => combined.abort()
+        abort?.addEventListener('abort', abortWatch)
+        this.abortController.signal.addEventListener('abort', abortWatch)
+        const stream = this.chainNotifier.registerConfirmationsNtfn({
+            txid: Buffer.alloc(32),
+            script,
+            numConfs,
+            heightHint: Math.max(1, heightHint),
+            includeBlock: false,
+        }, { abort: combined.signal })
+        return new Promise((res, rej) => {
+            const finish = settleOnce(() => {
+                abort?.removeEventListener('abort', abortWatch)
+                this.abortController.signal.removeEventListener('abort', abortWatch)
+                abortWatch()
+            })
+            stream.responses.onMessage(event => {
+                if (event.event.oneofKind !== 'conf') {
+                    return
+                }
+                const conf = event.event.conf
+                finish(() => res({
+                    txHex: Buffer.from(conf.rawTx).toString('hex'),
+                    blockHeight: conf.blockHeight,
+                }))
+            })
+            stream.responses.onError(error => {
+                if (combined.signal.aborted) {
+                    finish(() => rej(new Error('lockup confirmation watch aborted')))
+                    return
+                }
+                this.log(ERROR, 'Error waiting for script confirmation', error)
+                finish(() => rej(error))
+            })
+        })
+    }
+
+    /**
+     * Watch a Taproot lockup outpoint for spends. Taproot watches require the
+     * outpoint (script-only is not supported). Confirmed historical spends are
+     * dispatched immediately on bitcoind; this is not a mempool guarantee.
+     * A spend with spending_height 0 is mempool-only: it blocks disclosure but
+     * does not settle waitForConfirmedSpend. Stream errors fail closed. Abort
+     * is recorded synchronously so publication cannot race the stream's later
+     * onError. stop() is idempotent teardown; it fails an in-flight
+     * confirmation wait so tracking can exit.
+     */
+    WatchLockupSpend(req: {
+        txHash: Uint8Array
+        vout: number
+        script: Uint8Array
+        heightHint: number
+        abort?: AbortSignal
+    }): LockupSpendGuard {
+        if (req.abort?.aborted) {
+            throw new Error('lockup spend lookup aborted')
+        }
+        const combined = new AbortController()
+        let stopped = false
+        let sawSpend = false
+        let failure: Error | undefined
+        let lastSpend: LockupSpend | undefined
+        let confirmed: ConfirmedLockupSpend | undefined
+        let confirmedSettled = false
+        let reportOutcome: (result: LockupSpendOutcome) => void = () => undefined
+        let reportConfirmed: (result: ConfirmedLockupSpend) => void = () => undefined
+        let reportConfirmedFail: (error: Error) => void = () => undefined
+        const outcome = new Promise<LockupSpendOutcome>(resolve => {
+            reportOutcome = resolve
+        })
+        const emit = settleOnce(() => undefined)
+        const failConfirmed = (err: Error) => {
+            if (confirmedSettled) {
+                return
+            }
+            confirmedSettled = true
+            reportConfirmedFail(err)
+        }
+        const settleConfirmed = (result: ConfirmedLockupSpend) => {
+            if (confirmedSettled) {
+                return
+            }
+            confirmedSettled = true
+            confirmed = result
+            reportConfirmed(result)
+        }
+        const failAborted = () => {
+            if (stopped) {
+                return
+            }
+            const err = failure ?? new Error('lockup spend lookup aborted')
+            failure = err
+            emit(() => reportOutcome({ kind: 'failed', error: err }))
+            failConfirmed(err)
+        }
+        const abortWatch = () => {
+            failAborted()
+            combined.abort()
+        }
+        req.abort?.addEventListener('abort', abortWatch)
+        this.abortController.signal.addEventListener('abort', abortWatch)
+        const stop = settleOnce(() => {
+            stopped = true
+            req.abort?.removeEventListener('abort', abortWatch)
+            this.abortController.signal.removeEventListener('abort', abortWatch)
+            failConfirmed(failure ?? new Error('lockup spend lookup aborted'))
+            combined.abort()
+        })
+        const stream = this.chainNotifier.registerSpendNtfn({
+            outpoint: { hash: req.txHash, index: req.vout },
+            script: req.script,
+            heightHint: Math.max(1, req.heightHint),
+        }, { abort: combined.signal })
+        stream.responses.onMessage(event => {
+            if (event.event.oneofKind !== 'spend') {
+                return
+            }
+            const details = event.event.spend
+            const spendingTxId = spendingTxIdFromDetails(details)
+            const spendingHeight = details.spendingHeight
+            const spend = { spendingTxId, spendingHeight }
+            sawSpend = true
+            lastSpend = spend
+            emit(() => reportOutcome({ kind: 'spent', spend }))
+            if (spendingHeight > 0 && spendingTxId) {
+                settleConfirmed(spend)
+            }
+        })
+        stream.responses.onError(error => {
+            if (stopped) {
+                return
+            }
+            const err = combined.signal.aborted
+                ? new Error('lockup spend lookup aborted')
+                : error instanceof Error ? error : new Error(String(error))
+            if (!combined.signal.aborted) {
+                this.log(ERROR, 'Error waiting for lockup spend', error)
+            }
+            const reported = failure ?? err
+            failure = reported
+            emit(() => reportOutcome({ kind: 'failed', error: reported }))
+            failConfirmed(reported)
+        })
+        return {
+            isSpent: () => sawSpend,
+            failure: () => failure,
+            outcome,
+            waitForConfirmedSpend: () => {
+                if (confirmed) {
+                    return Promise.resolve(confirmed)
+                }
+                if (failure) {
+                    return Promise.reject(failure)
+                }
+                return new Promise<ConfirmedLockupSpend>((resolve, reject) => {
+                    reportConfirmed = resolve
+                    reportConfirmedFail = reject
+                })
+            },
+            waitForHistorical: async () => {
+                let timer: ReturnType<typeof setTimeout> | undefined
+                try {
+                    const first = await Promise.race([
+                        outcome,
+                        new Promise<'timeout'>(resolve => {
+                            timer = setTimeout(() => resolve('timeout'), this.outputSpendLookupMs)
+                        }),
+                    ])
+                    if (first === 'timeout') {
+                        return lastSpend ?? (sawSpend ? { spendingTxId: '', spendingHeight: 0 } : false)
+                    }
+                    if (first.kind === 'spent') {
+                        return first.spend
+                    }
+                    throw first.error
+                } finally {
+                    if (timer !== undefined) {
+                        clearTimeout(timer)
+                    }
+                }
+            },
+            stop: () => stop(() => undefined),
+        }
+    }
+
+    /**
+     * Stream block heights from the current tip. Used to abort a reverse-swap
+     * lockup watch once the refund window is too close to disclose safely.
+     */
+    WatchBlockHeights(onHeight: (height: number) => void, abort?: AbortSignal): void {
+        if (abort?.aborted) {
+            return
+        }
+        const combined = new AbortController()
+        const abortWatch = () => combined.abort()
+        abort?.addEventListener('abort', abortWatch)
+        this.abortController.signal.addEventListener('abort', abortWatch)
+        const stream = this.chainNotifier.registerBlockEpochNtfn(
+            { height: 0, hash: Buffer.alloc(0) },
+            { abort: combined.signal },
+        )
+        const cleanup = settleOnce(() => {
+            abort?.removeEventListener('abort', abortWatch)
+            this.abortController.signal.removeEventListener('abort', abortWatch)
+        })
+        abort?.addEventListener('abort', () => cleanup(() => undefined), { once: true })
+        this.abortController.signal.addEventListener('abort', () => cleanup(() => undefined), { once: true })
+        stream.responses.onMessage(block => {
+            if (block.height > 0) {
+                onHeight(block.height)
+            }
+        })
+        stream.responses.onError(error => {
+            cleanup(() => undefined)
+            if (combined.signal.aborted) {
+                return
+            }
+            this.log(ERROR, 'Error watching block heights', error)
+        })
     }
 
     /**
@@ -551,14 +847,16 @@ export default class {
         const r = res.response
         return { local: r.localBalance ? Number(r.localBalance.sat) : 0, remote: r.remoteBalance ? Number(r.remoteBalance.sat) : 0 }
     }
-    async PayInvoice(invoice: string, amount: number, { routingFeeLimit, serviceFee }: { routingFeeLimit: number, serviceFee: number }, decodedAmount: number, { useProvider, from }: TxActionOptions, paymentIndexCb?: (index: number) => void): Promise<PaidInvoice> {
+    async PayInvoice(invoice: string, amount: number, { routingFeeLimit, serviceFee, timeoutSeconds }: { routingFeeLimit: number, serviceFee: number, timeoutSeconds?: number }, decodedAmount: number, { useProvider, from, forceLocalLnd }: TxActionOptions, paymentIndexCb?: (index: number) => void): Promise<PaidInvoice> {
         this.log(DEBUG, "Paying invoice")
         if (this.outgoingOpsLocked) {
             this.log(ERROR, "outgoing ops locked, rejecting payment request")
             throw new Error("lnd node is currently out of sync")
         }
-        // Force use of provider when bypass is enabled
-        const mustUseProvider = this.liquidProvider.getSettings().useOnlyLiquidityProvider || useProvider
+        if (forceLocalLnd && (this.liquidProvider.getSettings().useOnlyLiquidityProvider || useProvider)) {
+            throw new Error("swaps cannot be paid via the liquidity provider")
+        }
+        const mustUseProvider = !forceLocalLnd && (this.liquidProvider.getSettings().useOnlyLiquidityProvider || useProvider)
         if (mustUseProvider) {
             const res = await this.liquidProvider.PayInvoice(invoice, decodedAmount, from, serviceFee)
             const providerPubkey = this.liquidProvider.GetProviderPubkey()
@@ -567,7 +865,7 @@ export default class {
         await this.Health()
         let paymentFailed = false
         try {
-            const res = await this.sendPaymentV2({ invoice, amount, routingFeeLimit }, paymentIndexCb)
+            const res = await this.sendPaymentV2({ invoice, amount, routingFeeLimit, timeoutSeconds }, paymentIndexCb)
             if (res.ok) {
                 this.utils.stateBundler.AddTxPoint('paidAnInvoice', res.res.valueSat, { from, used: 'lnd', timeDiscount: true })
                 return res.res
@@ -616,12 +914,12 @@ export default class {
         }
     }
 
-    private async sendPaymentV2(payReq: { invoice: string, amount: number, routingFeeLimit: number }, paymentIndexCb?: (index: number) => void): Promise<{ ok: true, res: PaidInvoice } | { ok: false, error: string }> {
-        const { invoice, amount, routingFeeLimit } = payReq
+    private async sendPaymentV2(payReq: { invoice: string, amount: number, routingFeeLimit: number, timeoutSeconds?: number }, paymentIndexCb?: (index: number) => void): Promise<{ ok: true, res: PaidInvoice } | { ok: false, error: string }> {
+        const { invoice, amount, routingFeeLimit, timeoutSeconds } = payReq
         const abortController = new AbortController()
-        const req = PayInvoiceReq(invoice, amount, routingFeeLimit)
+        const req = PayInvoiceReq(invoice, amount, routingFeeLimit, timeoutSeconds)
         const stream = this.router.sendPaymentV2(req, { abort: abortController.signal })
-        const indexTimeoutMs = (req.timeoutSeconds || 50) * 1000
+        const indexTimeoutMs = DEFAULT_PAYMENT_TIMEOUT_SECONDS * 1000
         return new Promise((res, rej) => {
             let settled = false
             let indexSent = false
@@ -756,6 +1054,25 @@ export default class {
         return res.response
     }
 
+    /**
+     * Wallet fee estimator, not Lightning EstimateFee. That RPC coin-selects a
+     * send and fails on an empty on-chain wallet; reverse claims spend a lockup
+     * UTXO, so they only need sat/vbyte and the node's min relay floor.
+     * 250 sat/kw = 1 sat/vbyte.
+     */
+    async EstimateSatPerVbyte(confTarget = 1): Promise<{ satPerVbyte: number, minRelaySatPerVbyte: number }> {
+        this.log(DEBUG, "Estimating sat per vbyte")
+        await this.Health()
+        if (!Number.isSafeInteger(confTarget) || confTarget < 1) {
+            throw new Error("conf target must be a positive integer")
+        }
+        const res = await this.walletKit.estimateFee({ confTarget }, DeadLineMetadata())
+        return {
+            satPerVbyte: satPerKwToSatPerVbyte(res.response.satPerKw),
+            minRelaySatPerVbyte: satPerKwToSatPerVbyte(res.response.minRelayFeeSatPerKw),
+        }
+    }
+
     async PayAddress(address: string, amount: number, satPerVByte: number, label = "", { useProvider, from }: TxActionOptions): Promise<SendCoinsResponse> {
         this.log(DEBUG, "Paying address")
         // Address payments not supported when bypass is enabled
@@ -876,6 +1193,40 @@ export default class {
         }
         const { response } = await this.lightning.forwardingHistory({ indexOffset, numMaxEvents: 0, startTime: BigInt(startTime), endTime: BigInt(endTime), peerAliasLookup: false, incomingChanIds: [], outgoingChanIds: [] }, DeadLineMetadata())
         return response
+    }
+
+    /**
+     * Independent proof a local invoice was paid. Used to reconcile a submarine
+     * swap after transaction.claimed; not a substitute for cooperative claim.
+     */
+    async LookupSettledInvoicePreimage(paymentHashHex: string): Promise<string | undefined> {
+        this.log(DEBUG, "Looking up settled invoice preimage")
+        if (this.liquidProvider.getSettings().useOnlyLiquidityProvider) {
+            return undefined
+        }
+        let rHash: Buffer
+        try {
+            rHash = Buffer.from(paymentHashHex, 'hex')
+        } catch {
+            return undefined
+        }
+        if (rHash.length !== 32) {
+            return undefined
+        }
+        try {
+            const res = await this.lightning.lookupInvoice({ rHash, rHashStr: '' }, DeadLineMetadata())
+            if (res.response.state !== Invoice_InvoiceState.SETTLED) {
+                return undefined
+            }
+            const preimage = Buffer.from(res.response.rPreimage)
+            if (preimage.length !== 32) {
+                return undefined
+            }
+            return preimage.toString('hex')
+        } catch (err: any) {
+            this.log(DEBUG, "Invoice lookup for swap reconcile missed", err.message || err)
+            return undefined
+        }
     }
 
     async GetAllInvoices(max: number, startOffset = 0): Promise<ListInvoiceResponse> {

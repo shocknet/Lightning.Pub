@@ -20,6 +20,8 @@ export const BACKUP_TABLE_IDS = [
     'management_grants',
     'debit_accesses',
     'invite_tokens',
+    'invoice_swaps',
+    'transaction_swaps',
 ] as const
 
 export type BackupTableId = (typeof BACKUP_TABLE_IDS)[number]
@@ -44,7 +46,19 @@ const BACKUP_TABLE_PARENTS: { readonly [K in BackupTableId]: readonly BackupTabl
     management_grants: ['application_users'],
     debit_accesses: ['application_users'],
     invite_tokens: ['applications'],
+    invoice_swaps: [],
+    transaction_swaps: [],
 }
+
+/**
+ * Tables added after the first published backup format. A manifest that omits
+ * them is an older snapshot with no swap recovery material, not a corrupt file.
+ * If the manifest names the shard, the file must still be present and decryptable.
+ */
+export const OPTIONAL_BACKUP_TABLE_IDS: readonly BackupTableId[] = [
+    'invoice_swaps',
+    'transaction_swaps',
+]
 
 /** Include every restore parent of `ids`, in `BACKUP_RESTORE_ORDER`. */
 export function expandBackupTableDependencies(ids: readonly BackupTableId[]): BackupTableId[] {
@@ -68,6 +82,11 @@ export const BACKUP_MANIFEST_FILENAME = 'manifest.json'
 export const BACKUP_MANIFEST_VERSION = 1
 
 const TABLE_ID_SET = new Set<string>(BACKUP_TABLE_IDS)
+const OPTIONAL_TABLE_ID_SET = new Set<string>(OPTIONAL_BACKUP_TABLE_IDS)
+
+export function isOptionalBackupTableId(id: BackupTableId): boolean {
+    return OPTIONAL_TABLE_ID_SET.has(id)
+}
 const GENERATION_RE = /^[0-9a-z]+$/
 
 export type BackupManifest = {

@@ -31,6 +31,7 @@ import { UserAccess } from "../entity/UserAccess.js"
 import { AdminSettings } from "../entity/AdminSettings.js"
 import { TransactionSwap } from "../entity/TransactionSwap.js"
 import { InvoiceSwap } from "../entity/InvoiceSwap.js"
+import { InvoiceSwapFundingLock } from "../entity/InvoiceSwapFundingLock.js"
 import { ConsumedDebitK1 } from "../entity/ConsumedDebitK1.js"
 
 
@@ -80,6 +81,7 @@ export const MainDbEntities = {
     'AdminSettings': AdminSettings,
     'TransactionSwap': TransactionSwap,
     'InvoiceSwap': InvoiceSwap,
+    'InvoiceSwapFundingLock': InvoiceSwapFundingLock,
     'ConsumedDebitK1': ConsumedDebitK1,
 }
 export type MainDbNames = keyof typeof MainDbEntities

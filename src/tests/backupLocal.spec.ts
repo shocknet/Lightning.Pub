@@ -150,6 +150,7 @@ export default async (T: StorageTestBase) => {
     await testBadSettingsDoNotBlockScb(T)
     await testInvalidSettingsAllowRecoveryBoot(T)
     await testMissingShardFailsClosed(T)
+    await testOlderBackupWithoutSwapShardsRestores(T)
     await testEmptyProductsShardImports(T)
     await testIndexesWithoutAddressUpdate(T)
     await testIndexesZeroSnapshot(T)
@@ -170,6 +171,7 @@ export default async (T: StorageTestBase) => {
     await testShutdownFinalLocalNotBlockedByInFlightRemote(T)
     await testShutdownRemoteOnlyIsBounded(T)
     await testShutdownFailedLocalDoesNotWaitOnRemote(T)
+    await testShutdownDoesNotSucceedCriticalFlushWithoutCommit(T)
     await testUploadAllTablesSurvivesRemoteFailure(T)
     await testConfiguredDestsDedupsCloudSftpAlias(T)
     await testConfiguredDestsKeepsDistinctRemotes(T)
@@ -1468,6 +1470,47 @@ const seedDialtone = async (T: StorageTestBase, settings: SettingsManager) => {
     await T.storage.applicationStorage.AddInviteToken(app, 100)
     await T.storage.liquidityStorage.CreateTrackedProvider('lnPub', crypto.randomBytes(32).toString('hex'), 42)
     await settings.updateLspChannelThreshold(1_500_000)
+    await T.storage.paymentStorage.AddInvoiceSwap({
+        app_user_id: user.identifier,
+        swap_quote_id: 'sub-quote-1',
+        swap_tree: '{"claimLeaf":{"version":196,"output":"aa"},"refundLeaf":{"version":196,"output":"bb"}}',
+        claim_public_key: 'aa'.repeat(33),
+        payment_hash: 'bb'.repeat(32),
+        timeout_block_height: 800_100,
+        invoice: 'lnbc1-sub',
+        invoice_amount: 1000,
+        transaction_amount: 1100,
+        swap_fee_sats: 80,
+        chain_fee_sats: 20,
+        sat_per_v_byte: 2,
+        ephemeral_public_key: 'cc'.repeat(33),
+        address: 'bcrt1qsubmarine',
+        ephemeral_private_key: 'dd'.repeat(32),
+        tx_id: 'ee'.repeat(32),
+        lockup_tx_hex: '020000000001aabb',
+        service_url: 'https://boltz.example',
+    })
+    await T.storage.paymentStorage.AddTransactionSwap({
+        app_user_id: user.identifier,
+        swap_quote_id: 'rev-quote-1',
+        swap_tree: '{"claimLeaf":{"version":196,"output":"aa"},"refundLeaf":{"version":196,"output":"bb"}}',
+        lockup_address: 'bcrt1qlockup',
+        refund_public_key: '11'.repeat(33),
+        timeout_block_height: 800_200,
+        invoice: 'lnbc1-rev',
+        invoice_amount: 1200,
+        transaction_amount: 1000,
+        swap_fee_sats: 50,
+        chain_fee_sats: 15,
+        preimage: '22'.repeat(32),
+        ephemeral_public_key: '33'.repeat(33),
+        ephemeral_private_key: '44'.repeat(32),
+        address_paid: 'bcrt1qdest',
+        paid_at_unix: 1,
+        claim_tx_hex: '020000000002ccdd',
+        lockup_tx_hex: '020000000003eeff',
+        service_url: 'https://boltz.example',
+    })
 
     return { app, user }
 }
@@ -1509,6 +1552,8 @@ const testLocalRoundtrip = async (T: StorageTestBase) => {
         inviteTokens: sortBy(await T.storage.applicationStorage.ExportInviteTokens(), r => r.inviteToken),
         appUserDevices: sortBy(await T.storage.applicationStorage.ExportAppUserDevices(), r => `${r.app_user_id}:${r.device_id}`),
         trackedProviders: sortBy(await T.storage.liquidityStorage.ExportTrackedProviders(), r => `${r.provider_type}:${r.provider_pubkey}`),
+        invoiceSwaps: sortBy(await T.storage.paymentStorage.ExportInvoiceSwaps(), r => r.swap_operation_id),
+        transactionSwaps: sortBy(await T.storage.paymentStorage.ExportTransactionSwaps(), r => r.swap_operation_id),
     }
     T.expect(before.applications.some(a => a.app_id === app.app_id && !!a.nostr_public_key)).to.equal(true)
     T.expect(before.balances.some(b => b.user_id === user.user.user_id && b.balance_sats === 1234)).to.equal(true)
@@ -1547,6 +1592,8 @@ const testLocalRoundtrip = async (T: StorageTestBase) => {
         inviteTokens: sortBy(await dest.applicationStorage.ExportInviteTokens(), r => r.inviteToken),
         appUserDevices: sortBy(await dest.applicationStorage.ExportAppUserDevices(), r => `${r.app_user_id}:${r.device_id}`),
         trackedProviders: sortBy(await dest.liquidityStorage.ExportTrackedProviders(), r => `${r.provider_type}:${r.provider_pubkey}`),
+        invoiceSwaps: sortBy(await dest.paymentStorage.ExportInvoiceSwaps(), r => r.swap_operation_id),
+        transactionSwaps: sortBy(await dest.paymentStorage.ExportTransactionSwaps(), r => r.swap_operation_id),
     }
 
     // Dest InitSettings may add extra admin_settings rows; assert source rows are present.
@@ -1564,6 +1611,10 @@ const testLocalRoundtrip = async (T: StorageTestBase) => {
     T.expect(after.inviteTokens).to.deep.equal(before.inviteTokens)
     T.expect(after.appUserDevices).to.deep.equal(before.appUserDevices)
     T.expect(after.trackedProviders).to.deep.equal(before.trackedProviders)
+    T.expect(after.invoiceSwaps).to.deep.equal(before.invoiceSwaps)
+    T.expect(after.transactionSwaps).to.deep.equal(before.transactionSwaps)
+    T.expect(before.invoiceSwaps.some(s => s.ephemeral_private_key === 'dd'.repeat(32) && s.lockup_tx_hex === '020000000001aabb')).to.equal(true)
+    T.expect(before.transactionSwaps.some(s => s.ephemeral_private_key === '44'.repeat(32) && s.preimage === '22'.repeat(32) && s.claim_tx_hex === '020000000002ccdd')).to.equal(true)
 
     dest.Stop()
     fs.rmSync(dir, { recursive: true, force: true })
@@ -1837,6 +1888,42 @@ const testMissingShardFailsClosed = async (T: StorageTestBase) => {
         fs.rmSync(dir, { recursive: true, force: true })
     }
     T.d('a missing shard file fails the restore before import')
+}
+
+const testOlderBackupWithoutSwapShardsRestores = async (T: StorageTestBase) => {
+    T.d('starting testOlderBackupWithoutSwapShardsRestores')
+    const dir = tempBackupDir()
+    const dest = await openSecondStorage()
+    try {
+        await writeLocalBackup(T, dir, 4)
+        const manifest = readManifest(dir)
+        const invoiceName = manifest.tables.invoice_swaps
+        const txName = manifest.tables.transaction_swaps
+        if (invoiceName) fs.rmSync(path.join(dir, invoiceName))
+        if (txName) fs.rmSync(path.join(dir, txName))
+        delete manifest.tables.invoice_swaps
+        delete manifest.tables.transaction_swaps
+        fs.writeFileSync(path.join(dir, BACKUP_MANIFEST_FILENAME), JSON.stringify(manifest))
+
+        const settings = new SettingsManager(dest)
+        await settings.InitSettings()
+        const restore = new RestoreManager(dest, settings, {} as Unlocker)
+        const keys = await deriveBackupKeys(TEST_PHRASE)
+        const req: WizardTypes.RestoreRequest = {
+            phrase: TEST_PHRASE,
+            source: { type: WizardTypes.RestoreRequest_source_type.LOCAL_PATH, local_path: dir },
+        }
+        const buffers = await restore.fetchSegmentsData(req, keys)
+        T.expect(buffers.has('invoice_swaps')).to.equal(false)
+        T.expect(buffers.has('transaction_swaps')).to.equal(false)
+        const { backupData } = restore.decodeSegmentsData(buffers, keys)
+        T.expect(backupData.invoiceSwaps).to.deep.equal([])
+        T.expect(backupData.transactionSwaps).to.deep.equal([])
+    } finally {
+        dest.Stop()
+        fs.rmSync(dir, { recursive: true, force: true })
+    }
+    T.d('older manifests that omit swap shards restore with empty swap recovery tables')
 }
 
 const testEmptyProductsShardImports = async (T: StorageTestBase) => {
@@ -2384,6 +2471,36 @@ const testShutdownRemoteOnlyIsBounded = async (T: StorageTestBase) => {
     ;(backup as any).publishRemotes = () => new Promise(() => { /* stall until process teardown */ })
     await withTimeout(backup.shutdown(), 2000, 'remote-only shutdown waited on the remote with no deadline')
     T.d('remote-only shutdown returns within the remote deadline')
+}
+
+const testShutdownDoesNotSucceedCriticalFlushWithoutCommit = async (T: StorageTestBase) => {
+    T.d('starting testShutdownDoesNotSucceedCriticalFlushWithoutCommit')
+    const backup = new BackupManager(T.storage, await sftpOnlySettings(T))
+    backup.waitInFlightMs = 50
+    backup.shutdownFlushMs = 200
+    await backup.InitKeys(TEST_SEED)
+    await backup.AddressUpdate(1)
+    backup.ChannelBackupUpdate(SAMPLE_SCB)
+    const remote = holdRemotePublishes(backup)
+    const flush = backup.flushTablesNow('invoice_swaps')
+    try {
+        await waitUntil(remote.entered, 2000, 'critical flush did not start the remote upload')
+        const shutdown = backup.shutdown()
+        let flushError: string | undefined
+        try {
+            await withTimeout(flush, 2000, 'critical flush did not settle after shutdown')
+        } catch (err: any) {
+            flushError = err.message
+        }
+        T.expect(!!flushError).to.equal(true)
+        T.expect(flushError).to.include('interrupted before any destination committed')
+        await withTimeout(shutdown, 2000, 'shutdown hung after interrupting the critical flush')
+    } finally {
+        remote.release()
+        if (!backup.shuttingDown) await backup.shutdown()
+        await flush.catch(() => undefined)
+    }
+    T.d('shutdown does not let a safety-critical flush succeed without a committed destination')
 }
 
 const testShutdownFailedLocalDoesNotWaitOnRemote = async (T: StorageTestBase) => {

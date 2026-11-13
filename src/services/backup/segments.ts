@@ -7,6 +7,13 @@
 // included. Restore favors non-inflation over exact replay. Balance is already
 // debited at send time; after SCB restore LND's payment DB is gone so payment
 // status cannot be verified. Refunding on restore would be gameable.
+//
+// Swap shards keep funded/started recovery rows. A stored refund or claim
+// transaction id is publication, not independently confirmed spending, so it
+// must not prune: an unconfirmed spend can be evicted, and earlier shards are
+// garbage-collected. A stored reverse-swap claim hex is only a signature;
+// claim_published is the publication-attempt marker. Unused quotes can be recreated
+// and are omitted.
 import type { User } from '../storage/entity/User.js'
 import type { Application } from '../storage/entity/Application.js'
 import type { ApplicationUser } from '../storage/entity/ApplicationUser.js'
@@ -18,6 +25,8 @@ import type { ManagementGrant } from '../storage/entity/ManagementGrant.js'
 import type { DebitAccess } from '../storage/entity/DebitAccess.js'
 import type { InviteToken } from '../storage/entity/InviteToken.js'
 import type { AppUserDevice } from '../storage/entity/AppUserDevice.js'
+import type { InvoiceSwap } from '../storage/entity/InvoiceSwap.js'
+import type { TransactionSwap } from '../storage/entity/TransactionSwap.js'
 import { encryptPayload, decryptPayload } from './encryption.js'
 import { concatUint8Arrays, encodeTLbV, encodeTLV, integerFromUint8Array, parseTLbV, parseTLV, uintToBytes, utf8Decoder, utf8Encoder, type TLV } from '../helpers/tlv.js'
 
@@ -86,6 +95,8 @@ export type BackupData = {
     debitAccesses: DebitAccessRow[]
     inviteTokens: InviteTokenRow[]
     appUserDevices: AppUserDeviceRow[]
+    invoiceSwaps: InvoiceSwapRow[]
+    transactionSwaps: TransactionSwapRow[]
 }
 
 
@@ -582,5 +593,305 @@ export const decodeAppUserDeviceRow = (data: Uint8Array): AppUserDeviceRow => {
         app_user_id: backupIdFromBytes(tlv[2]),
         device_id: backupIdFromBytes(tlv[3]),
         firebase_messaging_token: stringFromBytes(joinChunks(tlv[4])),
+    }
+}
+
+const unixFromBackup = (value: number | string | undefined): number => {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+        return value
+    }
+    if (typeof value === 'string' && value !== '') {
+        const n = Number(value)
+        return Number.isFinite(n) ? n : 0
+    }
+    return 0
+}
+
+const tlvString = (tlv: TLV, tag: number, fallback = ''): string =>
+    tlv[tag] ? stringFromBytes(joinChunks(tlv[tag])) : fallback
+
+const tlvNumber = (tlv: TLV, tag: number, fallback = 0): number =>
+    tlv[tag]?.[0] ? numberFromBytes(tlv[tag][0]) : fallback
+
+const tlvBool = (tlv: TLV, tag: number, fallback = false): boolean =>
+    tlv[tag]?.[0] ? boolFromBytes(tlv[tag][0]) : fallback
+
+const putString = (tlv: TLV, tag: number, value: string, omitEmpty = false) => {
+    if (omitEmpty && !value) {
+        return
+    }
+    tlv[tag] = splitChunk(stringToBytes(value || ''), 255)
+}
+
+const putNumber = (tlv: TLV, tag: number, value: number, omitZero = false) => {
+    if (omitZero && !value) {
+        return
+    }
+    tlv[tag] = [numberToBytes(value)]
+}
+
+export type InvoiceSwapRow = {
+    swap_operation_id: string
+    app_user_id: string
+    swap_quote_id: string
+    swap_tree: string
+    claim_public_key: string
+    payment_hash: string
+    timeout_block_height: number
+    invoice: string
+    invoice_amount: number
+    transaction_amount: number
+    swap_fee_sats: number
+    chain_fee_sats: number
+    sat_per_v_byte: number
+    ephemeral_public_key: string
+    address: string
+    ephemeral_private_key: string
+    used: boolean
+    completed_at_unix: number
+    paid_at_unix: number
+    preimage: string
+    failure_reason: string
+    tx_id: string
+    lockup_tx_hex: string
+    refund_address: string
+    refund_at_unix: number
+    refund_tx_id: string
+    refund_tx_hex: string
+    service_url: string
+}
+
+/** Funded submarine recovery: lockups that may still need a refund or rebroadcast.
+ *  A stored preimage or refund_tx_id is not proof the lockup was spent. */
+export const isInvoiceSwapBackupRow = (swap: {
+    used?: boolean
+    refund_tx_id?: string
+    tx_id?: string
+    lockup_tx_hex?: string
+    failure_reason?: string
+    preimage?: string
+}): boolean => !!(swap.tx_id || swap.lockup_tx_hex)
+
+/** Started reverse-swap recovery: payment has started. A stored claim tx_id is
+ *  a confirmed lockup spend, but started rows must still be backed up. */
+export const isTransactionSwapBackupRow = (swap: {
+    paid_at_unix?: number | string
+    tx_id?: string
+}): boolean => unixFromBackup(swap.paid_at_unix) > 0
+
+export const mapInvoiceSwapBackupRow = (swap: InvoiceSwap): InvoiceSwapRow => ({
+    swap_operation_id: swap.swap_operation_id,
+    app_user_id: swap.app_user_id,
+    swap_quote_id: swap.swap_quote_id,
+    swap_tree: swap.swap_tree,
+    claim_public_key: swap.claim_public_key,
+    payment_hash: swap.payment_hash,
+    timeout_block_height: swap.timeout_block_height,
+    invoice: swap.invoice,
+    invoice_amount: swap.invoice_amount,
+    transaction_amount: swap.transaction_amount,
+    swap_fee_sats: swap.swap_fee_sats,
+    chain_fee_sats: swap.chain_fee_sats,
+    sat_per_v_byte: swap.sat_per_v_byte || 0,
+    ephemeral_public_key: swap.ephemeral_public_key,
+    address: swap.address,
+    ephemeral_private_key: swap.ephemeral_private_key,
+    used: !!swap.used,
+    completed_at_unix: unixFromBackup(swap.completed_at_unix),
+    paid_at_unix: unixFromBackup(swap.paid_at_unix),
+    preimage: swap.preimage || '',
+    failure_reason: swap.failure_reason || '',
+    tx_id: swap.tx_id || '',
+    lockup_tx_hex: swap.lockup_tx_hex || '',
+    refund_address: swap.refund_address || '',
+    refund_at_unix: unixFromBackup(swap.refund_at_unix),
+    refund_tx_id: swap.refund_tx_id || '',
+    refund_tx_hex: swap.refund_tx_hex || '',
+    service_url: swap.service_url || '',
+})
+
+export const encodeInvoiceSwapRow = (row: InvoiceSwapRow): Uint8Array => {
+    const tlv: TLV = {}
+    putString(tlv, 2, row.swap_operation_id)
+    putString(tlv, 3, row.app_user_id)
+    putString(tlv, 4, row.swap_quote_id)
+    putString(tlv, 5, row.swap_tree)
+    putString(tlv, 6, row.claim_public_key)
+    putString(tlv, 7, row.payment_hash)
+    putNumber(tlv, 8, row.timeout_block_height)
+    putString(tlv, 9, row.invoice)
+    putNumber(tlv, 10, row.invoice_amount)
+    putNumber(tlv, 11, row.transaction_amount)
+    putNumber(tlv, 12, row.swap_fee_sats)
+    putNumber(tlv, 13, row.chain_fee_sats)
+    putNumber(tlv, 14, row.sat_per_v_byte, true)
+    putString(tlv, 15, row.ephemeral_public_key)
+    putString(tlv, 16, row.address)
+    putString(tlv, 17, row.ephemeral_private_key)
+    tlv[18] = [boolToBytes(row.used)]
+    putNumber(tlv, 19, row.completed_at_unix, true)
+    putNumber(tlv, 20, row.paid_at_unix, true)
+    putString(tlv, 21, row.preimage, true)
+    putString(tlv, 22, row.failure_reason, true)
+    putString(tlv, 23, row.tx_id, true)
+    putString(tlv, 24, row.lockup_tx_hex, true)
+    putString(tlv, 25, row.refund_address, true)
+    putNumber(tlv, 26, row.refund_at_unix, true)
+    putString(tlv, 27, row.refund_tx_id, true)
+    putString(tlv, 28, row.service_url, true)
+    putString(tlv, 29, row.refund_tx_hex, true)
+    return encodeTLV(tlv)
+}
+
+export const decodeInvoiceSwapRow = (data: Uint8Array): InvoiceSwapRow => {
+    const tlv = parseTLV(data)
+    return {
+        swap_operation_id: tlvString(tlv, 2),
+        app_user_id: tlvString(tlv, 3),
+        swap_quote_id: tlvString(tlv, 4),
+        swap_tree: tlvString(tlv, 5),
+        claim_public_key: tlvString(tlv, 6),
+        payment_hash: tlvString(tlv, 7),
+        timeout_block_height: tlvNumber(tlv, 8),
+        invoice: tlvString(tlv, 9),
+        invoice_amount: tlvNumber(tlv, 10),
+        transaction_amount: tlvNumber(tlv, 11),
+        swap_fee_sats: tlvNumber(tlv, 12),
+        chain_fee_sats: tlvNumber(tlv, 13),
+        sat_per_v_byte: tlvNumber(tlv, 14),
+        ephemeral_public_key: tlvString(tlv, 15),
+        address: tlvString(tlv, 16),
+        ephemeral_private_key: tlvString(tlv, 17),
+        used: tlvBool(tlv, 18),
+        completed_at_unix: tlvNumber(tlv, 19),
+        paid_at_unix: tlvNumber(tlv, 20),
+        preimage: tlvString(tlv, 21),
+        failure_reason: tlvString(tlv, 22),
+        tx_id: tlvString(tlv, 23),
+        lockup_tx_hex: tlvString(tlv, 24),
+        refund_address: tlvString(tlv, 25),
+        refund_at_unix: tlvNumber(tlv, 26),
+        refund_tx_id: tlvString(tlv, 27),
+        service_url: tlvString(tlv, 28),
+        refund_tx_hex: tlvString(tlv, 29),
+    }
+}
+
+export type TransactionSwapRow = {
+    swap_operation_id: string
+    app_user_id: string
+    swap_quote_id: string
+    swap_tree: string
+    lockup_address: string
+    refund_public_key: string
+    timeout_block_height: number
+    invoice: string
+    invoice_amount: number
+    transaction_amount: number
+    swap_fee_sats: number
+    chain_fee_sats: number
+    preimage: string
+    ephemeral_public_key: string
+    ephemeral_private_key: string
+    used: boolean
+    failure_reason: string
+    tx_id: string
+    completed_at_unix: number
+    paid_at_unix: number
+    address_paid: string
+    claim_tx_hex: string
+    claim_published: boolean
+    lockup_tx_hex: string
+    service_url: string
+}
+
+export const mapTransactionSwapBackupRow = (swap: TransactionSwap): TransactionSwapRow => ({
+    swap_operation_id: swap.swap_operation_id,
+    app_user_id: swap.app_user_id,
+    swap_quote_id: swap.swap_quote_id,
+    swap_tree: swap.swap_tree,
+    lockup_address: swap.lockup_address,
+    refund_public_key: swap.refund_public_key,
+    timeout_block_height: swap.timeout_block_height,
+    invoice: swap.invoice,
+    invoice_amount: swap.invoice_amount,
+    transaction_amount: swap.transaction_amount,
+    swap_fee_sats: swap.swap_fee_sats,
+    chain_fee_sats: swap.chain_fee_sats,
+    preimage: swap.preimage,
+    ephemeral_public_key: swap.ephemeral_public_key,
+    ephemeral_private_key: swap.ephemeral_private_key,
+    used: !!swap.used,
+    failure_reason: swap.failure_reason || '',
+    tx_id: swap.tx_id || '',
+    completed_at_unix: unixFromBackup(swap.completed_at_unix),
+    paid_at_unix: unixFromBackup(swap.paid_at_unix),
+    address_paid: swap.address_paid || '',
+    claim_tx_hex: swap.claim_tx_hex || '',
+    claim_published: !!swap.claim_published,
+    lockup_tx_hex: swap.lockup_tx_hex || '',
+    service_url: swap.service_url || '',
+})
+
+export const encodeTransactionSwapRow = (row: TransactionSwapRow): Uint8Array => {
+    const tlv: TLV = {}
+    putString(tlv, 2, row.swap_operation_id)
+    putString(tlv, 3, row.app_user_id)
+    putString(tlv, 4, row.swap_quote_id)
+    putString(tlv, 5, row.swap_tree)
+    putString(tlv, 6, row.lockup_address)
+    putString(tlv, 7, row.refund_public_key)
+    putNumber(tlv, 8, row.timeout_block_height)
+    putString(tlv, 9, row.invoice)
+    putNumber(tlv, 10, row.invoice_amount)
+    putNumber(tlv, 11, row.transaction_amount)
+    putNumber(tlv, 12, row.swap_fee_sats)
+    putNumber(tlv, 13, row.chain_fee_sats)
+    putString(tlv, 14, row.preimage)
+    putString(tlv, 15, row.ephemeral_public_key)
+    putString(tlv, 16, row.ephemeral_private_key)
+    tlv[17] = [boolToBytes(row.used)]
+    putString(tlv, 18, row.failure_reason, true)
+    putString(tlv, 19, row.tx_id, true)
+    putNumber(tlv, 20, row.completed_at_unix, true)
+    putNumber(tlv, 21, row.paid_at_unix, true)
+    putString(tlv, 22, row.address_paid, true)
+    putString(tlv, 23, row.claim_tx_hex, true)
+    putString(tlv, 24, row.lockup_tx_hex, true)
+    putString(tlv, 25, row.service_url, true)
+    if (row.claim_published) {
+        tlv[26] = [boolToBytes(true)]
+    }
+    return encodeTLV(tlv)
+}
+
+export const decodeTransactionSwapRow = (data: Uint8Array): TransactionSwapRow => {
+    const tlv = parseTLV(data)
+    return {
+        swap_operation_id: tlvString(tlv, 2),
+        app_user_id: tlvString(tlv, 3),
+        swap_quote_id: tlvString(tlv, 4),
+        swap_tree: tlvString(tlv, 5),
+        lockup_address: tlvString(tlv, 6),
+        refund_public_key: tlvString(tlv, 7),
+        timeout_block_height: tlvNumber(tlv, 8),
+        invoice: tlvString(tlv, 9),
+        invoice_amount: tlvNumber(tlv, 10),
+        transaction_amount: tlvNumber(tlv, 11),
+        swap_fee_sats: tlvNumber(tlv, 12),
+        chain_fee_sats: tlvNumber(tlv, 13),
+        preimage: tlvString(tlv, 14),
+        ephemeral_public_key: tlvString(tlv, 15),
+        ephemeral_private_key: tlvString(tlv, 16),
+        used: tlvBool(tlv, 17),
+        failure_reason: tlvString(tlv, 18),
+        tx_id: tlvString(tlv, 19),
+        completed_at_unix: tlvNumber(tlv, 20),
+        paid_at_unix: tlvNumber(tlv, 21),
+        address_paid: tlvString(tlv, 22),
+        claim_tx_hex: tlvString(tlv, 23),
+        lockup_tx_hex: tlvString(tlv, 24),
+        service_url: tlvString(tlv, 25),
+        claim_published: tlvBool(tlv, 26),
     }
 }

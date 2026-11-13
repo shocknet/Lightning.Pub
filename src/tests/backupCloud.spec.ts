@@ -4,6 +4,7 @@ import ssh2 from 'ssh2'
 const { Server, utils } = ssh2
 import { assertPowDifficulty, hasLeadingZeroBits, MAX_ACCEPTED_POW_BITS, solvePow } from '../services/backup/cloudProvision.js'
 import { deriveBackupKeys } from '../services/backup/derivation.js'
+import { opensshEd25519FromSeed } from '../services/backup/sshKey.js'
 import {
     CLOUD_SFTP_HOST,
     CLOUD_SFTP_HOST_FINGERPRINT,
@@ -365,12 +366,19 @@ const testSftpConnectTimesOut = async (T: StorageTestBase) => {
     T.d('a server that accepts TCP but never speaks SSH is aborted')
 }
 
+/**
+ * ssh2's generateKeyPairSync strips every leading 0x00 from the ed25519
+ * public key, then parseKey rejects the result (~1/256 keys). The backup
+ * encoder keeps the full 32-byte public key.
+ */
+const opensshHostKey = (): string => opensshEd25519FromSeed(crypto.randomBytes(32)).privateKey
+
 type StallMode = 'silent' | 'huge'
 
 const startStallSftp = async (mode: StallMode) => {
-    const hostKeys = utils.generateKeyPairSync('ed25519')
+    const hostKey = opensshHostKey()
     const clients: Array<{ end: () => void }> = []
-    const server = new Server({ hostKeys: [hostKeys.private], keepaliveInterval: 0 }, client => {
+    const server = new Server({ hostKeys: [hostKey], keepaliveInterval: 0 }, client => {
         clients.push(client)
         client.on('error', () => { /* destroyed by the client deadline */ })
         client.on('authentication', ctx => ctx.accept())
@@ -448,9 +456,9 @@ const testSftpStalledUploadTimesOut = async (T: StorageTestBase) => {
 
 /** Server that answers WRITE slowly but steadily so total time exceeds idle if idle is not reset. */
 const startSlowWriteSftp = async (writeDelayMs: number) => {
-    const hostKeys = utils.generateKeyPairSync('ed25519')
+    const hostKey = opensshHostKey()
     const clients: Array<{ end: () => void }> = []
-    const server = new Server({ hostKeys: [hostKeys.private], keepaliveInterval: 0 }, client => {
+    const server = new Server({ hostKeys: [hostKey], keepaliveInterval: 0 }, client => {
         clients.push(client)
         client.on('error', () => { /* client may abort */ })
         client.on('authentication', ctx => ctx.accept())
@@ -540,11 +548,11 @@ const testSftpDownloadSizeBound = async (T: StorageTestBase) => {
 }
 
 const startAuthCountingWriteSftp = async (opts: { failOpenAt?: number, stallOpenAfter?: number } = {}) => {
-    const hostKeys = utils.generateKeyPairSync('ed25519')
+    const hostKey = opensshHostKey()
     const clients: Array<{ end: () => void }> = []
     let authentications = 0
     let openCount = 0
-    const server = new Server({ hostKeys: [hostKeys.private], keepaliveInterval: 0 }, client => {
+    const server = new Server({ hostKeys: [hostKey], keepaliveInterval: 0 }, client => {
         clients.push(client)
         client.on('error', () => { /* client may abort */ })
         client.on('authentication', ctx => {
@@ -591,13 +599,13 @@ const startAuthCountingWriteSftp = async (opts: { failOpenAt?: number, stallOpen
 
 /** Enough of an SFTP server for one publish: reads miss, writes and deletes succeed, rename is unsupported. */
 const startPublishSftp = async () => {
-    const hostKeys = utils.generateKeyPairSync('ed25519')
+    const hostKey = opensshHostKey()
     const clients: Array<{ end: () => void }> = []
     let authentications = 0
     let openCount = 0
     let removeCount = 0
     let nextHandle = 1
-    const server = new Server({ hostKeys: [hostKeys.private], keepaliveInterval: 0 }, client => {
+    const server = new Server({ hostKeys: [hostKey], keepaliveInterval: 0 }, client => {
         clients.push(client)
         client.on('error', () => { /* client may abort */ })
         client.on('authentication', ctx => {
@@ -799,13 +807,13 @@ const waitFor = async (pred: () => boolean, ms: number): Promise<boolean> => {
 
 /** Server that accepts only one OpenSSH ed25519 public key and rejects passwords. */
 const startPublicKeyOnlySftp = async (authorizedPublicKeyLine: string) => {
-    const hostKeys = utils.generateKeyPairSync('ed25519')
+    const hostKey = opensshHostKey()
     const clients: Array<{ end: () => void }> = []
     const pubB64 = authorizedPublicKeyLine.trim().split(/\s+/)[1]
     const expected = Buffer.from(pubB64, 'base64')
     let passwordAttempts = 0
     let acceptedKey = false
-    const server = new Server({ hostKeys: [hostKeys.private], keepaliveInterval: 0 }, client => {
+    const server = new Server({ hostKeys: [hostKey], keepaliveInterval: 0 }, client => {
         clients.push(client)
         client.on('error', () => { /* client may abort */ })
         client.on('authentication', ctx => {
