@@ -61,21 +61,24 @@ export type ReverseLockupSpendQuery = {
     abort?: AbortSignal
 }
 
-export type LockupSpendOutcome = { kind: 'spent' } | { kind: 'failed', error: Error }
-
-export type ConfirmedLockupSpend = {
+export type LockupSpend = {
     spendingTxId: string
     spendingHeight: number
 }
 
+export type LockupSpendOutcome = { kind: 'spent', spend: LockupSpend } | { kind: 'failed', error: Error }
+
+export type ConfirmedLockupSpend = LockupSpend
+
 /**
  * Live spend watch for a reverse-swap lockup. waitForHistorical reports a spend
- * LND already knows; a quiet wait keeps this armed until stop() so a late
- * spend still blocks disclosure. waitForConfirmedSpend waits until the spend
- * is in a block (spending_height > 0). Stream errors fail closed.
+ * LND already knows, including mempool (spending_height 0); a quiet wait keeps
+ * this armed until stop() so a late spend still blocks disclosure.
+ * waitForConfirmedSpend waits until the spend is in a block
+ * (spending_height > 0). Stream errors fail closed.
  */
 export type LockupSpendGuard = {
-    waitForHistorical: () => Promise<boolean>
+    waitForHistorical: () => Promise<LockupSpend | false>
     isSpent: () => boolean
     failure: () => Error | undefined
     outcome: Promise<LockupSpendOutcome>

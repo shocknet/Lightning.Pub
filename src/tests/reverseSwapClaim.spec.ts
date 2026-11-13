@@ -18,6 +18,7 @@ import {
     ReverseSwaps,
     TransactionSwapData,
     calculateReverseQuoteAmounts,
+    LockupSpend,
 } from '../services/lnd/swaps/reverseSwaps.js'
 import Lnd from '../services/lnd/lnd.js'
 import { getNetwork } from '../services/lnd/swaps/swapHelpers.js'
@@ -72,6 +73,7 @@ export default async (T: StorageTestBase) => {
     await testAbortDuringPersistDoesNotDisclosePreimage(T)
     await testWatchLockupSpendAbortIsUnsafeSynchronously(T)
     await testWatchLockupSpendConfirmedIgnoresMempoolSpend(T)
+    await testWatchLockupSpendHistoricalIncludesMempoolTxId(T)
     await testSavedClaimIsReusedWithoutRebuild(T)
     await testSavedClaimPublishFailureRebuilds(T)
     await testSavedClaimBelowWindowRebuilds(T)
@@ -317,9 +319,9 @@ const testSpentLockupDoesNotDisclosePreimage = async (T: StorageTestBase) => {
     const published: string[] = []
     const claimed = await swapper.claimConfirmedLockup(data, lockupHex, safeClaimDeps({
         watchLockupSpend: () => idleSpendGuard({
-            waitForHistorical: async () => true,
+            waitForHistorical: async (): Promise<LockupSpend | false> => ({ spendingTxId: 'aa'.repeat(32), spendingHeight: 1 }),
             isSpent: () => true,
-            outcome: Promise.resolve({ kind: 'spent' }),
+            outcome: Promise.resolve({ kind: 'spent', spend: { spendingTxId: 'aa'.repeat(32), spendingHeight: 1 } }),
         }),
         publish: async (txHex) => { published.push(txHex) },
     }))
@@ -579,6 +581,47 @@ const testWatchLockupSpendConfirmedIgnoresMempoolSpend = async (T: StorageTestBa
     T.expect(result.spendingHeight).to.equal(12)
     guard.stop()
     T.d('a mempool spend blocked disclosure but confirmation waited for a block')
+}
+
+const testWatchLockupSpendHistoricalIncludesMempoolTxId = async (T: StorageTestBase) => {
+    T.d('starting WatchLockupSpend historical wait returns a mempool spend txid')
+    let onMessage: ((event: unknown) => void) | undefined
+    const lnd = Object.create(Lnd.prototype) as any
+    lnd.log = () => { }
+    lnd.abortController = new AbortController()
+    lnd.outputSpendLookupMs = 10_000
+    lnd.chainNotifier = {
+        registerSpendNtfn: () => ({
+            responses: {
+                onMessage: (cb: (event: unknown) => void) => { onMessage = cb },
+                onError: () => { },
+            },
+        }),
+    }
+    const guard = lnd.WatchLockupSpend({
+        txHash: Buffer.alloc(32),
+        vout: 0,
+        script: Buffer.alloc(32),
+        heightHint: 1,
+    })
+    const spendTx = dummySpendTx()
+    const historical = guard.waitForHistorical()
+    onMessage?.({
+        event: {
+            oneofKind: 'spend',
+            spend: {
+                rawSpendingTx: Buffer.from(spendTx.toHex(), 'hex'),
+                spendingTxHash: Buffer.alloc(32),
+                spendingHeight: 0,
+                spendingInputIndex: 0,
+            },
+        },
+    })
+    const result = await historical
+    T.expect(result).to.deep.equal({ spendingTxId: spendTx.getId(), spendingHeight: 0 })
+    T.expect(guard.isSpent()).to.equal(true)
+    guard.stop()
+    T.d('a mempool spend was reported with its txid before confirmation')
 }
 
 const persistUnpublishedClaim = async (

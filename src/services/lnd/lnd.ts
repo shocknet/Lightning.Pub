@@ -27,7 +27,7 @@ import { ListAddressesResponse, PublishResponse, ChangeAddressType } from '../..
 import { isPaymentNotInitiatedError } from './trackPaymentError.js';
 import { broadcastPublishedTx } from './publishError.js';
 import { Transaction } from 'bitcoinjs-lib'
-import type { ConfirmedLockupSpend, LockupSpendGuard, LockupSpendOutcome } from './swaps/reverseSwaps.js'
+import type { ConfirmedLockupSpend, LockupSpend, LockupSpendGuard, LockupSpendOutcome } from './swaps/reverseSwaps.js'
 
 const DeadLineMetadata = (deadline = 10 * 1000) => ({ deadline: Date.now() + deadline })
 const GET_PAYMENT_FROM_HASH_TIMEOUT_MS = 10 * 1000
@@ -325,6 +325,7 @@ export default class {
         let stopped = false
         let sawSpend = false
         let failure: Error | undefined
+        let lastSpend: LockupSpend | undefined
         let confirmed: ConfirmedLockupSpend | undefined
         let confirmedSettled = false
         let reportOutcome: (result: LockupSpendOutcome) => void = () => undefined
@@ -383,10 +384,12 @@ export default class {
             const details = event.event.spend
             const spendingTxId = spendingTxIdFromDetails(details)
             const spendingHeight = details.spendingHeight
+            const spend = { spendingTxId, spendingHeight }
             sawSpend = true
-            emit(() => reportOutcome({ kind: 'spent' }))
+            lastSpend = spend
+            emit(() => reportOutcome({ kind: 'spent', spend }))
             if (spendingHeight > 0 && spendingTxId) {
-                settleConfirmed({ spendingTxId, spendingHeight })
+                settleConfirmed(spend)
             }
         })
         stream.responses.onError(error => {
@@ -430,10 +433,10 @@ export default class {
                         }),
                     ])
                     if (first === 'timeout') {
-                        return sawSpend
+                        return lastSpend ?? (sawSpend ? { spendingTxId: '', spendingHeight: 0 } : false)
                     }
                     if (first.kind === 'spent') {
-                        return true
+                        return first.spend
                     }
                     throw first.error
                 } finally {
