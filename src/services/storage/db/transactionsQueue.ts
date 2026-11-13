@@ -14,8 +14,8 @@ type TxOperation<T> = {
 export default class {
     DB: DataSource | EntityManager
     pendingTx: boolean
-    transactionsQueue: { op: TxOperation<any>, res: (v: any) => void, rej: (message: string) => void }[] = []
-    readersQueue: { res: () => void, rej: (message: string) => void }[] = []
+    transactionsQueue: { op: TxOperation<any>, res: (v: any) => void, rej: (err: unknown) => void }[] = []
+    readersQueue: { res: () => void, rej: (err: unknown) => void }[] = []
     activeReaders = 0
     writeRequested = false
     log: PubLogger
@@ -94,7 +94,7 @@ export default class {
             if (next.op.description) this.log("done", next.op.description)
             next.res(res)
         } catch (err: any) {
-            next.rej(err.message)
+            next.rej(err)
         }
     }
 
