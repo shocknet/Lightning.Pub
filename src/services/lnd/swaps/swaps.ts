@@ -38,6 +38,8 @@ export class Swaps {
     private claimTrackAborts: Record<string, AbortController> = {}
     /** Delay between reverse-swap resume attempts while LND is not synced. Tests may shorten this. */
     chainTipRetryMs = 5_000
+    /** Rebroadcast an exposed reverse claim on this interval as well as new blocks. Tests may shorten this. */
+    claimRebroadcastMs = 30_000
     private stopped = false
     log = getLogger({ component: 'swaps' })
     constructor(settings: SettingsManager, storage: Storage) {
@@ -877,7 +879,7 @@ export class Swaps {
             throw new Error("swapper service not found")
         }
         if (isReverseClaimExposed(txSwap)) {
-            txSwap = await this.reserveTransactionSwapDestination(txSwap, appUserId, address)
+            txSwap = await this.reserveTransactionSwapDestination(txSwap, appUserId, address, { requireBackupFlush: false })
             return this.publishAndTrackExposedClaim(txSwap)
         }
         if (txSwap.claim_tx_hex) {
@@ -961,7 +963,12 @@ export class Swaps {
         }
     }
 
-    private reserveTransactionSwapDestination = async (txSwap: TransactionSwap, appUserId: string, address: string) => {
+    private reserveTransactionSwapDestination = async (
+        txSwap: TransactionSwap,
+        appUserId: string,
+        address: string,
+        opts?: { requireBackupFlush?: boolean },
+    ) => {
         if (txSwap.address_paid && txSwap.address_paid !== address) {
             throw new Error("swap already started with a different destination")
         }
@@ -978,7 +985,11 @@ export class Swaps {
                 txSwap = latest
             }
         }
-        await this.protectSwapBackup('transaction_swaps')
+        if (opts?.requireBackupFlush === false) {
+            this.notifySwapBackup('transaction_swaps')
+        } else {
+            await this.protectSwapBackup('transaction_swaps')
+        }
         const bound = await this.storage.paymentStorage.GetTransactionSwap(txSwap.swap_operation_id, appUserId)
         if (!bound || bound.address_paid !== address) {
             throw new Error("swap already started with a different destination")
@@ -1125,14 +1136,17 @@ export class Swaps {
 
     /**
      * Broadcast is not settlement. Rebroadcast the persisted hex, then keep
-     * the row unfinished until the lockup spend confirms.
+     * the row unfinished until the lockup spend confirms. The preimage is
+     * already public: do not wait on a backup flush before republishing.
      */
     private publishAndTrackExposedClaim = async (swap: TransactionSwap) => {
         const claimTxId = this.claimTxIdOrInvalid(swap.claim_tx_hex)
+        this.notifySwapBackup('transaction_swaps')
         try {
-            await this.protectSwapBackup('transaction_swaps')
             const published = await this.lnd.BroadcastTransaction(swap.claim_tx_hex)
-            await this.recordTransactionSwapClaimPublished(swap.swap_operation_id)
+            if (!swap.claim_published) {
+                await this.recordTransactionSwapClaimPublished(swap.swap_operation_id)
+            }
             this.startTrackingPublishedClaim(swap, published.txId)
             return this.publishedClaimResult(swap, published.txId)
         } catch (err) {
@@ -1194,16 +1208,45 @@ export class Swaps {
         }
         try {
             await this.lnd.BroadcastTransaction(latest.claim_tx_hex)
-            await this.recordTransactionSwapClaimPublished(swapOpId)
+            if (!latest.claim_published) {
+                await this.recordTransactionSwapClaimPublished(swapOpId)
+            }
         } catch (err: any) {
             this.log("rebroadcast of reverse-swap claim failed", { swapOpId, error: err.message || err })
         }
     }
 
+    private waitForAbort = (abortSignal: AbortSignal) => new Promise<void>(resolve => {
+        if (abortSignal.aborted) {
+            resolve()
+            return
+        }
+        abortSignal.addEventListener('abort', () => resolve(), { once: true })
+    })
+
+    private scheduleExposedClaimRetry = (retry: () => void, abortSignal: AbortSignal) => {
+        if (!Number.isSafeInteger(this.claimRebroadcastMs) || this.claimRebroadcastMs <= 0) {
+            return
+        }
+        const interval = setInterval(() => {
+            if (this.stopped || abortSignal.aborted) {
+                return
+            }
+            retry()
+        }, this.claimRebroadcastMs)
+        interval.unref()
+        const stop = () => clearInterval(interval)
+        if (abortSignal.aborted) {
+            stop()
+            return
+        }
+        abortSignal.addEventListener('abort', stop, { once: true })
+    }
+
     /**
      * After preimage disclosure, keep the claim open: rebroadcast on each new
-     * block and finalize only when our spend confirms. A competing confirmed
-     * spend closes the row so resume does not loop.
+     * block and on a timer, and finalize only when our spend confirms. A
+     * competing confirmed spend closes the row so resume does not loop.
      */
     private trackPublishedTransactionSwapClaim = async (
         swap: TransactionSwap,
@@ -1214,10 +1257,11 @@ export class Swaps {
         if (this.stopped || abortSignal.aborted) {
             return
         }
-        const watchHeights = typeof this.lnd.WatchBlockHeights === 'function'
-        if (watchHeights) {
-            this.lnd.WatchBlockHeights(() => { void this.rebroadcastPublishedClaim(swapOpId) }, abortSignal)
+        const retry = () => { void this.rebroadcastPublishedClaim(swapOpId) }
+        if (typeof this.lnd.WatchBlockHeights === 'function') {
+            this.lnd.WatchBlockHeights(retry, abortSignal)
         }
+        this.scheduleExposedClaimRetry(retry, abortSignal)
         let heightHint = 1
         try {
             heightHint = this.lockupWatchHeightHint(swap, await this.trustedChainTip())
@@ -1233,17 +1277,8 @@ export class Swaps {
         }
         const query = this.reverseClaimSpendQuery(latest, heightHint)
         if (!query) {
-            if (!watchHeights) {
-                this.log("cannot watch reverse-swap claim confirmation; leaving open for resume", { swapOpId })
-                return
-            }
-            await new Promise<void>(resolve => {
-                if (abortSignal.aborted) {
-                    resolve()
-                    return
-                }
-                abortSignal.addEventListener('abort', () => resolve(), { once: true })
-            })
+            this.log("cannot watch reverse-swap claim confirmation; rebroadcasting until stop", { swapOpId })
+            await this.waitForAbort(abortSignal)
             return
         }
         const guard = this.lnd.WatchLockupSpend({ ...query, abort: abortSignal })
@@ -1269,12 +1304,16 @@ export class Swaps {
                 spendingTxId: confirmed.spendingTxId,
                 spendingHeight: confirmed.spendingHeight,
             })
+            return
         } catch (err: any) {
             if (!this.stopped && !abortSignal.aborted) {
                 this.log("error watching reverse-swap claim confirmation", { swapOpId, error: err.message || err })
             }
         } finally {
             guard.stop()
+        }
+        if (!this.stopped && !abortSignal.aborted) {
+            await this.waitForAbort(abortSignal)
         }
     }
 
@@ -1323,16 +1362,11 @@ export class Swaps {
             return
         }
         if (isReverseClaimExposed(swap)) {
-            const claimTxId = this.claimTxIdOrInvalid(swap.claim_tx_hex)
             try {
-                await this.protectSwapBackup('transaction_swaps')
-                const published = await this.lnd.BroadcastTransaction(swap.claim_tx_hex)
-                await this.recordTransactionSwapClaimPublished(swap.swap_operation_id)
+                const published = await this.publishAndTrackExposedClaim(swap)
                 this.log("rebroadcast resumed reverse-swap claim", { swapOpId: swap.swap_operation_id, txId: published.txId })
-                this.startTrackingPublishedClaim(swap, published.txId)
             } catch (err: any) {
                 this.log("rebroadcast resumed reverse-swap claim failed", { swapOpId: swap.swap_operation_id, error: err.message || err })
-                this.startTrackingPublishedClaim(swap, claimTxId)
             }
             return
         }

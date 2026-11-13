@@ -28,12 +28,14 @@ export default async (T: StorageTestBase) => {
     await testAlreadyReservedFlushFailureDoesNotPay(T)
     await testAlreadyReservedFlushSuccessStillPays(T)
     await testConcurrentAlreadyReservedDoesNotPayDuringFailedFlush(T)
-    await testResumeClaimFlushFailureDoesNotBroadcast(T)
+    await testResumeClaimFlushFailureStillBroadcasts(T)
+    await testPayExposedClaimFlushFailureStillBroadcasts(T)
     await testResumeRebroadcastsPersistedClaim(T)
     await testResumeRebroadcastsFailedSwapWithClaim(T)
     await testResumeFinalizesWhenClaimSpendConfirms(T)
     await testResumeFailsWhenCompetingSpendConfirms(T)
     await testResumeRebroadcastsUnconfirmedClaimOnNewBlocks(T)
+    await testResumeRebroadcastsUnconfirmedClaimOnTimer(T)
     await testResumeDoesNotBroadcastUnpublishedClaimAfterRefundHeight(T)
     await testResumeTakesFirstDisclosurePathForUnpublishedClaim(T)
     await testResumeDoesNotBlockOnLockupWatch(T)
@@ -542,8 +544,8 @@ const testConcurrentAlreadyReservedDoesNotPayDuringFailedFlush = async (T: Stora
     T.d('a concurrent retry did not start payment while the backup flush was still failing')
 }
 
-const testResumeClaimFlushFailureDoesNotBroadcast = async (T: StorageTestBase) => {
-    T.d('starting resume does not rebroadcast a persisted claim if the backup flush fails')
+const testResumeClaimFlushFailureStillBroadcasts = async (T: StorageTestBase) => {
+    T.d('starting resume rebroadcasts an already-exposed claim even if the backup flush fails')
     const userId = `rev-resumeflush-${randomBytes(8).toString('hex')}`
     const saved = await T.storage.paymentStorage.AddTransactionSwap(requiredSwap(userId, {
         paid_at_unix: 1,
@@ -556,11 +558,33 @@ const testResumeClaimFlushFailureDoesNotBroadcast = async (T: StorageTestBase) =
     const { swaps, broadcasts } = makeSwaps(T)
     swaps.SetBackupManager(failingBackup())
     await swaps.ResumeTransactionSwaps()
-    T.expect(broadcasts).to.deep.equal([])
+    T.expect(broadcasts).to.deep.equal([CLAIM_HEX])
     const leftover = await T.storage.paymentStorage.ListUnfinishedTransactionSwaps()
     T.expect(leftover.some(s => s.swap_operation_id === saved.swap_operation_id)).to.equal(true)
+    swaps.Stop()
     await T.storage.paymentStorage.DeleteTransactionSwap(saved.swap_operation_id)
-    T.d('startup resume kept the already-exposed claim unpublished without a successful backup')
+    T.d('startup resume published the already-exposed claim without waiting on backup')
+}
+
+const testPayExposedClaimFlushFailureStillBroadcasts = async (T: StorageTestBase) => {
+    T.d('starting PayAddrWithSwap rebroadcasts an already-exposed claim even if the backup flush fails')
+    const userId = `rev-payflush-${randomBytes(8).toString('hex')}`
+    const saved = await T.storage.paymentStorage.AddTransactionSwap(requiredSwap(userId, {
+        paid_at_unix: 1,
+        address_paid: DEST,
+        claim_tx_hex: CLAIM_HEX,
+        claim_published: true,
+        timeout_block_height: 920_000 + 1_008,
+    }))
+    const { swaps, broadcasts } = makeSwaps(T)
+    let paid = false
+    swaps.SetBackupManager(failingBackup())
+    await swaps.PayAddrWithSwap(userId, saved.swap_operation_id, DEST, async () => { paid = true })
+    T.expect(paid).to.equal(false)
+    T.expect(broadcasts).to.deep.equal([CLAIM_HEX])
+    swaps.Stop()
+    await T.storage.paymentStorage.DeleteTransactionSwap(saved.swap_operation_id)
+    T.d('an exposed-claim retry published without waiting on backup')
 }
 
 const testResumeRebroadcastsPersistedClaim = async (T: StorageTestBase) => {
@@ -751,6 +775,7 @@ const testResumeRebroadcastsUnconfirmedClaimOnNewBlocks = async (T: StorageTestB
         WatchBlockHeights: (cb: (height: number) => void) => { onHeight = cb },
         EstimateSatPerVbyte: async () => ({ satPerVbyte: 1, minRelaySatPerVbyte: 1 }),
     } as any)
+    swaps.claimRebroadcastMs = 0
     swaps.SetBackupManager({ notifyBackupTable: async () => { }, flushTablesNow: async () => { } } as any)
     await swaps.ResumeTransactionSwaps()
     T.expect(broadcasts).to.deep.equal([CLAIM_HEX])
@@ -765,6 +790,31 @@ const testResumeRebroadcastsUnconfirmedClaimOnNewBlocks = async (T: StorageTestB
     swaps.Stop()
     await T.storage.paymentStorage.DeleteTransactionSwap(saved.swap_operation_id)
     T.d('new blocks rebroadcast the persisted claim until it confirms')
+}
+
+const testResumeRebroadcastsUnconfirmedClaimOnTimer = async (T: StorageTestBase) => {
+    T.d('starting resume rebroadcasts an unconfirmed reverse claim on a timer')
+    const userId = `rev-timer-${randomBytes(8).toString('hex')}`
+    const saved = await T.storage.paymentStorage.AddTransactionSwap(requiredSwap(userId, {
+        paid_at_unix: 1,
+        address_paid: DEST,
+        claim_tx_hex: CLAIM_HEX,
+        claim_published: true,
+        timeout_block_height: 10,
+    }))
+    await deleteOtherUnfinished(T, saved.swap_operation_id)
+    const { swaps, broadcasts } = makeSwaps(T)
+    swaps.claimRebroadcastMs = 20
+    swaps.SetBackupManager({ notifyBackupTable: async () => { }, flushTablesNow: async () => { } } as any)
+    await swaps.ResumeTransactionSwaps()
+    T.expect(broadcasts).to.deep.equal([CLAIM_HEX])
+    await waitUntil(() => broadcasts.length >= 2)
+    T.expect(broadcasts.slice(0, 2)).to.deep.equal([CLAIM_HEX, CLAIM_HEX])
+    const leftover = await T.storage.paymentStorage.ListUnfinishedTransactionSwaps()
+    T.expect(leftover.some(s => s.swap_operation_id === saved.swap_operation_id)).to.equal(true)
+    swaps.Stop()
+    await T.storage.paymentStorage.DeleteTransactionSwap(saved.swap_operation_id)
+    T.d('timer retries kept republishing the persisted claim without a new block')
 }
 
 const testResumeDoesNotBroadcastUnpublishedClaimAfterRefundHeight = async (T: StorageTestBase) => {
