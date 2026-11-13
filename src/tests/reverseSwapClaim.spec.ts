@@ -51,6 +51,7 @@ const safeClaimDeps = (overrides: Partial<ReverseClaimDeps> = {}): ReverseClaimD
     getChainTip: async () => TIP,
     watchLockupSpend: () => idleSpendGuard(),
     getClaimFeeRates: async () => ({ satPerVbyte: 1, minRelaySatPerVbyte: 1 }),
+    recordPublication: async () => { },
     publish: async () => { },
     ...overrides,
 })
@@ -71,6 +72,10 @@ export default async (T: StorageTestBase) => {
     await testTimeoutDuringWaitDoesNotDisclosePreimage(T)
     await testExpiryDuringPersistDoesNotDisclosePreimage(T)
     await testAbortDuringPersistDoesNotDisclosePreimage(T)
+    await testExpiryDuringPublicationRecordDoesNotDisclosePreimage(T)
+    await testSpendDuringPublicationRecordDoesNotDisclosePreimage(T)
+    await testAbortDuringPublicationRecordDoesNotDisclosePreimage(T)
+    await testSavedClaimExpiryDuringPublicationRecordDoesNotDisclose(T)
     await testWatchLockupSpendAbortIsUnsafeSynchronously(T)
     await testWatchLockupSpendConfirmedIgnoresMempoolSpend(T)
     await testWatchLockupSpendHistoricalIncludesMempoolTxId(T)
@@ -285,11 +290,12 @@ const testPersistsClaimBeforeBroadcast = async (T: StorageTestBase) => {
     const order: string[] = []
     const result = await swapper.claimConfirmedLockup(data, lockupHex, safeClaimDeps({
         persistClaim: async () => { order.push('persist') },
+        recordPublication: async () => { order.push('record') },
         publish: async () => { order.push('publish') },
     }))
     T.expect(result.ok, !result.ok ? result.error : '').to.equal(true)
-    T.expect(order).to.deep.equal(['persist', 'publish'])
-    T.d('unilateral claim was persisted before broadcast')
+    T.expect(order).to.deep.equal(['persist', 'record', 'publish'])
+    T.d('unilateral claim was persisted and recorded before broadcast')
 }
 
 const testCoinbaseLockupIsRejected = async (T: StorageTestBase) => {
@@ -478,6 +484,92 @@ const testAbortDuringPersistDoesNotDisclosePreimage = async (T: StorageTestBase)
     }
     T.expect(published.length).to.equal(0)
     T.d('an abort during persistence kept the preimage secret even with a stale tip')
+}
+
+const testExpiryDuringPublicationRecordDoesNotDisclosePreimage = async (T: StorageTestBase) => {
+    T.d('starting claim does not publish if the refund height arrives while recording publication')
+    const { swapper, data, lockupHex } = await setupClaim(T)
+    let tip = TIP
+    const published: string[] = []
+    const claimed = await swapper.claimConfirmedLockup(data, lockupHex, safeClaimDeps({
+        getChainTip: async () => tip,
+        recordPublication: async () => {
+            tip = data.createdResponse.timeoutBlockHeight
+        },
+        publish: async (txHex) => { published.push(txHex) },
+    }))
+    T.expect(claimed.ok).to.equal(false)
+    if (!claimed.ok) {
+        T.expect(claimed.error).to.equal(`refund already valid at block ${data.createdResponse.timeoutBlockHeight} (tip ${data.createdResponse.timeoutBlockHeight})`)
+    }
+    T.expect(published.length).to.equal(0)
+    T.d('a tip at the refund height during the exposure marker did not disclose the preimage')
+}
+
+const testSpendDuringPublicationRecordDoesNotDisclosePreimage = async (T: StorageTestBase) => {
+    T.d('starting a spend reported while recording publication does not disclose the preimage')
+    const { swapper, data, lockupHex } = await setupClaim(T)
+    const published: string[] = []
+    let spent = false
+    const claimed = await swapper.claimConfirmedLockup(data, lockupHex, safeClaimDeps({
+        watchLockupSpend: () => idleSpendGuard({
+            waitForHistorical: async () => false,
+            isSpent: () => spent,
+        }),
+        recordPublication: async () => {
+            spent = true
+        },
+        publish: async (txHex) => { published.push(txHex) },
+    }))
+    T.expect(claimed.ok).to.equal(false)
+    if (!claimed.ok) {
+        T.expect(claimed.error).to.equal('lockup output is already spent')
+    }
+    T.expect(published.length).to.equal(0)
+    T.d('a late spend during the exposure marker still blocked preimage disclosure')
+}
+
+const testAbortDuringPublicationRecordDoesNotDisclosePreimage = async (T: StorageTestBase) => {
+    T.d('starting claim does not publish if preparation is cancelled while recording publication')
+    const { swapper, data, lockupHex } = await setupClaim(T)
+    const abort = new AbortController()
+    const published: string[] = []
+    const claimed = await swapper.claimConfirmedLockup(data, lockupHex, safeClaimDeps({
+        abortSignal: abort.signal,
+        recordPublication: async () => { abort.abort() },
+        publish: async (txHex) => { published.push(txHex) },
+    }))
+    T.expect(claimed.ok).to.equal(false)
+    if (!claimed.ok) {
+        T.expect(claimed.error).to.equal('claim aborted before publication')
+    }
+    T.expect(published.length).to.equal(0)
+    T.d('an abort during the exposure marker kept the preimage secret')
+}
+
+const testSavedClaimExpiryDuringPublicationRecordDoesNotDisclose = async (T: StorageTestBase) => {
+    T.d('starting a matching saved claim does not disclose if the refund height arrives while recording publication')
+    const { swapper, data, lockupHex } = await setupClaim(T)
+    const saved = await persistUnpublishedClaim(T, swapper, data, lockupHex)
+    let tip = TIP
+    const published: string[] = []
+    const persisted: string[] = []
+    const claimed = await swapper.claimConfirmedLockup(data, lockupHex, safeClaimDeps({
+        savedClaimHex: saved,
+        getChainTip: async () => tip,
+        recordPublication: async () => {
+            tip = data.createdResponse.timeoutBlockHeight
+        },
+        persistClaim: async (txHex) => { persisted.push(txHex) },
+        publish: async (txHex) => { published.push(txHex) },
+    }))
+    T.expect(claimed.ok).to.equal(false)
+    if (!claimed.ok) {
+        T.expect(claimed.error).to.equal(`refund already valid at block ${data.createdResponse.timeoutBlockHeight} (tip ${data.createdResponse.timeoutBlockHeight})`)
+    }
+    T.expect(persisted).to.deep.equal([])
+    T.expect(published.length).to.equal(0)
+    T.d('reusing a saved signature did not disclose after the window closed during the exposure marker')
 }
 
 const testWatchLockupSpendAbortIsUnsafeSynchronously = async (T: StorageTestBase) => {

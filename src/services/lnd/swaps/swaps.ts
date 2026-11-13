@@ -1087,29 +1087,23 @@ export class Swaps {
 
     /**
      * Durable publication intent. Must succeed in the DB before the preimage
-     * goes out so a crash still resumes as exposed. Backup flush is best-effort:
-     * the user already paid Lightning, so a dest outage must not block broadcast.
+     * goes out so a crash still resumes as exposed. Marker backup is notified
+     * without waiting: a dest outage or slow upload must not sit between the
+     * final safety check and broadcast. The unpublished claim was already
+     * flushed in persistTransactionSwapClaim.
      */
     private commitClaimPublicationAttempt = async (swapOpId: string) => {
         await this.storage.paymentStorage.MarkTransactionSwapClaimPublished(swapOpId)
-        try {
-            await this.protectSwapBackup('transaction_swaps')
-        } catch (err: any) {
-            this.log(ERROR, "WARNING: reverse-swap claim publication was recorded; backup flush failed before broadcast", {
-                swapOpId,
-                error: err.message || String(err),
-            })
-        }
+        this.notifySwapBackup('transaction_swaps')
     }
 
     /**
-     * Record the attempt, then broadcast. Marker-after-broadcast left a crash
+     * Broadcast an already-recorded claim. Marker-after-broadcast left a crash
      * window that looked like an unpublished signature after the preimage was
      * already public. Tracking starts even if broadcast is rejected: the marker
      * is already durable, so resume would rebroadcast anyway.
      */
     private publishTransactionSwapClaim = async (swap: TransactionSwap, txHex: string) => {
-        await this.commitClaimPublicationAttempt(swap.swap_operation_id)
         const published = { ...swap, claim_tx_hex: txHex, claim_published: true }
         const claimTxId = this.claimTxIdOrInvalid(txHex)
         try {
@@ -1484,6 +1478,7 @@ export class Swaps {
                 },
                 persistClaim: (txHex) => this.persistTransactionSwapClaim(swap.swap_operation_id, txHex),
                 getClaimFeeRates: (confTarget) => this.localClaimFeeRates(confTarget),
+                recordPublication: () => this.commitClaimPublicationAttempt(swap.swap_operation_id),
                 publish: (txHex) => this.publishTransactionSwapClaim(swap, txHex),
                 getChainTip: () => this.trustedChainTip(),
                 watchLockupSpend: (req) => this.lnd.WatchLockupSpend(req),

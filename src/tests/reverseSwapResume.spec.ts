@@ -133,6 +133,22 @@ const waitUntil = async (ok: () => boolean | Promise<boolean>, ms = 500) => {
     throw new Error('timed out waiting for condition')
 }
 
+const withTimeout = async <T>(p: Promise<T>, ms: number, msg: string): Promise<T> => {
+    let timer: ReturnType<typeof setTimeout> | undefined
+    try {
+        return await Promise.race([
+            p,
+            new Promise<T>((_, reject) => {
+                timer = setTimeout(() => reject(new Error(msg)), ms)
+            }),
+        ])
+    } finally {
+        if (timer) {
+            clearTimeout(timer)
+        }
+    }
+}
+
 const makeSwaps = (T: StorageTestBase) => {
     const swapper = new ReverseSwaps({ httpUrl: MOCK_URL, wsUrl: 'ws://127.0.0.1:1', network: 'regtest' })
     const swaps = new Swaps(mockSettings as any, T.storage)
@@ -223,6 +239,7 @@ const testPayPersistsClaimBeforeBroadcast = async (T: StorageTestBase) => {
         const row = await T.storage.paymentStorage.GetTransactionSwap(saved.swap_operation_id, userId)
         claimInDbAtPublish = row?.claim_tx_hex || ''
         T.expect(!!row?.claim_published).to.equal(false)
+        await chain.recordPublication()
         await chain.publish(CLAIM_HEX)
         done({ ok: true, txId: Transaction.fromHex(CLAIM_HEX).getId() })
     }
@@ -247,6 +264,7 @@ const testPayDoesNotFinalizeAtBroadcast = async (T: StorageTestBase) => {
     swapper.VerifyReverseQuote = async () => ({ ok: true as const })
     swapper.SubscribeToTransactionSwap = async (_data, done, chain) => {
         await chain.persistClaim?.(CLAIM_HEX)
+        await chain.recordPublication()
         await chain.publish(CLAIM_HEX)
         done({ ok: true, txId: Transaction.fromHex(CLAIM_HEX).getId() })
     }
@@ -286,6 +304,7 @@ const testPayKeepsPersistedClaimRetryable = async (T: StorageTestBase) => {
     swapper.SubscribeToTransactionSwap = async (_data, done, chain) => {
         await chain.persistClaim?.(CLAIM_HEX)
         try {
+            await chain.recordPublication()
             await chain.publish(CLAIM_HEX)
             done({ ok: true, txId: Transaction.fromHex(CLAIM_HEX).getId() })
         } catch (err: any) {
@@ -494,39 +513,48 @@ const testSetClaimTxKeepsPublishedMarker = async (T: StorageTestBase) => {
 }
 
 const testPayMarkerFlushFailureDoesNotReconstruct = async (T: StorageTestBase) => {
-    T.d('starting PayAddrWithSwap treats a backup failure after the publication record as publication success')
+    T.d('starting PayAddrWithSwap does not wait on marker backup between record and broadcast')
     const userId = `rev-markflush-${randomBytes(8).toString('hex')}`
     const saved = await T.storage.paymentStorage.AddTransactionSwap(requiredSwap(userId, {
         timeout_block_height: 920_000 + 1_008,
     }))
     const { swaps, swapper, broadcasts } = makeSwaps(T)
-    const logs = captureSwapLogs(swaps)
     swapper.VerifyReverseQuote = async () => ({ ok: true as const })
     swapper.SubscribeToTransactionSwap = async (_data, done, chain) => {
         await chain.persistClaim?.(CLAIM_HEX)
+        await chain.recordPublication()
         await chain.publish(CLAIM_HEX)
         done({ ok: true, txId: Transaction.fromHex(CLAIM_HEX).getId() })
     }
+    let releaseBackup!: () => void
+    const holdBackup = new Promise<void>(resolve => { releaseBackup = resolve })
+    const hangIfPublished = async () => {
+        const row = await T.storage.paymentStorage.GetTransactionSwap(saved.swap_operation_id, userId)
+        if (row?.claim_published) {
+            await holdBackup
+        }
+    }
     swaps.SetBackupManager({
-        notifyBackupTable: async () => { },
-        flushTablesNow: async () => {
-            const row = await T.storage.paymentStorage.GetTransactionSwap(saved.swap_operation_id, userId)
-            if (row?.claim_published) {
-                throw new Error('backup dest down')
-            }
-        },
+        notifyBackupTable: hangIfPublished,
+        flushTablesNow: hangIfPublished,
     } as any)
-    await swaps.PayAddrWithSwap(userId, saved.swap_operation_id, DEST, async () => { })
-    T.expect(broadcasts).to.deep.equal([CLAIM_HEX])
-    const exported = await T.storage.paymentStorage.ExportTransactionSwaps()
-    const completed = exported.find(s => s.swap_operation_id === saved.swap_operation_id)
-    T.expect(completed?.claim_published).to.equal(true)
-    T.expect(completed?.tx_id || '').to.equal('')
-    T.expect(logs.some(line =>
-        line.includes('WARNING: reverse-swap claim publication was recorded; backup flush failed before broadcast')
-        && line.includes(saved.swap_operation_id)
-    )).to.equal(true)
-    T.d('backup failure after the publication record did not reconstruct or drop the exposure marker')
+    try {
+        await withTimeout(
+            swaps.PayAddrWithSwap(userId, saved.swap_operation_id, DEST, async () => { }),
+            1000,
+            'publication waited on marker backup before broadcast',
+        )
+        T.expect(broadcasts).to.deep.equal([CLAIM_HEX])
+        const exported = await T.storage.paymentStorage.ExportTransactionSwaps()
+        const completed = exported.find(s => s.swap_operation_id === saved.swap_operation_id)
+        T.expect(completed?.claim_published).to.equal(true)
+        T.expect(completed?.tx_id || '').to.equal('')
+    } finally {
+        releaseBackup()
+        swaps.Stop()
+        await T.storage.paymentStorage.DeleteTransactionSwap(saved.swap_operation_id)
+    }
+    T.d('a hung marker backup did not block broadcast or drop the exposure marker')
 }
 
 const failingBackup = (flush: () => Promise<void> = async () => { throw new Error('backup dest down') }) => ({
