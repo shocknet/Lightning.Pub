@@ -90,9 +90,10 @@ export type ReverseClaimFeeRates = {
 
 export type ReverseClaimDeps = {
     /**
-     * Reject only when the transaction was not accepted. Post-broadcast
-     * database or backup failures must not throw: a saved claim would then be
-     * reconstructed after the preimage is already on the wire.
+     * Reject only when the transaction was not accepted. Publication must
+     * record the attempt before broadcasting. Backup flush failures after that
+     * record must not throw: a saved claim would then be reconstructed after
+     * we already committed to disclose.
      */
     publish: (txHex: string) => Promise<void>
     persistClaim?: (txHex: string) => Promise<void>
@@ -211,9 +212,9 @@ export const checkReverseTimeout = (
 /**
  * A persisted reverse-swap signature is crash-recovery material, not proof the
  * preimage was disclosed. Resume may rebroadcast without first-disclosure
- * checks only after a successful publish (or a restored claim_published flag).
- * claim_published: false is not proof of secrecy after a crash between
- * broadcast and the marker, or a restore of an earlier backup.
+ * checks after a publication attempt (claim_published written before broadcast)
+ * or a restored claim_published flag. claim_published: false is not proof of
+ * secrecy after restore of an earlier backup; resume reconciles a spent lockup.
  */
 export const isReverseClaimExposed = (swap: {
     claim_tx_hex?: string
@@ -867,8 +868,8 @@ export class ReverseSwaps {
             // Persist the script-path spend before broadcasting so a crash still
             // has a locally relayable claim to rebroadcast. Persistence is not
             // disclosure: unpublished saved claims must still pass the checks
-            // above (saved hex) or below (reconstructed hex), and the same
-            // checks on resume, before the preimage goes out.
+            // above (saved hex) or below (reconstructed hex) before publish()
+            // records the attempt and the preimage goes out.
             try {
                 await deps.persistClaim?.(unilateral.toHex())
             } catch (err: any) {

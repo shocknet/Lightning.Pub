@@ -74,9 +74,10 @@ export class TransactionSwap {
     @Column({ default: "", type: "text" })
     claim_tx_hex: string
 
-    // Set only after BroadcastTransaction succeeds. A stored signature is not
-    // disclosure. Once true, this must not be cleared: reconstructed claims keep
-    // the same preimage and false is not proof of secrecy after a crash.
+    // Set before BroadcastTransaction so a crash still resumes as disclosure.
+    // A stored signature is not disclosure until this is set. Once true, this
+    // must not be cleared: reconstructed claims keep the same preimage and false
+    // is not proof of secrecy after a crash or an earlier backup restore.
     @Column({ default: false })
     claim_published: boolean
 

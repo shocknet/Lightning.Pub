@@ -12,7 +12,7 @@
 // transaction id is publication, not independently confirmed spending, so it
 // must not prune: an unconfirmed spend can be evicted, and earlier shards are
 // garbage-collected. A stored reverse-swap claim hex is only a signature;
-// claim_published is the disclosure marker. Unused quotes can be recreated
+// claim_published is the publication-attempt marker. Unused quotes can be recreated
 // and are omitted.
 import type { User } from '../storage/entity/User.js'
 import type { Application } from '../storage/entity/Application.js'

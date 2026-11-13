@@ -119,14 +119,14 @@ const testClaimWindow = async (T: StorageTestBase) => {
 }
 
 const testClaimExposureMarker = async (T: StorageTestBase) => {
-    T.d('starting reverse claim exposure is publication, not a stored signature')
+    T.d('starting reverse claim exposure is a publication attempt, not a stored signature')
     T.expect(isReverseClaimExposed({})).to.equal(false)
     T.expect(isReverseClaimExposed({ claim_tx_hex: '0200' })).to.equal(false)
     T.expect(isReverseClaimExposed({ claim_published: true })).to.equal(false)
     T.expect(isReverseClaimExposed({ claim_tx_hex: '', claim_published: true })).to.equal(false)
     T.expect(isReverseClaimExposed({ claim_tx_hex: '0200', claim_published: false })).to.equal(false)
     T.expect(isReverseClaimExposed({ claim_tx_hex: '0200', claim_published: true })).to.equal(true)
-    T.d('only a successful publish marks a reverse-swap claim as already exposed')
+    T.d('only claim_published plus a saved hex marks a reverse-swap claim as already exposed')
 }
 
 const testClaimBudget = async (T: StorageTestBase) => {

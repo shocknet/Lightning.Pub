@@ -679,7 +679,7 @@ export default class {
 
     async SetTransactionSwapClaimTx(swapOperationId: string, claimTxHex: string, txId?: string) {
         // Do not clear claim_published. Exposure is monotonic: reconstructing a
-        // claim after a successful broadcast must not look like secrecy.
+        // claim after a publication attempt must not look like secrecy.
         return this.dbs.Update<TransactionSwap>('TransactionSwap', { swap_operation_id: swapOperationId }, {
             claim_tx_hex: claimTxHex,
         }, txId)
