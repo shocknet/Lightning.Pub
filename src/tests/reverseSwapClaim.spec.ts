@@ -72,10 +72,11 @@ export default async (T: StorageTestBase) => {
     await testTimeoutDuringWaitDoesNotDisclosePreimage(T)
     await testExpiryDuringPersistDoesNotDisclosePreimage(T)
     await testAbortDuringPersistDoesNotDisclosePreimage(T)
-    await testExpiryDuringPublicationRecordDoesNotDisclosePreimage(T)
-    await testSpendDuringPublicationRecordDoesNotDisclosePreimage(T)
-    await testAbortDuringPublicationRecordDoesNotDisclosePreimage(T)
-    await testSavedClaimExpiryDuringPublicationRecordDoesNotDisclose(T)
+    await testExpiryDuringPublicationRecordStillPublishes(T)
+    await testSpendDuringPublicationRecordStillPublishes(T)
+    await testAbortDuringPublicationRecordStillPublishes(T)
+    await testSavedClaimExpiryDuringPublicationRecordStillPublishes(T)
+    await testPublicationRecordIsNotFollowedByAnotherSafetyCheck(T)
     await testWatchLockupSpendAbortIsUnsafeSynchronously(T)
     await testWatchLockupSpendConfirmedIgnoresMempoolSpend(T)
     await testWatchLockupSpendHistoricalIncludesMempoolTxId(T)
@@ -486,8 +487,8 @@ const testAbortDuringPersistDoesNotDisclosePreimage = async (T: StorageTestBase)
     T.d('an abort during persistence kept the preimage secret even with a stale tip')
 }
 
-const testExpiryDuringPublicationRecordDoesNotDisclosePreimage = async (T: StorageTestBase) => {
-    T.d('starting claim does not publish if the refund height arrives while recording publication')
+const testExpiryDuringPublicationRecordStillPublishes = async (T: StorageTestBase) => {
+    T.d('starting claim still publishes if the refund height arrives while recording publication')
     const { swapper, data, lockupHex } = await setupClaim(T)
     let tip = TIP
     const published: string[] = []
@@ -498,16 +499,13 @@ const testExpiryDuringPublicationRecordDoesNotDisclosePreimage = async (T: Stora
         },
         publish: async (txHex) => { published.push(txHex) },
     }))
-    T.expect(claimed.ok).to.equal(false)
-    if (!claimed.ok) {
-        T.expect(claimed.error).to.equal(`refund already valid at block ${data.createdResponse.timeoutBlockHeight} (tip ${data.createdResponse.timeoutBlockHeight})`)
-    }
-    T.expect(published.length).to.equal(0)
-    T.d('a tip at the refund height during the exposure marker did not disclose the preimage')
+    T.expect(claimed.ok, !claimed.ok ? claimed.error : '').to.equal(true)
+    T.expect(published.length).to.equal(1)
+    T.d('a written exposure marker still broadcast in this call after the window closed')
 }
 
-const testSpendDuringPublicationRecordDoesNotDisclosePreimage = async (T: StorageTestBase) => {
-    T.d('starting a spend reported while recording publication does not disclose the preimage')
+const testSpendDuringPublicationRecordStillPublishes = async (T: StorageTestBase) => {
+    T.d('starting claim still publishes if a spend is reported while recording publication')
     const { swapper, data, lockupHex } = await setupClaim(T)
     const published: string[] = []
     let spent = false
@@ -521,16 +519,13 @@ const testSpendDuringPublicationRecordDoesNotDisclosePreimage = async (T: Storag
         },
         publish: async (txHex) => { published.push(txHex) },
     }))
-    T.expect(claimed.ok).to.equal(false)
-    if (!claimed.ok) {
-        T.expect(claimed.error).to.equal('lockup output is already spent')
-    }
-    T.expect(published.length).to.equal(0)
-    T.d('a late spend during the exposure marker still blocked preimage disclosure')
+    T.expect(claimed.ok, !claimed.ok ? claimed.error : '').to.equal(true)
+    T.expect(published.length).to.equal(1)
+    T.d('a written exposure marker still broadcast in this call after a late spend')
 }
 
-const testAbortDuringPublicationRecordDoesNotDisclosePreimage = async (T: StorageTestBase) => {
-    T.d('starting claim does not publish if preparation is cancelled while recording publication')
+const testAbortDuringPublicationRecordStillPublishes = async (T: StorageTestBase) => {
+    T.d('starting claim still publishes if preparation is cancelled while recording publication')
     const { swapper, data, lockupHex } = await setupClaim(T)
     const abort = new AbortController()
     const published: string[] = []
@@ -539,16 +534,13 @@ const testAbortDuringPublicationRecordDoesNotDisclosePreimage = async (T: Storag
         recordPublication: async () => { abort.abort() },
         publish: async (txHex) => { published.push(txHex) },
     }))
-    T.expect(claimed.ok).to.equal(false)
-    if (!claimed.ok) {
-        T.expect(claimed.error).to.equal('claim aborted before publication')
-    }
-    T.expect(published.length).to.equal(0)
-    T.d('an abort during the exposure marker kept the preimage secret')
+    T.expect(claimed.ok, !claimed.ok ? claimed.error : '').to.equal(true)
+    T.expect(published.length).to.equal(1)
+    T.d('a written exposure marker still broadcast in this call after abort')
 }
 
-const testSavedClaimExpiryDuringPublicationRecordDoesNotDisclose = async (T: StorageTestBase) => {
-    T.d('starting a matching saved claim does not disclose if the refund height arrives while recording publication')
+const testSavedClaimExpiryDuringPublicationRecordStillPublishes = async (T: StorageTestBase) => {
+    T.d('starting a matching saved claim still publishes if the refund height arrives while recording publication')
     const { swapper, data, lockupHex } = await setupClaim(T)
     const saved = await persistUnpublishedClaim(T, swapper, data, lockupHex)
     let tip = TIP
@@ -563,13 +555,30 @@ const testSavedClaimExpiryDuringPublicationRecordDoesNotDisclose = async (T: Sto
         persistClaim: async (txHex) => { persisted.push(txHex) },
         publish: async (txHex) => { published.push(txHex) },
     }))
-    T.expect(claimed.ok).to.equal(false)
-    if (!claimed.ok) {
-        T.expect(claimed.error).to.equal(`refund already valid at block ${data.createdResponse.timeoutBlockHeight} (tip ${data.createdResponse.timeoutBlockHeight})`)
-    }
+    T.expect(claimed.ok, !claimed.ok ? claimed.error : '').to.equal(true)
     T.expect(persisted).to.deep.equal([])
-    T.expect(published.length).to.equal(0)
-    T.d('reusing a saved signature did not disclose after the window closed during the exposure marker')
+    T.expect(published).to.deep.equal([saved])
+    T.d('reusing a saved signature still broadcast after the window closed during the exposure marker')
+}
+
+const testPublicationRecordIsNotFollowedByAnotherSafetyCheck = async (T: StorageTestBase) => {
+    T.d('starting claim does not re-read the tip after writing the exposure marker')
+    const { swapper, data, lockupHex } = await setupClaim(T)
+    let tips = 0
+    let tipsAtRecord = -1
+    let tipsAtPublish = -1
+    const claimed = await swapper.claimConfirmedLockup(data, lockupHex, safeClaimDeps({
+        getChainTip: async () => {
+            tips++
+            return TIP
+        },
+        recordPublication: async () => { tipsAtRecord = tips },
+        publish: async () => { tipsAtPublish = tips },
+    }))
+    T.expect(claimed.ok, !claimed.ok ? claimed.error : '').to.equal(true)
+    T.expect(tipsAtRecord).to.equal(2)
+    T.expect(tipsAtPublish).to.equal(2)
+    T.d('broadcast followed the exposure marker without another chain-tip check')
 }
 
 const testWatchLockupSpendAbortIsUnsafeSynchronously = async (T: StorageTestBase) => {

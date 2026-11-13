@@ -100,8 +100,9 @@ export type ReverseClaimDeps = {
     recordPublication: () => Promise<void>
     /**
      * Broadcast an already-recorded claim. Reject only when the transaction
-     * was not accepted. The caller re-checks safety immediately before this
-     * call; backup flush after the marker must not delay it.
+     * was not accepted. The caller already wrote the exposure marker; do not
+     * re-check the claim window here. Backup flush after the marker must not
+     * delay this call.
      */
     publish: (txHex: string) => Promise<void>
     persistClaim?: (txHex: string) => Promise<void>
@@ -877,7 +878,9 @@ export class ReverseSwaps {
             // final safety check so a crash still has a locally relayable claim.
             // Persistence is not disclosure: unpublished saved claims must still
             // pass the checks above (saved hex) or below (reconstructed hex).
-            // Only the exposure marker is saved between that check and broadcast.
+            // After that check the exposure marker is written and broadcast
+            // follows immediately: refusing then would leave claim_published set
+            // and retry/resume would disclose without first-disclosure checks.
             try {
                 await deps.persistClaim?.(unilateral.toHex())
             } catch (err: any) {
@@ -1002,9 +1005,12 @@ export class ReverseSwaps {
     }
 
     /**
-     * Final safety check, then the exposure marker, then the same check again
-     * immediately before broadcast. Backup of the unpublished claim already
-     * waited in persistClaim; the marker backup must not sit in this gap.
+     * Final safety check, then the exposure marker, then broadcast.
+     * Do not re-check after the marker: a failure there would refuse to
+     * publish while leaving claim_published set, so PayAddrWithSwap retry
+     * or resume would treat the preimage as already public. Backup of the
+     * unpublished claim already waited in persistClaim; the marker backup
+     * must not sit in this gap.
      */
     private prepareClaimBroadcast = async (
         data: TransactionSwapData,
@@ -1020,14 +1026,14 @@ export class ReverseSwaps {
         } catch (err: any) {
             return { ok: false, error: `failed to record reverse-swap claim publication: ${err.message || err}` }
         }
-        return this.claimPublicationBlocked(data, deps, guard)
+        return undefined
     }
 
     /**
-     * Persistence, fee lookup, signing, and the marker write are async.
-     * Re-check abort, a fresh trusted tip, and spend-watch state immediately
-     * before the preimage goes out: the height watcher may have closed the
-     * window while we were preparing.
+     * Persistence, fee lookup, and signing are async. Re-check abort, a fresh
+     * trusted tip, and spend-watch state immediately before the exposure
+     * marker: the height watcher may have closed the window while we were
+     * preparing. After the marker, broadcast without another check.
      */
     private claimPublicationBlocked = async (
         data: TransactionSwapData,

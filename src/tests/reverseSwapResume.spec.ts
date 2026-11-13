@@ -18,6 +18,7 @@ export default async (T: StorageTestBase) => {
     await testExpiredCleanupKeepsStartedReverseSwaps(T)
     await testPayPersistsDestinationBeforeInvoice(T)
     await testPayPersistsClaimBeforeBroadcast(T)
+    await testPayErrorAfterPublicationRecordRetriesAsExposed(T)
     await testPayDoesNotFinalizeAtBroadcast(T)
     await testPayKeepsPersistedClaimRetryable(T)
     await testPayRetryUnpublishedExpiredClaimDoesNotBroadcast(T)
@@ -253,6 +254,50 @@ const testPayPersistsClaimBeforeBroadcast = async (T: StorageTestBase) => {
     T.expect(completed?.claim_published).to.equal(true)
     T.expect(completed?.tx_id || '').to.equal('')
     T.d('claim transaction and publication attempt were durable before broadcast')
+}
+
+const testPayErrorAfterPublicationRecordRetriesAsExposed = async (T: StorageTestBase) => {
+    T.d('starting PayAddrWithSwap treats a post-record claim error as already exposed on retry')
+    const timeout = 920_000 + 1_008
+    const userId = `rev-postrec-${randomBytes(8).toString('hex')}`
+    const saved = await T.storage.paymentStorage.AddTransactionSwap(requiredSwap(userId, {
+        timeout_block_height: timeout,
+    }))
+    const { swaps, swapper, broadcasts } = makeSwaps(T)
+    swapper.VerifyReverseQuote = async () => ({ ok: true as const })
+    swapper.SubscribeToTransactionSwap = async (_data, done, chain) => {
+        await chain.persistClaim?.(CLAIM_HEX)
+        await chain.recordPublication()
+        done({ ok: false, error: `refund already valid at block ${timeout} (tip ${timeout})` })
+    }
+    let threw = false
+    try {
+        await swaps.PayAddrWithSwap(userId, saved.swap_operation_id, DEST, async () => { })
+    } catch (err: any) {
+        threw = true
+        T.expect(err.message).to.equal(`refund already valid at block ${timeout} (tip ${timeout})`)
+    }
+    T.expect(threw).to.equal(true)
+    T.expect(broadcasts).to.deep.equal([])
+    const afterError = await T.storage.paymentStorage.GetTransactionSwap(saved.swap_operation_id, userId)
+    T.expect(afterError?.claim_tx_hex).to.equal(CLAIM_HEX)
+    T.expect(!!afterError?.claim_published).to.equal(true)
+    T.expect(afterError?.used).to.equal(false)
+    swaps.SetLnd({
+        DecodeInvoice: async () => ({ numSatoshis: 1200, paymentHash: '22'.repeat(32) }),
+        GetInfo: async () => ({ syncedToChain: true, blockHeight: timeout }),
+        BroadcastTransaction: async (txHex: string) => {
+            broadcasts.push(txHex)
+            return { txId: Transaction.fromHex(txHex).getId() }
+        },
+        WatchLockupSpend: () => hangingSpendGuard(),
+        EstimateSatPerVbyte: async () => ({ satPerVbyte: 1, minRelaySatPerVbyte: 1 }),
+    } as any)
+    await swaps.PayAddrWithSwap(userId, saved.swap_operation_id, DEST, async () => { })
+    T.expect(broadcasts).to.deep.equal([CLAIM_HEX])
+    swaps.Stop()
+    await T.storage.paymentStorage.DeleteTransactionSwap(saved.swap_operation_id)
+    T.d('returning an error after the exposure marker without broadcasting made retry skip first-disclosure checks')
 }
 
 const testPayDoesNotFinalizeAtBroadcast = async (T: StorageTestBase) => {
