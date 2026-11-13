@@ -10,6 +10,7 @@ import { ECPairFactory } from 'ecpair'
 import * as ecc from 'tiny-secp256k1'
 import {
     REVERSE_CLAIM_CONFIRMATIONS,
+    ConfirmedLockupSpend,
     LockupSpendGuard,
     LockupSpendOutcome,
     ReverseClaimChain,
@@ -40,6 +41,7 @@ const idleSpendGuard = (overrides: Partial<LockupSpendGuard> = {}): LockupSpendG
     isSpent: () => false,
     failure: () => undefined,
     outcome: new Promise<LockupSpendOutcome>(() => { }),
+    waitForConfirmedSpend: () => new Promise<ConfirmedLockupSpend>(() => { }),
     stop: () => { },
     ...overrides,
 })
@@ -69,6 +71,7 @@ export default async (T: StorageTestBase) => {
     await testExpiryDuringPersistDoesNotDisclosePreimage(T)
     await testAbortDuringPersistDoesNotDisclosePreimage(T)
     await testWatchLockupSpendAbortIsUnsafeSynchronously(T)
+    await testWatchLockupSpendConfirmedIgnoresMempoolSpend(T)
     await testSavedClaimIsReusedWithoutRebuild(T)
     await testSavedClaimPublishFailureRebuilds(T)
     await testSavedClaimBelowWindowRebuilds(T)
@@ -501,8 +504,81 @@ const testWatchLockupSpendAbortIsUnsafeSynchronously = async (T: StorageTestBase
     abort.abort()
     T.expect(guard.failure()?.message).to.equal('lockup spend lookup aborted')
     T.expect(onError).to.not.equal(undefined)
+    let confirmedThrew = false
+    try {
+        await guard.waitForConfirmedSpend()
+    } catch (err: any) {
+        confirmedThrew = true
+        T.expect(err.message).to.equal('lockup spend lookup aborted')
+    }
+    T.expect(confirmedThrew).to.equal(true)
     guard.stop()
     T.d('spend-watch cancellation was unsafe without waiting for the stream error')
+}
+
+const dummySpendTx = () => {
+    const tx = new Transaction()
+    tx.version = 2
+    tx.addInput(Buffer.alloc(32), 0)
+    tx.addOutput(Buffer.from('6aaa', 'hex'), 0)
+    return tx
+}
+
+const testWatchLockupSpendConfirmedIgnoresMempoolSpend = async (T: StorageTestBase) => {
+    T.d('starting WatchLockupSpend waits for a confirmed spend, not a mempool one')
+    let onMessage: ((event: unknown) => void) | undefined
+    const lnd = Object.create(Lnd.prototype) as any
+    lnd.log = () => { }
+    lnd.abortController = new AbortController()
+    lnd.chainNotifier = {
+        registerSpendNtfn: () => ({
+            responses: {
+                onMessage: (cb: (event: unknown) => void) => { onMessage = cb },
+                onError: () => { },
+            },
+        }),
+    }
+    const guard = lnd.WatchLockupSpend({
+        txHash: Buffer.alloc(32),
+        vout: 0,
+        script: Buffer.alloc(32),
+        heightHint: 1,
+    })
+    const spendTx = dummySpendTx()
+    const confirmed = guard.waitForConfirmedSpend()
+    let confirmedDone = false
+    void confirmed.then(() => { confirmedDone = true })
+    T.expect(onMessage).to.not.equal(undefined)
+    onMessage?.({
+        event: {
+            oneofKind: 'spend',
+            spend: {
+                rawSpendingTx: Buffer.from(spendTx.toHex(), 'hex'),
+                spendingTxHash: Buffer.alloc(32),
+                spendingHeight: 0,
+                spendingInputIndex: 0,
+            },
+        },
+    })
+    await new Promise(resolve => setTimeout(resolve, 20))
+    T.expect(guard.isSpent()).to.equal(true)
+    T.expect(confirmedDone).to.equal(false)
+    onMessage?.({
+        event: {
+            oneofKind: 'spend',
+            spend: {
+                rawSpendingTx: Buffer.from(spendTx.toHex(), 'hex'),
+                spendingTxHash: Buffer.alloc(32),
+                spendingHeight: 12,
+                spendingInputIndex: 0,
+            },
+        },
+    })
+    const result = await confirmed
+    T.expect(result.spendingTxId).to.equal(spendTx.getId())
+    T.expect(result.spendingHeight).to.equal(12)
+    guard.stop()
+    T.d('a mempool spend blocked disclosure but confirmation waited for a block')
 }
 
 const persistUnpublishedClaim = async (

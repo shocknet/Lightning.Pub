@@ -18,6 +18,7 @@ export default async (T: StorageTestBase) => {
     await testExpiredCleanupKeepsStartedReverseSwaps(T)
     await testPayPersistsDestinationBeforeInvoice(T)
     await testPayPersistsClaimBeforeBroadcast(T)
+    await testPayDoesNotFinalizeAtBroadcast(T)
     await testPayKeepsPersistedClaimRetryable(T)
     await testPayRetryUnpublishedExpiredClaimDoesNotBroadcast(T)
     await testPayRetryPublishedClaimRebroadcastsAfterRefundHeight(T)
@@ -30,6 +31,9 @@ export default async (T: StorageTestBase) => {
     await testResumeClaimFlushFailureDoesNotBroadcast(T)
     await testResumeRebroadcastsPersistedClaim(T)
     await testResumeRebroadcastsFailedSwapWithClaim(T)
+    await testResumeFinalizesWhenClaimSpendConfirms(T)
+    await testResumeFailsWhenCompetingSpendConfirms(T)
+    await testResumeRebroadcastsUnconfirmedClaimOnNewBlocks(T)
     await testResumeDoesNotBroadcastUnpublishedClaimAfterRefundHeight(T)
     await testResumeTakesFirstDisclosurePathForUnpublishedClaim(T)
     await testResumeDoesNotBlockOnLockupWatch(T)
@@ -89,6 +93,26 @@ const deleteOtherUnfinished = async (T: StorageTestBase, keepId: string) => {
     }
 }
 
+const hangingSpendGuard = () => ({
+    waitForHistorical: async () => false,
+    isSpent: () => false,
+    failure: () => undefined,
+    outcome: new Promise(() => { }),
+    waitForConfirmedSpend: () => new Promise(() => { }),
+    stop: () => { },
+})
+
+const waitUntil = async (ok: () => boolean | Promise<boolean>, ms = 500) => {
+    const deadline = Date.now() + ms
+    while (Date.now() < deadline) {
+        if (await ok()) {
+            return
+        }
+        await new Promise(resolve => setTimeout(resolve, 10))
+    }
+    throw new Error('timed out waiting for condition')
+}
+
 const makeSwaps = (T: StorageTestBase) => {
     const swapper = new ReverseSwaps({ httpUrl: MOCK_URL, wsUrl: 'ws://127.0.0.1:1', network: 'regtest' })
     const swaps = new Swaps(mockSettings as any, T.storage)
@@ -102,13 +126,7 @@ const makeSwaps = (T: StorageTestBase) => {
             return { txId: Transaction.fromHex(txHex).getId() }
         },
         WaitForScriptConfirmations: async () => ({ txHex: OTHER_CLAIM_HEX, blockHeight: 6 }),
-        WatchLockupSpend: () => ({
-            waitForHistorical: async () => false,
-            isSpent: () => false,
-            failure: () => undefined,
-            outcome: new Promise(() => { }),
-            stop: () => { },
-        }),
+        WatchLockupSpend: () => hangingSpendGuard(),
         EstimateSatPerVbyte: async () => ({ satPerVbyte: 1, minRelaySatPerVbyte: 1 }),
     } as any)
     return { swaps, swapper, broadcasts }
@@ -180,7 +198,33 @@ const testPayPersistsClaimBeforeBroadcast = async (T: StorageTestBase) => {
     const exported = await T.storage.paymentStorage.ExportTransactionSwaps()
     const completed = exported.find(s => s.swap_operation_id === saved.swap_operation_id)
     T.expect(completed?.claim_published).to.equal(true)
+    T.expect(completed?.tx_id || '').to.equal('')
     T.d('claim transaction was durable before broadcast')
+}
+
+const testPayDoesNotFinalizeAtBroadcast = async (T: StorageTestBase) => {
+    T.d('starting PayAddrWithSwap keeps the reverse claim open after broadcast')
+    const userId = `rev-open-${randomBytes(8).toString('hex')}`
+    const saved = await T.storage.paymentStorage.AddTransactionSwap(requiredSwap(userId, {
+        timeout_block_height: 920_000 + 1_008,
+    }))
+    const { swaps, swapper } = makeSwaps(T)
+    swapper.VerifyReverseQuote = async () => ({ ok: true as const })
+    swapper.SubscribeToTransactionSwap = async (_data, done, chain) => {
+        await chain.persistClaim?.(CLAIM_HEX)
+        await chain.publish(CLAIM_HEX)
+        done({ ok: true, txId: Transaction.fromHex(CLAIM_HEX).getId() })
+    }
+    const paid = await swaps.PayAddrWithSwap(userId, saved.swap_operation_id, DEST, async () => { })
+    T.expect(paid.txId).to.equal(Transaction.fromHex(CLAIM_HEX).getId())
+    const row = await T.storage.paymentStorage.GetTransactionSwap(saved.swap_operation_id, userId)
+    T.expect(row?.used).to.equal(false)
+    T.expect(row?.tx_id || '').to.equal('')
+    T.expect(!!row?.claim_published).to.equal(true)
+    const unfinished = await T.storage.paymentStorage.ListUnfinishedTransactionSwaps()
+    T.expect(unfinished.some(s => s.swap_operation_id === saved.swap_operation_id)).to.equal(true)
+    await T.storage.paymentStorage.DeleteTransactionSwap(saved.swap_operation_id)
+    T.d('broadcast returned a txid without marking the swap complete')
 }
 
 const testPayKeepsPersistedClaimRetryable = async (T: StorageTestBase) => {
@@ -254,13 +298,7 @@ const testPayRetryUnpublishedExpiredClaimDoesNotBroadcast = async (T: StorageTes
             return { txId: Transaction.fromHex(txHex).getId() }
         },
         WaitForScriptConfirmations: async () => ({ txHex: OTHER_CLAIM_HEX, blockHeight: timeout }),
-        WatchLockupSpend: () => ({
-            waitForHistorical: async () => false,
-            isSpent: () => false,
-            failure: () => undefined,
-            outcome: new Promise(() => { }),
-            stop: () => { },
-        }),
+        WatchLockupSpend: () => hangingSpendGuard(),
         EstimateSatPerVbyte: async () => ({ satPerVbyte: 1, minRelaySatPerVbyte: 1 }),
     } as any)
     let threw = false
@@ -356,7 +394,7 @@ const testPayMarkerFlushFailureDoesNotReconstruct = async (T: StorageTestBase) =
     const exported = await T.storage.paymentStorage.ExportTransactionSwaps()
     const completed = exported.find(s => s.swap_operation_id === saved.swap_operation_id)
     T.expect(completed?.claim_published).to.equal(true)
-    T.expect(completed?.tx_id).to.equal(Transaction.fromHex(CLAIM_HEX).getId())
+    T.expect(completed?.tx_id || '').to.equal('')
     T.expect(logs.some(line =>
         line.includes('WARNING: reverse-swap claim was broadcast but claim_published failed')
         && line.includes(saved.swap_operation_id)
@@ -550,10 +588,11 @@ const testResumeRebroadcastsPersistedClaim = async (T: StorageTestBase) => {
     await swaps.ResumeTransactionSwaps()
     T.expect(broadcasts).to.deep.equal([CLAIM_HEX])
     const leftover = await T.storage.paymentStorage.ListUnfinishedTransactionSwaps()
-    T.expect(leftover.some(s => s.swap_operation_id === saved.swap_operation_id)).to.equal(false)
+    T.expect(leftover.some(s => s.swap_operation_id === saved.swap_operation_id)).to.equal(true)
     const completed = await T.storage.paymentStorage.ListCompletedTxSwaps(userId, [])
-    T.expect(completed.some(c => c.swap.swap_operation_id === saved.swap_operation_id && c.swap.tx_id === Transaction.fromHex(CLAIM_HEX).getId())).to.equal(true)
-    T.d('startup resume published the persisted claim and marked the swap complete')
+    T.expect(completed.some(c => c.swap.swap_operation_id === saved.swap_operation_id)).to.equal(false)
+    await T.storage.paymentStorage.DeleteTransactionSwap(saved.swap_operation_id)
+    T.d('startup resume published the persisted claim without marking it complete')
 }
 
 const testResumeRebroadcastsFailedSwapWithClaim = async (T: StorageTestBase) => {
@@ -586,14 +625,146 @@ const testResumeRebroadcastsFailedSwapWithClaim = async (T: StorageTestBase) => 
     await swaps.ResumeTransactionSwaps()
     T.expect(broadcasts).to.deep.equal([CLAIM_HEX])
     const leftover = await T.storage.paymentStorage.ListUnfinishedTransactionSwaps()
-    T.expect(leftover.some(s => s.swap_operation_id === saved.swap_operation_id)).to.equal(false)
+    T.expect(leftover.some(s => s.swap_operation_id === saved.swap_operation_id)).to.equal(true)
     const completed = await T.storage.paymentStorage.ListCompletedTxSwaps(userId, [])
     T.expect(completed.some(c =>
         c.swap.swap_operation_id === saved.swap_operation_id
         && c.swap.tx_id === Transaction.fromHex(CLAIM_HEX).getId()
         && !c.swap.failure_reason
-    )).to.equal(true)
-    T.d('failed reverse swaps with a persisted claim are rebroadcast and finalized')
+    )).to.equal(false)
+    await T.storage.paymentStorage.DeleteTransactionSwap(saved.swap_operation_id)
+    await T.storage.paymentStorage.DeleteTransactionSwap(failedNoClaim.swap_operation_id)
+    T.d('failed reverse swaps with a persisted claim are rebroadcast and kept open')
+}
+
+const testResumeFinalizesWhenClaimSpendConfirms = async (T: StorageTestBase) => {
+    T.d('starting resume finalizes a reverse claim only after the lockup spend confirms')
+    const userId = `rev-conf-${randomBytes(8).toString('hex')}`
+    const claimTxId = Transaction.fromHex(CLAIM_HEX).getId()
+    const saved = await T.storage.paymentStorage.AddTransactionSwap(requiredSwap(userId, {
+        paid_at_unix: 1,
+        address_paid: DEST,
+        lockup_address: DEST,
+        claim_tx_hex: CLAIM_HEX,
+        claim_published: true,
+        timeout_block_height: 10,
+    }))
+    await deleteOtherUnfinished(T, saved.swap_operation_id)
+    let resolveSpend!: (value: { spendingTxId: string, spendingHeight: number }) => void
+    const spend = new Promise<{ spendingTxId: string, spendingHeight: number }>(resolve => { resolveSpend = resolve })
+    const { swaps, broadcasts } = makeSwaps(T)
+    swaps.SetLnd({
+        DecodeInvoice: async () => ({ numSatoshis: 1200, paymentHash: '22'.repeat(32) }),
+        GetInfo: async () => ({ syncedToChain: true, blockHeight: 10 }),
+        BroadcastTransaction: async (txHex: string) => {
+            broadcasts.push(txHex)
+            return { txId: Transaction.fromHex(txHex).getId() }
+        },
+        WatchLockupSpend: () => ({
+            ...hangingSpendGuard(),
+            waitForConfirmedSpend: () => spend,
+        }),
+        EstimateSatPerVbyte: async () => ({ satPerVbyte: 1, minRelaySatPerVbyte: 1 }),
+    } as any)
+    swaps.SetBackupManager({ notifyBackupTable: async () => { }, flushTablesNow: async () => { } } as any)
+    await swaps.ResumeTransactionSwaps()
+    T.expect(broadcasts).to.deep.equal([CLAIM_HEX])
+    T.expect((await T.storage.paymentStorage.ListUnfinishedTransactionSwaps()).some(s => s.swap_operation_id === saved.swap_operation_id)).to.equal(true)
+    resolveSpend({ spendingTxId: claimTxId, spendingHeight: 12 })
+    await waitUntil(async () => {
+        const leftover = await T.storage.paymentStorage.ListUnfinishedTransactionSwaps()
+        return !leftover.some(s => s.swap_operation_id === saved.swap_operation_id)
+    })
+    const completed = await T.storage.paymentStorage.ListCompletedTxSwaps(userId, [])
+    T.expect(completed.some(c => c.swap.swap_operation_id === saved.swap_operation_id && c.swap.tx_id === claimTxId && !c.swap.failure_reason)).to.equal(true)
+    await T.storage.paymentStorage.DeleteTransactionSwap(saved.swap_operation_id)
+    T.d('a confirmed spend of our claim marked the reverse swap complete')
+}
+
+const testResumeFailsWhenCompetingSpendConfirms = async (T: StorageTestBase) => {
+    T.d('starting resume closes a reverse claim when a competing lockup spend confirms')
+    const userId = `rev-comp-${randomBytes(8).toString('hex')}`
+    const competingTxId = Transaction.fromHex(OTHER_CLAIM_HEX).getId()
+    const saved = await T.storage.paymentStorage.AddTransactionSwap(requiredSwap(userId, {
+        paid_at_unix: 1,
+        address_paid: DEST,
+        lockup_address: DEST,
+        claim_tx_hex: CLAIM_HEX,
+        claim_published: true,
+        timeout_block_height: 10,
+    }))
+    await deleteOtherUnfinished(T, saved.swap_operation_id)
+    let resolveSpend!: (value: { spendingTxId: string, spendingHeight: number }) => void
+    const spend = new Promise<{ spendingTxId: string, spendingHeight: number }>(resolve => { resolveSpend = resolve })
+    const { swaps, broadcasts } = makeSwaps(T)
+    swaps.SetLnd({
+        DecodeInvoice: async () => ({ numSatoshis: 1200, paymentHash: '22'.repeat(32) }),
+        GetInfo: async () => ({ syncedToChain: true, blockHeight: 10 }),
+        BroadcastTransaction: async (txHex: string) => {
+            broadcasts.push(txHex)
+            return { txId: Transaction.fromHex(txHex).getId() }
+        },
+        WatchLockupSpend: () => ({
+            ...hangingSpendGuard(),
+            waitForConfirmedSpend: () => spend,
+        }),
+        EstimateSatPerVbyte: async () => ({ satPerVbyte: 1, minRelaySatPerVbyte: 1 }),
+    } as any)
+    swaps.SetBackupManager({ notifyBackupTable: async () => { }, flushTablesNow: async () => { } } as any)
+    await swaps.ResumeTransactionSwaps()
+    T.expect(broadcasts).to.deep.equal([CLAIM_HEX])
+    resolveSpend({ spendingTxId: competingTxId, spendingHeight: 12 })
+    await waitUntil(async () => {
+        const leftover = await T.storage.paymentStorage.ListUnfinishedTransactionSwaps()
+        return !leftover.some(s => s.swap_operation_id === saved.swap_operation_id)
+    })
+    const completed = await T.storage.paymentStorage.ListCompletedTxSwaps(userId, [])
+    const row = completed.find(c => c.swap.swap_operation_id === saved.swap_operation_id)?.swap
+    T.expect(row?.tx_id).to.equal(competingTxId)
+    T.expect(row?.failure_reason || '').to.include(competingTxId)
+    await T.storage.paymentStorage.DeleteTransactionSwap(saved.swap_operation_id)
+    T.d('a confirmed competing spend stopped reverse-claim resume')
+}
+
+const testResumeRebroadcastsUnconfirmedClaimOnNewBlocks = async (T: StorageTestBase) => {
+    T.d('starting resume rebroadcasts an unconfirmed reverse claim on new blocks')
+    const userId = `rev-rebcast-${randomBytes(8).toString('hex')}`
+    const saved = await T.storage.paymentStorage.AddTransactionSwap(requiredSwap(userId, {
+        paid_at_unix: 1,
+        address_paid: DEST,
+        lockup_address: DEST,
+        claim_tx_hex: CLAIM_HEX,
+        claim_published: true,
+        timeout_block_height: 10,
+    }))
+    await deleteOtherUnfinished(T, saved.swap_operation_id)
+    let onHeight: ((height: number) => void) | undefined
+    const { swaps, broadcasts } = makeSwaps(T)
+    swaps.SetLnd({
+        DecodeInvoice: async () => ({ numSatoshis: 1200, paymentHash: '22'.repeat(32) }),
+        GetInfo: async () => ({ syncedToChain: true, blockHeight: 10 }),
+        BroadcastTransaction: async (txHex: string) => {
+            broadcasts.push(txHex)
+            return { txId: Transaction.fromHex(txHex).getId() }
+        },
+        WatchLockupSpend: () => hangingSpendGuard(),
+        WatchBlockHeights: (cb: (height: number) => void) => { onHeight = cb },
+        EstimateSatPerVbyte: async () => ({ satPerVbyte: 1, minRelaySatPerVbyte: 1 }),
+    } as any)
+    swaps.SetBackupManager({ notifyBackupTable: async () => { }, flushTablesNow: async () => { } } as any)
+    await swaps.ResumeTransactionSwaps()
+    T.expect(broadcasts).to.deep.equal([CLAIM_HEX])
+    await waitUntil(() => !!onHeight)
+    onHeight?.(11)
+    await waitUntil(() => broadcasts.length === 2)
+    onHeight?.(12)
+    await waitUntil(() => broadcasts.length === 3)
+    T.expect(broadcasts).to.deep.equal([CLAIM_HEX, CLAIM_HEX, CLAIM_HEX])
+    const leftover = await T.storage.paymentStorage.ListUnfinishedTransactionSwaps()
+    T.expect(leftover.some(s => s.swap_operation_id === saved.swap_operation_id)).to.equal(true)
+    swaps.Stop()
+    await T.storage.paymentStorage.DeleteTransactionSwap(saved.swap_operation_id)
+    T.d('new blocks rebroadcast the persisted claim until it confirms')
 }
 
 const testResumeDoesNotBroadcastUnpublishedClaimAfterRefundHeight = async (T: StorageTestBase) => {
@@ -626,13 +797,7 @@ const testResumeDoesNotBroadcastUnpublishedClaimAfterRefundHeight = async (T: St
             return { txId: Transaction.fromHex(txHex).getId() }
         },
         WaitForScriptConfirmations: async () => ({ txHex: LOCKUP_HEX, blockHeight: timeout }),
-        WatchLockupSpend: () => ({
-            waitForHistorical: async () => false,
-            isSpent: () => false,
-            failure: () => undefined,
-            outcome: new Promise(() => { }),
-            stop: () => { },
-        }),
+        WatchLockupSpend: () => hangingSpendGuard(),
     } as any)
     swaps.SetBackupManager({ notifyBackupTable: async () => { }, flushTablesNow: async () => { } } as any)
     await swaps.ResumeTransactionSwaps()
@@ -760,13 +925,7 @@ const testResumeRechecksSavedLockupOnChain = async (T: StorageTestBase) => {
             waitedScript = true
             return { txHex: OTHER_CLAIM_HEX, blockHeight: 920_500 }
         },
-        WatchLockupSpend: () => ({
-            waitForHistorical: async () => false,
-            isSpent: () => false,
-            failure: () => undefined,
-            outcome: new Promise(() => { }),
-            stop: () => { },
-        }),
+        WatchLockupSpend: () => hangingSpendGuard(),
     } as any)
     swaps.SetBackupManager({ notifyBackupTable: async () => { }, flushTablesNow: async () => { } } as any)
     await swaps.ResumeTransactionSwaps()
@@ -811,13 +970,7 @@ const testResumeRejectsExpiredClaimWindow = async (T: StorageTestBase) => {
             waitedScript = true
             return { txHex: LOCKUP_HEX, blockHeight: timeout }
         },
-        WatchLockupSpend: () => ({
-            waitForHistorical: async () => false,
-            isSpent: () => false,
-            failure: () => undefined,
-            outcome: new Promise(() => { }),
-            stop: () => { },
-        }),
+        WatchLockupSpend: () => hangingSpendGuard(),
     } as any)
     swaps.SetBackupManager({ notifyBackupTable: async () => { }, flushTablesNow: async () => { } } as any)
     await swaps.ResumeTransactionSwaps()

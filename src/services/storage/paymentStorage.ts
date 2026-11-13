@@ -659,6 +659,10 @@ export default class {
         return this.dbs.FindOne<TransactionSwap>('TransactionSwap', { where: { swap_operation_id: swapOperationId, used: false, app_user_id: this.swapOwnerWhere(appUserId) } }, txId)
     }
 
+    async GetTransactionSwapRecord(swapOperationId: string, txId?: string) {
+        return this.dbs.FindOne<TransactionSwap>('TransactionSwap', { where: { swap_operation_id: swapOperationId } }, txId)
+    }
+
     async StartTransactionSwap(swapOperationId: string, address: string, appUserId: string, txId?: string) {
         const now = Math.floor(Date.now() / 1000)
         return this.dbs.Update<TransactionSwap>('TransactionSwap', {
@@ -714,6 +718,17 @@ export default class {
         }, txId)
     }
 
+    async FailConfirmedTransactionSwap(swapOperationId: string, address: string, chainTxId: string, failureReason: string, txId?: string) {
+        const now = Math.floor(Date.now() / 1000)
+        return this.dbs.Update<TransactionSwap>('TransactionSwap', { swap_operation_id: swapOperationId }, {
+            used: true,
+            tx_id: chainTxId,
+            failure_reason: failureReason,
+            address_paid: address,
+            completed_at_unix: now,
+        }, txId)
+    }
+
     async DeleteTransactionSwap(swapOperationId: string, txId?: string) {
         return this.dbs.Delete<TransactionSwap>('TransactionSwap', { swap_operation_id: swapOperationId }, txId)
     }
@@ -730,8 +745,9 @@ export default class {
 
     async ListUnfinishedTransactionSwaps(txId?: string) {
         const swaps = await this.dbs.Find<TransactionSwap>('TransactionSwap', {}, txId)
-        // used=true without a claim txid is still claimable when a claim or
-        // confirmed lockup was persisted before FailTransactionSwap.
+        // tx_id is a confirmed lockup spend. used=true without one is still
+        // claimable when a claim or confirmed lockup was persisted before
+        // FailTransactionSwap.
         return swaps.filter(s => s.paid_at_unix > 0 && !s.tx_id && (!s.used || !!s.claim_tx_hex || !!s.lockup_tx_hex))
     }
 

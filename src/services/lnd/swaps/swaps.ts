@@ -34,6 +34,8 @@ export class Swaps {
     lnd: LND
     backupManager?: BackupManager
     waitingSwaps: Record<string, boolean> = {}
+    /** In-flight reverse-claim confirmation trackers. Abort on Stop(). */
+    private claimTrackAborts: Record<string, AbortController> = {}
     /** Delay between reverse-swap resume attempts while LND is not synced. Tests may shorten this. */
     chainTipRetryMs = 5_000
     private stopped = false
@@ -65,6 +67,9 @@ export class Swaps {
 
     Stop = () => {
         this.stopped = true
+        for (const abort of Object.values(this.claimTrackAborts)) {
+            abort.abort()
+        }
     }
 
     private notifySwapBackup = (id: 'invoice_swaps' | 'transaction_swaps') => {
@@ -873,7 +878,7 @@ export class Swaps {
         }
         if (isReverseClaimExposed(txSwap)) {
             txSwap = await this.reserveTransactionSwapDestination(txSwap, appUserId, address)
-            return this.rebroadcastTransactionSwapClaim(txSwap)
+            return this.publishAndTrackExposedClaim(txSwap)
         }
         if (txSwap.claim_tx_hex) {
             await this.assertReverseClaimBudget(txSwap.chain_fee_sats)
@@ -930,9 +935,8 @@ export class Swaps {
                 this.log("invoice payment successful, but swap failed")
                 throw new Error(error)
             }
-            this.log("swap completed successfully")
-            await this.storage.paymentStorage.FinalizeTransactionSwap(swapOpId, address, swapResult.txId)
-            this.notifySwapBackup('transaction_swaps')
+            this.log("swap claim published; waiting for confirmation", { swapOpId, txId: swapResult.txId })
+            this.startTrackingPublishedClaim(txSwap, swapResult.txId)
             return {
                 txId: swapResult.txId,
                 network_fee: txSwap.chain_fee_sats + txSwap.swap_fee_sats,
@@ -941,8 +945,7 @@ export class Swaps {
             abort.abort()
             if (swapResult.ok && swapResult.txId) {
                 this.log("failed to pay swap invoice, but swap claimed successfully", swapResult.txId)
-                await this.storage.paymentStorage.FinalizeTransactionSwap(swapOpId, address, swapResult.txId)
-                this.notifySwapBackup('transaction_swaps')
+                this.startTrackingPublishedClaim(txSwap, swapResult.txId)
                 return {
                     txId: swapResult.txId,
                     network_fee: txSwap.chain_fee_sats + txSwap.swap_fee_sats,
@@ -952,7 +955,9 @@ export class Swaps {
             throw err
         } finally {
             abort.abort()
-            delete this.waitingSwaps[swapOpId]
+            if (!this.claimTrackAborts[swapOpId]) {
+                delete this.waitingSwaps[swapOpId]
+            }
         }
     }
 
@@ -1020,15 +1025,17 @@ export class Swaps {
                 await this.failTransactionSwapUnlessClaimable(swapOpId, txSwap.app_user_id, txSwap.address_paid, error)
                 throw new Error(error)
             }
-            await this.storage.paymentStorage.FinalizeTransactionSwap(swapOpId, txSwap.address_paid, swapResult.txId)
-            this.notifySwapBackup('transaction_swaps')
+            this.log("saved reverse-swap claim published; waiting for confirmation", { swapOpId, txId: swapResult.txId })
+            this.startTrackingPublishedClaim(txSwap, swapResult.txId)
             return {
                 txId: swapResult.txId,
                 network_fee: txSwap.chain_fee_sats + txSwap.swap_fee_sats,
             }
         } finally {
             abort.abort()
-            delete this.waitingSwaps[swapOpId]
+            if (!this.claimTrackAborts[swapOpId]) {
+                delete this.waitingSwaps[swapOpId]
+            }
         }
     }
 
@@ -1111,15 +1118,163 @@ export class Swaps {
         })
     }
 
-    private rebroadcastTransactionSwapClaim = async (swap: TransactionSwap) => {
-        await this.protectSwapBackup('transaction_swaps')
-        const published = await this.lnd.BroadcastTransaction(swap.claim_tx_hex)
-        await this.recordTransactionSwapClaimPublished(swap.swap_operation_id)
-        await this.storage.paymentStorage.FinalizeTransactionSwap(swap.swap_operation_id, swap.address_paid, published.txId)
-        this.notifySwapBackup('transaction_swaps')
-        return {
-            txId: published.txId,
-            network_fee: swap.chain_fee_sats + swap.swap_fee_sats,
+    private publishedClaimResult = (swap: TransactionSwap, txId: string) => ({
+        txId,
+        network_fee: swap.chain_fee_sats + swap.swap_fee_sats,
+    })
+
+    /**
+     * Broadcast is not settlement. Rebroadcast the persisted hex, then keep
+     * the row unfinished until the lockup spend confirms.
+     */
+    private publishAndTrackExposedClaim = async (swap: TransactionSwap) => {
+        const claimTxId = this.claimTxIdOrInvalid(swap.claim_tx_hex)
+        try {
+            await this.protectSwapBackup('transaction_swaps')
+            const published = await this.lnd.BroadcastTransaction(swap.claim_tx_hex)
+            await this.recordTransactionSwapClaimPublished(swap.swap_operation_id)
+            this.startTrackingPublishedClaim(swap, published.txId)
+            return this.publishedClaimResult(swap, published.txId)
+        } catch (err) {
+            this.startTrackingPublishedClaim(swap, claimTxId)
+            throw err
+        }
+    }
+
+    private startTrackingPublishedClaim = (swap: TransactionSwap, claimTxId: string) => {
+        const id = swap.swap_operation_id
+        if (this.claimTrackAborts[id] || this.stopped) {
+            return
+        }
+        const abort = new AbortController()
+        this.claimTrackAborts[id] = abort
+        this.waitingSwaps[id] = true
+        void this.trackPublishedTransactionSwapClaim(swap, claimTxId, abort.signal)
+            .catch(err => this.log("error tracking reverse-swap claim", { swapOpId: id, error: err.message || err }))
+            .finally(() => {
+                abort.abort()
+                if (this.claimTrackAborts[id] === abort) {
+                    delete this.claimTrackAborts[id]
+                }
+                delete this.waitingSwaps[id]
+            })
+    }
+
+    private reverseClaimSpendQuery = (swap: TransactionSwap, heightHint: number) => {
+        if (!swap.claim_tx_hex || !swap.lockup_address) {
+            return undefined
+        }
+        try {
+            const claim = Transaction.fromHex(swap.claim_tx_hex)
+            if (claim.ins.length !== 1) {
+                return undefined
+            }
+            const network = getNetwork(this.settings.getSettings().lndSettings.network)
+            return {
+                txHash: claim.ins[0].hash,
+                vout: claim.ins[0].index,
+                script: address.toOutputScript(swap.lockup_address, network),
+                heightHint,
+            }
+        } catch {
+            return undefined
+        }
+    }
+
+    private sameChainTxId = (left: string, right: string) =>
+        !!left && !!right && left.toLowerCase() === right.toLowerCase()
+
+    private rebroadcastPublishedClaim = async (swapOpId: string) => {
+        if (this.stopped) {
+            return
+        }
+        const latest = await this.storage.paymentStorage.GetTransactionSwapRecord(swapOpId)
+        if (!latest?.claim_tx_hex || latest.tx_id) {
+            return
+        }
+        try {
+            await this.lnd.BroadcastTransaction(latest.claim_tx_hex)
+            await this.recordTransactionSwapClaimPublished(swapOpId)
+        } catch (err: any) {
+            this.log("rebroadcast of reverse-swap claim failed", { swapOpId, error: err.message || err })
+        }
+    }
+
+    /**
+     * After preimage disclosure, keep the claim open: rebroadcast on each new
+     * block and finalize only when our spend confirms. A competing confirmed
+     * spend closes the row so resume does not loop.
+     */
+    private trackPublishedTransactionSwapClaim = async (
+        swap: TransactionSwap,
+        claimTxId: string,
+        abortSignal: AbortSignal,
+    ) => {
+        const swapOpId = swap.swap_operation_id
+        if (this.stopped || abortSignal.aborted) {
+            return
+        }
+        const watchHeights = typeof this.lnd.WatchBlockHeights === 'function'
+        if (watchHeights) {
+            this.lnd.WatchBlockHeights(() => { void this.rebroadcastPublishedClaim(swapOpId) }, abortSignal)
+        }
+        let heightHint = 1
+        try {
+            heightHint = this.lockupWatchHeightHint(swap, await this.trustedChainTip())
+        } catch (err: any) {
+            this.log("failed to read chain tip before reverse-swap claim confirmation watch", {
+                swapOpId,
+                error: err.message || err,
+            })
+        }
+        const latest = await this.storage.paymentStorage.GetTransactionSwapRecord(swapOpId) || swap
+        if (latest.tx_id) {
+            return
+        }
+        const query = this.reverseClaimSpendQuery(latest, heightHint)
+        if (!query) {
+            if (!watchHeights) {
+                this.log("cannot watch reverse-swap claim confirmation; leaving open for resume", { swapOpId })
+                return
+            }
+            await new Promise<void>(resolve => {
+                if (abortSignal.aborted) {
+                    resolve()
+                    return
+                }
+                abortSignal.addEventListener('abort', () => resolve(), { once: true })
+            })
+            return
+        }
+        const guard = this.lnd.WatchLockupSpend({ ...query, abort: abortSignal })
+        try {
+            const confirmed = await guard.waitForConfirmedSpend()
+            if (this.stopped || abortSignal.aborted) {
+                return
+            }
+            const ourClaim = this.sameChainTxId(confirmed.spendingTxId, claimTxId)
+                || this.sameChainTxId(confirmed.spendingTxId, this.claimTxIdOrInvalid(latest.claim_tx_hex))
+            if (ourClaim) {
+                await this.storage.paymentStorage.FinalizeTransactionSwap(swapOpId, latest.address_paid, confirmed.spendingTxId)
+                this.notifySwapBackup('transaction_swaps')
+                this.log("reverse-swap claim confirmed", { swapOpId, txId: confirmed.spendingTxId, spendingHeight: confirmed.spendingHeight })
+                return
+            }
+            const error = `lockup spent by ${confirmed.spendingTxId} instead of claim ${claimTxId}`
+            await this.storage.paymentStorage.FailConfirmedTransactionSwap(swapOpId, latest.address_paid, confirmed.spendingTxId, error)
+            this.notifySwapBackup('transaction_swaps')
+            this.log(ERROR, "reverse-swap lockup was spent by a competing transaction", {
+                swapOpId,
+                claimTxId,
+                spendingTxId: confirmed.spendingTxId,
+                spendingHeight: confirmed.spendingHeight,
+            })
+        } catch (err: any) {
+            if (!this.stopped && !abortSignal.aborted) {
+                this.log("error watching reverse-swap claim confirmation", { swapOpId, error: err.message || err })
+            }
+        } finally {
+            guard.stop()
         }
     }
 
@@ -1168,8 +1323,17 @@ export class Swaps {
             return
         }
         if (isReverseClaimExposed(swap)) {
-            await this.rebroadcastTransactionSwapClaim(swap)
-            this.log("rebroadcast resumed reverse-swap claim", { swapOpId: swap.swap_operation_id, txId: Transaction.fromHex(swap.claim_tx_hex).getId() })
+            const claimTxId = this.claimTxIdOrInvalid(swap.claim_tx_hex)
+            try {
+                await this.protectSwapBackup('transaction_swaps')
+                const published = await this.lnd.BroadcastTransaction(swap.claim_tx_hex)
+                await this.recordTransactionSwapClaimPublished(swap.swap_operation_id)
+                this.log("rebroadcast resumed reverse-swap claim", { swapOpId: swap.swap_operation_id, txId: published.txId })
+                this.startTrackingPublishedClaim(swap, published.txId)
+            } catch (err: any) {
+                this.log("rebroadcast resumed reverse-swap claim failed", { swapOpId: swap.swap_operation_id, error: err.message || err })
+                this.startTrackingPublishedClaim(swap, claimTxId)
+            }
             return
         }
         if (this.waitingSwaps[swap.swap_operation_id]) {
@@ -1190,13 +1354,14 @@ export class Swaps {
                 this.log("resumed reverse swap failed to claim", { swapOpId: swap.swap_operation_id, error })
                 return
             }
-            await this.storage.paymentStorage.FinalizeTransactionSwap(swap.swap_operation_id, swap.address_paid, swapResult.txId)
-            this.notifySwapBackup('transaction_swaps')
-            this.log("resumed reverse swap claimed", { swapOpId: swap.swap_operation_id, txId: swapResult.txId })
+            this.log("resumed reverse swap claimed; waiting for confirmation", { swapOpId: swap.swap_operation_id, txId: swapResult.txId })
+            this.startTrackingPublishedClaim(swap, swapResult.txId)
         } catch (err: any) {
             this.log("error watching resumed reverse swap", { swapOpId: swap.swap_operation_id, error: err.message || err })
         } finally {
-            delete this.waitingSwaps[swap.swap_operation_id]
+            if (!this.claimTrackAborts[swap.swap_operation_id]) {
+                delete this.waitingSwaps[swap.swap_operation_id]
+            }
         }
     }
 }

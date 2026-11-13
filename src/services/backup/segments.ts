@@ -673,7 +673,7 @@ export const isInvoiceSwapBackupRow = (swap: {
 }): boolean => !!(swap.tx_id || swap.lockup_tx_hex)
 
 /** Started reverse-swap recovery: payment has started. A stored claim tx_id is
- *  publication, not confirmed spending, and must not prune the recovery row. */
+ *  a confirmed lockup spend, but started rows must still be backed up. */
 export const isTransactionSwapBackupRow = (swap: {
     paid_at_unix?: number | string
     tx_id?: string

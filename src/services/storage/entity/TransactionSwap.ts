@@ -57,6 +57,8 @@ export class TransactionSwap {
     @Column({ default: "" })
     failure_reason: string
 
+    // Confirmed lockup spend txid (our claim or a competing spend). Broadcast
+    // of the claim is claim_published, not this field.
     @Column({ default: "" })
     tx_id: string
 
