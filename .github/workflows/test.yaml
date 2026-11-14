@@ -9,6 +9,22 @@ permissions:
   actions: write
 
 jobs:
+  production-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - name: Install production dependencies
+        run: npm ci --omit=dev --omit=optional
+      - name: Build service without test dependencies
+        run: |
+          npm run build
+          test -f build/src/index.js
+          test ! -d build/src/tests
+
   test:
     runs-on: ubuntu-latest
     steps:
@@ -108,8 +124,8 @@ jobs:
         run: npm list
       - name: Install dependencies
         run: npm install
-      - name: Build
-        run: npm run build
+      - name: Build service and tests
+        run: npm run build:test
       - name: Start callback dummy server
         run: |
           node build/src/tests/callbackDummyServer.js &
@@ -124,7 +140,7 @@ jobs:
         run: kill $(cat /tmp/callback-dummy-server.pid) 2>/dev/null || true
 
   propose-release:
-    needs: test
+    needs: [test, production-build]
     runs-on: ubuntu-latest
     # Only propose releases from default branches; skip after an autorelease merge.
     if: ${{ (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main') && !contains(github.event.head_commit.message, 'autorelease/') }}

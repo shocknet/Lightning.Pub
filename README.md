@@ -239,6 +239,16 @@ cp env.example .env && nano .env
 npm start
 ```
 
+`npm start` compiles the service before starting it. The service build excludes
+`src/tests`, and also supports dependencies installed with `npm ci --omit=dev`.
+After switching branches, use `npm ci` to install the versions in the lockfile.
+For optional native add-ons, `npm ci --omit=optional` leaves them out; required
+native modules such as SQLite still need to install successfully.
+
+To compile the test suite, install development dependencies with `npm ci` and run
+`npm run build:test`. `npm test` builds and runs the suite; its integration tests
+require the regtest services described in `src/tests/docker-compose.yml`.
+
 ## Usage Notes
 
 ### Connecting to ShockWallet
