@@ -41,6 +41,12 @@ const testDeriveKeysStable = async (T: StorageTestBase) => {
     T.expect(a.encKey.length).to.equal(32)
     T.expect(a.sftpUser).to.have.length(64)
     T.expect(a.sftpPass).to.have.length(64)
+    // Captured with argon2 0.44.0. Package updates must preserve existing
+    // backup encryption and login keys.
+    T.expect(a.encKey.toString('hex')).to.equal('2afb79f1e234017c9776ee23adf938756d7ab3f3dc7a2a7228a0e88aa6fe028e')
+    T.expect(a.sftpUser).to.equal('3dc95df44d50347f04a1a361f45d69961e0f6f9d64d237c377b57830e367da15')
+    T.expect(a.sftpPass).to.equal('62bd837159d1825e33bbb6f9cbfe61c1927232f6f3b82dba52e183b1a5e83786')
+    T.expect(a.sftpPublicKey).to.equal('ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPz19VeiUT7w6AWwIL/ya11OUo05NK+QgPmEk+1uQEqk lightning-pub-backup')
     T.d('deriveBackupKeys is stable under normalize and yields 32-byte enc key')
 }
 

@@ -245,6 +245,11 @@ After switching branches, use `npm ci` to install the versions in the lockfile.
 For optional native add-ons, `npm ci --omit=optional` leaves them out; required
 native modules such as SQLite still need to install successfully.
 
+Argon2 0.44's Linux x64 prebuilt binary requires glibc 2.34 or newer (Ubuntu 22.04
+or newer meets this requirement). Older Linux hosts need a local build toolchain
+to compile the current package from source. On Ubuntu, install `build-essential`
+and Python 3 before running `npm ci`. The installer does not provision a compiler.
+
 To compile the test suite, install development dependencies with `npm ci` and run
 `npm run build:test`. `npm test` builds and runs the suite; its integration tests
 require the regtest services described in `src/tests/docker-compose.yml`.
