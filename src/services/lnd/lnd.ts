@@ -1017,6 +1017,11 @@ export default class {
         return res.response.utxos || []
     }
 
+    async ListSweeps(): Promise<string[]> {
+        const { response } = await this.walletKit.listSweeps({ verbose: false, startHeight: 0 }, DeadLineMetadata())
+        return response.sweeps.oneofKind === 'transactionIds' ? response.sweeps.transactionIds.transactionIds : []
+    }
+
     async OpenChannel(destination: string, closeAddress: string, fundingAmount: number, pushSats: number, satsPerVByte: number): Promise<OpenStatusUpdate> {
         this.log(DEBUG, "Opening channel")
         const abortController = new AbortController()

@@ -490,12 +490,24 @@ message LndPeers {
     repeated LndPeer peers = 1;
 }
 
+// Operational provenance, not a claim on a user's current balance. Channel
+// funding/closing/sweep transactions start a new CHANNEL lineage.
+enum UtxoOrigin {
+    UNKNOWN = 0;
+    USER_DEPOSIT = 1;
+    CHANNEL = 2;
+    MIXED = 3;
+}
+
 message LndUtxo {
     string address = 1;
     int64 amount_sat = 2;
     string txid = 3;
     int64 output_index = 4;
     int64 confirmations = 5;
+    // Optional so dashboards can still read responses from older Pub nodes.
+    optional UtxoOrigin origin = 6;
+    optional bool is_change = 7;
 }
 
 message LndUtxos {

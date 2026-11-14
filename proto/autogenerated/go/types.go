@@ -97,6 +97,15 @@ const (
 	OUTGOING_USER_TO_USER UserOperationType = "OUTGOING_USER_TO_USER"
 )
 
+type UtxoOrigin string
+
+const (
+	CHANNEL      UtxoOrigin = "CHANNEL"
+	MIXED        UtxoOrigin = "MIXED"
+	UNKNOWN      UtxoOrigin = "UNKNOWN"
+	USER_DEPOSIT UtxoOrigin = "USER_DEPOSIT"
+)
+
 type AddAppInvoiceRequest struct {
 	Http_callback_url string             `json:"http_callback_url"`
 	Invoice_req       *NewInvoiceRequest `json:"invoice_req"`
@@ -595,11 +604,13 @@ type LndSeed struct {
 	Seed []string `json:"seed"`
 }
 type LndUtxo struct {
-	Address       string `json:"address"`
-	Amount_sat    int64  `json:"amount_sat"`
-	Confirmations int64  `json:"confirmations"`
-	Output_index  int64  `json:"output_index"`
-	Txid          string `json:"txid"`
+	Address       string     `json:"address"`
+	Amount_sat    int64      `json:"amount_sat"`
+	Confirmations int64      `json:"confirmations"`
+	Is_change     bool       `json:"is_change"`
+	Origin        UtxoOrigin `json:"origin"`
+	Output_index  int64      `json:"output_index"`
+	Txid          string     `json:"txid"`
 }
 type LndUtxos struct {
 	Utxos []LndUtxo `json:"utxos"`
