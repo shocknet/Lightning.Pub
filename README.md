@@ -88,6 +88,8 @@ The dashboard opens after you pair the admin string (see [Connecting to ShockWal
 
 <img src="readme/dashboard-channels.png" alt="ShockWallet node dashboard, Channels" width="720">
 
+**Assets** labels on-chain UTXOs as user deposits, channel operations, mixed, or unknown, including change. Filter by source to see separate totals. Existing nodes reconstruct labels from Pub and LND history; see [UTXO sources](readme/utxo-origins.md).
+
 ## Installation
 
 ### One-Line Deployment
