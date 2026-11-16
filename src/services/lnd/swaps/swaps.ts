@@ -36,6 +36,12 @@ export class Swaps {
     waitingSwaps: Record<string, boolean> = {}
     /** In-flight reverse-claim confirmation trackers. Abort on Stop(). */
     private claimTrackAborts: Record<string, AbortController> = {}
+    /** LND acceptances this process has seen, even if the DB flag write failed. */
+    private liveClaimBroadcastAccepted = new Set<string>()
+    /** One reverse-claim rebroadcast at a time per swap. */
+    private claimRebroadcastInFlight: Record<string, true> = {}
+    /** Window-closed warning already emitted for this unaccepted live tracker. */
+    private unacceptedRetryWindowClosed = new Set<string>()
     /** Live invoice-swap provider websockets. Close on Stop(). */
     private invoiceSwapCloses: Record<string, () => void> = {}
     /** Delay between reverse-swap resume attempts while LND is not synced. Tests may shorten this. */
@@ -1157,6 +1163,20 @@ export class Swaps {
         }
     }
 
+    private rememberLiveClaimBroadcastAccepted = (swapOpId: string) => {
+        this.liveClaimBroadcastAccepted.add(swapOpId)
+    }
+
+    private persistKnownClaimAcceptance = async (swapOpId: string) => {
+        this.rememberLiveClaimBroadcastAccepted(swapOpId)
+        await this.tryCommitClaimBroadcastAccepted(swapOpId)
+    }
+
+    private claimIsKnownAccepted = (
+        swapOpId: string,
+        swap?: { claim_tx_hex?: string, claim_broadcast_accepted?: boolean } | null,
+    ) => this.liveClaimBroadcastAccepted.has(swapOpId) || isReverseClaimBroadcastAccepted(swap || {})
+
     /**
      * Broadcast an already-recorded claim. Marker-after-broadcast left a crash
      * window that looked like an unpublished signature after the preimage was
@@ -1170,7 +1190,7 @@ export class Swaps {
         const claimTxId = this.claimTxIdOrInvalid(txHex)
         try {
             const result = await this.lnd.BroadcastTransaction(txHex)
-            await this.tryCommitClaimBroadcastAccepted(swap.swap_operation_id)
+            await this.persistKnownClaimAcceptance(swap.swap_operation_id)
             this.startTrackingPublishedClaim({ ...published, claim_broadcast_accepted: true }, result.txId)
         } catch (err) {
             this.startTrackingPublishedClaim(published, claimTxId)
@@ -1244,7 +1264,7 @@ export class Swaps {
         }
         try {
             const published = await this.lnd.BroadcastTransaction(swap.claim_tx_hex)
-            await this.tryCommitClaimBroadcastAccepted(swap.swap_operation_id)
+            await this.persistKnownClaimAcceptance(swap.swap_operation_id)
             this.startTrackingPublishedClaim({ ...swap, claim_published: true, claim_broadcast_accepted: true }, published.txId)
             return this.publishedClaimResult(swap, published.txId)
         } catch (err) {
@@ -1255,6 +1275,9 @@ export class Swaps {
 
     private startTrackingPublishedClaim = (swap: TransactionSwap, claimTxId: string) => {
         const id = swap.swap_operation_id
+        if (swap.claim_broadcast_accepted) {
+            this.rememberLiveClaimBroadcastAccepted(id)
+        }
         if (this.claimTrackAborts[id] || this.stopped) {
             return
         }
@@ -1269,6 +1292,9 @@ export class Swaps {
                     delete this.claimTrackAborts[id]
                 }
                 delete this.waitingSwaps[id]
+                this.liveClaimBroadcastAccepted.delete(id)
+                this.unacceptedRetryWindowClosed.delete(id)
+                delete this.claimRebroadcastInFlight[id]
             })
     }
 
@@ -1320,7 +1346,7 @@ export class Swaps {
         }
         const claimTxId = this.claimTxIdOrInvalid(swap.claim_tx_hex)
         if (this.sameChainTxId(spent.spendingTxId, claimTxId)) {
-            await this.tryCommitClaimBroadcastAccepted(swap.swap_operation_id)
+            await this.persistKnownClaimAcceptance(swap.swap_operation_id)
             this.log("reconciled reverse-swap claim as exposed; lockup is already spent by our claim", {
                 swapOpId: swap.swap_operation_id,
                 claimTxId,
@@ -1399,15 +1425,15 @@ export class Swaps {
     private sameChainTxId = (left: string, right: string) =>
         !!left && !!right && left.toLowerCase() === right.toLowerCase()
 
-    private stopTrackingPublishedClaim = (swapOpId: string) => {
-        this.claimTrackAborts[swapOpId]?.abort()
-    }
-
     /**
      * An unaccepted claim is still first disclosure. Skip this retry if the tip
-     * is unreadable; stop the tracker if the refund window has closed.
+     * is unreadable. If the refund window has closed, do not broadcast, but keep
+     * the confirmation watch: an earlier attempt may still confirm.
      */
     private unacceptedClaimRetryAllowed = async (swap: TransactionSwap) => {
+        if (this.claimIsKnownAccepted(swap.swap_operation_id, swap)) {
+            return true
+        }
         let tip: number
         try {
             tip = await this.trustedChainTip()
@@ -1422,21 +1448,52 @@ export class Swaps {
         if (window.ok) {
             return true
         }
-        this.stopTrackingPublishedClaim(swap.swap_operation_id)
-        this.warnUnpublishedClaimNeedsManualCheck(swap, window.error)
-        this.log("stopped unaccepted reverse-swap claim retries; refund window closed", {
-            swapOpId: swap.swap_operation_id,
-            error: window.error,
-        })
+        let latest: TransactionSwap | null = null
+        try {
+            latest = await this.storage.paymentStorage.GetTransactionSwapRecord(swap.swap_operation_id)
+        } catch (err: any) {
+            this.log("failed to re-read reverse-swap claim before stopping unaccepted retries", {
+                swapOpId: swap.swap_operation_id,
+                error: err.message || err,
+            })
+        }
+        if (this.claimIsKnownAccepted(swap.swap_operation_id, latest)) {
+            this.rememberLiveClaimBroadcastAccepted(swap.swap_operation_id)
+            return true
+        }
+        if (!this.unacceptedRetryWindowClosed.has(swap.swap_operation_id)) {
+            this.unacceptedRetryWindowClosed.add(swap.swap_operation_id)
+            this.warnUnpublishedClaimNeedsManualCheck(latest || swap, window.error)
+            this.log("stopped unaccepted reverse-swap claim retries; refund window closed", {
+                swapOpId: swap.swap_operation_id,
+                error: window.error,
+            })
+        }
         return false
     }
 
     /**
-     * Rebroadcast a persisted claim. Until LND has accepted once, check the
-     * claim window before each retry. After acceptance the preimage is public
-     * and retries skip the window.
+     * Rebroadcast a persisted claim. Until this process or the DB has seen LND
+     * accept once, check the claim window before each retry. After acceptance
+     * the preimage is public: retries skip the window and keep trying to persist
+     * claim_broadcast_accepted. One broadcast at a time per swap.
      */
     private rebroadcastPublishedClaim = async (swapOpId: string) => {
+        if (this.stopped || this.claimTrackAborts[swapOpId]?.signal.aborted) {
+            return
+        }
+        if (this.claimRebroadcastInFlight[swapOpId]) {
+            return
+        }
+        this.claimRebroadcastInFlight[swapOpId] = true
+        try {
+            await this.rebroadcastPublishedClaimOnce(swapOpId)
+        } finally {
+            delete this.claimRebroadcastInFlight[swapOpId]
+        }
+    }
+
+    private rebroadcastPublishedClaimOnce = async (swapOpId: string) => {
         if (this.stopped || this.claimTrackAborts[swapOpId]?.signal.aborted) {
             return
         }
@@ -1445,8 +1502,12 @@ export class Swaps {
             if (this.stopped || !latest?.claim_tx_hex || latest.tx_id) {
                 return
             }
-            if (!latest.claim_broadcast_accepted && !await this.unacceptedClaimRetryAllowed(latest)) {
+            const knownAccepted = this.claimIsKnownAccepted(swapOpId, latest)
+            if (!knownAccepted && !await this.unacceptedClaimRetryAllowed(latest)) {
                 return
+            }
+            if (knownAccepted || this.claimIsKnownAccepted(swapOpId, latest)) {
+                await this.persistKnownClaimAcceptance(swapOpId)
             }
             if (!latest.claim_published) {
                 try {
@@ -1459,9 +1520,7 @@ export class Swaps {
                 }
             }
             await this.lnd.BroadcastTransaction(latest.claim_tx_hex)
-            if (!latest.claim_broadcast_accepted) {
-                await this.tryCommitClaimBroadcastAccepted(swapOpId)
-            }
+            await this.persistKnownClaimAcceptance(swapOpId)
         } catch (err: any) {
             if (!this.stopped) {
                 this.log("rebroadcast of reverse-swap claim failed", { swapOpId, error: err.message || err })
@@ -1513,7 +1572,8 @@ export class Swaps {
      * After preimage disclosure, keep the claim open: rebroadcast on each new
      * block and on a timer, and finalize only when our spend confirms. A
      * competing confirmed spend closes the row so resume does not loop.
-     * Unaccepted retries stop if the claim window closes.
+     * Unaccepted retries skip broadcast if the claim window closes, but the
+     * confirmation watch stays armed.
      */
     private trackPublishedTransactionSwapClaim = async (
         swap: TransactionSwap,
