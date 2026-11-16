@@ -61,6 +61,7 @@ export default async (T: StorageTestBase) => {
     await testDecoyOutputDoesNotBypassFundingValidation(T)
     await testClaimSpendsGenuineTaprootAfterDecoy(T)
     await testProviderWebsocketCannotFinishOrAbort(T)
+    await testReverseWebsocketReconnectDoesNotAbortClaim(T)
     await testClaimPublishesUnilateralWithoutProvider(T)
     await testSubscribeClaimsOnlyAfterIndependentConfirmation(T)
     await testPersistsClaimBeforeBroadcast(T)
@@ -223,6 +224,81 @@ const testProviderWebsocketCannotFinishOrAbort = async (T: StorageTestBase) => {
     T.expect(claimTx.ins[0].witness.length).to.equal(4)
     T.expect(Buffer.from(claimTx.ins[0].witness[1]).equals(Buffer.from(preimage, 'hex'))).to.equal(true)
     T.d('failed/expired websocket updates and bad payloads did not abort the independent claim')
+}
+
+const waitMs = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms))
+const waitUntil = async (ok: () => boolean, ms = 500) => {
+    const deadline = Date.now() + ms
+    while (Date.now() < deadline) {
+        if (ok()) {
+            return
+        }
+        await waitMs(10)
+    }
+    throw new Error('timed out waiting for condition')
+}
+
+class FakeSwapSocket {
+    readonly sent: string[] = []
+    private handlers: { open?: () => void, close?: () => void, message?: (data: unknown) => void } = {}
+    on(event: 'open' | 'close' | 'error' | 'message' | 'pong', cb: (...args: any[]) => void) {
+        if (event === 'open' || event === 'close' || event === 'message') {
+            this.handlers[event] = cb
+        }
+    }
+    send(data: string) {
+        this.sent.push(data)
+    }
+    ping() { }
+    close() {
+        this.handlers.close?.()
+    }
+    emitClose() {
+        this.handlers.close?.()
+    }
+}
+
+const testReverseWebsocketReconnectDoesNotAbortClaim = async (T: StorageTestBase) => {
+    T.d('starting reverse-swap websocket reconnect does not abort the independent lockup wait')
+    const { swapper, data, lockupHex, preimage } = await setupClaim(T)
+    const sockets: FakeSwapSocket[] = []
+    swapper.connectSwapSocket = () => {
+        const socket = new FakeSwapSocket()
+        sockets.push(socket)
+        return socket
+    }
+    swapper.swapWsRetryMs = 20
+    swapper.swapWsRetryMaxMs = 20
+    let waitStarted: (() => void) | undefined
+    const waiting = new Promise<void>(resolve => { waitStarted = resolve })
+    let releaseLockup: ((value: { txHex: string }) => void) | undefined
+    const published: string[] = []
+    const done = new Promise<{ ok: true, txId: string } | { ok: false, error: string }>((resolve) => {
+        void swapper.SubscribeToTransactionSwap(data, resolve, {
+            ...safeClaimDeps({
+                publish: async (txHex) => { published.push(txHex) },
+            }),
+            heightHint: TIP,
+            waitForLockup: () => {
+                waitStarted?.()
+                return new Promise(res => { releaseLockup = res })
+            },
+        })
+    })
+    await waiting
+    T.expect(sockets.length).to.equal(1)
+    sockets[0].emitClose()
+    await waitUntil(() => sockets.length === 2)
+    T.expect(published.length).to.equal(0)
+    releaseLockup!({ txHex: lockupHex })
+    const result = await done
+    T.expect(result.ok, !result.ok ? result.error : '').to.equal(true)
+    T.expect(published.length).to.equal(1)
+    const claimTx = Transaction.fromHex(published[0])
+    T.expect(Buffer.from(claimTx.ins[0].witness[1]).equals(Buffer.from(preimage, 'hex'))).to.equal(true)
+    await waitMs(40)
+    T.expect(sockets.length).to.equal(2)
+    T.d('provider socket drop was retried without cancelling the independent claim')
 }
 
 const testClaimPublishesUnilateralWithoutProvider = async (T: StorageTestBase) => {

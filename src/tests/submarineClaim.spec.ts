@@ -34,6 +34,9 @@ const matchingLockup = (tag: string) => {
 export default async (T: StorageTestBase) => {
     testVerifyClaimPreimage(T)
     await testProviderWebsocketDoesNotFinalize(T)
+    await testInvoiceWebsocketReconnectReplaysSetOnce(T)
+    await testInvoiceWebsocketOpenReplaysHttpStatus(T)
+    await testInvoiceClaimPendingIsSingleFlight(T)
     await testClaimedReconcilesLocalSettledInvoice(T)
     await testClaimedWithoutLocalPreimageDoesNotFinalize(T)
     await testWrongIdClaimedDoesNotBlockRefund(T)
@@ -96,6 +99,129 @@ const testProviderWebsocketDoesNotFinalize = async (T: StorageTestBase) => {
     T.expect(waiting).to.equal(1)
     T.expect(preimages.length).to.equal(0)
     T.d('wrong-id and claimed/failure updates did not fund or finalize; invoice.set with matching id still funds')
+}
+
+const waitMs = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms))
+const waitUntil = async (ok: () => boolean, ms = 500) => {
+    const deadline = Date.now() + ms
+    while (Date.now() < deadline) {
+        if (ok()) {
+            return
+        }
+        await waitMs(10)
+    }
+    throw new Error('timed out waiting for condition')
+}
+
+class FakeSwapSocket {
+    readonly sent: string[] = []
+    private handlers: { open?: () => void, close?: () => void, message?: (data: unknown) => void } = {}
+    on(event: 'open' | 'close' | 'error' | 'message' | 'pong', cb: (...args: any[]) => void) {
+        if (event === 'open' || event === 'close' || event === 'message') {
+            this.handlers[event] = cb
+        }
+    }
+    send(data: string) {
+        this.sent.push(data)
+    }
+    ping() { }
+    close() {
+        this.handlers.close?.()
+    }
+    emitOpen() {
+        this.handlers.open?.()
+    }
+    emitClose() {
+        this.handlers.close?.()
+    }
+    emitMessage(data: unknown) {
+        this.handlers.message?.(data)
+    }
+}
+
+const invoiceUpdate = (id: string, status: string) => Buffer.from(JSON.stringify({
+    event: 'update',
+    args: [{ id, status }],
+}))
+
+const testInvoiceWebsocketReconnectReplaysSetOnce = async (T: StorageTestBase) => {
+    T.d('starting invoice websocket reconnect does not fund twice on a replayed invoice.set')
+    const { swapper, data } = setupSubmarine()
+    const sockets: FakeSwapSocket[] = []
+    swapper.connectSwapSocket = () => {
+        const socket = new FakeSwapSocket()
+        sockets.push(socket)
+        return socket
+    }
+    swapper.swapWsRetryMs = 20
+    swapper.swapWsRetryMaxMs = 20
+    swapper.fetchSwapStatus = async () => undefined
+    let waiting = 0
+    const close = swapper.SubscribeToInvoiceSwap(data, () => { }, () => { waiting++ })
+    T.expect(sockets.length).to.equal(1)
+    sockets[0].emitOpen()
+    await waitMs(10)
+    sockets[0].emitMessage(invoiceUpdate(data.createdResponse.id, 'invoice.set'))
+    await waitUntil(() => waiting === 1)
+    sockets[0].emitClose()
+    await waitUntil(() => sockets.length === 2)
+    sockets[1].emitOpen()
+    await waitMs(10)
+    sockets[1].emitMessage(invoiceUpdate(data.createdResponse.id, 'invoice.set'))
+    await waitMs(20)
+    T.expect(waiting).to.equal(1)
+    close()
+    await waitMs(40)
+    T.expect(sockets.length).to.equal(2)
+    T.d('reconnect resubscribed; a second invoice.set did not publish another lockup')
+}
+
+const testInvoiceWebsocketOpenReplaysHttpStatus = async (T: StorageTestBase) => {
+    T.d('starting invoice websocket open replays the current HTTP swap status')
+    const { swapper, data } = setupSubmarine()
+    const sockets: FakeSwapSocket[] = []
+    swapper.connectSwapSocket = () => {
+        const socket = new FakeSwapSocket()
+        sockets.push(socket)
+        return socket
+    }
+    swapper.fetchSwapStatus = async () => ({ id: data.createdResponse.id, status: 'invoice.set' })
+    let waiting = 0
+    const close = swapper.SubscribeToInvoiceSwap(data, () => { }, () => { waiting++ })
+    sockets[0].emitOpen()
+    await waitUntil(() => waiting === 1)
+    T.expect(waiting).to.equal(1)
+    close()
+    T.d('a missed invoice.set was recovered from HTTP status after subscribe')
+}
+
+const testInvoiceClaimPendingIsSingleFlight = async (T: StorageTestBase) => {
+    T.d('starting invoice claim.pending does not run two provider claim fetches at once')
+    const { swapper, data } = setupSubmarine()
+    let claims = 0
+    let release!: () => void
+    const hold = new Promise<void>(resolve => { release = resolve })
+    swapper.handleInvoiceClaimPending = async () => {
+        claims++
+        await hold
+        return { ok: true as const, preimage: 'aa'.repeat(32) }
+    }
+    const preimages: string[] = []
+    const handlers = {
+        waitingTx: () => { },
+        onVerifiedPreimage: (preimage: string) => { preimages.push(preimage) },
+    }
+    const pending = invoiceUpdate(data.createdResponse.id, 'transaction.claim.pending')
+    const first = swapper.handleSwapInvoiceMessage(pending, data, handlers)
+    const second = swapper.handleSwapInvoiceMessage(pending, data, handlers)
+    await waitUntil(() => claims === 1)
+    T.expect(claims).to.equal(1)
+    release()
+    await first
+    await second
+    T.expect(claims).to.equal(1)
+    T.expect(preimages).to.deep.equal(['aa'.repeat(32)])
+    T.d('a second claim.pending during an in-flight fetch was ignored')
 }
 
 const testClaimedReconcilesLocalSettledInvoice = async (T: StorageTestBase) => {

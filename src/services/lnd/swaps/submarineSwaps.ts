@@ -9,10 +9,13 @@ import { randomBytes, createHash } from 'crypto';
 import { ECPairFactory, ECPairInterface } from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
 import { Transaction, address } from 'bitcoinjs-lib';
-import ws from 'ws';
 import { getLogger, PubLogger, ERROR } from '../../helpers/logger.js';
 import { caughtErrorMessage, loggedGet, loggedPost, getNetwork, findTaprootSwapOutput, isExactTaprootSwapOutput } from './swapHelpers.js';
 import { BTCNetwork } from '../../main/settings.js';
+import {
+    SWAP_WS_PING_MS, SWAP_WS_RETRY_MAX_MS, SWAP_WS_RETRY_MS,
+    SwapWsConnect, connectSwapUpdates, defaultSwapWsConnect, swapWsPayloadText,
+} from './swapWebsocket.js';
 
 /* type InvoiceSwapFees = {
     hash: string,
@@ -159,6 +162,11 @@ export class SubmarineSwaps {
     private wsUrl: string
     private network: BTCNetwork
     log: PubLogger
+    connectSwapSocket: SwapWsConnect = defaultSwapWsConnect
+    swapWsPingMs = SWAP_WS_PING_MS
+    swapWsRetryMs = SWAP_WS_RETRY_MS
+    swapWsRetryMaxMs = SWAP_WS_RETRY_MAX_MS
+    private invoiceClaimPending = new Set<string>()
     constructor({ httpUrl, wsUrl, network }: { httpUrl: string, wsUrl: string, network: BTCNetwork }) {
         this.httpUrl = httpUrl
         this.wsUrl = wsUrl
@@ -566,6 +574,14 @@ export class SubmarineSwaps {
         return { ok: true, publish: { done: false, txHex, txId, usedCooperative: refundTxRes.usedCooperative } }
     }
 
+    fetchSwapStatus = async (swapId: string): Promise<{ id?: string, status?: string } | undefined> => {
+        const res = await loggedGet<{ id?: string, status?: string }>(this.log, `${this.httpUrl}/v2/swap/${swapId}`)
+        if (!res.ok || !res.data?.status) {
+            return undefined
+        }
+        return res.data
+    }
+
     SubscribeToInvoiceSwap = (
         data: InvoiceSwapData,
         swapDone: (result: InvoiceSwapResult) => void,
@@ -573,36 +589,16 @@ export class SubmarineSwaps {
         reconcileSettledPreimage?: () => Promise<string | undefined>,
     ) => {
         this.log("subscribing to invoice swap", { id: data.createdResponse.id })
-        const webSocket = new ws(`${this.wsUrl}/v2/ws`)
-        const subReq = { op: 'subscribe', channel: 'swap.update', args: [data.createdResponse.id] }
-        webSocket.on('open', () => {
-            webSocket.send(JSON.stringify(subReq))
-        })
-        const interval = setInterval(() => {
-            webSocket.ping()
-        }, 30 * 1000)
-        interval.unref()
+        const sessionAbort = new AbortController()
         let isDone = false
         const done = (result: InvoiceSwapResult) => {
             if (isDone) {
                 return
             }
             isDone = true
-            clearInterval(interval)
-            webSocket.close()
+            sessionAbort.abort()
             swapDone(result)
         }
-        webSocket.on('pong', () => {
-            this.log('WebSocket invoice swap pong received')
-        })
-        webSocket.on('error', (err) => {
-            this.log(ERROR, 'Error in WebSocket', err.message)
-        })
-        webSocket.on('close', () => {
-            if (!isDone) {
-                this.log('WebSocket closed; completion still requires a verified preimage')
-            }
-        })
         let txRequested = false
         const requestTx = () => {
             if (txRequested) {
@@ -617,19 +613,40 @@ export class SubmarineSwaps {
                 this.log(ERROR, 'Error requesting invoice swap lockup', err.message || err)
             })
         }
-        webSocket.on('message', async (rawMsg) => {
-            try {
-                await this.handleSwapInvoiceMessage(rawMsg, data, {
-                    waitingTx: requestTx,
-                    onVerifiedPreimage: (preimage) => done({ ok: true, preimage }),
-                    reconcileSettledPreimage,
-                })
-            } catch (err: any) {
-                this.log(ERROR, 'Error handling invoice WebSocket message', err.message)
-            }
-        });
+        const handlers = {
+            waitingTx: requestTx,
+            onVerifiedPreimage: (preimage: string) => done({ ok: true, preimage }),
+            reconcileSettledPreimage,
+        }
+        const session = connectSwapUpdates({
+            wsUrl: this.wsUrl,
+            swapId: data.createdResponse.id,
+            log: this.log,
+            abort: sessionAbort.signal,
+            connect: this.connectSwapSocket,
+            pingMs: this.swapWsPingMs,
+            retryMs: this.swapWsRetryMs,
+            retryMaxMs: this.swapWsRetryMaxMs,
+            onMessage: async (rawMsg) => {
+                await this.handleSwapInvoiceMessage(rawMsg, data, handlers)
+            },
+            onOpen: async () => {
+                if (isDone) {
+                    return
+                }
+                const status = await this.fetchSwapStatus(data.createdResponse.id)
+                if (!status || isDone) {
+                    return
+                }
+                await this.handleSwapInvoiceMessage(Buffer.from(JSON.stringify({
+                    event: 'update',
+                    args: [{ id: status.id || data.createdResponse.id, status: status.status }],
+                })), data, handlers)
+            },
+        })
         return () => {
-            webSocket.close()
+            sessionAbort.abort()
+            session.close()
         }
     }
 
@@ -641,7 +658,7 @@ export class SubmarineSwaps {
      * claim.pending while the swap is in flight.
      */
     handleSwapInvoiceMessage = async (
-        rawMsg: ws.RawData,
+        rawMsg: unknown,
         data: InvoiceSwapData,
         handlers: {
             waitingTx: () => void | Promise<void>
@@ -651,7 +668,7 @@ export class SubmarineSwaps {
     ) => {
         let msg: any
         try {
-            msg = JSON.parse(rawMsg.toString('utf-8'))
+            msg = JSON.parse(swapWsPayloadText(rawMsg))
         } catch (err: any) {
             this.log(ERROR, 'Invalid swap websocket payload', err.message)
             return
@@ -679,9 +696,22 @@ export class SubmarineSwaps {
                 handlers.waitingTx()
                 return
             case 'transaction.claim.pending': {
-                const claimed = await this.handleInvoiceClaimPending(data)
-                if (claimed.ok) {
-                    handlers.onVerifiedPreimage?.(claimed.preimage)
+                const id = data.createdResponse.id
+                if (this.invoiceClaimPending.has(id)) {
+                    return
+                }
+                this.invoiceClaimPending.add(id)
+                let keep = false
+                try {
+                    const claimed = await this.handleInvoiceClaimPending(data)
+                    if (claimed.ok) {
+                        keep = true
+                        handlers.onVerifiedPreimage?.(claimed.preimage)
+                    }
+                } finally {
+                    if (!keep) {
+                        this.invoiceClaimPending.delete(id)
+                    }
                 }
                 return
             }

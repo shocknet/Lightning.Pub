@@ -10,7 +10,6 @@ import {
 import { randomBytes, createHash } from 'crypto';
 import { ECPairFactory, ECPairInterface } from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
-import ws from 'ws';
 import { getLogger, PubLogger, ERROR } from '../../helpers/logger.js';
 import { isNonNegativeSats, isPositiveSats } from '../../helpers/sats.js';
 import { BTCNetwork } from '../../main/settings.js';
@@ -18,6 +17,10 @@ import {
     loggedGet, loggedPost, getNetwork, scriptDustLimit,
     findTaprootSwapOutput, isExactTaprootSwapOutput, TaprootSwapOutput,
 } from './swapHelpers.js';
+import {
+    SWAP_WS_PING_MS, SWAP_WS_RETRY_MAX_MS, SWAP_WS_RETRY_MS,
+    SwapWsConnect, connectSwapUpdates, defaultSwapWsConnect, swapWsPayloadText,
+} from './swapWebsocket.js';
 
 
 export type ReverseSwapFees = {
@@ -433,6 +436,10 @@ export class ReverseSwaps {
     private wsUrl: string
     log: PubLogger
     private network: BTCNetwork
+    connectSwapSocket: SwapWsConnect = defaultSwapWsConnect
+    swapWsPingMs = SWAP_WS_PING_MS
+    swapWsRetryMs = SWAP_WS_RETRY_MS
+    swapWsRetryMaxMs = SWAP_WS_RETRY_MAX_MS
     constructor({ httpUrl, wsUrl, network }: { httpUrl: string, wsUrl: string, network: BTCNetwork }) {
         this.httpUrl = httpUrl
         this.wsUrl = wsUrl
@@ -634,19 +641,23 @@ export class ReverseSwaps {
         swapDone: (result: { ok: true, txId: string } | { ok: false, error: string }) => void,
         chain: ReverseClaimChain,
     ) => {
-        const webSocket = new ws(`${this.wsUrl}/v2/ws`)
-        const subReq = { op: 'subscribe', channel: 'swap.update', args: [data.createdResponse.id] }
-        webSocket.on('open', () => {
-            webSocket.send(JSON.stringify(subReq))
-        })
-        const interval = setInterval(() => {
-            webSocket.ping()
-        }, 30 * 1000)
-        interval.unref()
         const localAbort = new AbortController()
         const onParentAbort = () => localAbort.abort()
         chain.abortSignal?.addEventListener('abort', onParentAbort)
         let txId = "", isDone = false
+        const session = connectSwapUpdates({
+            wsUrl: this.wsUrl,
+            swapId: data.createdResponse.id,
+            log: this.log,
+            abort: localAbort.signal,
+            connect: this.connectSwapSocket,
+            pingMs: this.swapWsPingMs,
+            retryMs: this.swapWsRetryMs,
+            retryMaxMs: this.swapWsRetryMaxMs,
+            onMessage: async (rawMsg) => {
+                await this.handleSwapTransactionMessage(rawMsg)
+            },
+        })
         const done = (failureReason?: string) => {
             if (isDone) {
                 return
@@ -654,8 +665,7 @@ export class ReverseSwaps {
             isDone = true
             localAbort.abort()
             chain.abortSignal?.removeEventListener('abort', onParentAbort)
-            clearInterval(interval)
-            webSocket.close()
+            session.close()
             if (failureReason) {
                 swapDone({ ok: false, error: failureReason })
             } else if (!txId) {
@@ -664,24 +674,6 @@ export class ReverseSwaps {
                 swapDone({ ok: true, txId })
             }
         }
-        webSocket.on('pong', () => {
-            this.log('WebSocket transaction swap pong received')
-        })
-        webSocket.on('error', (err) => {
-            this.log(ERROR, 'Error in WebSocket', err.message)
-        })
-        webSocket.on('close', () => {
-            if (!isDone) {
-                this.log('WebSocket closed; continuing to wait for an independently confirmed lockup')
-            }
-        })
-        webSocket.on('message', async (rawMsg) => {
-            try {
-                await this.handleSwapTransactionMessage(rawMsg)
-            } catch (err: any) {
-                this.log(ERROR, 'Error handling transaction WebSocket message', err.message)
-            }
-        })
         void this.claimWhenLockupConfirmed(data, chain, localAbort.signal, (id) => { txId = id }, done)
     }
 
@@ -690,10 +682,10 @@ export class ReverseSwaps {
      * abort the chain watch: a hostile update (failed/expired, or malformed JSON)
      * would otherwise cancel an independent 1-conf claim.
      */
-    handleSwapTransactionMessage = async (rawMsg: ws.RawData) => {
+    handleSwapTransactionMessage = async (rawMsg: unknown) => {
         let msg: any
         try {
-            msg = JSON.parse(rawMsg.toString('utf-8'))
+            msg = JSON.parse(swapWsPayloadText(rawMsg))
         } catch (err: any) {
             this.log(ERROR, 'Invalid swap websocket payload', err.message)
             return
