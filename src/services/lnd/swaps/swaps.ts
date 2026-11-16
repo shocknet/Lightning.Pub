@@ -1128,8 +1128,9 @@ export class Swaps {
      * Broadcast an already-recorded claim. Marker-after-broadcast left a crash
      * window that looked like an unpublished signature after the preimage was
      * already public. Tracking starts even if broadcast is rejected so the live
-     * process keeps retrying. Resume without claim_broadcast_accepted still
-     * requires a lockup spend or first-disclosure checks.
+     * process keeps retrying while the claim window is still open. Resume
+     * without claim_broadcast_accepted still requires a lockup spend or
+     * first-disclosure checks.
      */
     private publishTransactionSwapClaim = async (swap: TransactionSwap, txHex: string) => {
         const published = { ...swap, claim_tx_hex: txHex, claim_published: true }
@@ -1365,13 +1366,53 @@ export class Swaps {
     private sameChainTxId = (left: string, right: string) =>
         !!left && !!right && left.toLowerCase() === right.toLowerCase()
 
+    private stopTrackingPublishedClaim = (swapOpId: string) => {
+        this.claimTrackAborts[swapOpId]?.abort()
+    }
+
+    /**
+     * An unaccepted claim is still first disclosure. Skip this retry if the tip
+     * is unreadable; stop the tracker if the refund window has closed.
+     */
+    private unacceptedClaimRetryAllowed = async (swap: TransactionSwap) => {
+        let tip: number
+        try {
+            tip = await this.trustedChainTip()
+        } catch (err: any) {
+            this.log("skipping unaccepted reverse-swap claim retry; chain tip unavailable", {
+                swapOpId: swap.swap_operation_id,
+                error: err.message || err,
+            })
+            return false
+        }
+        const window = checkReverseClaimWindow(swap.timeout_block_height, tip)
+        if (window.ok) {
+            return true
+        }
+        this.stopTrackingPublishedClaim(swap.swap_operation_id)
+        this.warnUnpublishedClaimNeedsManualCheck(swap, window.error)
+        this.log("stopped unaccepted reverse-swap claim retries; refund window closed", {
+            swapOpId: swap.swap_operation_id,
+            error: window.error,
+        })
+        return false
+    }
+
+    /**
+     * Rebroadcast a persisted claim. Until LND has accepted once, check the
+     * claim window before each retry. After acceptance the preimage is public
+     * and retries skip the window.
+     */
     private rebroadcastPublishedClaim = async (swapOpId: string) => {
-        if (this.stopped) {
+        if (this.stopped || this.claimTrackAborts[swapOpId]?.signal.aborted) {
             return
         }
         try {
             const latest = await this.storage.paymentStorage.GetTransactionSwapRecord(swapOpId)
             if (this.stopped || !latest?.claim_tx_hex || latest.tx_id) {
+                return
+            }
+            if (!latest.claim_broadcast_accepted && !await this.unacceptedClaimRetryAllowed(latest)) {
                 return
             }
             if (!latest.claim_published) {
@@ -1439,6 +1480,7 @@ export class Swaps {
      * After preimage disclosure, keep the claim open: rebroadcast on each new
      * block and on a timer, and finalize only when our spend confirms. A
      * competing confirmed spend closes the row so resume does not loop.
+     * Unaccepted retries stop if the claim window closes.
      */
     private trackPublishedTransactionSwapClaim = async (
         swap: TransactionSwap,
