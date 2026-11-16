@@ -20,6 +20,7 @@ import {
     checkReverseClaimBudget,
     checkReverseClaimWindow,
     checkReverseTimeout,
+    isReverseClaimBroadcastAccepted,
     isReverseClaimExposed,
     resolveClaimFeeRate,
 } from '../services/lnd/swaps/reverseSwaps.js'
@@ -42,6 +43,7 @@ export default async (T: StorageTestBase) => {
     await testTimeoutWindow(T)
     await testClaimWindow(T)
     await testClaimExposureMarker(T)
+    await testClaimBroadcastAcceptedMarker(T)
     await testClaimBudget(T)
     await testVerifyRejectsMismatchedHashAndUnverifiedTree(T)
     await testQuoteMethodRejectsAndDoesNotPersist(T)
@@ -127,6 +129,17 @@ const testClaimExposureMarker = async (T: StorageTestBase) => {
     T.expect(isReverseClaimExposed({ claim_tx_hex: '0200', claim_published: false })).to.equal(false)
     T.expect(isReverseClaimExposed({ claim_tx_hex: '0200', claim_published: true })).to.equal(true)
     T.d('only claim_published plus a saved hex marks a reverse-swap claim as a publication attempt')
+}
+
+const testClaimBroadcastAcceptedMarker = async (T: StorageTestBase) => {
+    T.d('starting reverse claim broadcast-accepted is LND acceptance, not publication intent')
+    T.expect(isReverseClaimBroadcastAccepted({})).to.equal(false)
+    T.expect(isReverseClaimBroadcastAccepted({ claim_tx_hex: '0200' })).to.equal(false)
+    T.expect(isReverseClaimBroadcastAccepted({ claim_broadcast_accepted: true })).to.equal(false)
+    T.expect(isReverseClaimBroadcastAccepted({ claim_tx_hex: '', claim_broadcast_accepted: true })).to.equal(false)
+    T.expect(isReverseClaimBroadcastAccepted({ claim_tx_hex: '0200', claim_broadcast_accepted: false })).to.equal(false)
+    T.expect(isReverseClaimBroadcastAccepted({ claim_tx_hex: '0200', claim_broadcast_accepted: true })).to.equal(true)
+    T.d('only claim_broadcast_accepted plus a saved hex marks a reverse-swap claim as accepted by LND')
 }
 
 const testClaimBudget = async (T: StorageTestBase) => {

@@ -231,7 +231,9 @@ export const checkReverseTimeout = (
  * A persisted reverse-swap signature is crash-recovery material, not proof the
  * preimage was disclosed. claim_published records a publication attempt, including
  * a crash between the marker and broadcast. Resume and PayAddrWithSwap retry must
- * still prove our lockup spend before skipping first-disclosure checks.
+ * still prove our lockup spend before skipping first-disclosure checks, unless
+ * claim_broadcast_accepted is set: LND already accepted the claim, so a missed
+ * mempool spend must not re-run backup or window gates.
  * Unspent marked claims take the saved-hex path (window and fees).
  * claim_published: false is not proof of secrecy after restore of an earlier
  * backup; resume reconciles a spent lockup.
@@ -240,6 +242,11 @@ export const isReverseClaimExposed = (swap: {
     claim_tx_hex?: string
     claim_published?: boolean
 }): boolean => !!(swap.claim_tx_hex && swap.claim_published)
+
+export const isReverseClaimBroadcastAccepted = (swap: {
+    claim_tx_hex?: string
+    claim_broadcast_accepted?: boolean
+}): boolean => !!(swap.claim_tx_hex && swap.claim_broadcast_accepted)
 
 /**
  * Claim-time refund window against a trusted tip. Unlike checkReverseTimeout,

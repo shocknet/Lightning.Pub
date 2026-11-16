@@ -80,9 +80,13 @@ const testSwapBackupFilters = (T: StorageTestBase) => {
 
     const unpublished = generateTransactionSwapRow(1)
     unpublished.claim_published = false
+    unpublished.claim_broadcast_accepted = false
     T.expect(decodeTransactionSwapRow(encodeTransactionSwapRow(unpublished)).claim_published).to.equal(false)
+    T.expect(decodeTransactionSwapRow(encodeTransactionSwapRow(unpublished)).claim_broadcast_accepted).to.equal(false)
     unpublished.claim_published = true
+    unpublished.claim_broadcast_accepted = true
     T.expect(decodeTransactionSwapRow(encodeTransactionSwapRow(unpublished)).claim_published).to.equal(true)
+    T.expect(decodeTransactionSwapRow(encodeTransactionSwapRow(unpublished)).claim_broadcast_accepted).to.equal(true)
     T.d('Finished testSwapBackupFilters')
 }
 
@@ -283,6 +287,7 @@ const generateTransactionSwapRow = (base: number): TransactionSwapRow => {
         address_paid: 'bcrt1qdest',
         claim_tx_hex: '020000000002',
         claim_published: true,
+        claim_broadcast_accepted: true,
         lockup_tx_hex: '020000000003',
         service_url: 'https://boltz.example',
     }

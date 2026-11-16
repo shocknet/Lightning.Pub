@@ -678,8 +678,9 @@ export default class {
     }
 
     async SetTransactionSwapClaimTx(swapOperationId: string, claimTxHex: string, txId?: string) {
-        // Do not clear claim_published. Exposure is monotonic: reconstructing a
-        // claim after a publication attempt must not look like secrecy.
+        // Do not clear claim_published or claim_broadcast_accepted. Both are
+        // monotonic: reconstructing a claim after a publication attempt must not
+        // look like secrecy.
         return this.dbs.Update<TransactionSwap>('TransactionSwap', { swap_operation_id: swapOperationId }, {
             claim_tx_hex: claimTxHex,
         }, txId)
@@ -688,6 +689,13 @@ export default class {
     async MarkTransactionSwapClaimPublished(swapOperationId: string, txId?: string) {
         return this.dbs.Update<TransactionSwap>('TransactionSwap', { swap_operation_id: swapOperationId }, {
             claim_published: true,
+        }, txId)
+    }
+
+    async MarkTransactionSwapClaimBroadcastAccepted(swapOperationId: string, txId?: string) {
+        return this.dbs.Update<TransactionSwap>('TransactionSwap', { swap_operation_id: swapOperationId }, {
+            claim_published: true,
+            claim_broadcast_accepted: true,
         }, txId)
     }
 
@@ -845,6 +853,7 @@ export default class {
                     address_paid: swap.address_paid,
                     claim_tx_hex: swap.claim_tx_hex,
                     claim_published: !!swap.claim_published,
+                    claim_broadcast_accepted: !!swap.claim_broadcast_accepted,
                     lockup_tx_hex: swap.lockup_tx_hex,
                     service_url: swap.service_url,
                 }, txId)

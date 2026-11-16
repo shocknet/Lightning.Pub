@@ -24,6 +24,7 @@ export default async (T: StorageTestBase) => {
     await testPayKeepsPersistedClaimRetryable(T)
     await testPayRetryUnpublishedExpiredClaimDoesNotBroadcast(T)
     await testPayRetryPublishedUnspentClaimDoesNotBroadcastAfterRefundHeight(T)
+    await testPayRetryAcceptedUnspentClaimRebroadcastsAfterRefundHeight(T)
     await testPayRetryPublishedClaimRebroadcastsAfterRefundHeight(T)
     await testPayRetryReconcilesUnpublishedClaimSpendAfterRefundHeight(T)
     await testPayRetryDoesNotDiscloseCompetingSpendAfterRefundHeight(T)
@@ -34,7 +35,9 @@ export default async (T: StorageTestBase) => {
     await testAlreadyReservedFlushSuccessStillPays(T)
     await testConcurrentAlreadyReservedDoesNotPayDuringFailedFlush(T)
     await testResumeClaimFlushFailureStillBroadcasts(T)
+    await testResumeAcceptedClaimFlushFailureStillBroadcasts(T)
     await testPayExposedClaimFlushFailureStillBroadcasts(T)
+    await testPayAcceptedClaimFlushFailureStillBroadcasts(T)
     await testResumeRebroadcastsPersistedClaim(T)
     await testResumeRebroadcastsFailedSwapWithClaim(T)
     await testResumeFinalizesWhenClaimSpendConfirms(T)
@@ -45,6 +48,7 @@ export default async (T: StorageTestBase) => {
     await testResumeRebroadcastsUnconfirmedClaimOnTimer(T)
     await testResumeDoesNotBroadcastUnpublishedClaimAfterRefundHeight(T)
     await testResumeDoesNotBroadcastPublishedUnspentClaimAfterRefundHeight(T)
+    await testResumeRebroadcastsAcceptedUnspentClaimAfterRefundHeight(T)
     await testResumeReconcilesUnpublishedClaimSpendAfterRefundHeight(T)
     await testResumeDoesNotPromoteCompetingConfirmedSpendAfterRefundHeight(T)
     await testResumeDoesNotPromoteCompetingMempoolSpendAfterRefundHeight(T)
@@ -248,12 +252,14 @@ const testPayPersistsClaimBeforeBroadcast = async (T: StorageTestBase) => {
     swapper.VerifyReverseQuote = async () => ({ ok: true as const })
     let claimInDbAtPublish = ''
     let publishedAtBroadcast = false
+    let acceptedAtBroadcast = false
     swaps.SetLnd({
         DecodeInvoice: async () => ({ numSatoshis: 1200, paymentHash: '22'.repeat(32) }),
         GetInfo: async () => ({ syncedToChain: true, blockHeight: 5 }),
         BroadcastTransaction: async (txHex: string) => {
             const row = await T.storage.paymentStorage.GetTransactionSwap(saved.swap_operation_id, userId)
             publishedAtBroadcast = !!row?.claim_published
+            acceptedAtBroadcast = !!row?.claim_broadcast_accepted
             broadcasts.push(txHex)
             return { txId: Transaction.fromHex(txHex).getId() }
         },
@@ -273,10 +279,12 @@ const testPayPersistsClaimBeforeBroadcast = async (T: StorageTestBase) => {
     await swaps.PayAddrWithSwap(userId, saved.swap_operation_id, DEST, async () => { })
     T.expect(claimInDbAtPublish).to.equal(CLAIM_HEX)
     T.expect(publishedAtBroadcast).to.equal(true)
+    T.expect(acceptedAtBroadcast).to.equal(false)
     T.expect(broadcasts).to.deep.equal([CLAIM_HEX])
     const exported = await T.storage.paymentStorage.ExportTransactionSwaps()
     const completed = exported.find(s => s.swap_operation_id === saved.swap_operation_id)
     T.expect(completed?.claim_published).to.equal(true)
+    T.expect(completed?.claim_broadcast_accepted).to.equal(true)
     T.expect(completed?.tx_id || '').to.equal('')
     T.d('claim transaction and publication attempt were durable before broadcast')
 }
@@ -308,6 +316,7 @@ const testPayErrorAfterPublicationRecordRetriesFirstDisclosure = async (T: Stora
     const afterError = await T.storage.paymentStorage.GetTransactionSwap(saved.swap_operation_id, userId)
     T.expect(afterError?.claim_tx_hex).to.equal(CLAIM_HEX)
     T.expect(!!afterError?.claim_published).to.equal(true)
+    T.expect(!!afterError?.claim_broadcast_accepted).to.equal(false)
     T.expect(afterError?.used).to.equal(false)
     let firstDisclosureRetries = 0
     swapper.SubscribeToTransactionSwap = async (_data, done, chain) => {
@@ -365,6 +374,7 @@ const testPayDoesNotFinalizeAtBroadcast = async (T: StorageTestBase) => {
     T.expect(row?.used).to.equal(false)
     T.expect(row?.tx_id || '').to.equal('')
     T.expect(!!row?.claim_published).to.equal(true)
+    T.expect(!!row?.claim_broadcast_accepted).to.equal(true)
     const unfinished = await T.storage.paymentStorage.ListUnfinishedTransactionSwaps()
     T.expect(unfinished.some(s => s.swap_operation_id === saved.swap_operation_id)).to.equal(true)
     await T.storage.paymentStorage.DeleteTransactionSwap(saved.swap_operation_id)
@@ -416,6 +426,7 @@ const testPayKeepsPersistedClaimRetryable = async (T: StorageTestBase) => {
     T.expect(row?.used).to.equal(false)
     T.expect(row?.claim_tx_hex).to.equal(CLAIM_HEX)
     T.expect(!!row?.claim_published).to.equal(true)
+    T.expect(!!row?.claim_broadcast_accepted).to.equal(false)
     const unfinished = await T.storage.paymentStorage.ListUnfinishedTransactionSwaps()
     T.expect(unfinished.some(s => s.swap_operation_id === saved.swap_operation_id)).to.equal(true)
     swaps.Stop()
@@ -468,6 +479,7 @@ const testPayRetryUnpublishedExpiredClaimDoesNotBroadcast = async (T: StorageTes
     const row = await T.storage.paymentStorage.GetTransactionSwap(saved.swap_operation_id, userId)
     T.expect(row?.claim_tx_hex).to.equal(CLAIM_HEX)
     T.expect(!!row?.claim_published).to.equal(false)
+    T.expect(!!row?.claim_broadcast_accepted).to.equal(false)
     T.expect(unpublishedClaimManualWarning(logs, saved.swap_operation_id, Transaction.fromHex(CLAIM_HEX).getId())).to.equal(true)
     await T.storage.paymentStorage.DeleteTransactionSwap(saved.swap_operation_id)
     T.d('a stored unpublished signature did not disclose the preimage after the refund height')
@@ -523,6 +535,46 @@ const testPayRetryPublishedUnspentClaimDoesNotBroadcastAfterRefundHeight = async
     T.expect(publishedUnspentManualWarning(logs, saved.swap_operation_id, Transaction.fromHex(CLAIM_HEX).getId())).to.equal(true)
     await T.storage.paymentStorage.DeleteTransactionSwap(saved.swap_operation_id)
     T.d('a publication marker without our lockup spend did not disclose the preimage after the refund height')
+}
+
+const testPayRetryAcceptedUnspentClaimRebroadcastsAfterRefundHeight = async (T: StorageTestBase) => {
+    T.d('starting PayAddrWithSwap rebroadcasts an accepted claim even if the lockup spend is invisible after the refund height')
+    const timeout = 920_000 + 1_008
+    const userId = `rev-pay-accepted-${randomBytes(8).toString('hex')}`
+    const saved = await T.storage.paymentStorage.AddTransactionSwap(requiredSwap(userId, {
+        paid_at_unix: 1,
+        address_paid: DEST,
+        lockup_address: DEST,
+        claim_tx_hex: CLAIM_HEX,
+        claim_published: true,
+        claim_broadcast_accepted: true,
+        timeout_block_height: timeout,
+    }))
+    const { swaps, swapper, broadcasts } = makeSwaps(T)
+    let paid = false
+    let firstDisclosure = false
+    swapper.SubscribeToTransactionSwap = async (_data, done) => {
+        firstDisclosure = true
+        done({ ok: false, error: 'should not take first-disclosure path' })
+    }
+    swaps.SetLnd({
+        DecodeInvoice: async () => ({ numSatoshis: 1200, paymentHash: '22'.repeat(32) }),
+        GetInfo: async () => ({ syncedToChain: true, blockHeight: timeout }),
+        BroadcastTransaction: async (txHex: string) => {
+            broadcasts.push(txHex)
+            return { txId: Transaction.fromHex(txHex).getId() }
+        },
+        WatchLockupSpend: () => hangingSpendGuard(),
+        EstimateSatPerVbyte: async () => ({ satPerVbyte: 1, minRelaySatPerVbyte: 1 }),
+    } as any)
+    swaps.SetBackupManager({ notifyBackupTable: async () => { }, flushTablesNow: async () => { throw new Error('backup dest down') } } as any)
+    await swaps.PayAddrWithSwap(userId, saved.swap_operation_id, DEST, async () => { paid = true })
+    T.expect(paid).to.equal(false)
+    T.expect(firstDisclosure).to.equal(false)
+    T.expect(broadcasts).to.deep.equal([CLAIM_HEX])
+    swaps.Stop()
+    await T.storage.paymentStorage.DeleteTransactionSwap(saved.swap_operation_id)
+    T.d('an LND-accepted claim was rebroadcast without backup or window gates when the mempool spend was invisible')
 }
 
 const testPayRetryPublishedClaimRebroadcastsAfterRefundHeight = async (T: StorageTestBase) => {
@@ -596,6 +648,7 @@ const testPayRetryReconcilesUnpublishedClaimSpendAfterRefundHeight = async (T: S
     T.expect(heightHint).to.equal(Math.max(1, Math.min(timeout, timeout - MAX_REVERSE_TIMEOUT_BLOCKS)))
     const row = await T.storage.paymentStorage.GetTransactionSwap(saved.swap_operation_id, userId)
     T.expect(!!row?.claim_published).to.equal(true)
+    T.expect(!!row?.claim_broadcast_accepted).to.equal(true)
     swaps.Stop()
     await T.storage.paymentStorage.DeleteTransactionSwap(saved.swap_operation_id)
     T.d('our already-broadcast claim was promoted and rebroadcast after the refund height')
@@ -653,12 +706,14 @@ const testSetClaimTxKeepsPublishedMarker = async (T: StorageTestBase) => {
         address_paid: DEST,
         claim_tx_hex: CLAIM_HEX,
         claim_published: true,
+        claim_broadcast_accepted: true,
         timeout_block_height: 920_000 + 1_008,
     }))
     await T.storage.paymentStorage.SetTransactionSwapClaimTx(saved.swap_operation_id, OTHER_CLAIM_HEX)
     const row = await T.storage.paymentStorage.GetTransactionSwap(saved.swap_operation_id, userId)
     T.expect(row?.claim_tx_hex).to.equal(OTHER_CLAIM_HEX)
     T.expect(!!row?.claim_published).to.equal(true)
+    T.expect(!!row?.claim_broadcast_accepted).to.equal(true)
     await T.storage.paymentStorage.DeleteTransactionSwap(saved.swap_operation_id)
     T.d('reconstructing a claim hex kept the exposure marker')
 }
@@ -699,6 +754,7 @@ const testPayMarkerFlushFailureDoesNotReconstruct = async (T: StorageTestBase) =
         const exported = await T.storage.paymentStorage.ExportTransactionSwaps()
         const completed = exported.find(s => s.swap_operation_id === saved.swap_operation_id)
         T.expect(completed?.claim_published).to.equal(true)
+        T.expect(completed?.claim_broadcast_accepted).to.equal(true)
         T.expect(completed?.tx_id || '').to.equal('')
     } finally {
         releaseBackup()
@@ -888,6 +944,46 @@ const testResumeClaimFlushFailureStillBroadcasts = async (T: StorageTestBase) =>
     T.d('startup resume published the already-exposed claim without waiting on backup')
 }
 
+const testResumeAcceptedClaimFlushFailureStillBroadcasts = async (T: StorageTestBase) => {
+    T.d('starting resume rebroadcasts an LND-accepted claim even if the backup flush fails and the mempool spend is invisible')
+    const userId = `rev-resume-accepted-flush-${randomBytes(8).toString('hex')}`
+    const saved = await T.storage.paymentStorage.AddTransactionSwap(requiredSwap(userId, {
+        paid_at_unix: 1,
+        address_paid: DEST,
+        lockup_address: DEST,
+        claim_tx_hex: CLAIM_HEX,
+        claim_published: true,
+        claim_broadcast_accepted: true,
+        timeout_block_height: 10,
+    }))
+    await deleteOtherUnfinished(T, saved.swap_operation_id)
+    const { swaps, swapper, broadcasts } = makeSwaps(T)
+    let firstDisclosure = false
+    swapper.SubscribeToTransactionSwap = async (_data, done) => {
+        firstDisclosure = true
+        done({ ok: false, error: 'should not take first-disclosure path' })
+    }
+    swaps.SetLnd({
+        DecodeInvoice: async () => ({ numSatoshis: 1200, paymentHash: '22'.repeat(32) }),
+        GetInfo: async () => ({ syncedToChain: true, blockHeight: 5 }),
+        BroadcastTransaction: async (txHex: string) => {
+            broadcasts.push(txHex)
+            return { txId: Transaction.fromHex(txHex).getId() }
+        },
+        WatchLockupSpend: () => hangingSpendGuard(),
+        EstimateSatPerVbyte: async () => ({ satPerVbyte: 1, minRelaySatPerVbyte: 1 }),
+    } as any)
+    swaps.SetBackupManager(failingBackup())
+    await swaps.ResumeTransactionSwaps()
+    T.expect(firstDisclosure).to.equal(false)
+    T.expect(broadcasts).to.deep.equal([CLAIM_HEX])
+    const leftover = await T.storage.paymentStorage.ListUnfinishedTransactionSwaps()
+    T.expect(leftover.some(s => s.swap_operation_id === saved.swap_operation_id)).to.equal(true)
+    swaps.Stop()
+    await T.storage.paymentStorage.DeleteTransactionSwap(saved.swap_operation_id)
+    T.d('startup resume published the accepted claim without waiting on backup or a visible mempool spend')
+}
+
 const testPayExposedClaimFlushFailureStillBroadcasts = async (T: StorageTestBase) => {
     T.d('starting PayAddrWithSwap rebroadcasts an already-exposed claim even if the backup flush fails')
     const userId = `rev-payflush-${randomBytes(8).toString('hex')}`
@@ -918,6 +1014,45 @@ const testPayExposedClaimFlushFailureStillBroadcasts = async (T: StorageTestBase
     swaps.Stop()
     await T.storage.paymentStorage.DeleteTransactionSwap(saved.swap_operation_id)
     T.d('an exposed-claim retry published without waiting on backup')
+}
+
+const testPayAcceptedClaimFlushFailureStillBroadcasts = async (T: StorageTestBase) => {
+    T.d('starting PayAddrWithSwap rebroadcasts an LND-accepted claim even if the backup flush fails and the mempool spend is invisible')
+    const userId = `rev-pay-accepted-flush-${randomBytes(8).toString('hex')}`
+    const saved = await T.storage.paymentStorage.AddTransactionSwap(requiredSwap(userId, {
+        paid_at_unix: 1,
+        address_paid: DEST,
+        lockup_address: DEST,
+        claim_tx_hex: CLAIM_HEX,
+        claim_published: true,
+        claim_broadcast_accepted: true,
+        timeout_block_height: 920_000 + 1_008,
+    }))
+    const { swaps, swapper, broadcasts } = makeSwaps(T)
+    let paid = false
+    let firstDisclosure = false
+    swapper.SubscribeToTransactionSwap = async (_data, done) => {
+        firstDisclosure = true
+        done({ ok: false, error: 'should not take first-disclosure path' })
+    }
+    swaps.SetLnd({
+        DecodeInvoice: async () => ({ numSatoshis: 1200, paymentHash: '22'.repeat(32) }),
+        GetInfo: async () => ({ syncedToChain: true, blockHeight: 5 }),
+        BroadcastTransaction: async (txHex: string) => {
+            broadcasts.push(txHex)
+            return { txId: Transaction.fromHex(txHex).getId() }
+        },
+        WatchLockupSpend: () => hangingSpendGuard(),
+        EstimateSatPerVbyte: async () => ({ satPerVbyte: 1, minRelaySatPerVbyte: 1 }),
+    } as any)
+    swaps.SetBackupManager(failingBackup())
+    await swaps.PayAddrWithSwap(userId, saved.swap_operation_id, DEST, async () => { paid = true })
+    T.expect(paid).to.equal(false)
+    T.expect(firstDisclosure).to.equal(false)
+    T.expect(broadcasts).to.deep.equal([CLAIM_HEX])
+    swaps.Stop()
+    await T.storage.paymentStorage.DeleteTransactionSwap(saved.swap_operation_id)
+    T.d('an accepted-claim retry published without waiting on backup or a visible mempool spend')
 }
 
 const testResumeRebroadcastsPersistedClaim = async (T: StorageTestBase) => {
@@ -1386,6 +1521,47 @@ const testResumeDoesNotBroadcastPublishedUnspentClaimAfterRefundHeight = async (
     T.d('resume kept a publication marker off the wire when the lockup was still unspent after the refund became valid')
 }
 
+const testResumeRebroadcastsAcceptedUnspentClaimAfterRefundHeight = async (T: StorageTestBase) => {
+    T.d('starting resume rebroadcasts an accepted claim even if the lockup spend is invisible after the refund height')
+    const timeout = 920_000 + 1_008
+    const userId = `rev-resume-accepted-${randomBytes(8).toString('hex')}`
+    const saved = await T.storage.paymentStorage.AddTransactionSwap(requiredSwap(userId, {
+        paid_at_unix: 1,
+        address_paid: DEST,
+        lockup_address: DEST,
+        claim_tx_hex: CLAIM_HEX,
+        claim_published: true,
+        claim_broadcast_accepted: true,
+        timeout_block_height: timeout,
+    }))
+    await deleteOtherUnfinished(T, saved.swap_operation_id)
+    const { swaps, swapper, broadcasts } = makeSwaps(T)
+    let firstDisclosure = false
+    swapper.SubscribeToTransactionSwap = async (_data, done) => {
+        firstDisclosure = true
+        done({ ok: false, error: 'should not take first-disclosure path' })
+    }
+    swaps.SetLnd({
+        DecodeInvoice: async () => ({ numSatoshis: 1200, paymentHash: '22'.repeat(32) }),
+        GetInfo: async () => ({ syncedToChain: true, blockHeight: timeout }),
+        BroadcastTransaction: async (txHex: string) => {
+            broadcasts.push(txHex)
+            return { txId: Transaction.fromHex(txHex).getId() }
+        },
+        WatchLockupSpend: () => hangingSpendGuard(),
+        EstimateSatPerVbyte: async () => ({ satPerVbyte: 1, minRelaySatPerVbyte: 1 }),
+    } as any)
+    swaps.SetBackupManager({ notifyBackupTable: async () => { }, flushTablesNow: async () => { throw new Error('backup dest down') } } as any)
+    await swaps.ResumeTransactionSwaps()
+    T.expect(firstDisclosure).to.equal(false)
+    T.expect(broadcasts).to.deep.equal([CLAIM_HEX])
+    const leftover = await T.storage.paymentStorage.ListUnfinishedTransactionSwaps()
+    T.expect(leftover.some(s => s.swap_operation_id === saved.swap_operation_id)).to.equal(true)
+    swaps.Stop()
+    await T.storage.paymentStorage.DeleteTransactionSwap(saved.swap_operation_id)
+    T.d('resume rebroadcasted an LND-accepted claim after the refund height without a visible mempool spend')
+}
+
 const testResumeReconcilesUnpublishedClaimSpendAfterRefundHeight = async (T: StorageTestBase) => {
     T.d('starting resume rebroadcasts an unpublished claim if our claim already spent the lockup after the refund height')
     const timeout = 920_000 + 1_008
@@ -1425,6 +1601,7 @@ const testResumeReconcilesUnpublishedClaimSpendAfterRefundHeight = async (T: Sto
     T.expect(heightHint).to.equal(Math.max(1, Math.min(timeout, timeout - MAX_REVERSE_TIMEOUT_BLOCKS)))
     const row = await T.storage.paymentStorage.GetTransactionSwapRecord(saved.swap_operation_id)
     T.expect(!!row?.claim_published).to.equal(true)
+    T.expect(!!row?.claim_broadcast_accepted).to.equal(true)
     const leftover = await T.storage.paymentStorage.ListUnfinishedTransactionSwaps()
     T.expect(leftover.some(s => s.swap_operation_id === saved.swap_operation_id)).to.equal(true)
     swaps.Stop()
