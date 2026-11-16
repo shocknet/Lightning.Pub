@@ -721,6 +721,7 @@ const testAdminResumeRecordsRootOpOnce = async (T: StorageTestBase) => {
     await waitingTxDone
     T.expect(broadcasts).to.deep.equal([lockup, lockup])
     await expectOnePendingChainPayment(T, txId, saved.transaction_amount + 200)
+    swaps.Stop()
     await T.storage.paymentStorage.DeleteInvoiceSwap(saved.swap_operation_id)
     T.d('resume republished the admin lockup and did not duplicate the root op')
 }
@@ -765,6 +766,7 @@ const testResumeDoesNotBroadcastMismatchedPersistedLockup = async (T: StorageTes
     T.expect(broadcasts).to.deep.equal([])
     T.expect(!!await T.storage.metricsStorage.GetRootOperation('chain_payment', TX_A)).to.equal(false)
     T.expect(!!await T.storage.metricsStorage.GetRootOperation('chain_payment', TX_B)).to.equal(false)
+    swaps.Stop()
     await T.storage.paymentStorage.DeleteInvoiceSwap(saved.swap_operation_id)
     T.d('resume logged the mismatch and did not broadcast the substituted hex')
 }

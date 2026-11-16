@@ -46,6 +46,8 @@ export default async (T: StorageTestBase) => {
     await testResumeInvoiceSwapFlushFailureDoesNotBroadcast(T)
     await testResumeDoesNotFinalizeSettledInvoiceUntilClaimed(T)
     await testResumeClaimedReconcilesLocalInvoice(T)
+    await testStopClosesInvoiceSwapUpdates(T)
+    await testStopClosesInvoiceSwapPayUpdates(T)
 }
 
 const testVerifyClaimPreimage = (T: StorageTestBase) => {
@@ -378,6 +380,7 @@ const testResumeInvoiceSwapWithoutLockupHex = async (T: StorageTestBase) => {
     T.expect(broadcast).to.equal(false)
     const stillOpen = await T.storage.paymentStorage.ListUnfinishedInvoiceSwaps()
     T.expect(stillOpen.some(s => s.swap_operation_id === saved.swap_operation_id)).to.equal(true)
+    swaps.Stop()
     await T.storage.paymentStorage.DeleteInvoiceSwap(saved.swap_operation_id)
     T.d('resume waited for claim without throwing or republishing a missing lockup hex')
 }
@@ -436,6 +439,7 @@ const testResumeInvoiceSwapBroadcastRejectionDoesNotThrow = async (T: StorageTes
         T.expect(stillOpen.some(s => s.swap_operation_id === saved.swap_operation_id)).to.equal(true)
     } finally {
         process.removeListener('unhandledRejection', onUnhandled)
+        swaps.Stop()
         await T.storage.paymentStorage.DeleteInvoiceSwap(saved.swap_operation_id)
     }
     T.d('rejected lockup rebroadcast was caught and did not reject the resume callback')
@@ -485,6 +489,7 @@ const testResumeInvoiceSwapFlushFailureDoesNotBroadcast = async (T: StorageTestB
     T.expect(broadcast).to.equal(false)
     const stillOpen = await T.storage.paymentStorage.ListUnfinishedInvoiceSwaps()
     T.expect(stillOpen.some(s => s.swap_operation_id === saved.swap_operation_id)).to.equal(true)
+    swaps.Stop()
     await T.storage.paymentStorage.DeleteInvoiceSwap(saved.swap_operation_id)
     T.d('failed backup flush blocked lockup republish on resume')
 }
@@ -531,6 +536,7 @@ const testResumeDoesNotFinalizeSettledInvoiceUntilClaimed = async (T: StorageTes
     T.expect(lookups).to.equal(0)
     const stillOpen = await T.storage.paymentStorage.ListUnfinishedInvoiceSwaps()
     T.expect(stillOpen.some(s => s.swap_operation_id === saved.swap_operation_id)).to.equal(true)
+    swaps.Stop()
     await T.storage.paymentStorage.DeleteInvoiceSwap(saved.swap_operation_id)
     T.d('resume left a settled invoice open until claimed so cooperative claim can still run')
 }
@@ -593,8 +599,131 @@ const testResumeClaimedReconcilesLocalInvoice = async (T: StorageTestBase) => {
     T.expect(unfinished.some(s => s.swap_operation_id === saved.swap_operation_id)).to.equal(false)
     T.expect(row?.used).to.equal(true)
     T.expect(row?.preimage).to.equal(preimage.toString('hex'))
+    swaps.Stop()
     await T.storage.paymentStorage.DeleteInvoiceSwap(saved.swap_operation_id)
     T.d('claimed on resume finalized from the local invoice preimage')
+}
+
+const mockSwapSettings = {
+    getSettings: () => ({
+        lndSettings: { network: 'regtest' as const },
+        swapsSettings: {
+            enableSwaps: true,
+            boltzHttpUrl: '',
+            boltzWebSocketUrl: '',
+            boltsHttpUrlAlt: '',
+            boltsWebSocketUrlAlt: '',
+        },
+    }),
+}
+
+const testStopClosesInvoiceSwapUpdates = async (T: StorageTestBase) => {
+    T.d('starting Stop closes invoice-swap update connections')
+    const saved = await insertFundedSwap(T)
+    await keepOnlyInvoiceSwap(T, saved.swap_operation_id)
+    const swapper = new SubmarineSwaps({ httpUrl: 'http://mock-boltz', wsUrl: 'ws://127.0.0.1:1', network: 'regtest' })
+    const swaps = new Swaps(mockSwapSettings as any, T.storage)
+    swaps.subSwappers['http://mock-boltz'] = swapper
+    const sockets: FakeSwapSocket[] = []
+    swapper.connectSwapSocket = () => {
+        const socket = new FakeSwapSocket()
+        sockets.push(socket)
+        return socket
+    }
+    swapper.swapWsRetryMs = 20
+    swapper.swapWsRetryMaxMs = 20
+    swapper.fetchSwapStatus = async () => undefined
+    swaps.SetLnd({
+        BroadcastTransaction: async () => ({ txId: saved.tx_id }),
+    } as any)
+    try {
+        await swaps.ResumeInvoiceSwaps()
+        T.expect(sockets.length).to.equal(1)
+        swaps.Stop()
+        sockets[0].emitClose()
+        await waitMs(40)
+        T.expect(sockets.length).to.equal(1)
+        await swaps.ResumeInvoiceSwaps()
+        T.expect(sockets.length).to.equal(1)
+    } finally {
+        swaps.Stop()
+        await T.storage.paymentStorage.DeleteInvoiceSwap(saved.swap_operation_id)
+    }
+    T.d('Stop closed the provider websocket and resume after shutdown did not reconnect')
+}
+
+const testStopClosesInvoiceSwapPayUpdates = async (T: StorageTestBase) => {
+    T.d('starting Stop closes invoice-swap update connections opened by pay')
+    const keys = ECPairFactory(ecc).makeRandom()
+    if (!keys.privateKey) {
+        throw new Error('failed to generate keys')
+    }
+    const userId = `sub-stop-pay-${randomBytes(8).toString('hex')}`
+    const saved = await T.storage.paymentStorage.AddInvoiceSwap({
+        app_user_id: userId,
+        swap_quote_id: `quote-${randomBytes(8).toString('hex')}`,
+        swap_tree: '{}',
+        claim_public_key: Buffer.from(keys.publicKey).toString('hex'),
+        payment_hash: randomBytes(32).toString('hex'),
+        timeout_block_height: 920_000 + 144,
+        invoice: 'lnbcrt-test',
+        invoice_amount: 100_000,
+        transaction_amount: LOCKUP_SATS,
+        swap_fee_sats: 1_000,
+        chain_fee_sats: 200,
+        sat_per_v_byte: 2,
+        ephemeral_public_key: Buffer.from(keys.publicKey).toString('hex'),
+        ephemeral_private_key: Buffer.from(keys.privateKey).toString('hex'),
+        address: DEST,
+        service_url: 'http://mock-boltz',
+    })
+    await keepOnlyInvoiceSwap(T, saved.swap_operation_id)
+    const swapper = new SubmarineSwaps({ httpUrl: 'http://mock-boltz', wsUrl: 'ws://127.0.0.1:1', network: 'regtest' })
+    const swaps = new Swaps(mockSwapSettings as any, T.storage)
+    swaps.subSwappers['http://mock-boltz'] = swapper
+    const sockets: FakeSwapSocket[] = []
+    swapper.connectSwapSocket = () => {
+        const socket = new FakeSwapSocket()
+        sockets.push(socket)
+        return socket
+    }
+    swapper.swapWsRetryMs = 20
+    swapper.swapWsRetryMaxMs = 20
+    swapper.VerifySubmarineQuote = async () => ({ ok: true as const })
+    swapper.fetchSwapStatus = async () => undefined
+    swaps.SetLnd({
+        GetInfo: async () => ({ syncedToChain: true, blockHeight: 5 }),
+        BroadcastTransaction: async () => ({ txId: 'should-not-broadcast' }),
+    } as any)
+    const lockup = matchingLockup(randomBytes(8).toString('hex'))
+    const txId = lockup.getId()
+    try {
+        const pay = swaps.PayInvoiceSwap(userId, saved.swap_operation_id, 2, async () => {
+            T.expect(await T.storage.paymentStorage.SetInvoiceSwapTxId(saved.swap_operation_id, txId, 200, lockup.toHex())).to.equal(1)
+            return { txId }
+        })
+        await waitUntil(() => sockets.length === 1)
+        sockets[0].emitOpen()
+        sockets[0].emitMessage(invoiceUpdate(saved.swap_quote_id, 'invoice.set'))
+        T.expect(await pay).to.equal(txId)
+        T.expect(sockets.length).to.equal(1)
+        swaps.Stop()
+        sockets[0].emitClose()
+        await waitMs(40)
+        T.expect(sockets.length).to.equal(1)
+        let payError = ''
+        try {
+            await swaps.PayInvoiceSwap(userId, saved.swap_operation_id, 2, async () => ({ txId }))
+        } catch (err: any) {
+            payError = err.message || String(err)
+        }
+        T.expect(payError).to.equal('swaps are shutting down')
+        T.expect(sockets.length).to.equal(1)
+    } finally {
+        swaps.Stop()
+        await T.storage.paymentStorage.DeleteInvoiceSwap(saved.swap_operation_id)
+    }
+    T.d('pay left the claim websocket open until Stop closed it')
 }
 
 const setupSubmarine = (swapId = `swap-${randomBytes(8).toString('hex')}`): { swapper: SubmarineSwaps, data: InvoiceSwapData } => {

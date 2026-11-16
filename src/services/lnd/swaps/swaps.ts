@@ -36,6 +36,8 @@ export class Swaps {
     waitingSwaps: Record<string, boolean> = {}
     /** In-flight reverse-claim confirmation trackers. Abort on Stop(). */
     private claimTrackAborts: Record<string, AbortController> = {}
+    /** Live invoice-swap provider websockets. Close on Stop(). */
+    private invoiceSwapCloses: Record<string, () => void> = {}
     /** Delay between reverse-swap resume attempts while LND is not synced. Tests may shorten this. */
     chainTipRetryMs = 5_000
     /** Rebroadcast an exposed reverse claim on this interval as well as new blocks. Tests may shorten this. */
@@ -72,6 +74,26 @@ export class Swaps {
         for (const abort of Object.values(this.claimTrackAborts)) {
             abort.abort()
         }
+        for (const close of Object.values(this.invoiceSwapCloses)) {
+            close()
+        }
+    }
+
+    /** One live provider update session per invoice swap. Replacing closes the previous socket. */
+    private trackInvoiceSwapUpdates = (swapOpId: string, close: () => void) => {
+        if (this.stopped) {
+            close()
+            return close
+        }
+        this.invoiceSwapCloses[swapOpId]?.()
+        const tracked = () => {
+            close()
+            if (this.invoiceSwapCloses[swapOpId] === tracked) {
+                delete this.invoiceSwapCloses[swapOpId]
+            }
+        }
+        this.invoiceSwapCloses[swapOpId] = tracked
+        return tracked
     }
 
     private notifySwapBackup = (id: 'invoice_swaps' | 'transaction_swaps') => {
@@ -348,6 +370,9 @@ export class Swaps {
         if (!this.settings.getSettings().swapsSettings.enableSwaps) {
             throw new Error("Swaps are not enabled")
         }
+        if (this.stopped) {
+            throw new Error("swaps are shutting down")
+        }
         if (!swapOpId) {
             throw new Error("swap operation id is required")
         }
@@ -429,7 +454,8 @@ export class Swaps {
                 return paid
             }
             return await new Promise<string>((resolve, reject) => {
-                const close = swapper.SubscribeToInvoiceSwap(data, async (result) => {
+                const close = this.trackInvoiceSwapUpdates(swapOpId, swapper.SubscribeToInvoiceSwap(data, async (result) => {
+                    close()
                     if (result.ok) {
                         const verified = verifySubmarineClaimPreimage(result.preimage, swap.payment_hash)
                         if (!verified.ok) {
@@ -451,7 +477,7 @@ export class Swaps {
                         close()
                         this.log("error paying address", err.message || err)
                         reject(err)
-                    }), () => this.lookupSettledInvoicePreimage(swap.payment_hash))
+                    }), () => this.lookupSettledInvoicePreimage(swap.payment_hash)))
             })
         } catch (err) {
             if (reserved) {
@@ -470,6 +496,9 @@ export class Swaps {
     }
 
     ResumeInvoiceSwaps = async () => {
+        if (this.stopped) {
+            return
+        }
         this.log("resuming invoice swaps")
         const swaps = await this.storage.paymentStorage.ListUnfinishedInvoiceSwaps()
         this.log("resuming", swaps.length, "invoice swaps")
@@ -498,6 +527,9 @@ export class Swaps {
     }
 
     private resumeInvoiceSwap = (swap: InvoiceSwap) => {
+        if (this.stopped) {
+            return
+        }
         if (!swap || !swap.tx_id || swap.used) {
             throw new Error("swap to resume not found, or does not have a tx id")
         }
@@ -506,7 +538,8 @@ export class Swaps {
             throw new Error("swapper service not found")
         }
         const data = this.getInvoiceSwapData(swap)
-        swapper.SubscribeToInvoiceSwap(data, async (result) => {
+        const close = this.trackInvoiceSwapUpdates(swap.swap_operation_id, swapper.SubscribeToInvoiceSwap(data, async (result) => {
+            close()
             if (result.ok) {
                 const verified = verifySubmarineClaimPreimage(result.preimage, swap.payment_hash)
                 if (!verified.ok) {
@@ -546,7 +579,7 @@ export class Swaps {
                     error: err.message || err,
                 })
             }
-        }, () => this.lookupSettledInvoicePreimage(swap.payment_hash))
+        }, () => this.lookupSettledInvoicePreimage(swap.payment_hash)))
     }
 
     /**
