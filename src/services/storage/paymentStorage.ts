@@ -733,6 +733,17 @@ export default class {
         return this.dbs.Delete<TransactionSwap>('TransactionSwap', { swap_operation_id: swapOperationId }, txId)
     }
 
+    async DeleteUnusedTransactionSwap(swapOperationId: string, appUserId: string, txId?: string) {
+        return this.dbs.Delete<TransactionSwap>('TransactionSwap', {
+            swap_operation_id: swapOperationId,
+            app_user_id: this.swapOwnerWhere(appUserId),
+            used: false,
+            paid_at_unix: 0,
+            claim_tx_hex: "",
+            lockup_tx_hex: "",
+        }, txId)
+    }
+
     async DeleteExpiredTransactionSwaps(currentHeight: number, txId?: string) {
         // Started reverse swaps keep their claim/refund keys even after timeout.
         // Only never-started quotes (paid_at_unix = 0) may be deleted.

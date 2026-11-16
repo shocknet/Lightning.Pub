@@ -78,9 +78,12 @@ export default async (T: StorageTestBase) => {
     await testSavedClaimExpiryDuringPublicationRecordStillPublishes(T)
     await testPublicationRecordIsNotFollowedByAnotherSafetyCheck(T)
     await testWatchLockupSpendAbortIsUnsafeSynchronously(T)
+    await testWatchLockupSpendStopSettlesHistoricalWait(T)
+    await testWatchLockupSpendRegisterFailureDetachesAbort(T)
     await testWatchLockupSpendConfirmedIgnoresMempoolSpend(T)
     await testWatchLockupSpendHistoricalIncludesMempoolTxId(T)
     await testSavedClaimIsReusedWithoutRebuild(T)
+    await testSavedClaimFlushFailureDoesNotPublish(T)
     await testSavedClaimPublishFailureRebuilds(T)
     await testSavedClaimBelowWindowRebuilds(T)
     await testUnrelatedSavedHexStillRebuilds(T)
@@ -556,7 +559,7 @@ const testSavedClaimExpiryDuringPublicationRecordStillPublishes = async (T: Stor
         publish: async (txHex) => { published.push(txHex) },
     }))
     T.expect(claimed.ok, !claimed.ok ? claimed.error : '').to.equal(true)
-    T.expect(persisted).to.deep.equal([])
+    T.expect(persisted).to.deep.equal([saved])
     T.expect(published).to.deep.equal([saved])
     T.d('reusing a saved signature still broadcast after the window closed during the exposure marker')
 }
@@ -617,6 +620,78 @@ const testWatchLockupSpendAbortIsUnsafeSynchronously = async (T: StorageTestBase
     T.expect(confirmedThrew).to.equal(true)
     guard.stop()
     T.d('spend-watch cancellation was unsafe without waiting for the stream error')
+}
+
+const testWatchLockupSpendStopSettlesHistoricalWait = async (T: StorageTestBase) => {
+    T.d('starting WatchLockupSpend stop fails historical and confirmation waits immediately')
+    const lnd = Object.create(Lnd.prototype) as any
+    lnd.log = () => { }
+    lnd.abortController = new AbortController()
+    lnd.outputSpendLookupMs = 10_000
+    lnd.chainNotifier = {
+        registerSpendNtfn: () => ({
+            responses: {
+                onMessage: () => { },
+                onError: () => { },
+            },
+        }),
+    }
+    const guard = lnd.WatchLockupSpend({
+        txHash: Buffer.alloc(32),
+        vout: 0,
+        script: Buffer.alloc(32),
+        heightHint: 1,
+    })
+    const historical = guard.waitForHistorical()
+    const confirmed = guard.waitForConfirmedSpend()
+    guard.stop()
+    let historicalThrew = false
+    try {
+        await historical
+    } catch (err: any) {
+        historicalThrew = true
+        T.expect(err.message).to.equal('lockup spend lookup aborted')
+    }
+    T.expect(historicalThrew).to.equal(true)
+    let confirmedThrew = false
+    try {
+        await confirmed
+    } catch (err: any) {
+        confirmedThrew = true
+        T.expect(err.message).to.equal('lockup spend lookup aborted')
+    }
+    T.expect(confirmedThrew).to.equal(true)
+    T.expect(guard.failure()?.message).to.equal('lockup spend lookup aborted')
+    T.d('stop settled both waits without waiting for the historical lookup timeout')
+}
+
+const testWatchLockupSpendRegisterFailureDetachesAbort = async (T: StorageTestBase) => {
+    T.d('starting WatchLockupSpend register failure detaches abort listeners')
+    const abort = new AbortController()
+    const lnd = Object.create(Lnd.prototype) as any
+    lnd.log = () => { }
+    lnd.abortController = new AbortController()
+    lnd.chainNotifier = {
+        registerSpendNtfn: () => {
+            throw new Error('no chain notifier')
+        },
+    }
+    let threw = false
+    try {
+        lnd.WatchLockupSpend({
+            txHash: Buffer.alloc(32),
+            vout: 0,
+            script: Buffer.alloc(32),
+            heightHint: 1,
+            abort: abort.signal,
+        })
+    } catch (err: any) {
+        threw = true
+        T.expect(err.message).to.equal('no chain notifier')
+    }
+    T.expect(threw).to.equal(true)
+    abort.abort()
+    T.d('a failed spend-watch register still accepted later abort without throwing')
 }
 
 const dummySpendTx = () => {
@@ -757,11 +832,29 @@ const testSavedClaimIsReusedWithoutRebuild = async (T: StorageTestBase) => {
     }))
     T.expect(claimed.ok, !claimed.ok ? claimed.error : '').to.equal(true)
     T.expect(published).to.deep.equal([saved])
-    T.expect(persisted).to.deep.equal([])
+    T.expect(persisted).to.deep.equal([saved])
     if (claimed.ok) {
         T.expect(claimed.txId).to.equal(Transaction.fromHex(saved).getId())
     }
     T.d('a crash after persist reused the same hex when it still met the remaining-window feerate')
+}
+
+const testSavedClaimFlushFailureDoesNotPublish = async (T: StorageTestBase) => {
+    T.d('starting retry does not publish a saved unpublished claim if backup flush fails')
+    const { swapper, data, lockupHex } = await setupClaim(T)
+    const saved = await persistUnpublishedClaim(T, swapper, data, lockupHex)
+    const published: string[] = []
+    const claimed = await swapper.claimConfirmedLockup(data, lockupHex, safeClaimDeps({
+        savedClaimHex: saved,
+        persistClaim: async () => { throw new Error('backup dest down') },
+        publish: async (txHex) => { published.push(txHex) },
+    }))
+    T.expect(claimed.ok).to.equal(false)
+    if (!claimed.ok) {
+        T.expect(claimed.error).to.equal('failed to persist reverse-swap claim: backup dest down')
+    }
+    T.expect(published.length).to.equal(0)
+    T.d('a failed backup flush kept the saved signature unpublished')
 }
 
 const testSavedClaimPublishFailureRebuilds = async (T: StorageTestBase) => {
@@ -783,8 +876,9 @@ const testSavedClaimPublishFailureRebuilds = async (T: StorageTestBase) => {
         },
     }))
     T.expect(claimed.ok, !claimed.ok ? claimed.error : '').to.equal(true)
-    T.expect(persisted.length).to.equal(1)
-    T.expect(published).to.deep.equal(persisted)
+    T.expect(persisted[0]).to.equal(saved)
+    T.expect(persisted.length).to.equal(2)
+    T.expect(published).to.deep.equal([persisted[1]])
     T.d('a saved signature that publish rejected was reconstructed and retried')
 }
 

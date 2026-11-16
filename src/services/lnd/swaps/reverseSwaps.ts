@@ -105,6 +105,11 @@ export type ReverseClaimDeps = {
      * delay this call.
      */
     publish: (txHex: string) => Promise<void>
+    /**
+     * Persist the unpublished claim hex and wait for backup before the final
+     * safety check. Required for reconstructed and reused saved signatures so
+     * a crash after first disclosure still has a relayable claim.
+     */
     persistClaim?: (txHex: string) => Promise<void>
     getClaimFeeRates: (confTarget: number) => Promise<ReverseClaimFeeRates>
     getChainTip: () => Promise<number>
@@ -115,6 +120,7 @@ export type ReverseClaimDeps = {
     /**
      * Unpublished crash-recovery signature. Tried after first-disclosure
      * checks, including remaining-window fees, before reconstructing.
+     * Must still go through persistClaim before publish.
      */
     savedClaimHex?: string
 }
@@ -842,6 +848,10 @@ export class ReverseSwaps {
                     data.info.chainFee,
                 )
                 if (savedRelayable.ok) {
+                    const savedPersist = await this.persistClaimHex(deps, savedHex)
+                    if (savedPersist) {
+                        return savedPersist
+                    }
                     const beforeSavedPublish = await this.prepareClaimBroadcast(data, deps, guard)
                     if (beforeSavedPublish) {
                         return beforeSavedPublish
@@ -883,10 +893,9 @@ export class ReverseSwaps {
             // After that check the exposure marker is written and broadcast
             // follows immediately: refusing then would leave claim_published set
             // and retry/resume would disclose without first-disclosure checks.
-            try {
-                await deps.persistClaim?.(unilateral.toHex())
-            } catch (err: any) {
-                return { ok: false, error: `failed to persist reverse-swap claim: ${err.message || err}` }
+            const reconstructedPersist = await this.persistClaimHex(deps, unilateral.toHex())
+            if (reconstructedPersist) {
+                return reconstructedPersist
             }
 
             const beforePublish = await this.prepareClaimBroadcast(data, deps, guard)
@@ -1004,6 +1013,18 @@ export class ReverseSwaps {
             guard.stop()
             return { ok: false, error: `failed to check lockup spend status: ${err.message || err}` }
         }
+    }
+
+    private persistClaimHex = async (
+        deps: ReverseClaimDeps,
+        txHex: string,
+    ): Promise<{ ok: false, error: string } | undefined> => {
+        try {
+            await deps.persistClaim?.(txHex)
+        } catch (err: any) {
+            return { ok: false, error: `failed to persist reverse-swap claim: ${err.message || err}` }
+        }
+        return undefined
     }
 
     /**

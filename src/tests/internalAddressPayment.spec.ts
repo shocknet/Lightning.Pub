@@ -15,6 +15,7 @@ export default async (T: TestBase) => {
     await testSuccessfulInternalAddressPayment(T)
     await testInternalPayKeepsStartedReverseSwap(T)
     await testInternalPayDeletesUnusedReverseSwapQuote(T)
+    await testFailedInternalPayKeepsUnusedReverseSwapQuote(T)
     await testFailedInternalAddressPayment(T)
     await testSanityCheckAllowsDeletedUserAddress(T)
     await runSanityCheck(T)
@@ -109,6 +110,23 @@ const testInternalPayDeletesUnusedReverseSwapQuote = async (T: TestBase) => {
     const leftover = await T.main.storage.paymentStorage.GetTransactionSwap(quote.swap_operation_id, T.user1.appUserIdentifier)
     expect(leftover).to.equal(null)
     T.d("unused reverse swap quote was discarded on internal pay")
+}
+
+const testFailedInternalPayKeepsUnusedReverseSwapQuote = async (T: TestBase) => {
+    T.d("starting failed internal pay keeps the unused reverse swap quote")
+    const quote = await T.main.storage.paymentStorage.AddTransactionSwap(reverseSwapQuote(T))
+    const user2Address = await T.main.paymentManager.NewAddress(userContext(T, T.user2), { addressType: Types.AddressType.WITNESS_PUBKEY_HASH })
+    await expectThrowsAsync(T.main.paymentManager.PayAddress(userContext(T, T.user1), {
+        address: user2Address.address,
+        amountSats: 5000,
+        satsPerVByte: 1,
+        swap_operation_id: quote.swap_operation_id,
+    }), "not enough balance to decrement")
+    const leftover = await T.main.storage.paymentStorage.GetTransactionSwap(quote.swap_operation_id, T.user1.appUserIdentifier)
+    expect(leftover).to.not.equal(null)
+    expect(leftover?.paid_at_unix).to.equal(0)
+    await T.main.storage.paymentStorage.DeleteTransactionSwap(quote.swap_operation_id)
+    T.d("unused reverse swap quote survived a failed internal pay")
 }
 
 const testFailedInternalAddressPayment = async (T: TestBase) => {

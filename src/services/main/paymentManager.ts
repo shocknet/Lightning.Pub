@@ -874,6 +874,7 @@ export default class {
     async PayInternalAddress(ctx: Types.UserContext, req: Types.PayAddressRequest): Promise<Types.PayAddressResponse> {
         this.log("paying internal address")
         let amount = req.amountSats
+        let discardQuote: { swapOperationId: string, appUserId: string } | undefined
         if (req.swap_operation_id) {
             assertUserSwapActor(ctx.app_user_id)
             const swap = await this.storage.paymentStorage.GetTransactionSwap(req.swap_operation_id, ctx.app_user_id)
@@ -883,7 +884,7 @@ export default class {
             if (swap.paid_at_unix > 0 || swap.claim_tx_hex || swap.lockup_tx_hex) {
                 throw new Error("cannot pay an internal address with a started swap")
             }
-            await this.storage.paymentStorage.DeleteTransactionSwap(req.swap_operation_id)
+            discardQuote = { swapOperationId: req.swap_operation_id, appUserId: ctx.app_user_id }
             if (amount <= 0) {
                 amount = swap.transaction_amount - swap.chain_fee_sats
             }
@@ -900,6 +901,12 @@ export default class {
         const txId = crypto.randomBytes(32).toString("hex")
         const addressData = `${req.address}:${txId}`
         const { newTx, receivingTx } = await this.storage.StartTransaction(async tx => {
+            if (discardQuote) {
+                const deleted = await this.storage.paymentStorage.DeleteUnusedTransactionSwap(discardQuote.swapOperationId, discardQuote.appUserId, tx)
+                if (deleted !== 1) {
+                    throw new Error("swap quote not found")
+                }
+            }
             await this.storage.userStorage.DecrementUserBalance(ctx.user_id, amount + serviceFee, addressData, tx)
             const receivingTx = await this.CreditAddress(req.address, { hash: txId, index: 0 }, amount, true, blockHeight, tx)
             if (isManagedUser && serviceFee > 0) {

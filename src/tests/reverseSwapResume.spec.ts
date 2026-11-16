@@ -16,6 +16,7 @@ const LOCKUP_HEX = dummyTxHex('cc')
 
 export default async (T: StorageTestBase) => {
     await testExpiredCleanupKeepsStartedReverseSwaps(T)
+    await testDeleteUnusedTransactionSwapIgnoresStarted(T)
     await testPayPersistsDestinationBeforeInvoice(T)
     await testPayPersistsClaimBeforeBroadcast(T)
     await testPayErrorAfterPublicationRecordRetriesFirstDisclosure(T)
@@ -195,6 +196,23 @@ const testExpiredCleanupKeepsStartedReverseSwaps = async (T: StorageTestBase) =>
     T.expect(unfinished.some(s => s.swap_operation_id === quote.swap_operation_id)).to.equal(false)
     await T.storage.paymentStorage.DeleteTransactionSwap(started.swap_operation_id)
     T.d('never-started quotes are deleted; started reverse swaps keep their keys')
+}
+
+const testDeleteUnusedTransactionSwapIgnoresStarted = async (T: StorageTestBase) => {
+    T.d('starting DeleteUnusedTransactionSwap only removes never-started quotes')
+    const userId = `rev-delunused-${randomBytes(8).toString('hex')}`
+    const quote = await T.storage.paymentStorage.AddTransactionSwap(requiredSwap(userId))
+    const started = await T.storage.paymentStorage.AddTransactionSwap(requiredSwap(userId, {
+        paid_at_unix: 1,
+        address_paid: DEST,
+        claim_tx_hex: CLAIM_HEX,
+    }))
+    T.expect(await T.storage.paymentStorage.DeleteUnusedTransactionSwap(started.swap_operation_id, userId)).to.equal(0)
+    T.expect(await T.storage.paymentStorage.GetTransactionSwap(started.swap_operation_id, userId)).to.not.equal(null)
+    T.expect(await T.storage.paymentStorage.DeleteUnusedTransactionSwap(quote.swap_operation_id, userId)).to.equal(1)
+    T.expect(await T.storage.paymentStorage.GetTransactionSwap(quote.swap_operation_id, userId)).to.equal(null)
+    await T.storage.paymentStorage.DeleteTransactionSwap(started.swap_operation_id)
+    T.d('a started reverse swap survived unused-quote delete')
 }
 
 const testPayPersistsDestinationBeforeInvoice = async (T: StorageTestBase) => {

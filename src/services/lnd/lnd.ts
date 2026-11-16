@@ -309,7 +309,8 @@ export default class {
      * does not settle waitForConfirmedSpend. Stream errors fail closed. Abort
      * is recorded synchronously so publication cannot race the stream's later
      * onError. stop() is idempotent teardown; it fails an in-flight
-     * confirmation wait so tracking can exit.
+     * confirmation wait and the historical outcome so tracking can exit.
+     * registerSpendNtfn failures detach abort listeners before rethrowing.
      */
     WatchLockupSpend(req: {
         txHash: Uint8Array
@@ -366,17 +367,23 @@ export default class {
         req.abort?.addEventListener('abort', abortWatch)
         this.abortController.signal.addEventListener('abort', abortWatch)
         const stop = settleOnce(() => {
+            failAborted()
             stopped = true
             req.abort?.removeEventListener('abort', abortWatch)
             this.abortController.signal.removeEventListener('abort', abortWatch)
-            failConfirmed(failure ?? new Error('lockup spend lookup aborted'))
             combined.abort()
         })
-        const stream = this.chainNotifier.registerSpendNtfn({
-            outpoint: { hash: req.txHash, index: req.vout },
-            script: req.script,
-            heightHint: Math.max(1, req.heightHint),
-        }, { abort: combined.signal })
+        let stream: ReturnType<typeof this.chainNotifier.registerSpendNtfn>
+        try {
+            stream = this.chainNotifier.registerSpendNtfn({
+                outpoint: { hash: req.txHash, index: req.vout },
+                script: req.script,
+                heightHint: Math.max(1, req.heightHint),
+            }, { abort: combined.signal })
+        } catch (err) {
+            stop(() => undefined)
+            throw err
+        }
         stream.responses.onMessage(event => {
             if (event.event.oneofKind !== 'spend') {
                 return
