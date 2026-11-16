@@ -878,22 +878,27 @@ export class Swaps {
         if (!swapper) {
             throw new Error("swapper service not found")
         }
-        if (isReverseClaimExposed(txSwap)) {
-            txSwap = await this.reserveTransactionSwapDestination(txSwap, appUserId, address, { requireBackupFlush: false })
-            return this.publishAndTrackExposedClaim(txSwap)
-        }
         if (txSwap.claim_tx_hex) {
-            await this.assertReverseClaimBudget(txSwap.chain_fee_sats)
-            txSwap = await this.reserveTransactionSwapDestination(txSwap, appUserId, address)
-            txSwap = await this.reconcileUnpublishedClaim(txSwap) || txSwap
+            const publicationAttempt = isReverseClaimExposed(txSwap)
+            if (!publicationAttempt) {
+                await this.assertReverseClaimBudget(txSwap.chain_fee_sats)
+            }
+            txSwap = await this.reserveTransactionSwapDestination(txSwap, appUserId, address, {
+                requireBackupFlush: !publicationAttempt,
+            })
+            const recon = await this.reconcileClaimLockup(txSwap)
+            txSwap = recon.swap
             if (txSwap.tx_id) {
                 if (txSwap.failure_reason) {
                     throw new Error(txSwap.failure_reason)
                 }
                 return this.publishedClaimResult(txSwap, txSwap.tx_id)
             }
-            if (isReverseClaimExposed(txSwap)) {
+            if (recon.ourSpendSeen) {
                 return this.publishAndTrackExposedClaim(txSwap)
+            }
+            if (publicationAttempt) {
+                await this.assertReverseClaimBudget(txSwap.chain_fee_sats)
             }
             const currentHeight = await this.trustedChainTip()
             return this.claimSavedTransactionSwap(txSwap, currentHeight)
@@ -1126,13 +1131,24 @@ export class Swaps {
     /**
      * Restore of an earlier backup can still look unpublished after the spend
      * watch misses a mempool claim. Log enough to rebroadcast by hand if the
-     * refund window closes and reconcile did not promote the row.
+     * refund window closes and reconcile did not promote the row. A publication
+     * marker without our spend is intent only: refusing first disclosure is
+     * correct, but ops should still check the mempool by hand.
      */
     private warnUnpublishedClaimNeedsManualCheck = (swap: TransactionSwap, error: string) => {
-        if (!swap.claim_tx_hex || swap.claim_published) {
+        if (!swap.claim_tx_hex) {
             return
         }
         if (!error.includes('refund already valid') && !error.includes('blocks left to claim')) {
+            return
+        }
+        if (swap.claim_published) {
+            this.log(ERROR, "WARNING: reverse-swap claim_published was set without a lockup spend by our claim; first disclosure was refused after the refund window closed", {
+                swapOpId: swap.swap_operation_id,
+                claimTxId: this.claimTxIdOrInvalid(swap.claim_tx_hex),
+                timeoutBlockHeight: swap.timeout_block_height,
+                error,
+            })
             return
         }
         this.log(ERROR, "WARNING: reverse-swap claim is saved without claim_published; if this tx was already broadcast the preimage is exposed and it must be rebroadcast manually before the provider can refund", {
@@ -1198,30 +1214,29 @@ export class Swaps {
     }
 
     /**
-     * Restore of an earlier backup can look unpublished after our claim already
-     * spent the lockup. Only our spending txid is proof of disclosure. A
-     * competing confirmed spend closes the row. Unspent unpublished hex still
-     * takes first-disclosure checks.
+     * claim_published is publication intent, not proof the preimage is public.
+     * Only our spending txid is disclosure. A competing confirmed spend closes
+     * the row. Unspent hex, published or not, still takes first-disclosure checks.
      */
-    private reconcileUnpublishedClaim = async (swap: TransactionSwap): Promise<TransactionSwap | null> => {
-        if (!swap.claim_tx_hex || swap.claim_published) {
-            return null
+    private reconcileClaimLockup = async (swap: TransactionSwap): Promise<{ swap: TransactionSwap, ourSpendSeen: boolean }> => {
+        if (!swap.claim_tx_hex) {
+            return { swap, ourSpendSeen: false }
         }
         if (typeof this.lnd.WatchLockupSpend !== 'function') {
-            return null
+            return { swap, ourSpendSeen: false }
         }
         let heightHint = Math.max(1, swap.timeout_block_height - MAX_REVERSE_TIMEOUT_BLOCKS)
         try {
             heightHint = this.lockupWatchHeightHint(swap, await this.trustedChainTip())
         } catch (err: any) {
-            this.log("failed to read chain tip before unpublished reverse-swap claim reconcile", {
+            this.log("failed to read chain tip before reverse-swap claim lockup reconcile", {
                 swapOpId: swap.swap_operation_id,
                 error: err.message || err,
             })
         }
         const query = this.reverseClaimSpendQuery(swap, heightHint)
         if (!query) {
-            return null
+            return { swap, ourSpendSeen: false }
         }
         const abort = new AbortController()
         let guard: LockupSpendGuard | undefined
@@ -1230,56 +1245,80 @@ export class Swaps {
             guard = await this.lnd.WatchLockupSpend({ ...query, abort: abort.signal })
             spent = await guard.waitForHistorical()
         } catch (err: any) {
-            this.log("failed to reconcile unpublished reverse-swap claim", {
+            this.log("failed to reconcile reverse-swap claim lockup", {
                 swapOpId: swap.swap_operation_id,
                 error: err.message || err,
             })
-            return null
+            return { swap, ourSpendSeen: false }
         } finally {
             abort.abort()
             guard?.stop()
         }
         if (!spent) {
-            return null
+            return { swap, ourSpendSeen: false }
         }
         const claimTxId = this.claimTxIdOrInvalid(swap.claim_tx_hex)
         if (this.sameChainTxId(spent.spendingTxId, claimTxId)) {
-            try {
-                await this.commitClaimPublicationAttempt(swap.swap_operation_id)
-            } catch (err: any) {
-                this.log(ERROR, "WARNING: reverse-swap claim lockup is spent but claim_published could not be recorded", {
-                    swapOpId: swap.swap_operation_id,
-                    error: err.message || String(err),
-                })
+            if (!swap.claim_published) {
+                try {
+                    await this.commitClaimPublicationAttempt(swap.swap_operation_id)
+                } catch (err: any) {
+                    this.log(ERROR, "WARNING: reverse-swap claim lockup is spent but claim_published could not be recorded", {
+                        swapOpId: swap.swap_operation_id,
+                        error: err.message || String(err),
+                    })
+                }
             }
-            this.log("reconciled unpublished reverse-swap claim as exposed; lockup is already spent by our claim", {
+            this.log("reconciled reverse-swap claim as exposed; lockup is already spent by our claim", {
                 swapOpId: swap.swap_operation_id,
                 claimTxId,
                 spendingHeight: spent.spendingHeight,
             })
-            const latest = await this.storage.paymentStorage.GetTransactionSwapRecord(swap.swap_operation_id)
-            return latest ? { ...latest, claim_published: true } : { ...swap, claim_published: true }
+            let latest: TransactionSwap | null = null
+            try {
+                latest = await this.storage.paymentStorage.GetTransactionSwapRecord(swap.swap_operation_id)
+            } catch (err: any) {
+                this.log("failed to reload reverse-swap claim after lockup reconcile", {
+                    swapOpId: swap.swap_operation_id,
+                    error: err.message || err,
+                })
+            }
+            return {
+                swap: latest ? { ...latest, claim_published: true } : { ...swap, claim_published: true },
+                ourSpendSeen: true,
+            }
         }
         if (spent.spendingHeight > 0 && spent.spendingTxId) {
             const error = `lockup spent by ${spent.spendingTxId} instead of claim ${claimTxId}`
             await this.storage.paymentStorage.FailConfirmedTransactionSwap(swap.swap_operation_id, swap.address_paid, spent.spendingTxId, error)
             this.notifySwapBackup('transaction_swaps')
-            this.log(ERROR, "unpublished reverse-swap lockup was spent by a competing transaction", {
+            this.log(ERROR, "reverse-swap lockup was spent by a competing transaction", {
                 swapOpId: swap.swap_operation_id,
                 claimTxId,
                 spendingTxId: spent.spendingTxId,
                 spendingHeight: spent.spendingHeight,
             })
-            return await this.storage.paymentStorage.GetTransactionSwapRecord(swap.swap_operation_id)
-                || { ...swap, used: true, tx_id: spent.spendingTxId, failure_reason: error }
+            let latest: TransactionSwap | null = null
+            try {
+                latest = await this.storage.paymentStorage.GetTransactionSwapRecord(swap.swap_operation_id)
+            } catch (err: any) {
+                this.log("failed to reload reverse-swap claim after competing spend", {
+                    swapOpId: swap.swap_operation_id,
+                    error: err.message || err,
+                })
+            }
+            return {
+                swap: latest || { ...swap, used: true, tx_id: spent.spendingTxId, failure_reason: error },
+                ourSpendSeen: false,
+            }
         }
-        this.log("unpublished reverse-swap lockup is spent but not by our claim; leaving unpublished", {
+        this.log("reverse-swap lockup is spent but not by our claim; leaving first-disclosure path", {
             swapOpId: swap.swap_operation_id,
             claimTxId,
             spendingTxId: spent.spendingTxId,
             spendingHeight: spent.spendingHeight,
         })
-        return null
+        return { swap, ourSpendSeen: false }
     }
 
     private reverseClaimSpendQuery = (swap: TransactionSwap, heightHint: number) => {
@@ -1507,13 +1546,16 @@ export class Swaps {
             this.log("skipping reverse swap resume without destination", { swapOpId: swap.swap_operation_id })
             return
         }
-        if (swap.claim_tx_hex && !swap.claim_published) {
-            swap = await this.reconcileUnpublishedClaim(swap) || swap
+        let ourSpendSeen = false
+        if (swap.claim_tx_hex) {
+            const recon = await this.reconcileClaimLockup(swap)
+            swap = recon.swap
+            ourSpendSeen = recon.ourSpendSeen
         }
         if (swap.tx_id) {
             return
         }
-        if (isReverseClaimExposed(swap)) {
+        if (ourSpendSeen) {
             try {
                 const published = await this.publishAndTrackExposedClaim(swap)
                 this.log("rebroadcast resumed reverse-swap claim", { swapOpId: swap.swap_operation_id, txId: published.txId })

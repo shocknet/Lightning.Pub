@@ -126,7 +126,7 @@ const testClaimExposureMarker = async (T: StorageTestBase) => {
     T.expect(isReverseClaimExposed({ claim_tx_hex: '', claim_published: true })).to.equal(false)
     T.expect(isReverseClaimExposed({ claim_tx_hex: '0200', claim_published: false })).to.equal(false)
     T.expect(isReverseClaimExposed({ claim_tx_hex: '0200', claim_published: true })).to.equal(true)
-    T.d('only claim_published plus a saved hex marks a reverse-swap claim as already exposed')
+    T.d('only claim_published plus a saved hex marks a reverse-swap claim as a publication attempt')
 }
 
 const testClaimBudget = async (T: StorageTestBase) => {
