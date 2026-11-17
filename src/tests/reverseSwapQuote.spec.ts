@@ -1,6 +1,6 @@
 import secp256k1ZkpModule from '@vulpemventures/secp256k1-zkp'
 const zkpInit = (secp256k1ZkpModule as any).default || secp256k1ZkpModule
-import { initEccLib, address } from 'bitcoinjs-lib'
+import { initEccLib, address, Transaction } from 'bitcoinjs-lib'
 import {
     Musig, SwapTreeSerializer, TaprootUtils, reverseSwapTree, swapTree, Scripts,
 } from 'boltz-core'
@@ -20,6 +20,8 @@ import {
     checkReverseClaimBudget,
     checkReverseClaimWindow,
     checkReverseTimeout,
+    checkUnilateralClaimPaysRate,
+    claimTargetVbytes,
     isReverseClaimBroadcastAccepted,
     isReverseClaimExposed,
     resolveClaimFeeRate,
@@ -45,6 +47,7 @@ export default async (T: StorageTestBase) => {
     await testClaimExposureMarker(T)
     await testClaimBroadcastAcceptedMarker(T)
     await testClaimBudget(T)
+    await testClaimPaysRate(T)
     await testVerifyRejectsMismatchedHashAndUnverifiedTree(T)
     await testQuoteMethodRejectsAndDoesNotPersist(T)
     await testQuoteMethodPersistsVerifiedQuote(T)
@@ -178,6 +181,32 @@ const testClaimBudget = async (T: StorageTestBase) => {
     const highRelay = resolveClaimFeeRate(50, 3, AMOUNTS.minerFee, REVERSE_CLAIM_VBYTE_BUDGET)
     T.expect(highRelay.ok).to.equal(false)
     T.d('quote-time miner fee budget is checked against min relay; claim-time does not cap below the remaining-window feerate')
+}
+
+const testClaimPaysRate = async (T: StorageTestBase) => {
+    T.d('starting signed claim feerate checks')
+    const inputValue = 1000
+    const cheap = claimPayingSatPerVbyte(inputValue, 1)
+    const atOne = checkUnilateralClaimPaysRate(cheap, inputValue, 1)
+    T.expect(atOne.ok, !atOne.ok ? atOne.error : '').to.equal(true)
+    const atTwo = checkUnilateralClaimPaysRate(cheap, inputValue, 2)
+    T.expect(atTwo.ok).to.equal(false)
+    if (!atTwo.ok) {
+        T.expect(atTwo.error).to.match(/below local floor/)
+    }
+    const budgetFits = resolveClaimFeeRate(2, 1, 200, claimTargetVbytes(cheap))
+    T.expect(budgetFits.ok, !budgetFits.ok ? budgetFits.error : '').to.equal(true)
+    T.d('a 1 sat/vbyte signature is below a 2 sat/vbyte remaining-window target even when the quote can pay 2')
+}
+
+function claimPayingSatPerVbyte(inputValue: number, satPerVbyte: number) {
+    const tx = new Transaction()
+    tx.version = 2
+    tx.addInput(Buffer.alloc(32), 0)
+    tx.addOutput(Buffer.from('6aaa', 'hex'), 0)
+    const fee = tx.virtualSize() * satPerVbyte
+    tx.outs[0].value = inputValue - fee
+    return tx
 }
 
 const testVerifyRejectsMismatchedHashAndUnverifiedTree = async (T: StorageTestBase) => {

@@ -26,6 +26,7 @@ export default async (T: StorageTestBase) => {
     await testPayStopsUnacceptedClaimRetryAfterRefundWindow(T)
     await testPayRetriesUnacceptedClaimWhenLightningSettlesAfterRefundWindow(T)
     await testPayStopsUnacceptedClaimRetryWhenFeeExceedsBudget(T)
+    await testPayStopsUnacceptedClaimRetryWhenSavedClaimBelowLiveRate(T)
     await testPayRetriesUnacceptedClaimWhenLightningSettlesAfterFeeExceedsBudget(T)
     await testPayRetriesAcceptedClaimWhenFeeExceedsBudget(T)
     await testPayKeepsWatchingUnacceptedClaimAfterRefundWindow(T)
@@ -78,6 +79,16 @@ function dummyTxHex(tag: string) {
     tx.version = 2
     tx.addInput(Buffer.alloc(32), 0)
     tx.addOutput(Buffer.from('6a' + tag.padEnd(2, '0'), 'hex'), 0)
+    return tx.toHex()
+}
+
+function claimHexPayingSatPerVbyte(tag: string, inputValue: number, satPerVbyte: number) {
+    const tx = new Transaction()
+    tx.version = 2
+    tx.addInput(Buffer.alloc(32), 0)
+    tx.addOutput(Buffer.from('6a' + tag.padEnd(2, '0'), 'hex'), 0)
+    const fee = tx.virtualSize() * satPerVbyte
+    tx.outs[0].value = inputValue - fee
     return tx.toHex()
 }
 
@@ -641,6 +652,75 @@ const testPayStopsUnacceptedClaimRetryWhenFeeExceedsBudget = async (T: StorageTe
     swaps.Stop()
     await T.storage.paymentStorage.DeleteTransactionSwap(saved.swap_operation_id)
     T.d('an LND reject did not retry a cheap claim when the remaining-window estimate was 50 sat/vbyte')
+}
+
+const testPayStopsUnacceptedClaimRetryWhenSavedClaimBelowLiveRate = async (T: StorageTestBase) => {
+    T.d('starting PayAddrWithSwap does not retry a saved claim below the remaining-window feerate')
+    const timeout = 920_000 + 1_008
+    const remaining = 6
+    const inputValue = 1000
+    const cheapHex = claimHexPayingSatPerVbyte('aa', inputValue, 1)
+    const userId = `rev-unacc-signed-fee-${randomBytes(8).toString('hex')}`
+    const saved = await T.storage.paymentStorage.AddTransactionSwap(requiredSwap(userId, {
+        timeout_block_height: timeout,
+        transaction_amount: inputValue,
+        chain_fee_sats: 200,
+    }))
+    const { swaps, swapper } = makeSwaps(T)
+    const logs = captureSwapLogs(swaps)
+    const broadcasts: string[] = []
+    const feeTargets: number[] = []
+    const tip = timeout - remaining
+    swaps.claimRebroadcastMs = 20
+    swaps.SetLnd({
+        DecodeInvoice: async () => ({ numSatoshis: 1200, paymentHash: '22'.repeat(32) }),
+        GetInfo: async () => ({ syncedToChain: true, blockHeight: tip }),
+        BroadcastTransaction: async (txHex: string) => {
+            broadcasts.push(txHex)
+            throw new Error('no peers')
+        },
+        WaitForScriptConfirmations: async () => ({ txHex: OTHER_CLAIM_HEX, blockHeight: 6 }),
+        WatchLockupSpend: () => hangingSpendGuard(),
+        EstimateSatPerVbyte: async (confTarget?: number) => {
+            if (typeof confTarget === 'number') {
+                feeTargets.push(confTarget)
+            }
+            return { satPerVbyte: 2, minRelaySatPerVbyte: 1 }
+        },
+    } as any)
+    swapper.VerifyReverseQuote = async () => ({ ok: true as const })
+    swapper.SubscribeToTransactionSwap = async (_data, done, chain) => {
+        await chain.persistClaim?.(cheapHex)
+        try {
+            await chain.recordPublication()
+            await chain.publish(cheapHex)
+            done({ ok: true, txId: Transaction.fromHex(cheapHex).getId() })
+        } catch (err: any) {
+            done({ ok: false, error: err.message || String(err) })
+        }
+    }
+    let threw = false
+    try {
+        await swaps.PayAddrWithSwap(userId, saved.swap_operation_id, DEST, async () => { })
+    } catch (err: any) {
+        threw = true
+        T.expect(err.message).to.equal('no peers')
+    }
+    T.expect(threw).to.equal(true)
+    T.expect(broadcasts).to.deep.equal([cheapHex])
+    await waitUntil(() => logs.some(line => line.includes('saved claim is below remaining-window feerate')))
+    await new Promise(resolve => setTimeout(resolve, 80))
+    T.expect(broadcasts).to.deep.equal([cheapHex])
+    T.expect(feeTargets.includes(remaining)).to.equal(true)
+    T.expect(logs.some(line => line.includes('current fee exceeds quoted miner budget'))).to.equal(false)
+    const row = await T.storage.paymentStorage.GetTransactionSwap(saved.swap_operation_id, userId)
+    T.expect(row?.used).to.equal(false)
+    T.expect(row?.claim_tx_hex).to.equal(cheapHex)
+    T.expect(!!row?.claim_published).to.equal(true)
+    T.expect(!!row?.claim_broadcast_accepted).to.equal(false)
+    swaps.Stop()
+    await T.storage.paymentStorage.DeleteTransactionSwap(saved.swap_operation_id)
+    T.d('an LND reject did not retry a 1 sat/vbyte claim when the remaining-window estimate was 2 sat/vbyte')
 }
 
 const testPayRetriesUnacceptedClaimWhenLightningSettlesAfterFeeExceedsBudget = async (T: StorageTestBase) => {

@@ -9,7 +9,7 @@ import { Payment_PaymentStatus } from '../../../../proto/lnd/lightning.js';
 import Storage from '../../storage/index.js';
 import LND from '../lnd.js';
 import { UserInvoicePayment } from '../../storage/entity/UserInvoicePayment.js';
-import { ReverseSwaps, TransactionSwapData, calculateReverseQuoteAmounts, checkReverseClaimBudget, checkReverseClaimWindow, claimTargetVbytes, isReverseClaimBroadcastAccepted, isReverseClaimExposed, LockupSpend, LockupSpendGuard, MAX_REVERSE_TIMEOUT_BLOCKS, MIN_CLAIM_SAT_PER_VBYTE, resolveClaimFeeRate } from './reverseSwaps.js';
+import { ReverseSwaps, TransactionSwapData, calculateReverseQuoteAmounts, checkReverseClaimBudget, checkReverseClaimWindow, checkUnilateralClaimPaysRate, claimTargetVbytes, isReverseClaimBroadcastAccepted, isReverseClaimExposed, LockupSpend, LockupSpendGuard, MAX_REVERSE_TIMEOUT_BLOCKS, MIN_CLAIM_SAT_PER_VBYTE, resolveClaimFeeRate } from './reverseSwaps.js';
 import { SubmarineSwaps, calculateSubmarineLockupAmount, checkSubmarineRecoveryWindow, verifySubmarineClaimPreimage } from './submarineSwaps.js';
 import { assertSwapActor, isAdminSwapOwner, SwapActorSource } from './swapOwnership.js';
 import { InvoiceSwap } from '../../storage/entity/InvoiceSwap.js';
@@ -1489,12 +1489,12 @@ export class Swaps {
 
     /**
      * An unaccepted claim is still first disclosure. Skip this retry if the tip
-     * is unreadable or the quoted miner budget cannot pay the remaining-window
-     * feerate, unless Lightning already settled: then the preimage is public and
-     * retries skip those gates. If the refund window has closed, do not
-     * broadcast without that proof, but keep the confirmation watch: an earlier
-     * attempt may still confirm. Lightning is consulted only on a skip, not on
-     * every in-window retry.
+     * is unreadable, the quoted miner budget cannot pay the remaining-window
+     * feerate, or the persisted signature is below that feerate, unless Lightning
+     * already settled: then the preimage is public and retries skip those gates.
+     * If the refund window has closed, do not broadcast without that proof, but
+     * keep the confirmation watch: an earlier attempt may still confirm.
+     * Lightning is consulted only on a skip, not on every in-window retry.
      */
     private unacceptedClaimRetryAllowed = async (swap: TransactionSwap) => {
         if (this.claimIsKnownAccepted(swap.swap_operation_id, swap)) {
@@ -1547,8 +1547,8 @@ export class Swaps {
     /**
      * Same remaining-window fee floor as first disclosure. A cheap persisted
      * signature must not be first-published after fees rise; skip this attempt
-     * and try again if the estimate drops. Fail closed if the estimate or hex
-     * cannot be read. Accepted claims never reach this check.
+     * and try again if the estimate drops. Fail closed if the estimate, hex, or
+     * lockup value cannot be read. Accepted claims never reach this check.
      */
     private unacceptedClaimRetryPaysCurrentFee = async (swap: TransactionSwap, tip: number) => {
         if (!swap.claim_tx_hex) {
@@ -1563,14 +1563,29 @@ export class Swaps {
                 swap.chain_fee_sats,
                 claimTargetVbytes(claim),
             )
-            if (rate.ok) {
-                return true
+            if (!rate.ok) {
+                this.log("skipping unaccepted reverse-swap claim retry; current fee exceeds quoted miner budget", {
+                    swapOpId: swap.swap_operation_id,
+                    error: rate.error,
+                })
+                return false
             }
-            this.log("skipping unaccepted reverse-swap claim retry; current fee exceeds quoted miner budget", {
-                swapOpId: swap.swap_operation_id,
-                error: rate.error,
-            })
-            return false
+            const inputValue = this.savedClaimInputValue(swap, claim)
+            if (inputValue === undefined) {
+                this.log("skipping unaccepted reverse-swap claim retry; claim input value unavailable", {
+                    swapOpId: swap.swap_operation_id,
+                })
+                return false
+            }
+            const paid = checkUnilateralClaimPaysRate(claim, inputValue, rate.satPerVbyte)
+            if (!paid.ok) {
+                this.log("skipping unaccepted reverse-swap claim retry; saved claim is below remaining-window feerate", {
+                    swapOpId: swap.swap_operation_id,
+                    error: paid.error,
+                })
+                return false
+            }
+            return true
         } catch (err: any) {
             this.log("skipping unaccepted reverse-swap claim retry; claim fee estimate unavailable", {
                 swapOpId: swap.swap_operation_id,
@@ -1578,6 +1593,31 @@ export class Swaps {
             })
             return false
         }
+    }
+
+    /**
+     * Prefer the confirmed lockup output the claim spends. Fall back to the
+     * quoted onchain amount when that hex is missing or does not match.
+     */
+    private savedClaimInputValue = (swap: TransactionSwap, claim: Transaction): number | undefined => {
+        if (claim.ins.length === 1 && swap.lockup_tx_hex) {
+            try {
+                const lockup = Transaction.fromHex(swap.lockup_tx_hex)
+                const vin = claim.ins[0]
+                if (vin.hash.equals(lockup.getHash())) {
+                    const output = lockup.outs[vin.index]
+                    if (output && isPositiveSats(output.value)) {
+                        return output.value
+                    }
+                }
+            } catch {
+                // quoted lockup amount still sizes the signed fee
+            }
+        }
+        if (isPositiveSats(swap.transaction_amount)) {
+            return swap.transaction_amount
+        }
+        return undefined
     }
 
     /**

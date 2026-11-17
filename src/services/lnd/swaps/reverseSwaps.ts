@@ -354,6 +354,45 @@ export const resolveClaimFeeRate = (
 export const claimTargetVbytes = (tx: Transaction): number => tx.virtualSize() + tx.ins.length
 
 /**
+ * Signed-fee floor for first disclosure and unaccepted retry. Looks at the
+ * transaction's actual fee, not whether the quoted miner budget could pay
+ * the remaining-window feerate.
+ */
+export const checkUnilateralClaimPaysRate = (
+    tx: Transaction,
+    inputValue: number,
+    satPerVbyte: number,
+): { ok: true, fee: number } | { ok: false, error: string } => {
+    const rate = resolveClaimSatPerVbyte(satPerVbyte)
+    if (!rate.ok) {
+        return rate
+    }
+    if (!isPositiveSats(inputValue)) {
+        return { ok: false, error: 'invalid lockup value for reverse-swap claim' }
+    }
+    if (tx.ins.length !== 1 || tx.outs.length !== 1) {
+        return { ok: false, error: 'unilateral claim must be a single-input single-output spend' }
+    }
+    const output = tx.outs[0]
+    if (!isNonNegativeSats(output.value)) {
+        return { ok: false, error: 'invalid claim output value' }
+    }
+    const fee = inputValue - output.value
+    if (!isPositiveSats(fee)) {
+        return { ok: false, error: 'unilateral claim fee is below the local relay floor' }
+    }
+    const vsize = tx.virtualSize()
+    if (!isPositiveSats(vsize)) {
+        return { ok: false, error: 'invalid unilateral claim size' }
+    }
+    const minFee = vsize * rate.satPerVbyte
+    if (fee < minFee) {
+        return { ok: false, error: `unilateral claim fee ${fee} is below local floor ${minFee} (${rate.satPerVbyte} sat/vbyte)` }
+    }
+    return { ok: true, fee }
+}
+
+/**
  * The script-path claim is the only disclosure of the preimage. It must meet
  * the chosen sat/vbyte floor, stay within the quoted miner budget, and leave a
  * standard, spendable output.
@@ -364,13 +403,6 @@ export const checkUnilateralClaimRelayable = (
     satPerVbyte: number,
     maxFee: number,
 ): { ok: true } | { ok: false, error: string } => {
-    const rate = resolveClaimSatPerVbyte(satPerVbyte)
-    if (!rate.ok) {
-        return rate
-    }
-    if (!isPositiveSats(inputValue)) {
-        return { ok: false, error: 'invalid lockup value for reverse-swap claim' }
-    }
     if (!isNonNegativeSats(maxFee)) {
         return { ok: false, error: 'invalid quoted miner fee budget' }
     }
@@ -385,20 +417,12 @@ export const checkUnilateralClaimRelayable = (
     if (!isNonNegativeSats(output.value) || output.value < dust) {
         return { ok: false, error: `claim output ${output.value} is below dust limit ${dust}` }
     }
-    const fee = inputValue - output.value
-    if (!isPositiveSats(fee)) {
-        return { ok: false, error: 'unilateral claim fee is below the local relay floor' }
+    const paid = checkUnilateralClaimPaysRate(tx, inputValue, satPerVbyte)
+    if (!paid.ok) {
+        return paid
     }
-    const vsize = tx.virtualSize()
-    if (!isPositiveSats(vsize)) {
-        return { ok: false, error: 'invalid unilateral claim size' }
-    }
-    const minFee = vsize * rate.satPerVbyte
-    if (fee < minFee) {
-        return { ok: false, error: `unilateral claim fee ${fee} is below local floor ${minFee} (${rate.satPerVbyte} sat/vbyte)` }
-    }
-    if (fee > maxFee) {
-        return { ok: false, error: `unilateral claim fee ${fee} exceeds quoted miner budget ${maxFee}` }
+    if (paid.fee > maxFee) {
+        return { ok: false, error: `unilateral claim fee ${paid.fee} exceeds quoted miner budget ${maxFee}` }
     }
     return { ok: true }
 }
