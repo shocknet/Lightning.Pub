@@ -1903,17 +1903,33 @@ export class Swaps {
                 const error = !swapResult.ok ? swapResult.error : "swap completed without claim txId"
                 this.warnUnpublishedClaimNeedsManualCheck(swap, error)
                 this.log("resumed reverse swap failed to claim", { swapOpId: swap.swap_operation_id, error })
+                this.trackUnacceptedResumedClaim(swap)
                 return
             }
             this.log("resumed reverse swap claimed; waiting for confirmation", { swapOpId: swap.swap_operation_id, txId: swapResult.txId })
             this.startTrackingPublishedClaim(swap, swapResult.txId)
         } catch (err: any) {
             this.log("error watching resumed reverse swap", { swapOpId: swap.swap_operation_id, error: err.message || err })
+            this.warnUnpublishedClaimNeedsManualCheck(swap, err.message || String(err))
+            this.trackUnacceptedResumedClaim(swap)
         } finally {
             if (!this.claimTrackAborts[swap.swap_operation_id]) {
                 delete this.waitingSwaps[swap.swap_operation_id]
             }
         }
+    }
+
+    /**
+     * First-disclosure resume is one-shot. A persisted claim that missed the
+     * spend watch and failed the window still needs the unaccepted tracker:
+     * Lightning may settle after that first lookup, which is independent proof
+     * the preimage is public.
+     */
+    private trackUnacceptedResumedClaim = (swap: TransactionSwap) => {
+        if (!swap.claim_tx_hex || swap.tx_id || this.stopped) {
+            return
+        }
+        this.startTrackingPublishedClaim(swap, this.claimTxIdOrInvalid(swap.claim_tx_hex))
     }
 }
 
