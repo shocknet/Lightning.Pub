@@ -234,8 +234,10 @@ export const checkReverseTimeout = (
  * preimage was disclosed. claim_published records a publication attempt, including
  * a crash between the marker and broadcast. Resume and PayAddrWithSwap retry must
  * still prove our lockup spend before skipping first-disclosure checks, unless
- * claim_broadcast_accepted is set: LND already accepted the claim, so a missed
- * mempool spend must not re-run backup or window gates.
+ * claim_broadcast_accepted is set or the reverse-swap lightning payment has
+ * already settled. LND acceptance or a succeeded hold invoice means the
+ * preimage is public, so a missed mempool spend must not re-run backup or
+ * window gates.
  * Unspent marked claims take the saved-hex path (window and fees).
  * claim_published: false is not proof of secrecy after restore of an earlier
  * backup; resume reconciles a spent lockup.
