@@ -97,20 +97,22 @@ export type ReverseClaimFeeRates = {
 export type ReverseClaimDeps = {
     /**
      * Durable publication intent. Must succeed before publish() so a crash
-     * resumes as exposed. Must not wait on backup: that delay belongs before
-     * the final safety check (persistClaim), not between the check and broadcast.
+     * resumes as a publication attempt. Must not wait on backup: that delay
+     * belongs before the safety checks (persistClaim), not between a check
+     * and broadcast. The caller re-checks expiry, spend, and abort after this
+     * write; a leftover marker without our spend is not disclosure.
      */
     recordPublication: () => Promise<void>
     /**
      * Broadcast an already-recorded claim. Reject only when the transaction
-     * was not accepted. The caller already wrote the exposure marker; do not
-     * re-check the claim window here. Backup flush after the marker must not
-     * delay this call.
+     * was not accepted. The caller re-checks safety after writing the
+     * exposure marker; do not re-check the claim window here. Backup flush
+     * after the marker must not delay this call.
      */
     publish: (txHex: string) => Promise<void>
     /**
-     * Persist the unpublished claim hex and wait for backup before the final
-     * safety check. Required for reconstructed and reused saved signatures so
+     * Persist the unpublished claim hex and wait for backup before the
+     * safety checks. Required for reconstructed and reused saved signatures so
      * a crash after first disclosure still has a relayable claim.
      */
     persistClaim?: (txHex: string) => Promise<void>
@@ -886,12 +888,13 @@ export class ReverseSwaps {
             }
 
             // Persist the script-path spend and wait for that backup before the
-            // final safety check so a crash still has a locally relayable claim.
+            // safety checks so a crash still has a locally relayable claim.
             // Persistence is not disclosure: unpublished saved claims must still
             // pass the checks above (saved hex) or below (reconstructed hex).
-            // After that check the exposure marker is written and broadcast
-            // follows immediately: refusing then would leave claim_published set
-            // and retry/resume would disclose without first-disclosure checks.
+            // After that check the exposure marker is written, then the same
+            // checks run again before broadcast. Refusing after the marker
+            // leaves claim_published set; retry/resume still run first-disclosure
+            // unless our spend or LND acceptance is already proven.
             const reconstructedPersist = await this.persistClaimHex(deps, unilateral.toHex())
             if (reconstructedPersist) {
                 return reconstructedPersist
@@ -1027,10 +1030,11 @@ export class ReverseSwaps {
     }
 
     /**
-     * Final safety check, then the exposure marker, then broadcast.
-     * Do not re-check after the marker: a failure there would refuse to
-     * publish while leaving claim_published set, so PayAddrWithSwap retry
-     * or resume would treat the preimage as already public. Backup of the
+     * Safety check, then the exposure marker, then the same check again.
+     * Expiry, spend, or abort during the marker write must still refuse
+     * broadcast. A leftover claim_published without a spend is not disclosure:
+     * PayAddrWithSwap retry and resume re-run first-disclosure checks unless
+     * our lockup spend or LND acceptance is already proven. Backup of the
      * unpublished claim already waited in persistClaim; the marker backup
      * must not sit in this gap.
      */
@@ -1048,14 +1052,15 @@ export class ReverseSwaps {
         } catch (err: any) {
             return { ok: false, error: `failed to record reverse-swap claim publication: ${err.message || err}` }
         }
-        return undefined
+        return this.claimPublicationBlocked(data, deps, guard)
     }
 
     /**
-     * Persistence, fee lookup, and signing are async. Re-check abort, a fresh
-     * trusted tip, and spend-watch state immediately before the exposure
-     * marker: the height watcher may have closed the window while we were
-     * preparing. After the marker, broadcast without another check.
+     * Persistence, fee lookup, signing, and the marker write are async.
+     * Re-check abort, a fresh trusted tip, and spend-watch state immediately
+     * before the exposure marker and again after it: the height watcher may
+     * have closed the window while we were preparing or while the marker was
+     * being written.
      */
     private claimPublicationBlocked = async (
         data: TransactionSwapData,

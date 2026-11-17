@@ -1132,10 +1132,11 @@ export class Swaps {
 
     /**
      * Durable publication intent. Must succeed in the DB before the preimage
-     * goes out so a crash still resumes as exposed. Marker backup is notified
-     * without waiting: a dest outage or slow upload must not sit between the
-     * final safety check and broadcast. The unpublished claim was already
-     * flushed in persistTransactionSwapClaim.
+     * goes out so a crash still resumes as a publication attempt. Marker backup
+     * is notified without waiting: a dest outage or slow upload must not sit
+     * between a safety check and broadcast. The unpublished claim was already
+     * flushed in persistTransactionSwapClaim. The caller re-checks the window
+     * after this write.
      */
     private commitClaimPublicationAttempt = async (swapOpId: string) => {
         await this.storage.paymentStorage.MarkTransactionSwapClaimPublished(swapOpId)
