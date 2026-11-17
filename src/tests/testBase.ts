@@ -204,6 +204,26 @@ export const mineAndWaitForUserBalance = async (T: TestBase, userId: string, exp
     return waitForUserBalance(T, userId, expectedBalance)
 }
 
+/** Wait until LND reports healthy (synced to chain + graph), and optionally past a min height. */
+export const waitForLndSynced = async (lnd: LND, timeoutMs = 30000, minBlockHeight = 0) => {
+    const deadline = Date.now() + timeoutMs
+    let lastError: Error | null = null
+    while (Date.now() < deadline) {
+        try {
+            await lnd.Health()
+            const info = await lnd.GetInfo()
+            if (info.blockHeight < minBlockHeight) {
+                throw new Error(`lnd height ${info.blockHeight} < ${minBlockHeight}`)
+            }
+            return info
+        } catch (err: any) {
+            lastError = err
+            await new Promise(resolve => setTimeout(resolve, 200))
+        }
+    }
+    throw lastError ?? new Error("timed out waiting for lnd to sync")
+}
+
 export const expectThrowsAsync = async (promise: Promise<any>, errorMessage?: string) => {
     let error: Error | null = null
     try {
