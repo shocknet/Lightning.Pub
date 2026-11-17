@@ -1490,8 +1490,11 @@ export class Swaps {
     /**
      * An unaccepted claim is still first disclosure. Skip this retry if the tip
      * is unreadable or the quoted miner budget cannot pay the remaining-window
-     * feerate. If the refund window has closed, do not broadcast, but keep the
-     * confirmation watch: an earlier attempt may still confirm.
+     * feerate, unless Lightning already settled: then the preimage is public and
+     * retries skip those gates. If the refund window has closed, do not
+     * broadcast without that proof, but keep the confirmation watch: an earlier
+     * attempt may still confirm. Lightning is consulted only on a skip, not on
+     * every in-window retry.
      */
     private unacceptedClaimRetryAllowed = async (swap: TransactionSwap) => {
         if (this.claimIsKnownAccepted(swap.swap_operation_id, swap)) {
@@ -1505,11 +1508,14 @@ export class Swaps {
                 swapOpId: swap.swap_operation_id,
                 error: err.message || err,
             })
-            return false
+            return this.reverseClaimAlreadyExposed(swap, false)
         }
         const window = checkReverseClaimWindow(swap.timeout_block_height, tip)
         if (window.ok) {
-            return this.unacceptedClaimRetryPaysCurrentFee(swap, tip)
+            if (await this.unacceptedClaimRetryPaysCurrentFee(swap, tip)) {
+                return true
+            }
+            return this.reverseClaimAlreadyExposed(swap, false)
         }
         let latest: TransactionSwap | null = null
         try {
@@ -1522,6 +1528,9 @@ export class Swaps {
         }
         if (this.claimIsKnownAccepted(swap.swap_operation_id, latest)) {
             this.rememberLiveClaimBroadcastAccepted(swap.swap_operation_id)
+            return true
+        }
+        if (await this.reverseClaimAlreadyExposed(latest || swap, false)) {
             return true
         }
         if (!this.unacceptedRetryWindowClosed.has(swap.swap_operation_id)) {
@@ -1574,9 +1583,10 @@ export class Swaps {
     /**
      * Rebroadcast a persisted claim. Until this process or the DB has seen LND
      * accept once, check the claim window and remaining-window fee before each
-     * retry. After acceptance the preimage is public: retries skip those gates
-     * and keep trying to persist claim_broadcast_accepted. One broadcast at a
-     * time per swap.
+     * retry. A succeeded reverse-swap lightning payment is the same proof: look
+     * it up only when those gates would skip. After acceptance the preimage is
+     * public: retries skip those gates and keep trying to persist
+     * claim_broadcast_accepted. One broadcast at a time per swap.
      */
     private rebroadcastPublishedClaim = async (swapOpId: string) => {
         if (this.stopped || this.claimTrackAborts[swapOpId]?.signal.aborted) {
@@ -1673,8 +1683,8 @@ export class Swaps {
      * block and on a timer, and finalize only when our spend confirms. A
      * competing confirmed spend closes the row so resume does not loop.
      * Unaccepted retries skip broadcast if the claim window closes or the
-     * quoted miner budget cannot pay the current remaining-window feerate, but
-     * the confirmation watch stays armed.
+     * quoted miner budget cannot pay the current remaining-window feerate,
+     * unless Lightning already settled. The confirmation watch stays armed.
      */
     private trackPublishedTransactionSwapClaim = async (
         swap: TransactionSwap,
