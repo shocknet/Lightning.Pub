@@ -1495,6 +1495,8 @@ export class Swaps {
      * If the refund window has closed, do not broadcast without that proof, but
      * keep the confirmation watch: an earlier attempt may still confirm.
      * Lightning is consulted only on a skip, not on every in-window retry.
+     * Fee lookup is async: re-check a fresh tip after it so expiry during
+     * estimation cannot first-disclose.
      */
     private unacceptedClaimRetryAllowed = async (swap: TransactionSwap) => {
         if (this.claimIsKnownAccepted(swap.swap_operation_id, swap)) {
@@ -1510,12 +1512,24 @@ export class Swaps {
             })
             return this.reverseClaimAlreadyExposed(swap, false)
         }
-        const window = checkReverseClaimWindow(swap.timeout_block_height, tip)
+        let window = checkReverseClaimWindow(swap.timeout_block_height, tip)
         if (window.ok) {
-            if (await this.unacceptedClaimRetryPaysCurrentFee(swap, tip)) {
+            if (!await this.unacceptedClaimRetryPaysCurrentFee(swap, tip)) {
+                return this.reverseClaimAlreadyExposed(swap, false)
+            }
+            try {
+                tip = await this.trustedChainTip()
+            } catch (err: any) {
+                this.log("skipping unaccepted reverse-swap claim retry; chain tip unavailable", {
+                    swapOpId: swap.swap_operation_id,
+                    error: err.message || err,
+                })
+                return this.reverseClaimAlreadyExposed(swap, false)
+            }
+            window = checkReverseClaimWindow(swap.timeout_block_height, tip)
+            if (window.ok) {
                 return true
             }
-            return this.reverseClaimAlreadyExposed(swap, false)
         }
         let latest: TransactionSwap | null = null
         try {
