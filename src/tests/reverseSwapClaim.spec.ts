@@ -95,6 +95,7 @@ export default async (T: StorageTestBase) => {
     await testSavedUnderfeeClaimDoesNotDisclose(T)
     await testInsufficientMinRelayDoesNotBroadcast(T)
     await testStaleFeeAfterPersistDoesNotDisclose(T)
+    await testStaleFeeAfterPersistDoesNotDisclose(T, 'marker')
     await testStaleFeeAfterPersistReconstructsWhenBudgetAllows(T)
     await testStaleFeeDuringEstimateDoesNotDisclose(T)
 }
@@ -1113,8 +1114,8 @@ const testInsufficientMinRelayDoesNotBroadcast = async (T: StorageTestBase) => {
     T.d('an unrelayable min-relay floor kept the preimage off the wire')
 }
 
-const testStaleFeeAfterPersistDoesNotDisclose = async (T: StorageTestBase) => {
-    T.d('starting claim does not publish a stale earlier-window feerate after backup')
+const testStaleFeeAfterPersistDoesNotDisclose = async (T: StorageTestBase, advanceDuring: 'backup' | 'marker' = 'backup') => {
+    T.d(`starting claim does not publish a stale earlier-window feerate after ${advanceDuring}`)
     const { swapper, data, lockupHex } = await setupClaim(T)
     const timeout = data.createdResponse.timeoutBlockHeight
     const remainingBefore = 20
@@ -1134,7 +1135,14 @@ const testStaleFeeAfterPersistDoesNotDisclose = async (T: StorageTestBase) => {
         },
         persistClaim: async (txHex) => {
             persisted.push(txHex)
-            tip = timeout - remainingAfter
+            if (advanceDuring === 'backup') {
+                tip = timeout - remainingAfter
+            }
+        },
+        recordPublication: async () => {
+            if (advanceDuring === 'marker') {
+                tip = timeout - remainingAfter
+            }
         },
         publish: async (txHex) => { published.push(txHex) },
     }))
@@ -1146,7 +1154,7 @@ const testStaleFeeAfterPersistDoesNotDisclose = async (T: StorageTestBase) => {
     T.expect(feeTargets.includes(remainingAfter)).to.equal(true)
     T.expect(persisted.length).to.be.at.least(1)
     T.expect(published.length).to.equal(0)
-    T.d('a 20-block 1 sat/vbyte estimate was not disclosed after backup left 6 blocks')
+    T.d(`a 20-block 1 sat/vbyte estimate was not disclosed after ${advanceDuring} left 6 blocks`)
 }
 
 const testStaleFeeAfterPersistReconstructsWhenBudgetAllows = async (T: StorageTestBase) => {
