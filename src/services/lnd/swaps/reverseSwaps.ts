@@ -1005,8 +1005,9 @@ export class ReverseSwaps {
     /**
      * Remaining-window sat/vbyte against a fresh tip. Fee lookup is async:
      * re-read the tip after it and re-estimate if remaining shrank, so a
-     * cheaper earlier-window estimate cannot first-disclose. Persist can
-     * still wait on backup; callers re-price after that wait.
+     * cheaper earlier-window estimate cannot first-disclose. Two mismatched
+     * remaining windows fail closed rather than resolve the stale rate.
+     * Persist can still wait on backup; callers re-price after that wait.
      */
     private remainingWindowFeeRate = async (
         data: TransactionSwapData,
@@ -1014,7 +1015,6 @@ export class ReverseSwaps {
         vbytes: number,
     ): Promise<{ ok: true, satPerVbyte: number } | { ok: false, error: string }> => {
         const timeout = data.createdResponse.timeoutBlockHeight
-        let feeRates: ReverseClaimFeeRates | undefined
         for (let attempt = 0; attempt < 2; attempt++) {
             let tip: number
             try {
@@ -1027,6 +1027,7 @@ export class ReverseSwaps {
                 return window
             }
             const remaining = timeout - tip
+            let feeRates: ReverseClaimFeeRates
             try {
                 feeRates = await deps.getClaimFeeRates(remaining)
             } catch (err: any) {
@@ -1050,15 +1051,7 @@ export class ReverseSwaps {
                 )
             }
         }
-        if (!feeRates) {
-            return { ok: false, error: 'failed to read local claim fee rate' }
-        }
-        return resolveClaimFeeRate(
-            feeRates.satPerVbyte,
-            feeRates.minRelaySatPerVbyte,
-            data.info.chainFee,
-            vbytes,
-        )
+        return { ok: false, error: 'failed to size reverse-swap claim for the remaining window' }
     }
 
     /**

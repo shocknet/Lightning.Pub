@@ -96,6 +96,7 @@ export default async (T: StorageTestBase) => {
     await testInsufficientMinRelayDoesNotBroadcast(T)
     await testStaleFeeAfterPersistDoesNotDisclose(T)
     await testStaleFeeAfterPersistReconstructsWhenBudgetAllows(T)
+    await testStaleFeeDuringEstimateDoesNotDisclose(T)
 }
 
 const testLockupMustMatchSwapOutputAndAmount = async (T: StorageTestBase) => {
@@ -1184,6 +1185,34 @@ const testStaleFeeAfterPersistReconstructsWhenBudgetAllows = async (T: StorageTe
     const fee = AMOUNTS.onchainAmount - claimTx.outs[0].value
     T.expect(fee).to.be.at.least(2 * claimTx.virtualSize())
     T.d('backup that left 6 blocks rebuilt a 2 sat/vbyte claim instead of disclosing 1 sat/vbyte')
+}
+
+const testStaleFeeDuringEstimateDoesNotDisclose = async (T: StorageTestBase) => {
+    T.d('starting claim does not publish a cheaper earlier-window estimate if remaining keeps moving during fee lookup')
+    const { swapper, data, lockupHex } = await setupClaim(T)
+    const timeout = data.createdResponse.timeoutBlockHeight
+    let tip = timeout - 20
+    const published: string[] = []
+    const persisted: string[] = []
+    const feeTargets: number[] = []
+    const claimed = await swapper.claimConfirmedLockup(data, lockupHex, safeClaimDeps({
+        getChainTip: async () => tip,
+        getClaimFeeRates: async (target) => {
+            feeTargets.push(target)
+            tip = timeout - (target === 20 ? 10 : REVERSE_CLAIM_MIN_REMAINING_BLOCKS)
+            return { satPerVbyte: 1, minRelaySatPerVbyte: 1 }
+        },
+        persistClaim: async (txHex) => { persisted.push(txHex) },
+        publish: async (txHex) => { published.push(txHex) },
+    }))
+    T.expect(claimed.ok).to.equal(false)
+    if (!claimed.ok) {
+        T.expect(claimed.error).to.equal('failed to size reverse-swap claim for the remaining window')
+    }
+    T.expect(feeTargets).to.deep.equal([20, 10])
+    T.expect(persisted.length).to.equal(0)
+    T.expect(published.length).to.equal(0)
+    T.d('two mismatched remaining windows during fee lookup kept the preimage off the wire')
 }
 
 const setupClaim = async (T: StorageTestBase, chainFee = AMOUNTS.minerFee) => {

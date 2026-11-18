@@ -1496,24 +1496,32 @@ export class Swaps {
      * keep the confirmation watch: an earlier attempt may still confirm.
      * Lightning is consulted only on a skip, not on every in-window retry.
      * Fee lookup is async: re-check a fresh tip after it so expiry during
-     * estimation cannot first-disclose.
+     * estimation cannot first-disclose. If remaining shrank but the window is
+     * still open, re-estimate once; if remaining is still moving, skip this
+     * attempt rather than first-disclose at a cheaper earlier-window rate.
      */
     private unacceptedClaimRetryAllowed = async (swap: TransactionSwap) => {
         if (this.claimIsKnownAccepted(swap.swap_operation_id, swap)) {
             return true
         }
-        let tip: number
-        try {
-            tip = await this.trustedChainTip()
-        } catch (err: any) {
-            this.log("skipping unaccepted reverse-swap claim retry; chain tip unavailable", {
-                swapOpId: swap.swap_operation_id,
-                error: err.message || err,
-            })
-            return this.reverseClaimAlreadyExposed(swap, false)
-        }
-        let window = checkReverseClaimWindow(swap.timeout_block_height, tip)
-        if (window.ok) {
+        const timeout = swap.timeout_block_height
+        let window: ReturnType<typeof checkReverseClaimWindow> = { ok: false, error: 'untrusted chain tip' }
+        for (let attempt = 0; attempt < 2; attempt++) {
+            let tip: number
+            try {
+                tip = await this.trustedChainTip()
+            } catch (err: any) {
+                this.log("skipping unaccepted reverse-swap claim retry; chain tip unavailable", {
+                    swapOpId: swap.swap_operation_id,
+                    error: err.message || err,
+                })
+                return this.reverseClaimAlreadyExposed(swap, false)
+            }
+            window = checkReverseClaimWindow(timeout, tip)
+            if (!window.ok) {
+                break
+            }
+            const remaining = timeout - tip
             if (!await this.unacceptedClaimRetryPaysCurrentFee(swap, tip)) {
                 return this.reverseClaimAlreadyExposed(swap, false)
             }
@@ -1526,10 +1534,19 @@ export class Swaps {
                 })
                 return this.reverseClaimAlreadyExposed(swap, false)
             }
-            window = checkReverseClaimWindow(swap.timeout_block_height, tip)
-            if (window.ok) {
+            window = checkReverseClaimWindow(timeout, tip)
+            if (!window.ok) {
+                break
+            }
+            if (timeout - tip === remaining) {
                 return true
             }
+        }
+        if (window.ok) {
+            this.log("skipping unaccepted reverse-swap claim retry; remaining window moved during fee estimate", {
+                swapOpId: swap.swap_operation_id,
+            })
+            return this.reverseClaimAlreadyExposed(swap, false)
         }
         let latest: TransactionSwap | null = null
         try {

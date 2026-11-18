@@ -25,6 +25,7 @@ export default async (T: StorageTestBase) => {
     await testPayKeepsPersistedClaimRetryable(T)
     await testPayStopsUnacceptedClaimRetryAfterRefundWindow(T)
     await testPayStopsUnacceptedClaimRetryWhenRefundHeightArrivesDuringFeeLookup(T)
+    await testPayStopsUnacceptedClaimRetryWhenRemainingMovesDuringFeeLookup(T)
     await testPayRetriesUnacceptedClaimWhenLightningSettlesAfterRefundWindow(T)
     await testPayStopsUnacceptedClaimRetryWhenFeeExceedsBudget(T)
     await testPayStopsUnacceptedClaimRetryWhenSavedClaimBelowLiveRate(T)
@@ -587,6 +588,76 @@ const testPayStopsUnacceptedClaimRetryWhenRefundHeightArrivesDuringFeeLookup = a
     swaps.Stop()
     await T.storage.paymentStorage.DeleteTransactionSwap(saved.swap_operation_id)
     T.d('advancing to the refund height during retry fee estimation did not produce a first successful broadcast')
+}
+
+const testPayStopsUnacceptedClaimRetryWhenRemainingMovesDuringFeeLookup = async (T: StorageTestBase) => {
+    T.d('starting PayAddrWithSwap does not first-publish an unaccepted retry at a cheaper earlier-window estimate if remaining keeps moving')
+    const timeout = 920_000 + 1_008
+    const userId = `rev-unacc-fee-move-${randomBytes(8).toString('hex')}`
+    const saved = await T.storage.paymentStorage.AddTransactionSwap(requiredSwap(userId, {
+        timeout_block_height: timeout,
+    }))
+    const { swaps, swapper } = makeSwaps(T)
+    const logs = captureSwapLogs(swaps)
+    const broadcasts: string[] = []
+    const feeTargets: number[] = []
+    let tip = timeout - 20
+    swaps.claimRebroadcastMs = 20
+    swaps.SetLnd({
+        DecodeInvoice: async () => ({ numSatoshis: 1200, paymentHash: '22'.repeat(32) }),
+        GetInfo: async () => ({ syncedToChain: true, blockHeight: tip }),
+        BroadcastTransaction: async (txHex: string) => {
+            broadcasts.push(txHex)
+            if (broadcasts.length === 1) {
+                throw new Error('no peers')
+            }
+            return { txId: Transaction.fromHex(txHex).getId() }
+        },
+        WaitForScriptConfirmations: async () => ({ txHex: OTHER_CLAIM_HEX, blockHeight: 6 }),
+        WatchLockupSpend: () => hangingSpendGuard(),
+        EstimateSatPerVbyte: async (confTarget?: number) => {
+            if (typeof confTarget === 'number') {
+                feeTargets.push(confTarget)
+                if (confTarget > REVERSE_CLAIM_MIN_REMAINING_BLOCKS) {
+                    tip = timeout - (confTarget === 20 ? 10 : REVERSE_CLAIM_MIN_REMAINING_BLOCKS)
+                    return { satPerVbyte: 1, minRelaySatPerVbyte: 1 }
+                }
+            }
+            return { satPerVbyte: 50, minRelaySatPerVbyte: 1 }
+        },
+    } as any)
+    swapper.VerifyReverseQuote = async () => ({ ok: true as const })
+    swapper.SubscribeToTransactionSwap = async (_data, done, chain) => {
+        await chain.persistClaim?.(CLAIM_HEX)
+        try {
+            await chain.recordPublication()
+            await chain.publish(CLAIM_HEX)
+            done({ ok: true, txId: Transaction.fromHex(CLAIM_HEX).getId() })
+        } catch (err: any) {
+            done({ ok: false, error: err.message || String(err) })
+        }
+    }
+    let threw = false
+    try {
+        await swaps.PayAddrWithSwap(userId, saved.swap_operation_id, DEST, async () => { })
+    } catch (err: any) {
+        threw = true
+        T.expect(err.message).to.equal('no peers')
+    }
+    T.expect(threw).to.equal(true)
+    T.expect(broadcasts).to.deep.equal([CLAIM_HEX])
+    await waitUntil(() => logs.some(line => line.includes('remaining window moved during fee estimate')))
+    await new Promise(resolve => setTimeout(resolve, 80))
+    T.expect(broadcasts).to.deep.equal([CLAIM_HEX])
+    T.expect(feeTargets.includes(20)).to.equal(true)
+    const row = await T.storage.paymentStorage.GetTransactionSwap(saved.swap_operation_id, userId)
+    T.expect(row?.used).to.equal(false)
+    T.expect(row?.claim_tx_hex).to.equal(CLAIM_HEX)
+    T.expect(!!row?.claim_published).to.equal(true)
+    T.expect(!!row?.claim_broadcast_accepted).to.equal(false)
+    swaps.Stop()
+    await T.storage.paymentStorage.DeleteTransactionSwap(saved.swap_operation_id)
+    T.d('a cheaper 20-block estimate was not first-published after remaining moved during fee lookup')
 }
 
 const testPayRetriesUnacceptedClaimWhenLightningSettlesAfterRefundWindow = async (T: StorageTestBase) => {
