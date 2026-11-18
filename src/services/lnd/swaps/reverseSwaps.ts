@@ -872,12 +872,8 @@ export class ReverseSwaps {
                     data.info.chainFee,
                 )
                 if (savedRelayable.ok) {
-                    const recheck = await this.persistAndRecheckRemainingWindow(data, parsed, deps, saved, vbytes)
+                    const recheck = await this.prepareClaimBroadcast(data, parsed, deps, guard, saved, vbytes)
                     if (recheck.kind === 'ready') {
-                        const beforeSavedPublish = await this.prepareClaimBroadcast(data, deps, guard)
-                        if (beforeSavedPublish) {
-                            return beforeSavedPublish
-                        }
                         try {
                             await deps.publish(savedHex)
                             const txId = saved.getId()
@@ -914,28 +910,13 @@ export class ReverseSwaps {
                     return relayable
                 }
 
-                // Persist the script-path spend and wait for that backup before the
-                // safety checks so a crash still has a locally relayable claim.
-                // Persistence is not disclosure: unpublished saved claims must still
-                // pass the checks above (saved hex) or below (reconstructed hex).
-                // After backup, re-price against the current remaining window; a
-                // cheaper earlier-window estimate must not first-disclose.
-                // After that check the exposure marker is written, then the same
-                // checks run again before broadcast. Refusing after the marker
-                // leaves claim_published set; retry/resume still run first-disclosure
-                // unless our spend or LND acceptance is already proven.
-                const recheck = await this.persistAndRecheckRemainingWindow(data, parsed, deps, unilateral, vbytes)
+                const recheck = await this.prepareClaimBroadcast(data, parsed, deps, guard, unilateral, vbytes)
                 if (recheck.kind === 'reconstruct') {
                     satPerVbyte = recheck.satPerVbyte
                     continue
                 }
                 if (recheck.kind !== 'ready') {
                     return { ok: false, error: recheck.error }
-                }
-
-                const beforePublish = await this.prepareClaimBroadcast(data, deps, guard)
-                if (beforePublish) {
-                    return beforePublish
                 }
 
                 try {
@@ -1055,19 +1036,19 @@ export class ReverseSwaps {
     }
 
     /**
-     * Persist the unpublished claim, then re-price against the remaining
-     * window. Backup can move the tip; a cheaper earlier-window signature
-     * must not first-disclose. Reconstruct when the budget can still pay
-     * the live rate; refuse when it cannot.
+     * Back up the exact signature and record intent before the final fee check.
+     * Either write can consume runway. Rebuild and back up the new signature
+     * when the current rate is affordable, or refuse disclosure when it isn't.
      */
-    private persistAndRecheckRemainingWindow = async (
+    private prepareClaimBroadcast = async (
         data: TransactionSwapData,
         parsed: ParsedLockup,
         deps: ReverseClaimDeps,
+        guard: LockupSpendGuard,
         tx: Transaction,
         vbytes: number,
     ): Promise<
-        | { kind: 'ready', satPerVbyte: number }
+        | { kind: 'ready' }
         | { kind: 'error', error: string }
         | { kind: 'reconstruct', satPerVbyte: number }
     > => {
@@ -1075,9 +1056,25 @@ export class ReverseSwaps {
         if (persist) {
             return { kind: 'error', error: persist.error }
         }
+        const blocked = await this.claimPublicationBlocked(data, deps, guard)
+        if (blocked) {
+            return { kind: 'error', error: blocked.error }
+        }
+        try {
+            await deps.recordPublication()
+        } catch (err: any) {
+            return { kind: 'error', error: `failed to record reverse-swap claim publication: ${err.message || err}` }
+        }
         const live = await this.remainingWindowFeeRate(data, deps, vbytes)
         if (!live.ok) {
             return { kind: 'error', error: live.error }
+        }
+        const unsafe = this.lockupSpendUnsafe(guard)
+        if (unsafe) {
+            return { kind: 'error', error: unsafe.error }
+        }
+        if (deps.abortSignal?.aborted) {
+            return { kind: 'error', error: 'claim aborted before publication' }
         }
         const paid = checkUnilateralClaimPaysRate(tx, parsed.swapOutput.value, live.satPerVbyte)
         if (!paid.ok) {
@@ -1092,7 +1089,7 @@ export class ReverseSwaps {
         if (!relayable.ok) {
             return { kind: 'error', error: relayable.error }
         }
-        return { kind: 'ready', satPerVbyte: live.satPerVbyte }
+        return { kind: 'ready' }
     }
 
     /**
@@ -1157,39 +1154,7 @@ export class ReverseSwaps {
         return undefined
     }
 
-    /**
-     * Safety check, then the exposure marker, then the same check again.
-     * Expiry, spend, or abort during the marker write must still refuse
-     * broadcast. A leftover claim_published without a spend is not disclosure:
-     * PayAddrWithSwap retry and resume re-run first-disclosure checks unless
-     * our lockup spend or LND acceptance is already proven. Backup of the
-     * unpublished claim already waited in persistClaim; the marker backup
-     * must not sit in this gap.
-     */
-    private prepareClaimBroadcast = async (
-        data: TransactionSwapData,
-        deps: ReverseClaimDeps,
-        guard: LockupSpendGuard,
-    ): Promise<{ ok: false, error: string } | undefined> => {
-        const blocked = await this.claimPublicationBlocked(data, deps, guard)
-        if (blocked) {
-            return blocked
-        }
-        try {
-            await deps.recordPublication()
-        } catch (err: any) {
-            return { ok: false, error: `failed to record reverse-swap claim publication: ${err.message || err}` }
-        }
-        return this.claimPublicationBlocked(data, deps, guard)
-    }
-
-    /**
-     * Persistence, fee lookup, signing, and the marker write are async.
-     * Re-check abort, a fresh trusted tip, and spend-watch state immediately
-     * before the exposure marker and again after it: the height watcher may
-     * have closed the window while we were preparing or while the marker was
-     * being written.
-     */
+    /** Check the window and spend guard after backing up the signature. */
     private claimPublicationBlocked = async (
         data: TransactionSwapData,
         deps: ReverseClaimDeps,

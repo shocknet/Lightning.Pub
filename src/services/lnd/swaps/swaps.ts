@@ -40,6 +40,8 @@ export class Swaps {
     private claimTrackAborts: Record<string, AbortController> = {}
     /** LND acceptances this process has seen, even if the DB flag write failed. */
     private liveClaimBroadcastAccepted = new Set<string>()
+    /** Initial claim attempts can replace a saved signature. */
+    private claimDisclosureAttempts = new Set<string>()
     /** One reverse-claim rebroadcast at a time per swap. */
     private claimRebroadcastInFlight: Record<string, true> = {}
     /** Window-closed warning already emitted for this unaccepted live tracker. */
@@ -1657,9 +1659,8 @@ export class Swaps {
      * retry. A succeeded reverse-swap lightning payment is the same proof: look
      * it up only when those gates would skip. After acceptance the preimage is
      * public: retries skip those gates and keep trying to persist
-     * claim_broadcast_accepted. An unpublished hex is still first disclosure:
-     * wait on backup and re-check expiry after the marker, same as the live
-     * claim path. One broadcast at a time per swap.
+     * claim_broadcast_accepted. Unaccepted retries wait on backup and check
+     * the live spend guard and fee before broadcasting.
      */
     private rebroadcastPublishedClaim = async (swapOpId: string) => {
         if (this.stopped || this.claimTrackAborts[swapOpId]?.signal.aborted) {
@@ -1677,7 +1678,8 @@ export class Swaps {
     }
 
     private rebroadcastPublishedClaimOnce = async (swapOpId: string) => {
-        if (this.stopped || this.claimTrackAborts[swapOpId]?.signal.aborted) {
+        const signal = this.claimTrackAborts[swapOpId]?.signal
+        if (this.stopped || signal?.aborted || this.claimDisclosureAttempts.has(swapOpId)) {
             return
         }
         try {
@@ -1685,22 +1687,15 @@ export class Swaps {
             if (this.stopped || !latest?.claim_tx_hex || latest.tx_id) {
                 return
             }
-            const knownAccepted = this.claimIsKnownAccepted(swapOpId, latest)
-            if (!knownAccepted && !await this.unacceptedClaimRetryAllowed(latest)) {
+            if (!await this.unacceptedClaimRetryAllowed(latest)) {
                 return
             }
-            if (knownAccepted || this.claimIsKnownAccepted(swapOpId, latest)) {
+            if (this.claimIsKnownAccepted(swapOpId, latest)) {
                 await this.persistKnownClaimAcceptance(swapOpId)
-            } else if (!latest.claim_published) {
-                if (!await this.prepareUnacceptedClaimFirstPublication(latest)) {
-                    return
-                }
-                if (this.claimIsKnownAccepted(swapOpId, latest)) {
-                    await this.persistKnownClaimAcceptance(swapOpId)
-                }
+                await this.broadcastTrackedClaim(latest, signal)
+            } else {
+                await this.retryUnacceptedClaim(latest, signal)
             }
-            await this.lnd.BroadcastTransaction(latest.claim_tx_hex)
-            await this.persistKnownClaimAcceptance(swapOpId)
         } catch (err: any) {
             if (!this.stopped) {
                 this.log("rebroadcast of reverse-swap claim failed", { swapOpId, error: err.message || err })
@@ -1708,77 +1703,79 @@ export class Swaps {
         }
     }
 
-    /**
-     * Tracker retries of an unpublished claim are still first disclosure.
-     * Persist and wait on backup, re-price the remaining window after that
-     * wait, write the exposure marker, then refuse if expiry, abort, or an
-     * unreadable tip landed during the write. Lightning settlement during
-     * this work is independent proof the preimage is public.
-     */
-    private prepareUnacceptedClaimFirstPublication = async (swap: TransactionSwap): Promise<boolean> => {
-        const swapOpId = swap.swap_operation_id
-        if (!swap.claim_tx_hex) {
-            return false
+    private broadcastTrackedClaim = async (swap: TransactionSwap, signal?: AbortSignal) => {
+        if (this.stopped || signal?.aborted) {
+            return
         }
+        await this.lnd.BroadcastTransaction(swap.claim_tx_hex)
+        await this.persistKnownClaimAcceptance(swap.swap_operation_id)
+    }
+
+    /** A publication intent alone proves neither exposure nor backup of this signature. */
+    private retryUnacceptedClaim = async (swap: TransactionSwap, signal?: AbortSignal) => {
+        const id = swap.swap_operation_id
         try {
-            await this.persistTransactionSwapClaim(swapOpId, swap.claim_tx_hex)
+            // Back up the stored signature without writing a stale snapshot back.
+            await this.protectSwapBackup('transaction_swaps')
         } catch (err: any) {
             this.log("skipping unaccepted reverse-swap claim retry; claim backup failed", {
-                swapOpId,
-                error: err.message || err,
-            })
-            return this.reverseClaimAlreadyExposed(swap, false)
-        }
-        if (this.stopped || this.claimTrackAborts[swapOpId]?.signal.aborted) {
-            return false
-        }
-        if (!await this.unacceptedClaimRetryAllowed(swap)) {
-            return false
-        }
-        if (this.claimIsKnownAccepted(swapOpId, swap)) {
-            return true
-        }
-        try {
-            await this.commitClaimPublicationAttempt(swapOpId)
-        } catch (err: any) {
-            this.log(ERROR, "WARNING: reverse-swap claim rebroadcast could not record claim_published", {
-                swapOpId,
+                swapOpId: id,
                 error: err.message || String(err),
             })
-            return false
+            if (await this.reverseClaimAlreadyExposed(swap, false)) {
+                await this.broadcastTrackedClaim(swap, signal)
+            }
+            return
         }
-        if (this.claimIsKnownAccepted(swapOpId, swap) || await this.reverseClaimAlreadyExposed(swap, false)) {
-            return true
+
+        const current = await this.storage.paymentStorage.GetTransactionSwapRecord(id)
+        if (this.stopped || signal?.aborted || !current || current.tx_id || current.claim_tx_hex !== swap.claim_tx_hex) {
+            return
         }
-        if (this.stopped || this.claimTrackAborts[swapOpId]?.signal.aborted) {
-            return false
-        }
-        let tip: number
+        const query = this.reverseClaimSpendQuery(current, Math.max(1, current.timeout_block_height - MAX_REVERSE_TIMEOUT_BLOCKS))
+        let guard: LockupSpendGuard | undefined
         try {
-            tip = await this.trustedChainTip()
+            if (!query) {
+                throw new Error('saved claim outpoint unavailable')
+            }
+            guard = this.lnd.WatchLockupSpend({ ...query, abort: signal })
+            const spent = await guard.waitForHistorical()
+            if (spent && this.sameChainTxId(spent.spendingTxId, this.claimTxIdOrInvalid(current.claim_tx_hex))) {
+                await this.persistKnownClaimAcceptance(id)
+            } else if (spent || guard.isSpent() || guard.failure()) {
+                throw guard.failure() ?? new Error('lockup output is already spent')
+            }
         } catch (err: any) {
-            this.log("skipping unaccepted reverse-swap claim retry; chain tip unavailable", {
-                swapOpId,
-                error: err.message || err,
+            guard?.stop()
+            this.log("skipping unaccepted reverse-swap claim retry; lockup spend check failed", {
+                swapOpId: id,
+                error: err.message || String(err),
             })
-            return this.reverseClaimAlreadyExposed(swap, false)
+            if (await this.reverseClaimAlreadyExposed(current, false)) {
+                await this.broadcastTrackedClaim(current, signal)
+            }
+            return
         }
-        const window = checkReverseClaimWindow(swap.timeout_block_height, tip)
-        if (window.ok) {
-            return true
+
+        try {
+            if (this.stopped || signal?.aborted) {
+                return
+            }
+            if (!this.claimIsKnownAccepted(id, current) && !current.claim_published) {
+                await this.commitClaimPublicationAttempt(id)
+            }
+
+            // The fee estimate and window check must follow all the writes.
+            if (!await this.unacceptedClaimRetryAllowed({ ...current, claim_published: true })) {
+                return
+            }
+            if ((guard.isSpent() || guard.failure()) && !await this.reverseClaimAlreadyExposed(current, false)) {
+                return
+            }
+            await this.broadcastTrackedClaim(current, signal)
+        } finally {
+            guard.stop()
         }
-        if (await this.reverseClaimAlreadyExposed(swap, false)) {
-            return true
-        }
-        if (!this.unacceptedRetryWindowClosed.has(swapOpId)) {
-            this.unacceptedRetryWindowClosed.add(swapOpId)
-            this.warnUnpublishedClaimNeedsManualCheck({ ...swap, claim_published: true }, window.error)
-            this.log("stopped unaccepted reverse-swap claim retries; refund window closed", {
-                swapOpId,
-                error: window.error,
-            })
-        }
-        return false
     }
 
     private waitForAbort = (abortSignal: AbortSignal) => new Promise<void>(resolve => {
@@ -1926,8 +1923,16 @@ export class Swaps {
             return Promise.reject(new Error("cannot claim reverse swap without a persisted destination"))
         }
         const data = this.getTransactionSwapData(swap)
-        return new Promise<{ ok: true, txId: string } | { ok: false, error: string }>(resolve => {
-            swapper.SubscribeToTransactionSwap(data, resolve, {
+        if (abortSignal?.aborted) {
+            return Promise.resolve({ ok: false as const, error: 'claim aborted before publication' })
+        }
+        const id = swap.swap_operation_id
+        this.claimDisclosureAttempts.add(id)
+        let onAbort: () => void = () => undefined
+        return new Promise<{ ok: true, txId: string } | { ok: false, error: string }>((resolve, reject) => {
+            onAbort = () => resolve({ ok: false, error: 'claim aborted before publication' })
+            abortSignal?.addEventListener('abort', onAbort, { once: true })
+            void swapper.SubscribeToTransactionSwap(data, resolve, {
                 waitForLockup: async (script, numConfs, heightHint, signal) => {
                     const tip = await this.trustedChainTip()
                     const window = checkReverseClaimWindow(swap.timeout_block_height, tip)
@@ -1949,7 +1954,10 @@ export class Swaps {
                 heightHint: currentHeight,
                 abortSignal,
                 savedClaimHex: swap.claim_tx_hex || undefined,
-            })
+            }).catch(reject)
+        }).finally(() => {
+            abortSignal?.removeEventListener('abort', onAbort)
+            this.claimDisclosureAttempts.delete(id)
         })
     }
 
