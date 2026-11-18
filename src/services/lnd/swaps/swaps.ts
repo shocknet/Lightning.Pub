@@ -1640,7 +1640,9 @@ export class Swaps {
      * retry. A succeeded reverse-swap lightning payment is the same proof: look
      * it up only when those gates would skip. After acceptance the preimage is
      * public: retries skip those gates and keep trying to persist
-     * claim_broadcast_accepted. One broadcast at a time per swap.
+     * claim_broadcast_accepted. An unpublished hex is still first disclosure:
+     * wait on backup and re-check expiry after the marker, same as the live
+     * claim path. One broadcast at a time per swap.
      */
     private rebroadcastPublishedClaim = async (swapOpId: string) => {
         if (this.stopped || this.claimTrackAborts[swapOpId]?.signal.aborted) {
@@ -1672,15 +1674,12 @@ export class Swaps {
             }
             if (knownAccepted || this.claimIsKnownAccepted(swapOpId, latest)) {
                 await this.persistKnownClaimAcceptance(swapOpId)
-            }
-            if (!latest.claim_published) {
-                try {
-                    await this.commitClaimPublicationAttempt(swapOpId)
-                } catch (err: any) {
-                    this.log(ERROR, "WARNING: reverse-swap claim rebroadcast could not record claim_published", {
-                        swapOpId,
-                        error: err.message || String(err),
-                    })
+            } else if (!latest.claim_published) {
+                if (!await this.prepareUnacceptedClaimFirstPublication(latest)) {
+                    return
+                }
+                if (this.claimIsKnownAccepted(swapOpId, latest)) {
+                    await this.persistKnownClaimAcceptance(swapOpId)
                 }
             }
             await this.lnd.BroadcastTransaction(latest.claim_tx_hex)
@@ -1690,6 +1689,79 @@ export class Swaps {
                 this.log("rebroadcast of reverse-swap claim failed", { swapOpId, error: err.message || err })
             }
         }
+    }
+
+    /**
+     * Tracker retries of an unpublished claim are still first disclosure.
+     * Persist and wait on backup, re-price the remaining window after that
+     * wait, write the exposure marker, then refuse if expiry, abort, or an
+     * unreadable tip landed during the write. Lightning settlement during
+     * this work is independent proof the preimage is public.
+     */
+    private prepareUnacceptedClaimFirstPublication = async (swap: TransactionSwap): Promise<boolean> => {
+        const swapOpId = swap.swap_operation_id
+        if (!swap.claim_tx_hex) {
+            return false
+        }
+        try {
+            await this.persistTransactionSwapClaim(swapOpId, swap.claim_tx_hex)
+        } catch (err: any) {
+            this.log("skipping unaccepted reverse-swap claim retry; claim backup failed", {
+                swapOpId,
+                error: err.message || err,
+            })
+            return this.reverseClaimAlreadyExposed(swap, false)
+        }
+        if (this.stopped || this.claimTrackAborts[swapOpId]?.signal.aborted) {
+            return false
+        }
+        if (!await this.unacceptedClaimRetryAllowed(swap)) {
+            return false
+        }
+        if (this.claimIsKnownAccepted(swapOpId, swap)) {
+            return true
+        }
+        try {
+            await this.commitClaimPublicationAttempt(swapOpId)
+        } catch (err: any) {
+            this.log(ERROR, "WARNING: reverse-swap claim rebroadcast could not record claim_published", {
+                swapOpId,
+                error: err.message || String(err),
+            })
+            return false
+        }
+        if (this.claimIsKnownAccepted(swapOpId, swap) || await this.reverseClaimAlreadyExposed(swap, false)) {
+            return true
+        }
+        if (this.stopped || this.claimTrackAborts[swapOpId]?.signal.aborted) {
+            return false
+        }
+        let tip: number
+        try {
+            tip = await this.trustedChainTip()
+        } catch (err: any) {
+            this.log("skipping unaccepted reverse-swap claim retry; chain tip unavailable", {
+                swapOpId,
+                error: err.message || err,
+            })
+            return this.reverseClaimAlreadyExposed(swap, false)
+        }
+        const window = checkReverseClaimWindow(swap.timeout_block_height, tip)
+        if (window.ok) {
+            return true
+        }
+        if (await this.reverseClaimAlreadyExposed(swap, false)) {
+            return true
+        }
+        if (!this.unacceptedRetryWindowClosed.has(swapOpId)) {
+            this.unacceptedRetryWindowClosed.add(swapOpId)
+            this.warnUnpublishedClaimNeedsManualCheck({ ...swap, claim_published: true }, window.error)
+            this.log("stopped unaccepted reverse-swap claim retries; refund window closed", {
+                swapOpId,
+                error: window.error,
+            })
+        }
+        return false
     }
 
     private waitForAbort = (abortSignal: AbortSignal) => new Promise<void>(resolve => {
@@ -1923,7 +1995,9 @@ export class Swaps {
      * First-disclosure resume is one-shot. A persisted claim that missed the
      * spend watch and failed the window still needs the unaccepted tracker:
      * Lightning may settle after that first lookup, which is independent proof
-     * the preimage is public.
+     * the preimage is public. Until that proof exists, tracker retries still
+     * run first-publication checks and must not broadcast after a failed backup
+     * or a refund height that arrived during the marker write.
      */
     private trackUnacceptedResumedClaim = (swap: TransactionSwap) => {
         if (!swap.claim_tx_hex || swap.tx_id || this.stopped) {
