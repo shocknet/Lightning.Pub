@@ -114,6 +114,8 @@ export type ReverseClaimDeps = {
      * Persist the unpublished claim hex and wait for backup before the
      * safety checks. Required for reconstructed and reused saved signatures so
      * a crash after first disclosure still has a relayable claim.
+     * Remaining-window fees are re-checked after this wait: a cheaper
+     * earlier-window estimate must not first-disclose.
      */
     persistClaim?: (txHex: string) => Promise<void>
     getClaimFeeRates: (confTarget: number) => Promise<ReverseClaimFeeRates>
@@ -172,6 +174,12 @@ export const REVERSE_CLAIM_CONFIRMATIONS = 1
  * a safety bound: an in-flight HTLC can remain active past that setting.
  */
 export const REVERSE_CLAIM_MIN_REMAINING_BLOCKS = 6
+
+/**
+ * Rebuilds after backup moved the remaining-window feerate. Each rebuild
+ * waits on persist again. Fail closed rather than disclose at a stale rate.
+ */
+const MAX_CLAIM_FEE_RERATES = 8
 
 /**
  * SendPaymentV2 must stay in-flight until the lockup confirms and we claim.
@@ -841,13 +849,6 @@ export class ReverseSwaps {
             }
             guard = spendable.guard
 
-            let feeRates: ReverseClaimFeeRates
-            try {
-                feeRates = await deps.getClaimFeeRates(spendable.confTarget)
-            } catch (err: any) {
-                return { ok: false, error: `failed to read local claim fee rate: ${err.message || err}` }
-            }
-
             let probe: Transaction
             try {
                 probe = this.buildUnilateralClaim(data, parsed, MIN_CLAIM_SAT_PER_VBYTE)
@@ -855,15 +856,11 @@ export class ReverseSwaps {
                 return { ok: false, error: `failed to construct unilateral claim: ${err.message}` }
             }
             const vbytes = claimTargetVbytes(probe)
-            const rate = resolveClaimFeeRate(
-                feeRates.satPerVbyte,
-                feeRates.minRelaySatPerVbyte,
-                data.info.chainFee,
-                vbytes,
-            )
-            if (!rate.ok) {
-                return rate
+            const firstRate = await this.remainingWindowFeeRate(data, deps, vbytes)
+            if (!firstRate.ok) {
+                return firstRate
             }
+            let satPerVbyte = firstRate.satPerVbyte
 
             const savedHex = this.matchingSavedClaimHex(deps.savedClaimHex, parsed, data.info.preimage)
             if (savedHex) {
@@ -871,73 +868,85 @@ export class ReverseSwaps {
                 const savedRelayable = checkUnilateralClaimRelayable(
                     saved,
                     parsed.swapOutput.value,
-                    rate.satPerVbyte,
+                    satPerVbyte,
                     data.info.chainFee,
                 )
                 if (savedRelayable.ok) {
-                    const savedPersist = await this.persistClaimHex(deps, savedHex)
-                    if (savedPersist) {
-                        return savedPersist
-                    }
-                    const beforeSavedPublish = await this.prepareClaimBroadcast(data, deps, guard)
-                    if (beforeSavedPublish) {
-                        return beforeSavedPublish
-                    }
-                    try {
-                        await deps.publish(savedHex)
-                        const txId = saved.getId()
-                        this.log('Reverse-swap claim published', { txId })
-                        return { ok: true, txId }
-                    } catch (err: any) {
-                        this.log('saved reverse-swap claim was not accepted; reconstructing', {
-                            error: err.message || err,
-                        })
+                    const recheck = await this.persistAndRecheckRemainingWindow(data, parsed, deps, saved, vbytes)
+                    if (recheck.kind === 'ready') {
+                        const beforeSavedPublish = await this.prepareClaimBroadcast(data, deps, guard)
+                        if (beforeSavedPublish) {
+                            return beforeSavedPublish
+                        }
+                        try {
+                            await deps.publish(savedHex)
+                            const txId = saved.getId()
+                            this.log('Reverse-swap claim published', { txId })
+                            return { ok: true, txId }
+                        } catch (err: any) {
+                            this.log('saved reverse-swap claim was not accepted; reconstructing', {
+                                error: err.message || err,
+                            })
+                        }
+                    } else if (recheck.kind === 'reconstruct') {
+                        satPerVbyte = recheck.satPerVbyte
+                    } else {
+                        return { ok: false, error: recheck.error }
                     }
                 }
             }
 
-            let unilateral: Transaction
-            try {
-                unilateral = this.buildUnilateralClaim(data, parsed, rate.satPerVbyte)
-            } catch (err: any) {
-                return { ok: false, error: `failed to construct unilateral claim: ${err.message}` }
-            }
+            for (let attempt = 0; attempt < MAX_CLAIM_FEE_RERATES; attempt++) {
+                let unilateral: Transaction
+                try {
+                    unilateral = this.buildUnilateralClaim(data, parsed, satPerVbyte)
+                } catch (err: any) {
+                    return { ok: false, error: `failed to construct unilateral claim: ${err.message}` }
+                }
 
-            const relayable = checkUnilateralClaimRelayable(
-                unilateral,
-                parsed.swapOutput.value,
-                rate.satPerVbyte,
-                data.info.chainFee,
-            )
-            if (!relayable.ok) {
-                return relayable
-            }
+                const relayable = checkUnilateralClaimRelayable(
+                    unilateral,
+                    parsed.swapOutput.value,
+                    satPerVbyte,
+                    data.info.chainFee,
+                )
+                if (!relayable.ok) {
+                    return relayable
+                }
 
-            // Persist the script-path spend and wait for that backup before the
-            // safety checks so a crash still has a locally relayable claim.
-            // Persistence is not disclosure: unpublished saved claims must still
-            // pass the checks above (saved hex) or below (reconstructed hex).
-            // After that check the exposure marker is written, then the same
-            // checks run again before broadcast. Refusing after the marker
-            // leaves claim_published set; retry/resume still run first-disclosure
-            // unless our spend or LND acceptance is already proven.
-            const reconstructedPersist = await this.persistClaimHex(deps, unilateral.toHex())
-            if (reconstructedPersist) {
-                return reconstructedPersist
-            }
+                // Persist the script-path spend and wait for that backup before the
+                // safety checks so a crash still has a locally relayable claim.
+                // Persistence is not disclosure: unpublished saved claims must still
+                // pass the checks above (saved hex) or below (reconstructed hex).
+                // After backup, re-price against the current remaining window; a
+                // cheaper earlier-window estimate must not first-disclose.
+                // After that check the exposure marker is written, then the same
+                // checks run again before broadcast. Refusing after the marker
+                // leaves claim_published set; retry/resume still run first-disclosure
+                // unless our spend or LND acceptance is already proven.
+                const recheck = await this.persistAndRecheckRemainingWindow(data, parsed, deps, unilateral, vbytes)
+                if (recheck.kind === 'reconstruct') {
+                    satPerVbyte = recheck.satPerVbyte
+                    continue
+                }
+                if (recheck.kind !== 'ready') {
+                    return { ok: false, error: recheck.error }
+                }
 
-            const beforePublish = await this.prepareClaimBroadcast(data, deps, guard)
-            if (beforePublish) {
-                return beforePublish
-            }
+                const beforePublish = await this.prepareClaimBroadcast(data, deps, guard)
+                if (beforePublish) {
+                    return beforePublish
+                }
 
-            try {
-                await deps.publish(unilateral.toHex())
-            } catch (err: any) {
-                return { ok: false, error: err.message || String(err) }
+                try {
+                    await deps.publish(unilateral.toHex())
+                } catch (err: any) {
+                    return { ok: false, error: err.message || String(err) }
+                }
+                this.log('Reverse-swap claim published', { txId: unilateral.getId() })
+                return { ok: true, txId: unilateral.getId() }
             }
-            this.log('Reverse-swap claim published', { txId: unilateral.getId() })
-            return { ok: true, txId: unilateral.getId() }
+            return { ok: false, error: 'failed to size reverse-swap claim for the remaining window' }
         } finally {
             guard?.stop()
         }
@@ -994,6 +1003,106 @@ export class ReverseSwaps {
     }
 
     /**
+     * Remaining-window sat/vbyte against a fresh tip. Fee lookup is async:
+     * re-read the tip after it and re-estimate if remaining shrank, so a
+     * cheaper earlier-window estimate cannot first-disclose. Persist can
+     * still wait on backup; callers re-price after that wait.
+     */
+    private remainingWindowFeeRate = async (
+        data: TransactionSwapData,
+        deps: ReverseClaimDeps,
+        vbytes: number,
+    ): Promise<{ ok: true, satPerVbyte: number } | { ok: false, error: string }> => {
+        const timeout = data.createdResponse.timeoutBlockHeight
+        let feeRates: ReverseClaimFeeRates | undefined
+        for (let attempt = 0; attempt < 2; attempt++) {
+            let tip: number
+            try {
+                tip = await deps.getChainTip()
+            } catch (err: any) {
+                return { ok: false, error: `failed to read chain tip before claim: ${err.message || err}` }
+            }
+            const window = checkReverseClaimWindow(timeout, tip)
+            if (!window.ok) {
+                return window
+            }
+            const remaining = timeout - tip
+            try {
+                feeRates = await deps.getClaimFeeRates(remaining)
+            } catch (err: any) {
+                return { ok: false, error: `failed to read local claim fee rate: ${err.message || err}` }
+            }
+            try {
+                tip = await deps.getChainTip()
+            } catch (err: any) {
+                return { ok: false, error: `failed to read chain tip before claim: ${err.message || err}` }
+            }
+            const windowAfter = checkReverseClaimWindow(timeout, tip)
+            if (!windowAfter.ok) {
+                return windowAfter
+            }
+            if (timeout - tip === remaining) {
+                return resolveClaimFeeRate(
+                    feeRates.satPerVbyte,
+                    feeRates.minRelaySatPerVbyte,
+                    data.info.chainFee,
+                    vbytes,
+                )
+            }
+        }
+        if (!feeRates) {
+            return { ok: false, error: 'failed to read local claim fee rate' }
+        }
+        return resolveClaimFeeRate(
+            feeRates.satPerVbyte,
+            feeRates.minRelaySatPerVbyte,
+            data.info.chainFee,
+            vbytes,
+        )
+    }
+
+    /**
+     * Persist the unpublished claim, then re-price against the remaining
+     * window. Backup can move the tip; a cheaper earlier-window signature
+     * must not first-disclose. Reconstruct when the budget can still pay
+     * the live rate; refuse when it cannot.
+     */
+    private persistAndRecheckRemainingWindow = async (
+        data: TransactionSwapData,
+        parsed: ParsedLockup,
+        deps: ReverseClaimDeps,
+        tx: Transaction,
+        vbytes: number,
+    ): Promise<
+        | { kind: 'ready', satPerVbyte: number }
+        | { kind: 'error', error: string }
+        | { kind: 'reconstruct', satPerVbyte: number }
+    > => {
+        const persist = await this.persistClaimHex(deps, tx.toHex())
+        if (persist) {
+            return { kind: 'error', error: persist.error }
+        }
+        const live = await this.remainingWindowFeeRate(data, deps, vbytes)
+        if (!live.ok) {
+            return { kind: 'error', error: live.error }
+        }
+        const paid = checkUnilateralClaimPaysRate(tx, parsed.swapOutput.value, live.satPerVbyte)
+        if (!paid.ok) {
+            return { kind: 'reconstruct', satPerVbyte: live.satPerVbyte }
+        }
+        const relayable = checkUnilateralClaimRelayable(
+            tx,
+            parsed.swapOutput.value,
+            live.satPerVbyte,
+            data.info.chainFee,
+        )
+        if (!relayable.ok) {
+            return { kind: 'error', error: relayable.error }
+        }
+        return { kind: 'ready', satPerVbyte: live.satPerVbyte }
+    }
+
+    /**
      * Historical confirmation is not enough to disclose the preimage. Recheck
      * the trusted tip and arm a spend watch before returning a live guard.
      * Coinbase lockups are already rejected in parseAndValidateLockup.
@@ -1002,7 +1111,7 @@ export class ReverseSwaps {
         data: TransactionSwapData,
         parsed: ParsedLockup,
         deps: ReverseClaimDeps,
-    ): Promise<{ ok: true, guard: LockupSpendGuard, confTarget: number } | { ok: false, error: string }> => {
+    ): Promise<{ ok: true, guard: LockupSpendGuard } | { ok: false, error: string }> => {
         let tip: number
         try {
             tip = await deps.getChainTip()
@@ -1036,7 +1145,7 @@ export class ReverseSwaps {
                 guard.stop()
                 return unsafe
             }
-            return { ok: true, guard, confTarget: data.createdResponse.timeoutBlockHeight - tip }
+            return { ok: true, guard }
         } catch (err: any) {
             guard.stop()
             return { ok: false, error: `failed to check lockup spend status: ${err.message || err}` }

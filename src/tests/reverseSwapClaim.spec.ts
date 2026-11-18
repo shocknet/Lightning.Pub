@@ -10,6 +10,7 @@ import { ECPairFactory } from 'ecpair'
 import * as ecc from 'tiny-secp256k1'
 import {
     REVERSE_CLAIM_CONFIRMATIONS,
+    REVERSE_CLAIM_MIN_REMAINING_BLOCKS,
     ConfirmedLockupSpend,
     LockupSpendGuard,
     LockupSpendOutcome,
@@ -93,6 +94,8 @@ export default async (T: StorageTestBase) => {
     await testHighLiveRateDoesNotDisclosePreimage(T)
     await testSavedUnderfeeClaimDoesNotDisclose(T)
     await testInsufficientMinRelayDoesNotBroadcast(T)
+    await testStaleFeeAfterPersistDoesNotDisclose(T)
+    await testStaleFeeAfterPersistReconstructsWhenBudgetAllows(T)
 }
 
 const testLockupMustMatchSwapOutputAndAmount = async (T: StorageTestBase) => {
@@ -667,8 +670,8 @@ const testPublicationRecordIsFollowedBySafetyCheck = async (T: StorageTestBase) 
         publish: async () => { tipsAtPublish = tips },
     }))
     T.expect(claimed.ok, !claimed.ok ? claimed.error : '').to.equal(true)
-    T.expect(tipsAtRecord).to.equal(2)
-    T.expect(tipsAtPublish).to.equal(3)
+    T.expect(tipsAtRecord).to.be.at.least(1)
+    T.expect(tipsAtPublish).to.be.greaterThan(tipsAtRecord)
     T.d('broadcast followed a second chain-tip check after the exposure marker')
 }
 
@@ -1107,6 +1110,80 @@ const testInsufficientMinRelayDoesNotBroadcast = async (T: StorageTestBase) => {
     T.expect(persisted).to.equal(false)
     T.expect(published.length).to.equal(0)
     T.d('an unrelayable min-relay floor kept the preimage off the wire')
+}
+
+const testStaleFeeAfterPersistDoesNotDisclose = async (T: StorageTestBase) => {
+    T.d('starting claim does not publish a stale earlier-window feerate after backup')
+    const { swapper, data, lockupHex } = await setupClaim(T)
+    const timeout = data.createdResponse.timeoutBlockHeight
+    const remainingBefore = 20
+    const remainingAfter = REVERSE_CLAIM_MIN_REMAINING_BLOCKS
+    let tip = timeout - remainingBefore
+    const published: string[] = []
+    const persisted: string[] = []
+    const feeTargets: number[] = []
+    const claimed = await swapper.claimConfirmedLockup(data, lockupHex, safeClaimDeps({
+        getChainTip: async () => tip,
+        getClaimFeeRates: async (target) => {
+            feeTargets.push(target)
+            if (target > remainingAfter) {
+                return { satPerVbyte: 1, minRelaySatPerVbyte: 1 }
+            }
+            return { satPerVbyte: 50, minRelaySatPerVbyte: 1 }
+        },
+        persistClaim: async (txHex) => {
+            persisted.push(txHex)
+            tip = timeout - remainingAfter
+        },
+        publish: async (txHex) => { published.push(txHex) },
+    }))
+    T.expect(claimed.ok).to.equal(false)
+    if (!claimed.ok) {
+        T.expect(claimed.error).to.match(/cannot pay 50 sat\/vbyte for the remaining claim window/)
+    }
+    T.expect(feeTargets.includes(remainingBefore)).to.equal(true)
+    T.expect(feeTargets.includes(remainingAfter)).to.equal(true)
+    T.expect(persisted.length).to.be.at.least(1)
+    T.expect(published.length).to.equal(0)
+    T.d('a 20-block 1 sat/vbyte estimate was not disclosed after backup left 6 blocks')
+}
+
+const testStaleFeeAfterPersistReconstructsWhenBudgetAllows = async (T: StorageTestBase) => {
+    T.d('starting claim rebuilds after backup if the remaining-window feerate rose and the budget can pay it')
+    const { swapper, data, lockupHex } = await setupClaim(T, 2_000)
+    const timeout = data.createdResponse.timeoutBlockHeight
+    const remainingBefore = 20
+    const remainingAfter = REVERSE_CLAIM_MIN_REMAINING_BLOCKS
+    let tip = timeout - remainingBefore
+    const published: string[] = []
+    const persisted: string[] = []
+    const feeTargets: number[] = []
+    const claimed = await swapper.claimConfirmedLockup(data, lockupHex, safeClaimDeps({
+        getChainTip: async () => tip,
+        getClaimFeeRates: async (target) => {
+            feeTargets.push(target)
+            if (target > remainingAfter) {
+                return { satPerVbyte: 1, minRelaySatPerVbyte: 1 }
+            }
+            return { satPerVbyte: 2, minRelaySatPerVbyte: 1 }
+        },
+        persistClaim: async (txHex) => {
+            persisted.push(txHex)
+            tip = timeout - remainingAfter
+        },
+        publish: async (txHex) => { published.push(txHex) },
+    }))
+    T.expect(claimed.ok, !claimed.ok ? claimed.error : '').to.equal(true)
+    T.expect(feeTargets.includes(remainingBefore)).to.equal(true)
+    T.expect(feeTargets.includes(remainingAfter)).to.equal(true)
+    T.expect(persisted.length).to.be.greaterThan(1)
+    T.expect(published.length).to.equal(1)
+    T.expect(published[0]).to.equal(persisted[persisted.length - 1])
+    T.expect(published[0]).to.not.equal(persisted[0])
+    const claimTx = Transaction.fromHex(published[0])
+    const fee = AMOUNTS.onchainAmount - claimTx.outs[0].value
+    T.expect(fee).to.be.at.least(2 * claimTx.virtualSize())
+    T.d('backup that left 6 blocks rebuilt a 2 sat/vbyte claim instead of disclosing 1 sat/vbyte')
 }
 
 const setupClaim = async (T: StorageTestBase, chainFee = AMOUNTS.minerFee) => {
