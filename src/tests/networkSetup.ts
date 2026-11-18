@@ -10,7 +10,7 @@ import { Utils } from "../services/helpers/utilsWrapper.js"
 import { LoadStorageSettingsFromEnv } from "../services/storage/index.js"
 import { NostrSender } from "../services/nostr/sender.js"
 
-type PeerInfo = { pubkey: string, host: string }
+import { waitForRequiredChannels, type PeerInfo } from "./networkReadiness.js"
 
 export type ChainTools = {
     mine: (amount: number) => Promise<void>
@@ -27,7 +27,7 @@ const daveInfo: PeerInfo = { pubkey: '027c50fde118af534ff27e59da722422d2f3e06505
 export const setupNetwork = async (): Promise<ChainTools> => {
     const storageSettings = GetTestStorageSettings(LoadStorageSettingsFromEnv())
     const nostrSender = new NostrSender()
-    const setupUtils = new Utils({ dataDir: storageSettings.dataDir, allowResetMetricsStorages: storageSettings.allowResetMetricsStorages }, nostrSender)
+    const setupUtils = new Utils({ noCollector: true, dataDir: storageSettings.dataDir, allowResetMetricsStorages: storageSettings.allowResetMetricsStorages }, nostrSender)
     //const settingsManager = new SettingsManager(storageSettings)
     const core = new BitcoinCoreWrapper(LoadBitcoinCoreSettingsFromEnv())
     await core.InitAddress()
@@ -47,73 +47,50 @@ export const setupNetwork = async (): Promise<ChainTools> => {
     }
     const alice = new LND(() => ({ lndSettings, lndNodeSettings }), new LiquidityProvider(() => liquiditySettings, setupUtils, async () => { }, async () => { }), setupUtils, hooks)
     const bob = new LND(() => ({ lndSettings, lndNodeSettings: secondLndNodeSettings }), new LiquidityProvider(() => liquiditySettings, setupUtils, async () => { }, async () => { }), setupUtils, hooks)
-    await tryUntil<void>(async i => {
-        const peers = await alice.ListPeers()
-        if (peers.peers.length > 0) {
-            return
-        }
-        await alice.ConnectPeer(carolInfo)
-        await alice.ConnectPeer(daveInfo)
-    }, 10, 8000)
-    await tryUntil<void>(async i => {
-        const { channels } = await alice.ListChannels()
-        if (channels.some(c => c.active)) {
-            return
-        }
-        throw new Error("alice has no active channels")
-    }, 10, 6000)
-    await tryUntil<void>(async i => {
-        const peers = await bob.ListPeers()
-        if (peers.peers.length > 0) {
-            return
-        }
-        await bob.ConnectPeer(carolInfo)
-    }, 10, 8000)
-    await tryUntil<void>(async i => {
-        const { channels } = await bob.ListChannels()
-        if (channels.some(c => c.active)) {
-            return
-        }
-        throw new Error("bob has no active channels")
-    }, 10, 6000)
+    try {
+        await waitForRequiredChannels(alice, "alice", [carolInfo, daveInfo])
+        await waitForRequiredChannels(bob, "bob", [carolInfo])
 
-    const alicePubkey = await tryUntil<string>(async i => {
-        const info = await alice.GetInfo()
-        if (!info.syncedToChain) {
-            throw new Error("alice not synced to chain")
+        const alicePubkey = await tryUntil<string>(async i => {
+            const info = await alice.GetInfo()
+            if (!info.syncedToChain) {
+                throw new Error("alice not synced to chain")
+            }
+            if (!info.syncedToGraph) {
+                //await lnd.ConnectPeer({})
+                throw new Error("alice not synced to graph")
+            }
+            return info.identityPubkey
+        }, 10, 8000)
+
+        const aliceInfo: PeerInfo = { pubkey: alicePubkey, host: "alice:9735", }
+
+        const bobPubkey = await tryUntil<string>(async i => {
+            const info = await bob.GetInfo()
+            if (!info.syncedToChain) {
+                throw new Error("bob not synced to chain")
+            }
+            if (!info.syncedToGraph) {
+                //await lnd.ConnectPeer({})
+                throw new Error("bob not synced to graph")
+            }
+            return info.identityPubkey
+        }, 10, 8000)
+
+        const bobInfo: PeerInfo = { pubkey: bobPubkey, host: "bob:9735" }
+
+        console.log("network setup complete, waiting for graph to settle...")
+        await new Promise(resolve => setTimeout(resolve, 15000))
+
+        return {
+            mine: (amount: number) => core.Mine(amount),
+            sendToAddress: (address: string, amount: number) => core.SendToAddress(address, amount),
+            aliceInfo, bobInfo, carolInfo, daveInfo
         }
-        if (!info.syncedToGraph) {
-            //await lnd.ConnectPeer({})
-            throw new Error("alice not synced to graph")
-        }
-        return info.identityPubkey
-    }, 10, 8000)
-
-    const aliceInfo: PeerInfo = { pubkey: alicePubkey, host: "alice:9735", }
-
-    const bobPubkey = await tryUntil<string>(async i => {
-        const info = await bob.GetInfo()
-        if (!info.syncedToChain) {
-            throw new Error("bob not synced to chain")
-        }
-        if (!info.syncedToGraph) {
-            //await lnd.ConnectPeer({})
-            throw new Error("bob not synced to graph")
-        }
-        return info.identityPubkey
-    }, 10, 8000)
-
-    const bobInfo: PeerInfo = { pubkey: bobPubkey, host: "bob:9735" }
-
-    console.log("network setup complete, waiting for graph to settle...")
-    await new Promise(resolve => setTimeout(resolve, 15000))
-
-    alice.Stop()
-    bob.Stop()
-    return {
-        mine: (amount: number) => core.Mine(amount),
-        sendToAddress: (address: string, amount: number) => core.SendToAddress(address, amount),
-        aliceInfo, bobInfo, carolInfo, daveInfo
+    } finally {
+        alice.Stop()
+        bob.Stop()
+        setupUtils.Stop()
     }
 }
 

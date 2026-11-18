@@ -47,6 +47,7 @@ import {
     trimNodeName,
 } from "./adminNodeSettings.js";
 import { resolveInactiveSince } from "../storage/metricsStorage.js";
+import { loadUtxoClassification } from './utxoClassification.js';
 /* type TrackedOperation = {
     ts: number
     amount: number
@@ -353,7 +354,31 @@ export class AdminManager {
 
     ListUtxos = async (): Promise<Types.LndUtxos> => {
         const utxos = await this.lnd.ListUnspent()
-        return { utxos: utxos.map(toListedUtxo) }
+        if (!utxos.length) return { utxos: [] }
+        const key = utxos.map(utxo => `${utxo.outpoint?.txidStr}:${utxo.outpoint?.outputIndex}`).sort().join(',')
+        if (!this.utxoClassification || this.utxoClassification.lnd !== this.lnd || this.utxoClassification.key !== key || this.utxoClassification.expiresAt <= Date.now()) {
+            this.utxoClassification = { lnd: this.lnd, key, expiresAt: Date.now() + 30_000, result: loadUtxoClassification(this.lnd, this.storage, utxos) }
+        }
+        const cache = this.utxoClassification
+        try {
+            const origins = await cache.result
+            return { utxos: utxos.map(utxo => ({
+                ...toListedUtxo(utxo),
+                origin: Types.UtxoOrigin.UNKNOWN,
+                ...origins.get(`${utxo.outpoint?.txidStr}:${utxo.outpoint?.outputIndex}`),
+            })) }
+        } catch (err: any) {
+            if (this.utxoClassification === cache) this.utxoClassification = undefined
+            this.log(ERROR, 'failed to classify UTXOs from history', err?.message || err)
+            return { utxos: utxos.map(utxo => ({ ...toListedUtxo(utxo), origin: Types.UtxoOrigin.UNKNOWN })) }
+        }
+    }
+
+    private utxoClassification?: {
+        lnd: LND
+        key: string
+        expiresAt: number
+        result: ReturnType<typeof loadUtxoClassification>
     }
 
     GetAdminNodeSettings = async (): Promise<Types.AdminNodeSettings> => {

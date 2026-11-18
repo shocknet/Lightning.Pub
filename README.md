@@ -88,6 +88,8 @@ The dashboard opens after you pair the admin string (see [Connecting to ShockWal
 
 <img src="readme/dashboard-channels.png" alt="ShockWallet node dashboard, Channels" width="720">
 
+**Assets** labels on-chain UTXOs as user deposits, channel operations, mixed, or unknown, including change. Filter by source to see separate totals. Existing nodes reconstruct labels from Pub and LND history; see [UTXO sources](readme/utxo-origins.md).
+
 ## Installation
 
 ### One-Line Deployment
@@ -236,6 +238,21 @@ cp env.example .env && nano .env
 ```bash
 npm start
 ```
+
+`npm start` compiles the service before starting it. The service build excludes
+`src/tests`, and also supports dependencies installed with `npm ci --omit=dev`.
+After switching branches, use `npm ci` to install the versions in the lockfile.
+For optional native add-ons, `npm ci --omit=optional` leaves them out; required
+native modules such as SQLite still need to install successfully.
+
+Argon2 0.44's Linux x64 prebuilt binary requires glibc 2.34 or newer (Ubuntu 22.04
+or newer meets this requirement). Older Linux hosts need a local build toolchain
+to compile the current package from source. On Ubuntu, install `build-essential`
+and Python 3 before running `npm ci`. The installer does not provision a compiler.
+
+To compile the test suite, install development dependencies with `npm ci` and run
+`npm run build:test`. `npm test` builds and runs the suite; its integration tests
+require the regtest services described in `src/tests/docker-compose.yml`.
 
 ## Usage Notes
 
