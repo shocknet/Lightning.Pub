@@ -686,6 +686,18 @@ export default class {
         }, txId)
     }
 
+    async StageTransactionSwapClaimReplacement(swap: TransactionSwap, replacementHex: string) {
+        const history = swap.claim_tx_history || swap.claim_tx_hex
+        return this.dbs.Update<TransactionSwap>('TransactionSwap', {
+            swap_operation_id: swap.swap_operation_id,
+            tx_id: "",
+            claim_tx_hex: swap.claim_tx_hex,
+            claim_tx_history: swap.claim_tx_history,
+        }, {
+            claim_tx_history: history + '\n' + replacementHex,
+        })
+    }
+
     async MarkTransactionSwapClaimPublished(swapOperationId: string, txId?: string) {
         return this.dbs.Update<TransactionSwap>('TransactionSwap', { swap_operation_id: swapOperationId }, {
             claim_published: true,
@@ -852,6 +864,7 @@ export default class {
                     paid_at_unix: swap.paid_at_unix,
                     address_paid: swap.address_paid,
                     claim_tx_hex: swap.claim_tx_hex,
+                    claim_tx_history: swap.claim_tx_history || '',
                     claim_published: !!swap.claim_published,
                     claim_broadcast_accepted: !!swap.claim_broadcast_accepted,
                     lockup_tx_hex: swap.lockup_tx_hex,

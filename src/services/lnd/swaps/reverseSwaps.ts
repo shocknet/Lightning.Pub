@@ -67,6 +67,7 @@ export type ReverseLockupSpendQuery = {
 export type LockupSpend = {
     spendingTxId: string
     spendingHeight: number
+    spendingTxHex?: string
 }
 
 export type LockupSpendOutcome = { kind: 'spent', spend: LockupSpend } | { kind: 'failed', error: Error }
@@ -1222,9 +1223,27 @@ export class ReverseSwaps {
     }
 
     private buildUnilateralClaim = (data: TransactionSwapData, parsed: ParsedLockup, satPerVbyte: number): Transaction => {
+        const destination = address.toOutputScript(data.info.destinationAddress, getNetwork(this.network))
+        return targetFee(satPerVbyte, fee => this.buildUnilateralClaimAtFee(data, parsed, destination, fee))
+    }
+
+    buildClaimReplacement = (data: TransactionSwapData, parsed: ParsedLockup, current: Transaction, fee: number): Transaction => {
+        const destination = address.toOutputScript(data.info.destinationAddress, getNetwork(this.network))
+        const input = current.ins[0]
+        if (current.ins.length !== 1 || current.outs.length !== 1
+            || !input.hash.equals(parsed.lockupTx.getHash()) || input.index !== parsed.swapOutput.vout
+            || !current.outs[0].script.equals(destination)) {
+            throw new Error('saved claim does not match the verified lockup and destination')
+        }
+        const replacement = this.buildUnilateralClaimAtFee(data, parsed, destination, fee)
+        if (replacement.virtualSize() !== current.virtualSize()) {
+            throw new Error('replacement has a different virtual size than the saved claim')
+        }
+        return replacement
+    }
+
+    private buildUnilateralClaimAtFee = (data: TransactionSwapData, parsed: ParsedLockup, destination: Buffer, fee: number): Transaction => {
         const { info } = data
-        const network = getNetwork(this.network)
-        const destination = address.toOutputScript(info.destinationAddress, network)
         const utxos = [
             {
                 ...parsed.swapOutput,
@@ -1237,6 +1256,6 @@ export class ReverseSwaps {
                 internalKey: parsed.internalKey,
             },
         ]
-        return targetFee(satPerVbyte, (fee) => constructClaimTransaction(utxos, destination, fee))
+        return constructClaimTransaction(utxos, destination, fee)
     }
 }

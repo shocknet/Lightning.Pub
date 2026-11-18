@@ -22,6 +22,7 @@ import {
     LockupSpend,
 } from '../services/lnd/swaps/reverseSwaps.js'
 import Lnd from '../services/lnd/lnd.js'
+import { Swaps } from '../services/lnd/swaps/swaps.js'
 import { getNetwork } from '../services/lnd/swaps/swapHelpers.js'
 import { StorageTestBase } from './testBase.js'
 
@@ -98,6 +99,9 @@ export default async (T: StorageTestBase) => {
     await testStaleFeeAfterPersistDoesNotDisclose(T, 'marker')
     await testStaleFeeAfterPersistReconstructsWhenBudgetAllows(T)
     await testStaleFeeDuringEstimateDoesNotDisclose(T)
+    await testTrackedClaimFeeBump(T, 'deadline')
+    await testTrackedClaimFeeBump(T, 'relay')
+    await testTrackedClaimFeeBump(T, 'over-budget')
 }
 
 const testLockupMustMatchSwapOutputAndAmount = async (T: StorageTestBase) => {
@@ -232,10 +236,10 @@ const testProviderWebsocketCannotFinishOrAbort = async (T: StorageTestBase) => {
 }
 
 const waitMs = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms))
-const waitUntil = async (ok: () => boolean, ms = 500) => {
+const waitUntil = async (ok: () => boolean | Promise<boolean>, ms = 500) => {
     const deadline = Date.now() + ms
     while (Date.now() < deadline) {
-        if (ok()) {
+        if (await ok()) {
             return
         }
         await waitMs(10)
@@ -887,7 +891,9 @@ const testWatchLockupSpendHistoricalIncludesMempoolTxId = async (T: StorageTestB
         },
     })
     const result = await historical
-    T.expect(result).to.deep.equal({ spendingTxId: spendTx.getId(), spendingHeight: 0 })
+    T.expect(result).to.deep.equal({
+        spendingTxId: spendTx.getId(), spendingHeight: 0, spendingTxHex: spendTx.toHex(),
+    })
     T.expect(guard.isSpent()).to.equal(true)
     guard.stop()
     T.d('a mempool spend was reported with its txid before confirmation')
@@ -1221,6 +1227,144 @@ const testStaleFeeDuringEstimateDoesNotDisclose = async (T: StorageTestBase) => 
     T.expect(persisted.length).to.equal(0)
     T.expect(published.length).to.equal(0)
     T.d('two mismatched remaining windows during fee lookup kept the preimage off the wire')
+}
+
+const testTrackedClaimFeeBump = async (T: StorageTestBase, trigger: 'deadline' | 'relay' | 'over-budget') => {
+    const { swapper, data, lockupHex, preimage } = await setupClaim(T)
+    const quote = data.createdResponse
+    let originalHex = ''
+    const claim = await swapper.claimConfirmedLockup(data, lockupHex, safeClaimDeps({
+        publish: async hex => { originalHex = hex },
+    }))
+    T.expect(claim.ok).to.equal(true)
+    const original = Transaction.fromHex(originalHex)
+    const originalFee = AMOUNTS.onchainAmount - original.outs[0].value
+    const relayFee = originalFee + 19
+    const swap = await T.storage.paymentStorage.AddTransactionSwap({
+        app_user_id: 'reverse-bump-test',
+        swap_quote_id: quote.id,
+        swap_tree: JSON.stringify(quote.swapTree),
+        lockup_address: quote.lockupAddress,
+        refund_public_key: quote.refundPublicKey,
+        timeout_block_height: quote.timeoutBlockHeight,
+        invoice: quote.invoice,
+        invoice_amount: AMOUNTS.invoiceAmount,
+        transaction_amount: AMOUNTS.onchainAmount,
+        swap_fee_sats: AMOUNTS.swapFee,
+        chain_fee_sats: AMOUNTS.minerFee,
+        preimage,
+        ephemeral_public_key: Buffer.from(data.info.keys.publicKey).toString('hex'),
+        ephemeral_private_key: Buffer.from(data.info.keys.privateKey!).toString('hex'),
+        address_paid: DEST,
+        paid_at_unix: 1,
+        claim_tx_hex: originalHex,
+        claim_published: true,
+        claim_broadcast_accepted: true,
+        lockup_tx_hex: lockupHex,
+        service_url: swapper.getHttpUrl(),
+    })
+    const swaps = new Swaps({
+        getSettings: () => ({
+            lndSettings: { network: 'regtest' },
+            swapsSettings: { enableSwaps: true },
+        }),
+    } as any, T.storage)
+    swaps.revSwappers[swap.service_url] = swapper
+    swaps.claimRebroadcastMs = 0
+    const row = () => T.storage.paymentStorage.GetTransactionSwapRecord(swap.swap_operation_id)
+    let tip = quote.timeoutBlockHeight - 7
+    let onBlock: ((height: number) => void) | undefined
+    let confirm: ((spend: ConfirmedLockupSpend) => void) | undefined
+    const confirmation = new Promise<ConfirmedLockupSpend>(resolve => { confirm = resolve })
+    const feeTargets: number[] = []
+    const broadcasts: string[] = []
+    let budgetWarnings = 0
+    let replacementFailures = 0
+    let rejectRelay = false
+    let rejectReplacement = trigger === 'deadline'
+    swaps.log = (...args: unknown[]) => {
+        if (args.includes('reverse-swap claim fee bump exceeds quoted budget; operator action required')) {
+            budgetWarnings++
+        }
+        if (args.includes('reverse-swap fee bump failed')) {
+            replacementFailures++
+        }
+    }
+    swaps.SetLnd({
+        GetInfo: async () => ({ syncedToChain: true, blockHeight: tip }),
+        WatchBlockHeights: (cb: (height: number) => void) => { onBlock = cb },
+        WatchLockupSpend: () => idleSpendGuard({ waitForConfirmedSpend: () => confirmation }),
+        EstimateSatPerVbyte: async (target: number) => {
+            feeTargets.push(target)
+            return { satPerVbyte: trigger === 'over-budget' ? 100 : 2, minRelaySatPerVbyte: 1 }
+        },
+        BroadcastTransaction: async (hex: string) => {
+            broadcasts.push(hex)
+            if (hex === originalHex && rejectRelay) {
+                throw new Error(`mempool min fee not met, ${originalFee} < ${relayFee}`)
+            }
+            if (hex !== originalHex) {
+                T.expect((await row())?.claim_tx_history.split('\n')).to.include(hex)
+                if (rejectReplacement) {
+                    throw new Error('replacement rejected without a fee floor')
+                }
+            }
+            return { txId: Transaction.fromHex(hex).getId() }
+        },
+    } as any)
+
+    try {
+        await swaps.ResumeTransactionSwaps()
+        await waitUntil(() => !!onBlock)
+        onBlock!(tip)
+        await waitUntil(() => broadcasts.length >= 2)
+        T.expect(broadcasts).to.deep.equal([originalHex, originalHex])
+        T.expect(feeTargets).to.deep.equal([])
+
+        if (trigger === 'relay') {
+            rejectRelay = true
+        } else {
+            tip = quote.timeoutBlockHeight - 6
+        }
+        // Let the previous rebroadcast finish before delivering another block.
+        await waitMs(20)
+        onBlock!(tip)
+        if (trigger === 'over-budget') {
+            await waitUntil(() => budgetWarnings === 1)
+            T.expect(feeTargets).to.deep.equal([4])
+            T.expect(broadcasts).to.deep.equal([originalHex, originalHex, originalHex])
+            T.expect((await row())?.claim_tx_history).to.equal('')
+            return
+        }
+
+        if (trigger === 'deadline') {
+            await waitUntil(() => replacementFailures === 1)
+            T.expect((await row())?.claim_tx_hex).to.equal(originalHex)
+            onBlock!(tip)
+            await waitUntil(() => broadcasts.length >= 6)
+            T.expect(broadcasts.slice(-2)).to.deep.equal([broadcasts[3], originalHex])
+            rejectReplacement = false
+            await waitMs(20)
+            onBlock!(tip)
+        }
+        await waitUntil(async () => (await row())?.claim_tx_hex !== originalHex)
+        const replacement = Transaction.fromHex((await row())!.claim_tx_hex)
+        const expectedFee = trigger === 'relay' ? relayFee : original.virtualSize() * 2
+        T.expect(AMOUNTS.onchainAmount - replacement.outs[0].value).to.equal(expectedFee)
+        T.expect(replacement.outs[0].value).to.be.at.least(RECEIVE_SATS)
+        T.expect(replacement.outs[0].script.equals(original.outs[0].script)).to.equal(true)
+        T.expect(replacement.ins[0].hash.equals(original.ins[0].hash)).to.equal(true)
+        T.expect(replacement.ins[0].index).to.equal(original.ins[0].index)
+        T.expect(replacement.ins[0].sequence).to.be.lessThan(0xfffffffe)
+        T.expect(feeTargets).to.deep.equal(trigger === 'relay' ? [] : [4])
+
+        confirm!({ spendingTxId: original.getId(), spendingHeight: tip })
+        await waitUntil(async () => (await row())?.tx_id === original.getId())
+        T.expect((await row())?.failure_reason).to.equal('')
+    } finally {
+        swaps.Stop()
+        await T.storage.paymentStorage.DeleteTransactionSwap(swap.swap_operation_id)
+    }
 }
 
 const setupClaim = async (T: StorageTestBase, chainFee = AMOUNTS.minerFee) => {

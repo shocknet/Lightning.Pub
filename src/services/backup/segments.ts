@@ -800,6 +800,7 @@ export type TransactionSwapRow = {
     paid_at_unix: number
     address_paid: string
     claim_tx_hex: string
+    claim_tx_history?: string
     claim_published: boolean
     claim_broadcast_accepted: boolean
     lockup_tx_hex: string
@@ -829,6 +830,7 @@ export const mapTransactionSwapBackupRow = (swap: TransactionSwap): TransactionS
     paid_at_unix: unixFromBackup(swap.paid_at_unix),
     address_paid: swap.address_paid || '',
     claim_tx_hex: swap.claim_tx_hex || '',
+    ...(swap.claim_tx_history ? { claim_tx_history: swap.claim_tx_history } : {}),
     claim_published: !!swap.claim_published,
     claim_broadcast_accepted: !!swap.claim_broadcast_accepted,
     lockup_tx_hex: swap.lockup_tx_hex || '',
@@ -867,11 +869,13 @@ export const encodeTransactionSwapRow = (row: TransactionSwapRow): Uint8Array =>
     if (row.claim_broadcast_accepted) {
         tlv[27] = [boolToBytes(true)]
     }
+    putString(tlv, 28, row.claim_tx_history || '', true)
     return encodeTLV(tlv)
 }
 
 export const decodeTransactionSwapRow = (data: Uint8Array): TransactionSwapRow => {
     const tlv = parseTLV(data)
+    const claimHistory = tlvString(tlv, 28)
     return {
         swap_operation_id: tlvString(tlv, 2),
         app_user_id: tlvString(tlv, 3),
@@ -895,6 +899,7 @@ export const decodeTransactionSwapRow = (data: Uint8Array): TransactionSwapRow =
         paid_at_unix: tlvNumber(tlv, 21),
         address_paid: tlvString(tlv, 22),
         claim_tx_hex: tlvString(tlv, 23),
+        ...(claimHistory ? { claim_tx_history: claimHistory } : {}),
         lockup_tx_hex: tlvString(tlv, 24),
         service_url: tlvString(tlv, 25),
         claim_published: tlvBool(tlv, 26),

@@ -74,6 +74,11 @@ export class TransactionSwap {
     @Column({ default: "", type: "text" })
     claim_tx_hex: string
 
+    // Signed claim versions in publication order, including the original once
+    // a replacement is staged. claim_tx_hex remains the last accepted version.
+    @Column({ default: "", type: "text" })
+    claim_tx_history: string
+
     // Set before BroadcastTransaction so a crash still resumes as a publication
     // attempt. A stored signature is not disclosure until this is set. Once true,
     // this must not be cleared: reconstructed claims keep the same preimage and

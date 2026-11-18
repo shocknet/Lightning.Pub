@@ -286,6 +286,7 @@ const generateTransactionSwapRow = (base: number): TransactionSwapRow => {
         paid_at_unix: 1,
         address_paid: 'bcrt1qdest',
         claim_tx_hex: '020000000002',
+        claim_tx_history: '020000000001\n020000000002',
         claim_published: true,
         claim_broadcast_accepted: true,
         lockup_tx_hex: '020000000003',

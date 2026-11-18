@@ -22,6 +22,31 @@ export const isAlreadyBroadcastError = (message: string): boolean => {
     return msg.includes('already in') || msg.includes('already have') || msg.includes('txn-already')
 }
 
+/** Core reports the minimum in its explicit mempool and replacement fee rejects. */
+export const rejectedClaimFeeFloor = (err: unknown, currentFee: number): number | undefined => {
+    const match = /\b(mempool min fee not met|min relay fee not met|not enough additional fees to relay|less fees than conflicting txs)[,;:]?\s+(\d+(?:\.\d+)?)\s*<\s*(\d+(?:\.\d+)?)/i
+        .exec(asError(err).message)
+    if (!match) {
+        return undefined
+    }
+    const [, reason, paidText, minimumText] = match
+    // Older Core versions format replacement-policy amounts in BTC.
+    const satoshis = (value: string) => value.includes('.') ? Math.round(Number(value) * 100_000_000) : Number(value)
+    const paid = satoshis(paidText)
+    const minimum = satoshis(minimumText)
+    if (!Number.isSafeInteger(paid) || !Number.isSafeInteger(minimum) || minimum <= paid) {
+        return undefined
+    }
+    switch (reason.toLowerCase()) {
+        case 'not enough additional fees to relay':
+            return currentFee + minimum - paid
+        case 'less fees than conflicting txs':
+            return minimum + 1
+        default:
+            return minimum
+    }
+}
+
 /**
  * Publish via `publish`, then return the locally computed txid.
  *

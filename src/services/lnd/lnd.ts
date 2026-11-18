@@ -391,7 +391,10 @@ export default class {
             const details = event.event.spend
             const spendingTxId = spendingTxIdFromDetails(details)
             const spendingHeight = details.spendingHeight
-            const spend = { spendingTxId, spendingHeight }
+            const spendingTxHex = details.rawSpendingTx?.length
+                ? Buffer.from(details.rawSpendingTx).toString('hex')
+                : undefined
+            const spend = { spendingTxId, spendingHeight, spendingTxHex }
             sawSpend = true
             lastSpend = spend
             emit(() => reportOutcome({ kind: 'spent', spend }))

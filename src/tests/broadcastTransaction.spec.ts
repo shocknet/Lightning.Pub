@@ -1,5 +1,5 @@
 import { Transaction } from 'bitcoinjs-lib'
-import { broadcastPublishedTx, isAlreadyBroadcastError, type KnownTx } from '../services/lnd/publishError.js'
+import { broadcastPublishedTx, isAlreadyBroadcastError, rejectedClaimFeeFloor, type KnownTx } from '../services/lnd/publishError.js'
 import { StorageTestBase } from './testBase.js'
 
 export const ignore = false
@@ -31,6 +31,10 @@ const expectRejected = async (T: StorageTestBase, run: () => Promise<unknown>, m
 
 export default async (T: StorageTestBase) => {
     await testBroadcastPublishedTx(T)
+    T.expect(rejectedClaimFeeFloor(new Error('mempool min fee not met, 200 < 215'), 200)).to.equal(215)
+    T.expect(rejectedClaimFeeFloor(new Error('not enough additional fees to relay; 5 < 130'), 200)).to.equal(325)
+    T.expect(rejectedClaimFeeFloor(new Error('not enough additional fees to relay; 0.00000005 < 0.00000130'), 200)).to.equal(325)
+    T.expect(rejectedClaimFeeFloor(new Error('insufficient fee'), 200)).to.equal(undefined)
 }
 
 const testBroadcastPublishedTx = async (T: StorageTestBase) => {
