@@ -74,6 +74,29 @@ const testIncrementUserBalanceRejectsNegativeAmount = async (T: TestBase) => {
     T.d("IncrementUserBalance rejects negative increment and leaves balance unchanged")
 }
 
+const testNewInvoiceRejectsFractionalAmount = async (T: TestBase) => {
+    T.d("starting testNewInvoiceRejectsFractionalAmount")
+    const application = await T.main.storage.applicationStorage.GetApplication(T.app.appId)
+    await expectThrowsAsync(
+        T.main.paymentManager.NewInvoice(T.user1.userId, { amountSats: 10.5, memo: "fraction" }, { linkedApplication: application, expiry: defaultInvoiceExpiry }),
+        "amount must be an integer number of sats",
+    )
+    T.d("NewInvoice rejects fractional amount")
+}
+
+const testAddProductRejectsNonIntegerPrice = async (T: TestBase) => {
+    T.d("starting testAddProductRejectsNonIntegerPrice")
+    await expectThrowsAsync(
+        T.main.productManager.AddProduct(T.user1.userId, { name: "fractional product", price_sats: 10.5 }),
+        "price_sats must be an integer number of sats",
+    )
+    await expectThrowsAsync(
+        T.main.productManager.AddProduct(T.user1.userId, { name: "negative product", price_sats: -50 }),
+        "price_sats cannot be negative",
+    )
+    T.d("AddProduct rejects fractional and negative price_sats")
+}
+
 const testDecrementUserBalanceRejectsNegativeAmount = async (T: TestBase) => {
     T.d("starting testDecrementUserBalanceRejectsNegativeAmount")
     const user = await T.main.storage.userStorage.GetUser(T.user1.userId)
@@ -92,6 +115,8 @@ export default async (T: TestBase) => {
     await testPayInvoiceRejectsNegativeAmount(T)
     await testPayInvoiceRejectsZeroAmountInvoice(T)
     await testNewInvoiceRejectsZeroAmount(T)
+    await testNewInvoiceRejectsFractionalAmount(T)
+    await testAddProductRejectsNonIntegerPrice(T)
     await testPayInternalInvoiceRejectsNegativeAmount(T)
     await testIncrementUserBalanceRejectsNegativeAmount(T)
     await testDecrementUserBalanceRejectsNegativeAmount(T)

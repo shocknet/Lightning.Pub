@@ -22,8 +22,8 @@ export class UserOffer {
     @Column({ default: 0 })
     price_sats: number
 
-    @Column({ default: "" })
-    callback_url: string
+    @Column({ type: "varchar", nullable: true, default: null })
+    callback_url: string | null
 
     @Column({
         nullable: true,

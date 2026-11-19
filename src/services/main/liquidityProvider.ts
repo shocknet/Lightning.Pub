@@ -56,11 +56,11 @@ export class LiquidityProvider {
             this.log("No pub provider to liquidity provider, will not be initialized")
             return
         }
+        this.providerPubkey = providerPubkey
         if (disableLiquidityProvider) {
             this.log("Liquidity provider is disabled, will not be initialized")
             return
         }
-        this.providerPubkey = providerPubkey
     }
 
     usesExternalProvider = () => {
@@ -435,15 +435,29 @@ export class LiquidityProvider {
         return res
     }
 
-    GetOperations = async (max = 200) => {
+    newGetUserOperationsRequest = (incoming: Types.OperationsCursor, outgoing: Types.OperationsCursor, limit: number) => {
+        return {
+            latestIncomingInvoice: incoming,
+            latestOutgoingInvoice: outgoing,
+            latestIncomingTx: { ts: 0, id: 0 }, latestOutgoingTx: { ts: 0, id: 0 }, latestIncomingUserToUserPayment: { ts: 0, id: 0 },
+            latestOutgoingUserToUserPayment: { ts: 0, id: 0 }, max_size: limit
+        }
+    }
+
+    GetOperations = async (incoming: Types.OperationsCursor | undefined, outgoing: Types.OperationsCursor | undefined, limit: number | undefined):Promise<{latestIncomingInvoiceOperations: Types.UserOperations, latestOutgoingInvoiceOperations: Types.UserOperations}|'timeout'> => {
         if (!this.IsReady()) {
             throw new Error("liquidity provider is not ready yet, disabled or unreachable")
         }
-        const res = await this.client.GetUserOperations({
-            latestIncomingInvoice: { ts: 0, id: 0 }, latestOutgoingInvoice: { ts: 0, id: 0 },
-            latestIncomingTx: { ts: 0, id: 0 }, latestOutgoingTx: { ts: 0, id: 0 }, latestIncomingUserToUserPayment: { ts: 0, id: 0 },
-            latestOutgoingUserToUserPayment: { ts: 0, id: 0 }, max_size: max
-        })
+        const latestIncomingInvoice = incoming || { ts: 0, id: 0 }
+        const latestOutgoingInvoice = outgoing || { ts: 0, id: 0 }
+        const maxSize = limit || 20
+        const res = await Promise.race([
+            this.client.GetUserOperations(this.newGetUserOperationsRequest(latestIncomingInvoice, latestOutgoingInvoice, maxSize)),
+            new Promise<false>(res => setTimeout(() => res(false), 10 * 1000))
+        ])
+        if (res === false) {
+            return 'timeout'
+        }
         if (res.status === 'ERROR') {
             this.log("error getting operations", res.reason)
             throw new Error(res.reason)
@@ -466,6 +480,17 @@ export class LiquidityProvider {
         if (!this.configured && this.utils.nostrSender.IsReady()) {
             this.setSetIfConfigured()
         }
+    }
+
+    syncAfterSettingsChange = () => {
+        if (!this.providerPubkey) {
+            this.providerPubkey = this.getSettings().liquidityProviderPub
+        }
+        if (!this.usesExternalProvider() || !this.localPubkey) {
+            return
+        }
+        this.initExternalProviderClient()
+        this.setSetIfConfigured()
     }
 
 

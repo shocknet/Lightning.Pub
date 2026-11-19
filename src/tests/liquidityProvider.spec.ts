@@ -1,8 +1,8 @@
 import { disableLoggers } from '../services/helpers/logger.js'
-import { runSanityCheck, safelySetUserBalance, TestBase, TestUserData } from './testBase.js'
+import { expectThrowsAsync, runSanityCheck, safelySetUserBalance, TestBase, TestUserData } from './testBase.js'
 import { initBootstrappedInstance } from './setupBootstrapped.js'
 import Main from '../services/main/index.js'
-import { AppData } from '../services/main/init.js'
+import { SWAP_INVOICE_MUST_USE_LND } from '../services/lnd/swaps/reverseSwaps.js'
 export const ignore = false
 export const dev = false
 
@@ -14,6 +14,7 @@ export default async (T: TestBase) => {
     T.d("starting liquidityProvider tests...")
     const { bootstrapped, bootstrappedUser, stop } = await initBootstrappedInstance(T)
     await testInboundPaymentFromProvider(T, bootstrapped, bootstrappedUser)
+    await testSwapInvoiceCannotUseProvider(T, bootstrapped, bootstrappedUser)
     await testOutboundPaymentFromProvider(T, bootstrapped, bootstrappedUser)
     stop()
     await runSanityCheck(T)
@@ -32,6 +33,22 @@ const testInboundPaymentFromProvider = async (T: TestBase, bootstrapped: Main, b
     T.expect(providerBalance).to.equal(3000)
     T.d("provider balance is 3000")
     T.d("testInboundPaymentFromProvider done")
+}
+
+const testSwapInvoiceCannotUseProvider = async (T: TestBase, bootstrapped: Main, bUser: TestUserData) => {
+    T.d("starting swap invoice cannot be paid via liquidity provider")
+    const invoice = await T.externalAccessToOtherLnd.NewInvoice(2000, "", 60 * 60, { from: 'system', useProvider: false })
+    const app = await bootstrapped.storage.applicationStorage.GetApplication(bUser.appId)
+    const before = await bootstrapped.appUserManager.GetUserInfo({ app_id: bUser.appId, user_id: bUser.userId, app_user_id: bUser.appUserIdentifier })
+    await expectThrowsAsync(
+        bootstrapped.paymentManager.PayInvoice(bUser.userId, { invoice: invoice.payRequest, amount: 0 }, app, {
+            swapOperationId: 'swap-must-not-use-provider',
+        }),
+        SWAP_INVOICE_MUST_USE_LND,
+    )
+    const after = await bootstrapped.appUserManager.GetUserInfo({ app_id: bUser.appId, user_id: bUser.userId, app_user_id: bUser.appUserIdentifier })
+    T.expect(after.balance).to.equal(before.balance)
+    T.d("provider-only node refused a swap-tagged invoice pay without debiting")
 }
 
 const testOutboundPaymentFromProvider = async (T: TestBase, bootstrapped: Main, bootstrappedUser: TestUserData) => {

@@ -1,6 +1,7 @@
-import { Entity, PrimaryGeneratedColumn, Column, Index, Check, CreateDateColumn, UpdateDateColumn } from "typeorm"
+import { Entity, PrimaryGeneratedColumn, Column, Index, CreateDateColumn, UpdateDateColumn } from "typeorm"
 
 @Entity()
+@Index("unique_root_operation", ["operation_type", "operation_identifier"], { unique: true })
 export class RootOperation {
     @PrimaryGeneratedColumn()
     serial_id: number
