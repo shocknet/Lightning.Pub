@@ -1746,6 +1746,8 @@ The nostr server will send back a message response, and inside the body there wi
   - __address__: _string_
   - __amount_sat__: _number_
   - __confirmations__: _number_
+  - __is_change__: _boolean_ *this field is optional
+  - __origin__: _[UtxoOrigin](#UtxoOrigin)_ *this field is optional
   - __output_index__: _number_
   - __txid__: _string_
 
@@ -2248,3 +2250,9 @@ The nostr server will send back a message response, and inside the body there wi
   - __OUTGOING_INVOICE__
   - __OUTGOING_TX__
   - __OUTGOING_USER_TO_USER__
+
+### UtxoOrigin
+  - __CHANNEL__
+  - __MIXED__
+  - __UNKNOWN__
+  - __USER_DEPOSIT__

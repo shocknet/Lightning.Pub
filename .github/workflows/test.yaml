@@ -9,6 +9,40 @@ permissions:
   actions: write
 
 jobs:
+  production-build:
+    runs-on: ubuntu-latest
+    # Exercise prebuilt native modules on their supported Linux userspace,
+    # without accidentally relying on the runner's compiler toolchain.
+    container: ubuntu:22.04
+    steps:
+      - name: Install runtime libraries without a compiler
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates libstdc++6
+          ! command -v make
+          ! command -v g++
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - name: Install production dependencies
+        run: npm ci --omit=dev --omit=optional
+      - name: Build service without test dependencies
+        run: |
+          npm run build
+          test -f build/src/index.js
+          test ! -d build/src/tests
+      - name: Verify backup key compatibility using the npm prebuilt binary
+        run: |
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import { deriveBackupKeys } from './build/src/services/backup/derivation.js';
+          const phrase = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
+          const keys = await deriveBackupKeys(phrase);
+          assert.equal(keys.encKey.toString('hex'), '2afb79f1e234017c9776ee23adf938756d7ab3f3dc7a2a7228a0e88aa6fe028e');
+          JS
+
   test:
     runs-on: ubuntu-latest
     steps:
@@ -108,8 +142,8 @@ jobs:
         run: npm list
       - name: Install dependencies
         run: npm install
-      - name: Build
-        run: npm run build
+      - name: Build service and tests
+        run: npm run build:test
       - name: Start callback dummy server
         run: |
           node build/src/tests/callbackDummyServer.js &
@@ -124,7 +158,7 @@ jobs:
         run: kill $(cat /tmp/callback-dummy-server.pid) 2>/dev/null || true
 
   propose-release:
-    needs: test
+    needs: [test, production-build]
     runs-on: ubuntu-latest
     # Only propose releases from default branches; skip after an autorelease merge.
     if: ${{ (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main') && !contains(github.event.head_commit.message, 'autorelease/') }}

@@ -561,6 +561,16 @@ export const enumCheckUserOperationType = (e?: UserOperationType): boolean => {
     for (const v in UserOperationType) if (e === v) return true
     return false
 }
+export enum UtxoOrigin {
+    CHANNEL = 'CHANNEL',
+    MIXED = 'MIXED',
+    UNKNOWN = 'UNKNOWN',
+    USER_DEPOSIT = 'USER_DEPOSIT',
+}
+export const enumCheckUtxoOrigin = (e?: UtxoOrigin): boolean => {
+    for (const v in UtxoOrigin) if (e === v) return true
+    return false
+}
 
 export type OptionsBaseMessage = {
     allOptionalsAreSet?: true
@@ -3608,15 +3618,20 @@ export type LndUtxo = {
     address: string
     amount_sat: number
     confirmations: number
+    is_change?: boolean
+    origin?: UtxoOrigin
     output_index: number
     txid: string
 }
-export const LndUtxoOptionalFields: [] = []
+export type LndUtxoOptionalField = 'is_change' | 'origin'
+export const LndUtxoOptionalFields: LndUtxoOptionalField[] = ['is_change', 'origin']
 export type LndUtxoOptions = OptionsBaseMessage & {
-    checkOptionalsAreSet?: []
+    checkOptionalsAreSet?: LndUtxoOptionalField[]
     address_CustomCheck?: (v: string) => boolean
     amount_sat_CustomCheck?: (v: number) => boolean
     confirmations_CustomCheck?: (v: number) => boolean
+    is_change_CustomCheck?: (v?: boolean) => boolean
+    origin_CustomCheck?: (v?: UtxoOrigin) => boolean
     output_index_CustomCheck?: (v: number) => boolean
     txid_CustomCheck?: (v: string) => boolean
 }
@@ -3632,6 +3647,12 @@ export const LndUtxoValidate = (o?: LndUtxo, opts: LndUtxoOptions = {}, path: st
 
     if (typeof o.confirmations !== 'number') return new Error(`${path}.confirmations: is not a number`)
     if (opts.confirmations_CustomCheck && !opts.confirmations_CustomCheck(o.confirmations)) return new Error(`${path}.confirmations: custom check failed`)
+
+    if ((o.is_change || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('is_change')) && typeof o.is_change !== 'boolean') return new Error(`${path}.is_change: is not a boolean`)
+    if (opts.is_change_CustomCheck && !opts.is_change_CustomCheck(o.is_change)) return new Error(`${path}.is_change: custom check failed`)
+
+    if ((o.origin || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('origin')) && !enumCheckUtxoOrigin(o.origin)) return new Error(`${path}.origin: is not a valid UtxoOrigin`)
+    if (opts.origin_CustomCheck && !opts.origin_CustomCheck(o.origin)) return new Error(`${path}.origin: custom check failed`)
 
     if (typeof o.output_index !== 'number') return new Error(`${path}.output_index: is not a number`)
     if (opts.output_index_CustomCheck && !opts.output_index_CustomCheck(o.output_index)) return new Error(`${path}.output_index: custom check failed`)
