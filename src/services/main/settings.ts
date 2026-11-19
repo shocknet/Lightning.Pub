@@ -229,11 +229,11 @@ export type SwapsSettings = {
 
 export const LoadSwapsSettingsFromEnv = (dbEnv: Record<string, string | undefined>, addToDb?: EnvCacher): SwapsSettings => {
     return {
-        boltzHttpUrl: chooseEnv("BOLTZ_HTTP_URL", dbEnv, "https://swaps.zeuslsp.com/api", addToDb),
-        boltzWebSocketUrl: chooseEnv("BOLTZ_WEBSOCKET_URL", dbEnv, "wss://swaps.zeuslsp.com/api", addToDb),
-        boltsHttpUrlAlt: chooseEnv("BOLTZ_HTTP_URL_ALT", dbEnv, "https://api.boltz.exchange/", addToDb),
-        boltsWebSocketUrlAlt: chooseEnv("BOLTZ_WEBSOCKET_URL_ALT", dbEnv, "wss://api.boltz.exchange/", addToDb),
-        enableSwaps: false, // hard-disabled; Boltz providers are unsafe. ENABLE_SWAPS is ignored.
+        boltzHttpUrl: chooseEnv("BOLTZ_HTTP_URL", dbEnv, "https://satsrouting.exchange", addToDb),
+        boltzWebSocketUrl: chooseEnv("BOLTZ_WEBSOCKET_URL", dbEnv, "wss://satsrouting.exchange", addToDb),
+        boltsHttpUrlAlt: chooseEnv("BOLTZ_HTTP_URL_ALT", dbEnv, "", addToDb),
+        boltsWebSocketUrlAlt: chooseEnv("BOLTZ_WEBSOCKET_URL_ALT", dbEnv, "", addToDb),
+        enableSwaps: chooseEnvBool("ENABLE_SWAPS", dbEnv, true, addToDb),
     }
 }
 

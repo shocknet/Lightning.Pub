@@ -55,6 +55,8 @@ import {
     encodeInviteTokenRow,
     encodeBalanceRow,
     encodeTrackedProviderRow,
+    encodeInvoiceSwapRow,
+    encodeTransactionSwapRow,
     encryptTableRows,
     IndexesRow,
     encodeIndexesRow,
@@ -262,6 +264,16 @@ export class BackupManager {
         }
     }
 
+    /**
+     * Publish these tables immediately so recovery material is on the backup
+     * destination before a subsequent funding or claim broadcast. No-op when
+     * backups are not configured.
+     */
+    async flushTablesNow(...ids: BackupTableId[]): Promise<void> {
+        if (!this.isBackupConfigured() || ids.length === 0) return
+        await this.publishBatch(ids)
+    }
+
     private clearAllDebounce() {
         if (this.debounceTimer) {
             clearTimeout(this.debounceTimer)
@@ -399,8 +411,10 @@ export class BackupManager {
                 this.fullRefreshRequired = false
             }
         }
-        if (!result.anyOk && result.failures.length > 0) {
-            throw new Error(result.failures.join('; '))
+        if (!result.anyOk) {
+            throw new Error(result.failures.length > 0
+                ? result.failures.join('; ')
+                : 'backup interrupted before any destination committed')
         }
         if (result.failures.length > 0) {
             this.log(`backup batch ${generation} partial: ${result.failures.join('; ')}`)
@@ -461,6 +475,10 @@ export class BackupManager {
                 return encrypt((await this.storage.userStorage.ExportBalances(txId)).map(encodeBalanceRow))
             case 'tracked_providers':
                 return encrypt((await this.storage.liquidityStorage.ExportTrackedProviders(txId)).map(encodeTrackedProviderRow))
+            case 'invoice_swaps':
+                return encrypt((await this.storage.paymentStorage.ExportInvoiceSwaps(txId)).map(encodeInvoiceSwapRow))
+            case 'transaction_swaps':
+                return encrypt((await this.storage.paymentStorage.ExportTransactionSwaps(txId)).map(encodeTransactionSwapRow))
             default: {
                 const _exhaustive: never = id
                 throw new Error(`Unhandled backup table: ${_exhaustive}`)
@@ -575,7 +593,8 @@ export class BackupManager {
         const remoteP = this.enqueueRemote(() => this.publishRemotes(remotes, generation, shards))
         // A failed local write leaves anyOk false. Remote-only configs never set it.
         // Both still have to take the bounded path, and so does a remote that started
-        // before shutdown flipped the flag.
+        // before shutdown flipped the flag. The waiter must still fail if nothing
+        // committed; shutdown tracks the remote separately on a deadline.
         if (!this.shuttingDown) {
             const outcome = await this.remoteResultOrShutdown(remoteP)
             if (outcome !== 'shutdown') {
@@ -586,6 +605,9 @@ export class BackupManager {
             }
         }
         this.trackShutdownRemote(generation, remoteP)
+        if (!anyOk) {
+            failures.push('backup interrupted before any destination committed')
+        }
         return { anyOk, failures, retryable }
     }
 

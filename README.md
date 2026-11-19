@@ -74,7 +74,7 @@ Pub runners keep the Lightning Network decentralized with localized scaling that
 - [x] Nostr native [CLINK](https://clinkme.dev) "offers"
 - [x] Encrypted Push Notifications
 - [x] Encrypted Backups and Restore
-- [-] Swap integration (Disabled for now)
+- [x] Swap integration (SATS Routing / Boltz v2)
 - [ ] P2P "LSP" coordination for channel batching over Nostr
 - [ ] High-Availability / Clustering
 

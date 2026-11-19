@@ -119,6 +119,7 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
     await backupManager.InitKeys(seed)
     settingsManager.setBackupManager(backupManager)
     adminManager.setBackupManager(backupManager)
+    swaps.SetBackupManager(backupManager)
     unlocker.SetChannelBackupSink(scb => backupManager.ChannelBackupUpdate(scb))
 
     const mainHandler = new Main(settingsManager, storageManager, adminManager, utils, unlocker, backupManager)
@@ -184,6 +185,7 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
     await mainHandler.appUserManager.CleanupInactiveUsers()
     await mainHandler.appUserManager.CleanupNeverActiveUsers()
     await swaps.ResumeInvoiceSwaps()
+    await swaps.ResumeTransactionSwaps()
     await mainHandler.paymentManager.watchDog.Start()
     return { mainHandler, apps, localProviderClient, wizard, adminManager }
 }
