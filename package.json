@@ -41,7 +41,7 @@
     "axios": "=1.16.0",
     "bech32": "^2.0.0",
     "better-sqlite3": "^12.8.0",
-    "bitcoinjs-lib": "^6.1.7",
+    "bitcoinjs-lib": "^6.1.10",
     "boltz-core": "^3.0.0",
     "chai": "^4.3.7",
     "chai-string": "^1.6.0",
