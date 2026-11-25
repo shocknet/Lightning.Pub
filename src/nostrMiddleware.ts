@@ -10,6 +10,19 @@ import { ClinkError, encodeClinkResponse } from "./services/CLINK/clinkTypes.js"
 import { ClinkRouter } from "./services/serverMethods/clinkRouter.js";
 import { newClinkTransport } from "./services/serverMethods/clinkTransport.js";
 
+export const parseNostrRequestBody = (content: string): NostrRequest | null => {
+    let parsed: unknown
+    try {
+        parsed = JSON.parse(content)
+    } catch {
+        return null
+    }
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        return null
+    }
+    return parsed as NostrRequest
+}
+
 type ExportedCalls = { Stop: () => void, Send: NostrSend, Ping: () => Promise<void>, Reset: (settings: NostrSettings) => void }
 type ClientEventCallback = (e: { requestId: string }, fromPub: string) => void
 export default (
@@ -72,10 +85,8 @@ export default (
             return
         }
 
-        let j: NostrRequest
-        try {
-            j = JSON.parse(event.content)
-        } catch {
+        const j = parseNostrRequestBody(event.content)
+        if (!j) {
             log(ERROR, "invalid json event received", event.content)
             return
         }
