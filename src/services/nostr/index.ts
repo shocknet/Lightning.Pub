@@ -68,28 +68,37 @@ export default class NostrSubprocess {
         })
 
         this.childProcess.on("message", (message: ChildProcessResponse) => {
-            switch (message.type) {
-                case 'ready':
-                    this.sendToChildProcess({ type: 'settings', settings: this.settings })
-                    break;
-                case 'event':
-                    this.eventCallback(message.event)
-                    break
-                case 'processMetrics':
-                    this.utils.tlvStorageFactory.ProcessMetrics(message.metrics, 'nostr')
-                    break
-                case 'pong':
-                    this.awaitingPongs.forEach(resolve => resolve())
-                    this.awaitingPongs = []
-                    break
-                case 'beacon':
-                    this.beaconCallback({ content: message.content, pub: message.pub })
-                    break
-                default:
-                    console.error("unknown nostr event response", message)
-                    break;
+            try {
+                this.handleChildMessage(message)
+            } catch (error: unknown) {
+                const detail = error instanceof Error ? error.stack || error.message : String(error)
+                this.log(ERROR, "failed to handle nostr subprocess message", detail)
             }
         })
+    }
+
+    private handleChildMessage(message: ChildProcessResponse) {
+        switch (message.type) {
+            case 'ready':
+                this.sendToChildProcess({ type: 'settings', settings: this.settings })
+                break;
+            case 'event':
+                this.eventCallback(message.event)
+                break
+            case 'processMetrics':
+                this.utils.tlvStorageFactory.ProcessMetrics(message.metrics, 'nostr')
+                break
+            case 'pong':
+                this.awaitingPongs.forEach(resolve => resolve())
+                this.awaitingPongs = []
+                break
+            case 'beacon':
+                this.beaconCallback({ content: message.content, pub: message.pub })
+                break
+            default:
+                console.error("unknown nostr event response", message)
+                break;
+        }
     }
 
     sendToChildProcess(message: ChildProcessRequest) {
