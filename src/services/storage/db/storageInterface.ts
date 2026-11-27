@@ -4,7 +4,7 @@ import { DbSettings, MainDbNames } from './db.js';
 import { DeepPartial, FindOptionsWhere } from 'typeorm';
 import {
     ConnectOperation, DeleteOperation, RemoveOperation, FindOneOperation,
-    FindOperation, UpdateOperation, CreateAndSaveOperation, StartTxOperation,
+    FindOperation, FindAndCountOperation, UpdateOperation, CreateAndSaveOperation, StartTxOperation,
     EndTxOperation, QueryOptions, OperationResponse,
     IStorageOperation,
     IncrementOperation,
@@ -111,6 +111,12 @@ export class StorageInterface extends EventEmitter {
         return this.handleOp<T[]>(findOp)
     }
 
+    FindAndCount<T>(entity: DBNames, q: QueryOptions<T>, txId?: string, debug = false): Promise<[T[], number]> {
+        const opId = Math.random().toString()
+        const findAndCountOp: FindAndCountOperation<T> = { type: 'findAndCount', entity, opId, q, txId, debug }
+        return this.handleOp<[T[], number]>(findAndCountOp)
+    }
+
     Sum<T>(entity: DBNames, columnName: PickKeysByType<T, number>, q: WhereCondition<T>, txId?: string): Promise<number> {
         const opId = Math.random().toString()
         const sumOp: SumOperation<T> = { type: 'sum', entity, opId, columnName, q, txId }
@@ -156,14 +162,15 @@ export class StorageInterface extends EventEmitter {
 
     async Tx<T>(exec: TX<T>, description?: string): Promise<T> {
         const txId = await this.StartTx(description)
+        let result: T
         try {
-            const res = await exec(txId)
-            await this.EndTx(txId, true, res)
-            return res
+            result = await exec(txId)
         } catch (err: any) {
-            await this.EndTx(txId, false, err.message)
+            await this.EndTx(txId, false, err.message).catch(() => undefined)
             throw err
         }
+        await this.EndTx(txId, true, result)
+        return result
     }
 
     private handleOp<T>(op: IStorageOperation): Promise<T> {

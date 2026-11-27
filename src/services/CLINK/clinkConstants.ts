@@ -1,0 +1,28 @@
+export const CLINK_VERSION = "1"
+export const CLINK_OFFER_KIND = 21001
+export const CLINK_DEBIT_KIND = 21002
+export const CLINK_MANAGE_KIND = 21003
+export const CLINK_ENROLL_KIND = 21004
+export const PUB_RPC_KIND = 21000
+export const CLINK_BEACON_KIND = 30078
+
+export const LEGACY_BEACON_D_TAG = "Lightning.Pub"
+export const CLINK_BEACON_D_TAG = "clink-node"
+
+export const CLINK_ACTION_KINDS = [
+    PUB_RPC_KIND,
+    CLINK_OFFER_KIND,
+    CLINK_DEBIT_KIND,
+    CLINK_MANAGE_KIND,
+    CLINK_ENROLL_KIND,
+]
+
+export const CLINK_SUPPORTED_KINDS = [
+    CLINK_OFFER_KIND,
+    CLINK_DEBIT_KIND,
+    CLINK_MANAGE_KIND,
+    CLINK_ENROLL_KIND,
+]
+
+export const ENROLL_MAX_DELTA_MS = 30_000
+export const DEFAULT_ENROLL_POW_BITS = 18

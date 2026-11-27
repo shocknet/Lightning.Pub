@@ -57,6 +57,8 @@ export class TransactionSwap {
     @Column({ default: "" })
     failure_reason: string
 
+    // Confirmed lockup spend txid (our claim or a competing spend). Broadcast
+    // intent is claim_published; LND acceptance is claim_broadcast_accepted.
     @Column({ default: "" })
     tx_id: string
 
@@ -68,6 +70,30 @@ export class TransactionSwap {
 
     @Column({ default: "" })
     address_paid: string
+
+    @Column({ default: "", type: "text" })
+    claim_tx_hex: string
+
+    // Signed claim versions in publication order, including the original once
+    // a replacement is staged. claim_tx_hex remains the last accepted version.
+    @Column({ default: "", type: "text" })
+    claim_tx_history: string
+
+    // Set before BroadcastTransaction so a crash still resumes as a publication
+    // attempt. A stored signature is not disclosure until this is set. Once true,
+    // this must not be cleared: reconstructed claims keep the same preimage and
+    // false is not proof of secrecy after a crash or an earlier backup restore.
+    @Column({ default: false })
+    claim_published: boolean
+
+    // Set after LND accepts BroadcastTransaction. Unlike claim_published, this
+    // is proof the preimage was given to the network. Resume rebroadcasts
+    // without backup or claim-window gates even if the mempool spend is invisible.
+    @Column({ default: false })
+    claim_broadcast_accepted: boolean
+
+    @Column({ default: "", type: "text" })
+    lockup_tx_hex: string
 
     @Column({ default: "" })
     service_url: string

@@ -66,7 +66,14 @@
    "ts-node": {
       "esm": true
    },
+   "include": [
+      "src/**/*.ts",
+      "proto/**/*.ts"
+   ],
    "exclude": [
-      "./tests"
+      "node_modules",
+      "build",
+      "src/tests",
+      "tests"
    ],
 }
