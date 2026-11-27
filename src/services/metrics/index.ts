@@ -14,7 +14,8 @@ import { encodeTLV, usageMetricsToTlv } from '../helpers/tlv.js'
 import { ChannelCloseSummary_ClosureType } from '../../../proto/lnd/lightning.js'
 import { resolveInactiveSince } from '../storage/metricsStorage.js'
 import { CHANNEL_ALIAS_CACHE_TTL_MS, CHANNEL_ALIAS_RETRY_TTL_MS, aliasByRemotePubkey, channelPeerLabel, mergeAliasMaps } from '../helpers/channelAliases.js'
-import { DEFAULT_PAGE_SIZE } from '../helpers/pageLimit.js'
+import { clampPageLimit, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from '../helpers/pageLimit.js'
+import { destPubkeyFromBolt11, toOperatorPaymentFailure } from '../helpers/paymentFailureReason.js'
 import { AppOperationKind, AppOperationsCursor, AppOperationsPage } from '../storage/paymentStorage.js'
 const cacheTTL = 1000 * 60 * 5 // 5 minutes
 export default class Handler {
@@ -177,6 +178,54 @@ export default class Handler {
 
     async GetSingleUsageMetrics(req: Types.SingleMetricReq): Promise<Types.UsageMetricTlv> {
         return this.storage.metricsEventStorage.LoadMetricsFile(req.app_id, req.metrics_name, req.page)
+    }
+
+    async GetFailedOutgoingPayments(req: Types.FailedOutgoingPaymentsRequest): Promise<Types.FailedOutgoingPayments> {
+        const range = { from: req.from_unix, to: req.to_unix }
+        const take = clampPageLimit(req.take, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE)
+        const fromSerialId = req.from_serial_id || 0
+        const [page, allInRange] = await Promise.all([
+            this.storage.paymentStorage.ListFailedOutgoingInvoicePayments(range, take, fromSerialId),
+            this.storage.paymentStorage.ListAllFailedOutgoingInvoicePayments(range),
+        ])
+        const reasonCounts = new Map<string, Types.FailedOutgoingPaymentReasonCount>()
+        for (const payment of allInRange) {
+            const raw = payment.failure_reason || ''
+            const operator = toOperatorPaymentFailure(raw)
+            const existing = reasonCounts.get(raw)
+            if (existing) {
+                existing.count += 1
+            } else {
+                reasonCounts.set(raw, {
+                    failure_reason: raw,
+                    operator_reason: operator.label,
+                    count: 1,
+                })
+            }
+        }
+        return {
+            payments: page.map(p => {
+                const operator = toOperatorPaymentFailure(p.failure_reason)
+                const item: Types.FailedOutgoingPayment = {
+                    serial_id: p.serial_id,
+                    user_id: p.user.user_id,
+                    amount_sats: p.paid_amount,
+                    failure_reason: p.failure_reason || '',
+                    operator_reason: operator.label,
+                    dest_pubkey: p.dest_pubkey || destPubkeyFromBolt11(p.invoice),
+                    failed_at_unix: Math.floor(new Date(p.updated_at).getTime() / 1000),
+                    invoice: p.invoice,
+                }
+                if (p.linkedApplication?.app_id) {
+                    item.app_id = p.linkedApplication.app_id
+                }
+                if (p.liquidityProvider) {
+                    item.liquidity_provider = p.liquidityProvider
+                }
+                return item
+            }),
+            reason_counts: Array.from(reasonCounts.values()).sort((a, b) => b.count - a.count),
+        }
     }
 
     async GetErrorStats(): Promise<Types.ErrorStats> {

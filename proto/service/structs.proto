@@ -333,6 +333,37 @@ message AppsMetrics {
     repeated AppMetrics apps = 1;
 }
 
+message FailedOutgoingPaymentsRequest {
+    optional int64 from_unix = 1;
+    optional int64 to_unix = 2;
+    optional int64 take = 3;
+    optional int64 from_serial_id = 4;
+}
+
+message FailedOutgoingPayment {
+    int64 serial_id = 1;
+    string user_id = 2;
+    int64 amount_sats = 3;
+    string failure_reason = 4;
+    string operator_reason = 5;
+    string dest_pubkey = 6;
+    int64 failed_at_unix = 7;
+    optional string app_id = 8;
+    optional string liquidity_provider = 9;
+    string invoice = 10;
+}
+
+message FailedOutgoingPaymentReasonCount {
+    string failure_reason = 1;
+    string operator_reason = 2;
+    int64 count = 3;
+}
+
+message FailedOutgoingPayments {
+    repeated FailedOutgoingPayment payments = 1;
+    repeated FailedOutgoingPaymentReasonCount reason_counts = 2;
+}
+
 message LndMetricsRequest {
     optional int64 from_unix = 1;
     optional int64 to_unix = 2;

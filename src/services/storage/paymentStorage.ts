@@ -240,8 +240,8 @@ export default class {
         return this.dbs.FindOne<UserToUserPayment>('UserToUserPayment', { where: { serial_id: serialId } }, txId)
     }
 
-    async AddPendingExternalPayment(userId: string, invoice: string, amounts: { payAmount: number, serviceFee: number, networkFee: number }, linkedApplication: Application, liquidityProvider: string | undefined, txId: string, optionals: { debitNpub?: string, swapOperationId?: string } = {}): Promise<UserInvoicePayment> {
-        const { debitNpub, swapOperationId } = optionals
+    async AddPendingExternalPayment(userId: string, invoice: string, amounts: { payAmount: number, serviceFee: number, networkFee: number }, linkedApplication: Application, liquidityProvider: string | undefined, txId: string, optionals: { debitNpub?: string, swapOperationId?: string, destPubkey?: string } = {}): Promise<UserInvoicePayment> {
+        const { debitNpub, swapOperationId, destPubkey } = optionals
         const user = await this.userStorage.GetUser(userId, txId)
         return this.dbs.CreateAndSave<UserInvoicePayment>('UserInvoicePayment', {
             user,
@@ -254,7 +254,9 @@ export default class {
             linkedApplication,
             liquidityProvider,
             debit_to_pub: debitNpub,
-            swap_operation_id: swapOperationId
+            swap_operation_id: swapOperationId,
+            dest_pubkey: destPubkey || '',
+            failure_reason: '',
         }, txId)
     }
 
@@ -265,14 +267,21 @@ export default class {
     async SetExternalPaymentIndex(invoicePaymentSerialId: number, index: number, txId?: string) {
         return this.dbs.Update<UserInvoicePayment>('UserInvoicePayment', invoicePaymentSerialId, { paymentIndex: index }, txId)
     }
-    async UpdateExternalPayment(invoicePaymentSerialId: number, routingFees: number, serviceFees: number, success: boolean, providerDestination?: string, txId?: string) {
+    async UpdateExternalPayment(invoicePaymentSerialId: number, routingFees: number, serviceFees: number, success: boolean, options: { providerDestination?: string, failureReason?: string } = {}, txId?: string) {
         const up: Partial<UserInvoicePayment> = {
             routing_fees: routingFees,
             service_fees: serviceFees,
             paid_at_unix: success ? Math.floor(Date.now() / 1000) : -1,
+            // TypeORM repository.update() does not bump UpdateDateColumn.
+            updated_at: new Date(),
         }
-        if (providerDestination) {
-            up.liquidityProvider = providerDestination
+        if (options.providerDestination) {
+            up.liquidityProvider = options.providerDestination
+        }
+        if (!success) {
+            up.failure_reason = options.failureReason || ''
+        } else {
+            up.failure_reason = ''
         }
         return this.dbs.Update<UserInvoicePayment>('UserInvoicePayment', invoicePaymentSerialId, up, txId)
     }
@@ -305,6 +314,34 @@ export default class {
                 paid_at_unix: 'ASC'
             },
             take
+        }, txId)
+    }
+
+    ListFailedOutgoingInvoicePayments(range: { from?: number, to?: number }, take: number, fromSerialId = 0, txId?: string): Promise<UserInvoicePayment[]> {
+        // Cursor is from_serial_id, so order must be serial_id DESC. Filtering
+        // serial_id < X while ordering by updated_at drops rows.
+        return this.dbs.Find<UserInvoicePayment>('UserInvoicePayment', {
+            where: {
+                paid_at_unix: -1,
+                ...(fromSerialId > 0 ? { serial_id: LessThan(fromSerialId) } : {}),
+                ...updatedAtFilter(range),
+            },
+            order: {
+                serial_id: 'DESC',
+            },
+            take,
+        }, txId)
+    }
+
+    ListAllFailedOutgoingInvoicePayments(range: { from?: number, to?: number }, txId?: string): Promise<UserInvoicePayment[]> {
+        return this.dbs.Find<UserInvoicePayment>('UserInvoicePayment', {
+            where: {
+                paid_at_unix: -1,
+                ...updatedAtFilter(range),
+            },
+            order: {
+                serial_id: 'DESC',
+            },
         }, txId)
     }
 
@@ -1169,6 +1206,19 @@ function createdAtFilter(range: { from?: number, to?: number }): { created_at?: 
     }
     if (range.to) {
         return { created_at: LessThanOrEqual<Date>(new Date(range.to * 1000)) }
+    }
+    return {}
+}
+
+function updatedAtFilter(range: { from?: number, to?: number }): { updated_at?: FindOperator<Date> } {
+    if (range.from && range.to) {
+        return { updated_at: Between<Date>(new Date(range.from * 1000), new Date(range.to * 1000)) }
+    }
+    if (range.from) {
+        return { updated_at: MoreThanOrEqual<Date>(new Date(range.from * 1000)) }
+    }
+    if (range.to) {
+        return { updated_at: LessThanOrEqual<Date>(new Date(range.to * 1000)) }
     }
     return {}
 }

@@ -50,6 +50,12 @@ export class UserInvoicePayment {
     @Column({ nullable: true })
     swap_operation_id: string
 
+    @Column({ default: "" })
+    failure_reason: string
+
+    @Column({ default: "" })
+    dest_pubkey: string
+
     @CreateDateColumn()
     created_at: Date
 

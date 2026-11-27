@@ -158,6 +158,11 @@ The nostr server will send back a message response, and inside the body there wi
   - This methods has an __empty__ __request__ body
   - output: [ErrorStats](#ErrorStats)
 
+- GetFailedOutgoingPayments
+  - auth type: __Metrics__
+  - input: [FailedOutgoingPaymentsRequest](#FailedOutgoingPaymentsRequest)
+  - output: [FailedOutgoingPayments](#FailedOutgoingPayments)
+
 - GetHttpCreds
   - auth type: __User__
   - This methods has an __empty__ __request__ body
@@ -736,6 +741,13 @@ The nostr server will send back a message response, and inside the body there wi
   - http route: __/api/reports/errors__
   - This methods has an __empty__ __request__ body
   - output: [ErrorStats](#ErrorStats)
+
+- GetFailedOutgoingPayments
+  - auth type: __Metrics__
+  - http method: __post__
+  - http route: __/api/reports/failed-outgoing-payments__
+  - input: [FailedOutgoingPaymentsRequest](#FailedOutgoingPaymentsRequest)
+  - output: [FailedOutgoingPayments](#FailedOutgoingPayments)
 
 - GetHttpCreds
   - auth type: __User__
@@ -1561,6 +1573,33 @@ The nostr server will send back a message response, and inside the body there wi
   - __past1m__: _[ErrorStat](#ErrorStat)_
   - __past24h__: _[ErrorStat](#ErrorStat)_
   - __past6h__: _[ErrorStat](#ErrorStat)_
+
+### FailedOutgoingPayment
+  - __amount_sats__: _number_
+  - __app_id__: _string_ *this field is optional
+  - __dest_pubkey__: _string_
+  - __failed_at_unix__: _number_
+  - __failure_reason__: _string_
+  - __invoice__: _string_
+  - __liquidity_provider__: _string_ *this field is optional
+  - __operator_reason__: _string_
+  - __serial_id__: _number_
+  - __user_id__: _string_
+
+### FailedOutgoingPaymentReasonCount
+  - __count__: _number_
+  - __failure_reason__: _string_
+  - __operator_reason__: _string_
+
+### FailedOutgoingPayments
+  - __payments__: ARRAY of: _[FailedOutgoingPayment](#FailedOutgoingPayment)_
+  - __reason_counts__: ARRAY of: _[FailedOutgoingPaymentReasonCount](#FailedOutgoingPaymentReasonCount)_
+
+### FailedOutgoingPaymentsRequest
+  - __from_serial_id__: _number_ *this field is optional
+  - __from_unix__: _number_ *this field is optional
+  - __take__: _number_ *this field is optional
+  - __to_unix__: _number_ *this field is optional
 
 ### FrequencyRule
   - __amount__: _number_

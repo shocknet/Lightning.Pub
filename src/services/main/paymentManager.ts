@@ -9,6 +9,7 @@ import { ERROR, getLogger, PubLogger } from '../helpers/logger.js'
 import { AddressPaidCb, InvoicePaidCb, NewBlockCb, TxOutput } from '../lnd/settings.js'
 import { UserReceivingInvoice, ZapInfo } from '../storage/entity/UserReceivingInvoice.js'
 import { Payment_PaymentStatus } from '../../../proto/lnd/lightning.js'
+import { isLndPaymentFailureReason, lndFailureReasonName } from '../helpers/paymentFailureReason.js'
 import { Event, verifiedSymbol, verifyEvent } from 'nostr-tools'
 import { AddressReceivingTransaction } from '../storage/entity/AddressReceivingTransaction.js'
 import { UserTransactionPayment } from '../storage/entity/UserTransactionPayment.js'
@@ -46,6 +47,7 @@ type PayInvoiceOptionals = {
 
 type PayExternalOptionals = PayInvoiceOptionals & {
     debitNpub?: string
+    destPubkey?: string
 }
 
 interface UserOperationInfo {
@@ -159,7 +161,7 @@ export default class {
             log("found a failed provider payment, refunding", fullAmount, "sats to user", p.user.user_id)
             await this.storage.StartTransaction(async tx => {
                 await this.storage.userStorage.IncrementUserBalance(p.user.user_id, fullAmount, "payment_refund:" + p.invoice, tx)
-                await this.storage.paymentStorage.UpdateExternalPayment(p.serial_id, 0, 0, false, undefined, tx)
+                await this.storage.paymentStorage.UpdateExternalPayment(p.serial_id, 0, 0, false, { failureReason: 'PROVIDER_FAILED' }, tx)
                 await this.outgoingInvoiceFailedCb(p.invoice, tx)
             }, "refund failed provider payment")
             this.backupManager.notifyBackupTable('user_balances')
@@ -173,7 +175,7 @@ export default class {
             // not the local service fee reserved from the user — same as live PayExternalInvoice finalize.
             const providerTotal = state.amount + state.service_fee
             await this.storage.StartTransaction(async tx => {
-                await this.storage.paymentStorage.UpdateExternalPayment(p.serial_id, networkFee, serviceFee, true, undefined, tx)
+                await this.storage.paymentStorage.UpdateExternalPayment(p.serial_id, networkFee, serviceFee, true, {}, tx)
                 const remainingFee = serviceFee - networkFee
                 if (remainingFee < 0) {
                     this.log("WARNING: provider fee was higher than expected,", remainingFee, "were lost")
@@ -232,7 +234,7 @@ export default class {
                 log("lnd payment not found for pending payment hash, refunding", decoded.paymentHash, fullAmount, "sats to user", p.user.user_id)
                 await this.storage.StartTransaction(async tx => {
                     await this.storage.userStorage.IncrementUserBalance(p.user.user_id, fullAmount, "payment_refund:" + p.invoice, tx)
-                    await this.storage.paymentStorage.UpdateExternalPayment(p.serial_id, 0, 0, false, undefined, tx)
+                    await this.storage.paymentStorage.UpdateExternalPayment(p.serial_id, 0, 0, false, { failureReason: 'PAYMENT_NOT_FOUND' }, tx)
                     await this.outgoingInvoiceFailedCb(p.invoice, tx)
                 }, "refund failed pending payment")
                 this.utils.stateBundler.AddTxPointFailed('paidAnInvoice', fullAmount, { used: 'lnd', from: 'user' })
@@ -251,7 +253,7 @@ export default class {
                 const serviceFee = p.service_fees
                 const networkFee = Number(payment.feeSat)
                 await this.storage.StartTransaction(async tx => {
-                    await this.storage.paymentStorage.UpdateExternalPayment(p.serial_id, networkFee, p.service_fees, true, undefined, tx)
+                    await this.storage.paymentStorage.UpdateExternalPayment(p.serial_id, networkFee, p.service_fees, true, {}, tx)
                     const remainingFee = serviceFee - networkFee
                     if (remainingFee < 0) { // should not be possible beacuse of the fee limit
                         this.log("WARNING: lnd fee was higher than expected,", remainingFee, "were lost")
@@ -270,10 +272,11 @@ export default class {
                 return
             case Payment_PaymentStatus.FAILED:
                 const fullAmount = p.paid_amount + p.service_fees
+                const failureReason = lndFailureReasonName(payment.failureReason)
                 log("found a failed pending payment, refunding", fullAmount, "sats to user", p.user.user_id)
                 await this.storage.StartTransaction(async tx => {
                     await this.storage.userStorage.IncrementUserBalance(p.user.user_id, fullAmount, "payment_refund:" + p.invoice, tx)
-                    await this.storage.paymentStorage.UpdateExternalPayment(p.serial_id, 0, 0, false, undefined, tx)
+                    await this.storage.paymentStorage.UpdateExternalPayment(p.serial_id, 0, 0, false, { failureReason }, tx)
                     await this.outgoingInvoiceFailedCb(p.invoice, tx)
                 }, "refund failed pending payment")
                 this.backupManager.notifyBackupTable('user_balances')
@@ -612,7 +615,7 @@ export default class {
                     onPaymentAccepted: optionals.onPaymentAccepted,
                 })
             } else {
-                paymentInfo = await this.PayExternalInvoice(userId, req.invoice, { payAmount, serviceFee, amountForLnd: req.amount }, linkedApplication, { ...optionals, debitNpub: req.debit_npub })
+                paymentInfo = await this.PayExternalInvoice(userId, req.invoice, { payAmount, serviceFee, amountForLnd: req.amount }, linkedApplication, { ...optionals, debitNpub: req.debit_npub, destPubkey: decoded.destination })
             }
             this.invoiceLock.unlock(req.invoice)
             const feeDiff = serviceFee - paymentInfo.networkFee
@@ -691,11 +694,11 @@ export default class {
             if (use === 'provider') {
                 const providerTotal = payment.valueSat + payment.feeSat
                 await this.storage.StartTransaction(async tx => {
-                    await this.storage.paymentStorage.UpdateExternalPayment(pendingPayment.serial_id, payment.feeSat, serviceFee, true, payment.providerPubkey, tx)
+                    await this.storage.paymentStorage.UpdateExternalPayment(pendingPayment.serial_id, payment.feeSat, serviceFee, true, { providerDestination: payment.providerPubkey }, tx)
                     await this.lnd.liquidProvider.SettleProviderPayment(invoice, providerTotal, tx)
                 }, "finalize provider payment")
             } else {
-                await this.storage.paymentStorage.UpdateExternalPayment(pendingPayment.serial_id, payment.feeSat, serviceFee, true, payment.providerPubkey)
+                await this.storage.paymentStorage.UpdateExternalPayment(pendingPayment.serial_id, payment.feeSat, serviceFee, true, { providerDestination: payment.providerPubkey })
             }
             const feeDiff = serviceFee - payment.feeSat
             if (feeDiff < 0) { // should not happen to lnd beacuse of the fee limit, culd happen to provider if the fee used to calculate the provider fee are out of date
@@ -707,9 +710,10 @@ export default class {
             const {failed,found} = await this.isOutgoingPaymentConfirmedFailed(invoice, use === 'provider')
             const confirmedFailed = failed && (found || !gotIndex) 
             if (confirmedFailed) {
+                const failureReason = await this.resolveOutgoingFailureReason(err, invoice, use === 'provider')
                 await this.storage.StartTransaction(async tx => {
                     await this.storage.userStorage.IncrementUserBalance(userId, totalAmountToDecrement, "payment_refund:" +invoice, tx)
-                    await this.storage.paymentStorage.UpdateExternalPayment(pendingPayment.serial_id, 0, 0, false, undefined, tx)
+                    await this.storage.paymentStorage.UpdateExternalPayment(pendingPayment.serial_id, 0, 0, false, { failureReason }, tx)
                     await this.outgoingInvoiceFailedCb(invoice, tx)
                 }, "refund failed pending payment")
             } else {
@@ -718,6 +722,29 @@ export default class {
             this.backupManager.notifyBackupTable('user_balances')
             throw err
         }
+    }
+
+    resolveOutgoingFailureReason = async (err: any, invoice: string, viaProvider: boolean): Promise<string> => {
+        const message = typeof err?.message === 'string' ? err.message : ''
+        if (isLndPaymentFailureReason(message)) {
+            return message
+        }
+        if (viaProvider) {
+            return message || 'PROVIDER_FAILED'
+        }
+        try {
+            const decoded = await this.lnd.DecodeInvoice(invoice)
+            const payment = await this.lnd.GetPaymentFromHash(decoded.paymentHash)
+            if (!payment) {
+                return 'PAYMENT_NOT_FOUND'
+            }
+            if (payment.status === Payment_PaymentStatus.FAILED) {
+                return lndFailureReasonName(payment.failureReason)
+            }
+        } catch {
+            // fall through to message / default
+        }
+        return message || 'FAILURE_REASON_ERROR'
     }
 
     isOutgoingPaymentConfirmedFailed = async (invoice: string, viaProvider: boolean): Promise<{found:boolean, failed:boolean}> => {

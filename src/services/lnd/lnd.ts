@@ -16,6 +16,7 @@ import { DEFAULT_PAYMENT_TIMEOUT_SECONDS, PayInvoiceReq } from './payInvoiceReq.
 import { SendCoinsReq } from './sendCoinsReq.js';
 import { AddressPaidCb, InvoicePaidCb, NodeInfo, Invoice, DecodedInvoice, PaidInvoice, NewBlockCb, HtlcCb, BalanceInfo, ChannelEventCb, UnlockLndCb, NewAddressCb } from './settings.js';
 import { ERROR, getLogger, DEBUG, INFO } from '../helpers/logger.js';
+import { destPubkeyFromBolt11 } from '../helpers/paymentFailureReason.js';
 import { HtlcEvent_EventType } from '../../../proto/lnd/router.js';
 import { LiquidityProvider } from '../main/liquidityProvider.js';
 import { Utils } from '../helpers/utilsWrapper.js';
@@ -830,13 +831,17 @@ export default class {
                     throw new Error("Payment hash not found in invoice")
                 }
 
-                return { numSatoshis, paymentHash }
+                return { numSatoshis, paymentHash, destination: destPubkeyFromBolt11(paymentRequest) }
             } catch (err: any) {
                 throw new Error(`Failed to decode invoice: ${err.message}`)
             }
         }
         const res = await this.lightning.decodePayReq({ payReq: paymentRequest }, DeadLineMetadata())
-        return { numSatoshis: Number(res.response.numSatoshis), paymentHash: res.response.paymentHash }
+        return {
+            numSatoshis: Number(res.response.numSatoshis),
+            paymentHash: res.response.paymentHash,
+            destination: res.response.destination || '',
+        }
     }
 
     isMalformedBolt11 = (paymentRequest: string): boolean => {

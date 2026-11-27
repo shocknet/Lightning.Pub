@@ -494,6 +494,20 @@ export default (params: ClientParams) => ({
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
+    GetFailedOutgoingPayments: async (request: Types.FailedOutgoingPaymentsRequest): Promise<ResultError | ({ status: 'OK' }& Types.FailedOutgoingPayments)> => {
+        let finalRoute = '/api/reports/failed-outgoing-payments'
+        const auth = await params.retrieveMetricsAuth()
+        if (auth === null) throw new Error('retrieveMetricsAuth() returned null')
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.FailedOutgoingPaymentsValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
     GetHttpCreds: async (): Promise<ResultError | ({ status: 'OK' }& Types.HttpCreds)> => {
         let finalRoute = '/api/user/http_creds'
         const auth = await params.retrieveUserAuth()

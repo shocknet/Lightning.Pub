@@ -399,6 +399,33 @@ type ErrorStats struct {
 	Past24h *ErrorStat `json:"past24h"`
 	Past6h  *ErrorStat `json:"past6h"`
 }
+type FailedOutgoingPayment struct {
+	Amount_sats        int64  `json:"amount_sats"`
+	App_id             string `json:"app_id"`
+	Dest_pubkey        string `json:"dest_pubkey"`
+	Failed_at_unix     int64  `json:"failed_at_unix"`
+	Failure_reason     string `json:"failure_reason"`
+	Invoice            string `json:"invoice"`
+	Liquidity_provider string `json:"liquidity_provider"`
+	Operator_reason    string `json:"operator_reason"`
+	Serial_id          int64  `json:"serial_id"`
+	User_id            string `json:"user_id"`
+}
+type FailedOutgoingPaymentReasonCount struct {
+	Count           int64  `json:"count"`
+	Failure_reason  string `json:"failure_reason"`
+	Operator_reason string `json:"operator_reason"`
+}
+type FailedOutgoingPayments struct {
+	Payments      []FailedOutgoingPayment            `json:"payments"`
+	Reason_counts []FailedOutgoingPaymentReasonCount `json:"reason_counts"`
+}
+type FailedOutgoingPaymentsRequest struct {
+	From_serial_id int64 `json:"from_serial_id"`
+	From_unix      int64 `json:"from_unix"`
+	Take           int64 `json:"take"`
+	To_unix        int64 `json:"to_unix"`
+}
 type FrequencyRule struct {
 	Amount              int64        `json:"amount"`
 	Interval            IntervalType `json:"interval"`

@@ -90,6 +90,7 @@ type Client struct {
 	GetBundleMetrics               func(req LatestBundleMetricReq) (*BundleMetrics, error)
 	GetDebitAuthorizations         func() (*DebitAuthorizations, error)
 	GetErrorStats                  func() (*ErrorStats, error)
+	GetFailedOutgoingPayments      func(req FailedOutgoingPaymentsRequest) (*FailedOutgoingPayments, error)
 	GetHttpCreds                   func() (*HttpCreds, error)
 	GetInviteLinkState             func(req GetInviteTokenStateRequest) (*GetInviteTokenStateResponse, error)
 	GetLNURLChannelLink            func() (*LnurlLinkResponse, error)
@@ -1110,6 +1111,35 @@ func NewClient(params ClientParams) *Client {
 				return nil, fmt.Errorf(result.Reason)
 			}
 			res := ErrorStats{}
+			err = json.Unmarshal(resBody, &res)
+			if err != nil {
+				return nil, err
+			}
+			return &res, nil
+		},
+		GetFailedOutgoingPayments: func(req FailedOutgoingPaymentsRequest) (*FailedOutgoingPayments, error) {
+			auth, err := params.RetrieveMetricsAuth()
+			if err != nil {
+				return nil, err
+			}
+			finalRoute := "/api/reports/failed-outgoing-payments"
+			body, err := json.Marshal(req)
+			if err != nil {
+				return nil, err
+			}
+			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
+			if err != nil {
+				return nil, err
+			}
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return nil, err
+			}
+			if result.Status == "ERROR" {
+				return nil, fmt.Errorf(result.Reason)
+			}
+			res := FailedOutgoingPayments{}
 			err = json.Unmarshal(resBody, &res)
 			if err != nil {
 				return nil, err

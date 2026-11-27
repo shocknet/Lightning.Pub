@@ -885,6 +885,22 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     opts.metricsCallback([{ ...info, ...stats, ...authContext }])
                 }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
                 break
+            case 'GetFailedOutgoingPayments':
+                try {
+                    if (!methods.GetFailedOutgoingPayments) throw new Error('method: GetFailedOutgoingPayments is not implemented')
+                    const authContext = await opts.NostrMetricsAuthGuard(req.appId, req.authIdentifier)
+                    stats.guard = process.hrtime.bigint()
+                    authCtx = authContext
+                    const request = req.body
+                    const error = Types.FailedOutgoingPaymentsRequestValidate(request)
+                    stats.validate = process.hrtime.bigint()
+                    if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback)
+                    const response = await methods.GetFailedOutgoingPayments({rpcName:'GetFailedOutgoingPayments', ctx:authContext , req: request})
+                    stats.handle = process.hrtime.bigint()
+                    res({status: 'OK', ...response})
+                    opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+                break
             case 'GetHttpCreds':
                 try {
                     if (!methods.GetHttpCreds) throw new Error('method: GetHttpCreds is not implemented')

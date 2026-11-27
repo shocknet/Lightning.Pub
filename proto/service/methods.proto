@@ -372,6 +372,13 @@ service LightningPub {
         option (nostr) = true;
     }
 
+    rpc GetFailedOutgoingPayments(structs.FailedOutgoingPaymentsRequest) returns (structs.FailedOutgoingPayments) {
+        option (auth_type)  = "Metrics";
+        option (http_method) = "post";
+        option (http_route) = "/api/reports/failed-outgoing-payments";
+        option (nostr) = true;
+    }
+
     rpc GetLndMetrics(structs.LndMetricsRequest) returns (structs.LndMetrics) {
         option (auth_type)  = "Metrics";
         option (http_method) = "post";
