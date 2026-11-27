@@ -112,6 +112,20 @@ export default (params: ClientParams) => ({
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
+    AdminSendCoins: async (request: Types.AdminSendCoinsRequest): Promise<ResultError | ({ status: 'OK' }& Types.AdminSendCoinsResponse)> => {
+        let finalRoute = '/api/admin/chain/send'
+        const auth = await params.retrieveAdminAuth()
+        if (auth === null) throw new Error('retrieveAdminAuth() returned null')
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.AdminSendCoinsResponseValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
     AdminSendUserToUser: async (request: Types.AdminSendUserToUserRequest): Promise<ResultError | ({ status: 'OK' }& Types.AdminSendUserToUserResponse)> => {
         let finalRoute = '/api/admin/user/send/u2u'
         const auth = await params.retrieveAdminAuth()

@@ -20,7 +20,7 @@ import { NodeInfo } from "../lnd/settings.js";
 import { Channel, Invoice, Payment, OutputDetail, Transaction, Payment_PaymentStatus, Invoice_InvoiceState } from "../../../proto/lnd/lightning.js";
 import { LiquidityProvider } from "./liquidityProvider.js";
 import { BackupManager } from "../backup/backupManager.js";
-import { isNonNegativeIndex, isNonNegativeSats, isOptionalNonNegativeSats, isPositiveSats, isTcpPort } from "../helpers/sats.js";
+import { isNonNegativeIndex, isNonNegativeSats, isOptionalNonNegativeSats, isOptionalPositiveSats, isPositiveSats, isTcpPort } from "../helpers/sats.js";
 import { clampPageLimit, DEFAULT_LND_PAGE_SIZE, DEFAULT_PAGE_SIZE, MAX_LIQUIDITY_PAGE_SIZE, MAX_PAGE_SIZE } from "../helpers/pageLimit.js";
 import { aliasByRemotePubkey } from "../helpers/channelAliases.js";
 import {
@@ -691,6 +691,117 @@ export class AdminManager {
         return {
             tx_id: swap.txId,
             network_fee: swap.network_fee,
+        }
+    }
+
+    /**
+     * Spend node on-chain UTXOs via LND sendCoins. Does not debit user ledger
+     * balances — that is user PayAddress. Records a pending chain_payment root
+     * op so assets history and watchdog stay consistent.
+     */
+    async AdminSendCoins(req: Types.AdminSendCoinsRequest): Promise<Types.AdminSendCoinsResponse> {
+        if (!req.address) {
+            throw new Error("address is required")
+        }
+        const sendAll = !!req.send_all
+        const amount = req.amount
+        if (sendAll && amount !== undefined && amount !== 0) {
+            throw new Error("amount must be omitted when send_all is set")
+        }
+        if (!sendAll && (amount === undefined || !isPositiveSats(amount))) {
+            throw new Error("amount must be a positive integer number of sats unless send_all is set")
+        }
+        if (!isOptionalPositiveSats(req.sat_per_v_byte)) {
+            throw new Error("sat_per_v_byte must be a positive integer when set")
+        }
+
+        const userAddress = await this.storage.paymentStorage.GetAddressOwner(req.address)
+        if (userAddress) {
+            throw new Error("cannot send to a user deposit address via admin send")
+        }
+
+        const feeRates = await this.lnd.EstimateSatPerVbyte(1)
+        const minRelay = feeRates.minRelaySatPerVbyte
+        let satPerVByte: number
+        if (req.sat_per_v_byte !== undefined) {
+            if (req.sat_per_v_byte < minRelay) {
+                throw new Error(`sat_per_v_byte must be at least the min relay fee (${minRelay})`)
+            }
+            satPerVByte = req.sat_per_v_byte
+        } else {
+            satPerVByte = Math.max(feeRates.satPerVbyte, minRelay)
+        }
+        if (!isPositiveSats(satPerVByte)) {
+            throw new Error("resolved sat_per_v_byte must be a positive integer")
+        }
+
+        // Include locked users: they still hold custodied liabilities. Watchdog
+        // uses the same total (no excludeLocked).
+        const usersBalance = await this.storage.paymentStorage.GetTotalUsersBalance()
+        const { totalLndBalance } = await this.lnd.GetTotalBalace()
+        const lpBalance = this.liquidityProvider?.IsReady() ? this.liquidityProvider.GetLatestBalance() : 0
+        const totalAssets = totalLndBalance + lpBalance
+        const surplus = totalAssets - usersBalance
+
+        let estimatedFee = 0
+        let sendAllConfirmed = 0
+        if (sendAll) {
+            const wallet = await this.lnd.GetBalance()
+            sendAllConfirmed = wallet.confirmedBalance
+            if (sendAllConfirmed > surplus) {
+                throw new Error("send_all would spend user-custodied funds")
+            }
+        } else {
+            const estimated = await this.lnd.EstimateChainFees(req.address, amount!, 1)
+            estimatedFee = Number(estimated.feeSat)
+            const spend = amount! + estimatedFee
+            if (spend > surplus) {
+                throw new Error("amount exceeds node surplus above user liabilities")
+            }
+        }
+
+        const sendAmount = sendAll ? 0 : amount!
+        const paid = await this.lnd.PayAddress(
+            req.address,
+            sendAmount,
+            satPerVByte,
+            "admin-send",
+            { useProvider: false, from: 'system' },
+            sendAll,
+        )
+
+        // Coins are already broadcast. GetTx is only for exact dest/fee; a
+        // lookup failure must not skip the chain_payment root op or watchdog
+        // will treat the outflow as unexplained drift vs users_balance.
+        let destAmount = sendAll ? sendAllConfirmed : amount!
+        let networkFee = estimatedFee
+        try {
+            const tx = await this.lnd.GetTx(paid.txid)
+            networkFee = Number(tx.totalFees)
+            const walletDelta = Math.abs(Number(tx.amount))
+            destAmount = sendAll ? Math.max(0, walletDelta - networkFee) : amount!
+        } catch (err: any) {
+            this.log("admin send GetTx failed, recording root op from estimate", {
+                txId: paid.txid,
+                err: err?.message || err,
+            })
+            if (sendAll) {
+                destAmount = Math.max(0, sendAllConfirmed - networkFee)
+            }
+        }
+        const rootAmount = destAmount + networkFee
+        if (isPositiveSats(rootAmount)) {
+            await this.storage.metricsStorage.EnsureRootOperation("chain_payment", paid.txid, rootAmount, true)
+        } else {
+            this.log("admin send produced non-positive outflow, skipping root op", {
+                txId: paid.txid, destAmount, networkFee,
+            })
+        }
+        this.log("admin send coins", { txId: paid.txid, destAmount, networkFee })
+        return {
+            tx_id: paid.txid,
+            amount: destAmount,
+            network_fee: networkFee,
         }
     }
 

@@ -1083,7 +1083,7 @@ export default class {
         }
     }
 
-    async PayAddress(address: string, amount: number, satPerVByte: number, label = "", { useProvider, from }: TxActionOptions): Promise<SendCoinsResponse> {
+    async PayAddress(address: string, amount: number, satPerVByte: number, label = "", { useProvider, from }: TxActionOptions, sendAll = false): Promise<SendCoinsResponse> {
         this.log(DEBUG, "Paying address")
         // Address payments not supported when bypass is enabled
         if (this.liquidProvider.getSettings().useOnlyLiquidityProvider) {
@@ -1097,12 +1097,13 @@ export default class {
             throw new Error("provider payments not support chain payments yet")
         }
         await this.Health()
+        const trackedAmount = sendAll ? 0 : amount
         try {
-            const res = await this.lightning.sendCoins(SendCoinsReq(address, amount, satPerVByte, label), DeadLineMetadata())
-            this.utils.stateBundler.AddTxPoint('paidAnAddress', amount, { from, used: 'lnd', timeDiscount: true })
+            const res = await this.lightning.sendCoins(SendCoinsReq(address, amount, satPerVByte, label, sendAll), DeadLineMetadata())
+            this.utils.stateBundler.AddTxPoint('paidAnAddress', trackedAmount, { from, used: 'lnd', timeDiscount: true })
             return res.response
         } catch (err) {
-            this.utils.stateBundler.AddTxPointFailed('paidAnAddress', amount, { from, used: 'lnd' })
+            this.utils.stateBundler.AddTxPointFailed('paidAnAddress', trackedAmount, { from, used: 'lnd' })
             throw err
         }
     }

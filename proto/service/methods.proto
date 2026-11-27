@@ -126,6 +126,13 @@ service LightningPub {
         option (nostr) = true;
     };
 
+    rpc AdminSendCoins(structs.AdminSendCoinsRequest) returns (structs.AdminSendCoinsResponse) {
+        option (auth_type)  = "Admin";
+        option (http_method) = "post";
+        option (http_route) = "/api/admin/chain/send";
+        option (nostr) = true;
+    };
+
     rpc BumpTx(structs.BumpTx) returns (structs.Empty) {
         option (auth_type)  = "Admin";
         option (http_method) = "post";

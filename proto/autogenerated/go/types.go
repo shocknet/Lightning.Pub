@@ -165,6 +165,17 @@ type AdminOnchainConfSettings struct {
 	Tier3_confs            int64 `json:"tier3_confs"`
 	Tier3_confs_env_locked bool  `json:"tier3_confs_env_locked"`
 }
+type AdminSendCoinsRequest struct {
+	Address        string `json:"address"`
+	Amount         int64  `json:"amount"`
+	Sat_per_v_byte int64  `json:"sat_per_v_byte"`
+	Send_all       bool   `json:"send_all"`
+}
+type AdminSendCoinsResponse struct {
+	Amount      int64  `json:"amount"`
+	Network_fee int64  `json:"network_fee"`
+	Tx_id       string `json:"tx_id"`
+}
 type AdminSendUserToUserRequest struct {
 	Amount       int64  `json:"amount"`
 	From_user_id string `json:"from_user_id"`

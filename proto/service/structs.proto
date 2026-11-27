@@ -1183,6 +1183,19 @@ message AdminTxSwapResponse {
     int64 network_fee = 2;
 }
 
+message AdminSendCoinsRequest {
+    string address = 1;
+    optional int64 amount = 2;          // required unless send_all
+    optional int64 sat_per_v_byte = 3;  // estimated if omitted
+    optional bool send_all = 4;
+}
+
+message AdminSendCoinsResponse {
+    string tx_id = 1;
+    int64 amount = 2;
+    int64 network_fee = 3;
+}
+
 message TxSwapOperation {
     TransactionSwapQuote quote = 1;
     optional UserOperation operation_payment = 2;

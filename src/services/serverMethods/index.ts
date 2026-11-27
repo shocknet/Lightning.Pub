@@ -177,6 +177,15 @@ export default (mainHandler: Main): Types.ServerMethods => {
         GetAssetsAndLiabilitiesV2: async ({ ctx, req }) => {
             return mainHandler.adminManager.GetAssetsAndLiabilitiesV2(req)
         },
+        AdminSendCoins: async ({ ctx, req }) => {
+            const err = Types.AdminSendCoinsRequestValidate(req, {
+                address_CustomCheck: addr => addr !== '',
+                amount_CustomCheck: isOptionalNonNegativeSats,
+                sat_per_v_byte_CustomCheck: isOptionalPositiveSats,
+            })
+            if (err != null) throw new Error(err.message)
+            return mainHandler.adminManager.AdminSendCoins(req)
+        },
         GetProvidersDisruption: async () => {
             return mainHandler.metricsManager.GetProvidersDisruption()
         },

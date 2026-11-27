@@ -23,8 +23,8 @@ export type RequestContext = {
 export type AdminContext = {
     admin_id: string
 }
-export type AdminMethodInputs = AddApp_Input | AddPeer_Input | AdminSendUserToUser_Input | AuthApp_Input | BanUser_Input | BumpTx_Input | CloseChannel_Input | CreateOneTimeInviteLink_Input | GetAdminInvoiceSwapQuotes_Input | GetAdminNodeSettings_Input | GetAdminOnchainConfSettings_Input | GetAdminTransactionSwapQuotes_Input | GetAssetsAndLiabilities_Input | GetAssetsAndLiabilitiesV2_Input | GetInviteLinkState_Input | GetSeed_Input | GetUserOperationsFromAdmin_Input | GetUsersAdminInfo_Input | ListAdminInvoiceSwaps_Input | ListAdminTxSwaps_Input | ListChannels_Input | ListPeers_Input | ListUtxos_Input | LndGetInfo_Input | OpenChannel_Input | PayAdminInvoiceSwap_Input | PayAdminTransactionSwap_Input | RefundAdminInvoiceSwap_Input | UpdateAdminNodeSettings_Input | UpdateAdminOnchainConfSettings_Input | UpdateChannelPolicy_Input
-export type AdminMethodOutputs = AddApp_Output | AddPeer_Output | AdminSendUserToUser_Output | AuthApp_Output | BanUser_Output | BumpTx_Output | CloseChannel_Output | CreateOneTimeInviteLink_Output | GetAdminInvoiceSwapQuotes_Output | GetAdminNodeSettings_Output | GetAdminOnchainConfSettings_Output | GetAdminTransactionSwapQuotes_Output | GetAssetsAndLiabilities_Output | GetAssetsAndLiabilitiesV2_Output | GetInviteLinkState_Output | GetSeed_Output | GetUserOperationsFromAdmin_Output | GetUsersAdminInfo_Output | ListAdminInvoiceSwaps_Output | ListAdminTxSwaps_Output | ListChannels_Output | ListPeers_Output | ListUtxos_Output | LndGetInfo_Output | OpenChannel_Output | PayAdminInvoiceSwap_Output | PayAdminTransactionSwap_Output | RefundAdminInvoiceSwap_Output | UpdateAdminNodeSettings_Output | UpdateAdminOnchainConfSettings_Output | UpdateChannelPolicy_Output
+export type AdminMethodInputs = AddApp_Input | AddPeer_Input | AdminSendCoins_Input | AdminSendUserToUser_Input | AuthApp_Input | BanUser_Input | BumpTx_Input | CloseChannel_Input | CreateOneTimeInviteLink_Input | GetAdminInvoiceSwapQuotes_Input | GetAdminNodeSettings_Input | GetAdminOnchainConfSettings_Input | GetAdminTransactionSwapQuotes_Input | GetAssetsAndLiabilities_Input | GetAssetsAndLiabilitiesV2_Input | GetInviteLinkState_Input | GetSeed_Input | GetUserOperationsFromAdmin_Input | GetUsersAdminInfo_Input | ListAdminInvoiceSwaps_Input | ListAdminTxSwaps_Input | ListChannels_Input | ListPeers_Input | ListUtxos_Input | LndGetInfo_Input | OpenChannel_Input | PayAdminInvoiceSwap_Input | PayAdminTransactionSwap_Input | RefundAdminInvoiceSwap_Input | UpdateAdminNodeSettings_Input | UpdateAdminOnchainConfSettings_Input | UpdateChannelPolicy_Input
+export type AdminMethodOutputs = AddApp_Output | AddPeer_Output | AdminSendCoins_Output | AdminSendUserToUser_Output | AuthApp_Output | BanUser_Output | BumpTx_Output | CloseChannel_Output | CreateOneTimeInviteLink_Output | GetAdminInvoiceSwapQuotes_Output | GetAdminNodeSettings_Output | GetAdminOnchainConfSettings_Output | GetAdminTransactionSwapQuotes_Output | GetAssetsAndLiabilities_Output | GetAssetsAndLiabilitiesV2_Output | GetInviteLinkState_Output | GetSeed_Output | GetUserOperationsFromAdmin_Output | GetUsersAdminInfo_Output | ListAdminInvoiceSwaps_Output | ListAdminTxSwaps_Output | ListChannels_Output | ListPeers_Output | ListUtxos_Output | LndGetInfo_Output | OpenChannel_Output | PayAdminInvoiceSwap_Output | PayAdminTransactionSwap_Output | RefundAdminInvoiceSwap_Output | UpdateAdminNodeSettings_Output | UpdateAdminOnchainConfSettings_Output | UpdateChannelPolicy_Output
 export type AppContext = {
     app_id: string
 }
@@ -75,6 +75,9 @@ export type AddProduct_Output = ResultError | ({ status: 'OK' } & Product)
 
 export type AddUserOffer_Input = {rpcName:'AddUserOffer', req: OfferCreateRequest}
 export type AddUserOffer_Output = ResultError | ({ status: 'OK' } & OfferId)
+
+export type AdminSendCoins_Input = {rpcName:'AdminSendCoins', req: AdminSendCoinsRequest}
+export type AdminSendCoins_Output = ResultError | ({ status: 'OK' } & AdminSendCoinsResponse)
 
 export type AdminSendUserToUser_Input = {rpcName:'AdminSendUserToUser', req: AdminSendUserToUserRequest}
 export type AdminSendUserToUser_Output = ResultError | ({ status: 'OK' } & AdminSendUserToUserResponse)
@@ -409,6 +412,7 @@ export type ServerMethods = {
     AddPeer?: (req: AddPeer_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<void>
     AddProduct?: (req: AddProduct_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<Product>
     AddUserOffer?: (req: AddUserOffer_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<OfferId>
+    AdminSendCoins?: (req: AdminSendCoins_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<AdminSendCoinsResponse>
     AdminSendUserToUser?: (req: AdminSendUserToUser_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<AdminSendUserToUserResponse>
     AuthApp?: (req: AuthApp_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<AuthApp>
     AuthorizeManage?: (req: AuthorizeManage_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<ManageAuthorization>
@@ -905,6 +909,68 @@ export const AdminOnchainConfSettingsValidate = (o?: AdminOnchainConfSettings, o
 
     if (typeof o.tier3_confs_env_locked !== 'boolean') return new Error(`${path}.tier3_confs_env_locked: is not a boolean`)
     if (opts.tier3_confs_env_locked_CustomCheck && !opts.tier3_confs_env_locked_CustomCheck(o.tier3_confs_env_locked)) return new Error(`${path}.tier3_confs_env_locked: custom check failed`)
+
+    return null
+}
+
+export type AdminSendCoinsRequest = {
+    address: string
+    amount?: number
+    sat_per_v_byte?: number
+    send_all?: boolean
+}
+export type AdminSendCoinsRequestOptionalField = 'amount' | 'sat_per_v_byte' | 'send_all'
+export const AdminSendCoinsRequestOptionalFields: AdminSendCoinsRequestOptionalField[] = ['amount', 'sat_per_v_byte', 'send_all']
+export type AdminSendCoinsRequestOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: AdminSendCoinsRequestOptionalField[]
+    address_CustomCheck?: (v: string) => boolean
+    amount_CustomCheck?: (v?: number) => boolean
+    sat_per_v_byte_CustomCheck?: (v?: number) => boolean
+    send_all_CustomCheck?: (v?: boolean) => boolean
+}
+export const AdminSendCoinsRequestValidate = (o?: AdminSendCoinsRequest, opts: AdminSendCoinsRequestOptions = {}, path: string = 'AdminSendCoinsRequest::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.address !== 'string') return new Error(`${path}.address: is not a string`)
+    if (opts.address_CustomCheck && !opts.address_CustomCheck(o.address)) return new Error(`${path}.address: custom check failed`)
+
+    if ((o.amount || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('amount')) && typeof o.amount !== 'number') return new Error(`${path}.amount: is not a number`)
+    if (opts.amount_CustomCheck && !opts.amount_CustomCheck(o.amount)) return new Error(`${path}.amount: custom check failed`)
+
+    if ((o.sat_per_v_byte || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('sat_per_v_byte')) && typeof o.sat_per_v_byte !== 'number') return new Error(`${path}.sat_per_v_byte: is not a number`)
+    if (opts.sat_per_v_byte_CustomCheck && !opts.sat_per_v_byte_CustomCheck(o.sat_per_v_byte)) return new Error(`${path}.sat_per_v_byte: custom check failed`)
+
+    if ((o.send_all || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('send_all')) && typeof o.send_all !== 'boolean') return new Error(`${path}.send_all: is not a boolean`)
+    if (opts.send_all_CustomCheck && !opts.send_all_CustomCheck(o.send_all)) return new Error(`${path}.send_all: custom check failed`)
+
+    return null
+}
+
+export type AdminSendCoinsResponse = {
+    amount: number
+    network_fee: number
+    tx_id: string
+}
+export const AdminSendCoinsResponseOptionalFields: [] = []
+export type AdminSendCoinsResponseOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    amount_CustomCheck?: (v: number) => boolean
+    network_fee_CustomCheck?: (v: number) => boolean
+    tx_id_CustomCheck?: (v: string) => boolean
+}
+export const AdminSendCoinsResponseValidate = (o?: AdminSendCoinsResponse, opts: AdminSendCoinsResponseOptions = {}, path: string = 'AdminSendCoinsResponse::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.amount !== 'number') return new Error(`${path}.amount: is not a number`)
+    if (opts.amount_CustomCheck && !opts.amount_CustomCheck(o.amount)) return new Error(`${path}.amount: custom check failed`)
+
+    if (typeof o.network_fee !== 'number') return new Error(`${path}.network_fee: is not a number`)
+    if (opts.network_fee_CustomCheck && !opts.network_fee_CustomCheck(o.network_fee)) return new Error(`${path}.network_fee: custom check failed`)
+
+    if (typeof o.tx_id !== 'string') return new Error(`${path}.tx_id: is not a string`)
+    if (opts.tx_id_CustomCheck && !opts.tx_id_CustomCheck(o.tx_id)) return new Error(`${path}.tx_id: custom check failed`)
 
     return null
 }

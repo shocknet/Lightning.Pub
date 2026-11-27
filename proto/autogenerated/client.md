@@ -33,6 +33,11 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [OfferCreateRequest](#OfferCreateRequest)
   - output: [OfferId](#OfferId)
 
+- AdminSendCoins
+  - auth type: __Admin__
+  - input: [AdminSendCoinsRequest](#AdminSendCoinsRequest)
+  - output: [AdminSendCoinsResponse](#AdminSendCoinsResponse)
+
 - AdminSendUserToUser
   - auth type: __Admin__
   - input: [AdminSendUserToUserRequest](#AdminSendUserToUserRequest)
@@ -528,6 +533,13 @@ The nostr server will send back a message response, and inside the body there wi
   - http route: __/api/user/offer/add__
   - input: [OfferCreateRequest](#OfferCreateRequest)
   - output: [OfferId](#OfferId)
+
+- AdminSendCoins
+  - auth type: __Admin__
+  - http method: __post__
+  - http route: __/api/admin/chain/send__
+  - input: [AdminSendCoinsRequest](#AdminSendCoinsRequest)
+  - output: [AdminSendCoinsResponse](#AdminSendCoinsResponse)
 
 - AdminSendUserToUser
   - auth type: __Admin__
@@ -1315,6 +1327,17 @@ The nostr server will send back a message response, and inside the body there wi
   - __tier2_limit_sats__: _number_
   - __tier3_confs__: _number_
   - __tier3_confs_env_locked__: _boolean_
+
+### AdminSendCoinsRequest
+  - __address__: _string_
+  - __amount__: _number_ *this field is optional
+  - __sat_per_v_byte__: _number_ *this field is optional
+  - __send_all__: _boolean_ *this field is optional
+
+### AdminSendCoinsResponse
+  - __amount__: _number_
+  - __network_fee__: _number_
+  - __tx_id__: _string_
 
 ### AdminSendUserToUserRequest
   - __amount__: _number_
