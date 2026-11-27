@@ -20,7 +20,7 @@ import { NodeInfo } from "../lnd/settings.js";
 import { Channel, Invoice, Payment, OutputDetail, Transaction, Payment_PaymentStatus, Invoice_InvoiceState } from "../../../proto/lnd/lightning.js";
 import { LiquidityProvider } from "./liquidityProvider.js";
 import { BackupManager } from "../backup/backupManager.js";
-import { isNonNegativeIndex, isNonNegativeSats, isOptionalNonNegativeSats, isPositiveSats, isTcpPort } from "../helpers/sats.js";
+import { isNonNegativeIndex, isNonNegativeSats, isOptionalNonNegativeSats, isOptionalPositiveSats, isPositiveSats, isTcpPort } from "../helpers/sats.js";
 import { clampPageLimit, DEFAULT_LND_PAGE_SIZE, DEFAULT_PAGE_SIZE, MAX_LIQUIDITY_PAGE_SIZE, MAX_PAGE_SIZE } from "../helpers/pageLimit.js";
 import { aliasByRemotePubkey } from "../helpers/channelAliases.js";
 import {
@@ -90,6 +90,14 @@ const untrackedLiquidityAsset = (pubkey: string): Types.LiquidityAssetProviderV2
     pubkey,
     tracked: undefined,
 })
+/** True when an on-chain spend would leave node assets below user liabilities. */
+export const spendExceedsNodeSurplus = (spendSats: number, totalAssets: number, usersBalance: number): boolean =>
+    spendSats > totalAssets - usersBalance
+
+/** True when an on-chain spend would leave confirmed wallet funds below LND's anchor reserve. */
+export const spendBreachesAnchorReserve = (spendSats: number, confirmedWalletSats: number, requiredReserveSats: number): boolean =>
+    confirmedWalletSats - spendSats < requiredReserveSats
+
 export class AdminManager {
     settings: SettingsManager
     liquidityProvider: LiquidityProvider | null = null
@@ -109,6 +117,7 @@ export class AdminManager {
     backupManager?: BackupManager
     private nostrReset: () => Promise<void> = async () => { this.log("nostr reset not initialized yet") }
     private refreshDefaultBeacon: () => Promise<void> = async () => { }
+    private adminSendLock: Promise<void> = Promise.resolve()
     constructor(settings: SettingsManager, storage: Storage, swaps: Swaps) {
         this.settings = settings
         this.storage = storage
@@ -692,6 +701,191 @@ export class AdminManager {
             tx_id: swap.txId,
             network_fee: swap.network_fee,
         }
+    }
+
+    /**
+     * Spend node on-chain UTXOs. Does not debit user ledger balances — that is
+     * user PayAddress. Serializes concurrent sends and checks surplus against
+     * the exact prepared tx outflow (or confirmed wallet balance for send_all)
+     * before broadcast, then records a pending chain_payment root op so assets
+     * history and watchdog stay consistent.
+     */
+    async AdminSendCoins(req: Types.AdminSendCoinsRequest): Promise<Types.AdminSendCoinsResponse> {
+        const sendAll = !!req.send_all
+        await this.validateAdminSendRequest(req, sendAll)
+        return this.withAdminSendLock(async () => {
+            const satPerVByte = await this.resolveAdminSendFeeRate(req.sat_per_v_byte)
+            if (sendAll) {
+                return this.sendAllAdminCoins(req.address, satPerVByte)
+            }
+            return this.sendFixedAdminCoins(req.address, req.amount!, satPerVByte)
+        })
+    }
+
+    private async withAdminSendLock<T>(fn: () => Promise<T>): Promise<T> {
+        const previous = this.adminSendLock
+        let release!: () => void
+        this.adminSendLock = new Promise<void>(resolve => { release = resolve })
+        await previous
+        try {
+            return await fn()
+        } finally {
+            release()
+        }
+    }
+
+    private async validateAdminSendRequest(req: Types.AdminSendCoinsRequest, sendAll: boolean): Promise<void> {
+        if (!req.address) {
+            throw new Error("address is required")
+        }
+        const amount = req.amount
+        if (sendAll && amount !== undefined && amount !== 0) {
+            throw new Error("amount must be omitted when send_all is set")
+        }
+        if (!sendAll && (amount === undefined || !isPositiveSats(amount))) {
+            throw new Error("amount must be a positive integer number of sats unless send_all is set")
+        }
+        if (!isOptionalPositiveSats(req.sat_per_v_byte)) {
+            throw new Error("sat_per_v_byte must be a positive integer when set")
+        }
+        const userAddress = await this.storage.paymentStorage.GetAddressOwner(req.address)
+        if (userAddress) {
+            throw new Error("cannot send to a user deposit address via admin send")
+        }
+    }
+
+    private async resolveAdminSendFeeRate(requestedSatPerVByte?: number): Promise<number> {
+        const feeRates = await this.lnd.EstimateSatPerVbyte(1)
+        const minRelay = feeRates.minRelaySatPerVbyte
+        let satPerVByte: number
+        if (requestedSatPerVByte !== undefined) {
+            if (requestedSatPerVByte < minRelay) {
+                throw new Error(`sat_per_v_byte must be at least the min relay fee (${minRelay})`)
+            }
+            satPerVByte = requestedSatPerVByte
+        } else {
+            satPerVByte = Math.max(feeRates.satPerVbyte, minRelay)
+        }
+        if (!isPositiveSats(satPerVByte)) {
+            throw new Error("resolved sat_per_v_byte must be a positive integer")
+        }
+        return satPerVByte
+    }
+
+    private async readNodeSurplusInputs(): Promise<{ totalAssets: number, usersBalance: number, confirmedWalletBalance: number }> {
+        // Include locked users: they still hold custodied liabilities. Watchdog
+        // uses the same total (no excludeLocked).
+        const usersBalance = await this.storage.paymentStorage.GetTotalUsersBalance()
+        const { totalLndBalance, othersFromLnd } = await this.lnd.GetTotalBalace()
+        const lpBalance = this.liquidityProvider?.IsReady() ? this.liquidityProvider.GetLatestBalance() : 0
+        return {
+            totalAssets: totalLndBalance + lpBalance,
+            usersBalance,
+            confirmedWalletBalance: othersFromLnd.wc,
+        }
+    }
+
+    private async sendFixedAdminCoins(
+        address: string,
+        amount: number,
+        satPerVByte: number,
+    ): Promise<Types.AdminSendCoinsResponse> {
+        const crafted = await this.lnd.CraftAddressPayment(address, amount, satPerVByte)
+        const spend = amount + crafted.feeSats
+        try {
+            // Re-read balances after funding so any concurrent external spend
+            // before fundPsbt is reflected. LND excludes leased inputs from
+            // confirmedBalance, so add crafted.inputSum once (this also counts
+            // change returning to our wallet: confirmedBalance + inputSum - spend).
+            const { totalAssets, usersBalance, confirmedWalletBalance } = await this.readNodeSurplusInputs()
+            const totalAssetsWithLocked = totalAssets + crafted.inputSum
+            const confirmedWalletWithLocked = confirmedWalletBalance + crafted.inputSum
+            if (spendExceedsNodeSurplus(spend, totalAssetsWithLocked, usersBalance)) {
+                throw new Error("amount exceeds node surplus above user liabilities")
+            }
+            const requiredReserve = await this.lnd.RequiredReserve()
+            if (spendBreachesAnchorReserve(spend, confirmedWalletWithLocked, requiredReserve)) {
+                throw new Error("amount would leave on-chain balance below LND anchor channel reserve")
+            }
+        } catch (err) {
+            await this.lnd.ReleaseLeases(crafted.lockedUtxos)
+            throw err
+        }
+        let published: { txId: string }
+        try {
+            published = await this.lnd.BroadcastTransaction(crafted.txHex, "admin-send")
+        } catch (err) {
+            await this.lnd.ReleaseLeases(crafted.lockedUtxos)
+            throw err
+        }
+        await this.recordAdminSendRootOp(published.txId, amount, crafted.feeSats)
+        return {
+            tx_id: published.txId,
+            amount,
+            network_fee: crafted.feeSats,
+        }
+    }
+
+    private async sendAllAdminCoins(
+        address: string,
+        satPerVByte: number,
+    ): Promise<Types.AdminSendCoinsResponse> {
+        // Pin the exact confirmed UTXOs checked against surplus so a newly
+        // confirmed UTXO cannot be swept between the check and SendCoins.
+        const { totalAssets, usersBalance } = await this.readNodeSurplusInputs()
+        const utxos = await this.lnd.ListUnspent()
+        const confirmed = utxos.filter(u => Number(u.confirmations) >= 1 && u.outpoint)
+        if (confirmed.length === 0) {
+            throw new Error("no confirmed on-chain UTXOs available to send")
+        }
+        const sendAllConfirmed = confirmed.reduce((sum, u) => sum + Number(u.amountSat), 0)
+        const pinnedOutpoints = confirmed.map(u => u.outpoint!)
+        if (spendExceedsNodeSurplus(sendAllConfirmed, totalAssets, usersBalance)) {
+            throw new Error("send_all would spend user-custodied funds")
+        }
+        const paid = await this.lnd.PayAddress(
+            address,
+            0,
+            satPerVByte,
+            "admin-send",
+            { useProvider: false, from: 'system' },
+            true,
+            pinnedOutpoints,
+        )
+        // Coins are already broadcast. GetTx is only for exact dest/fee; a
+        // lookup failure must not skip the chain_payment root op or watchdog
+        // will treat the outflow as unexplained drift vs users_balance.
+        let destAmount = sendAllConfirmed
+        let networkFee = 0
+        try {
+            const tx = await this.lnd.GetTx(paid.txid)
+            networkFee = Number(tx.totalFees)
+            const walletDelta = Math.abs(Number(tx.amount))
+            destAmount = Math.max(0, walletDelta - networkFee)
+        } catch (err: any) {
+            this.log("admin send GetTx failed, recording root op from confirmed balance", {
+                txId: paid.txid,
+                err: err?.message || err,
+            })
+        }
+        await this.recordAdminSendRootOp(paid.txid, destAmount, networkFee)
+        return {
+            tx_id: paid.txid,
+            amount: destAmount,
+            network_fee: networkFee,
+        }
+    }
+
+    private async recordAdminSendRootOp(txId: string, destAmount: number, networkFee: number): Promise<void> {
+        const rootAmount = destAmount + networkFee
+        if (isPositiveSats(rootAmount)) {
+            await this.storage.metricsStorage.EnsureRootOperation("chain_payment", txId, rootAmount, true)
+        } else {
+            this.log("admin send produced non-positive outflow, skipping root op", {
+                txId, destAmount, networkFee,
+            })
+        }
+        this.log("admin send coins", { txId, destAmount, networkFee })
     }
 
     async GetAssetsAndLiabilities(req: Types.AssetsAndLiabilitiesReq): Promise<Types.AssetsAndLiabilities> {

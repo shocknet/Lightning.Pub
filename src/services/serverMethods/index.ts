@@ -53,6 +53,12 @@ export default (mainHandler: Main): Types.ServerMethods => {
         GetAppsMetrics: async ({ ctx, req }) => {
             return mainHandler.metricsManager.GetAppsMetrics(req)
         },
+        GetFailedOutgoingPayments: async ({ ctx, req }) => {
+            return mainHandler.metricsManager.GetFailedOutgoingPayments(req)
+        },
+        GetPaymentDestinations: async ({ ctx, req }) => {
+            return mainHandler.metricsManager.GetPaymentDestinations(req)
+        },
         GetLndMetrics: async ({ ctx, req }) => {
             return mainHandler.metricsManager.GetLndMetrics(req)
         },
@@ -177,6 +183,15 @@ export default (mainHandler: Main): Types.ServerMethods => {
         GetAssetsAndLiabilitiesV2: async ({ ctx, req }) => {
             return mainHandler.adminManager.GetAssetsAndLiabilitiesV2(req)
         },
+        AdminSendCoins: async ({ ctx, req }) => {
+            const err = Types.AdminSendCoinsRequestValidate(req, {
+                address_CustomCheck: addr => addr !== '',
+                amount_CustomCheck: isOptionalNonNegativeSats,
+                sat_per_v_byte_CustomCheck: isOptionalPositiveSats,
+            })
+            if (err != null) throw new Error(err.message)
+            return mainHandler.adminManager.AdminSendCoins(req)
+        },
         GetProvidersDisruption: async () => {
             return mainHandler.metricsManager.GetProvidersDisruption()
         },
@@ -197,6 +212,15 @@ export default (mainHandler: Main): Types.ServerMethods => {
         },
         GetUsersAdminInfo: async ({ ctx, req }) => {
             return mainHandler.appUserManager.GetUsersAdminInfo(req)
+        },
+        AdminSendUserToUser: async ({ req }) => {
+            const err = Types.AdminSendUserToUserRequestValidate(req, {
+                from_user_id_CustomCheck: id => id !== '',
+                to_user_id_CustomCheck: id => id !== '',
+                amount_CustomCheck: isPositiveSats,
+            })
+            if (err != null) throw new Error(err.message)
+            return mainHandler.appUserManager.AdminSendUserToUser(req)
         },
         GetUserOperationsFromAdmin: async ({ req }) => {
             if (!req.user_id) throw new Error("user_id is required")

@@ -23,8 +23,8 @@ export type RequestContext = {
 export type AdminContext = {
     admin_id: string
 }
-export type AdminMethodInputs = AddApp_Input | AddPeer_Input | AuthApp_Input | BanUser_Input | BumpTx_Input | CloseChannel_Input | CreateOneTimeInviteLink_Input | GetAdminInvoiceSwapQuotes_Input | GetAdminNodeSettings_Input | GetAdminOnchainConfSettings_Input | GetAdminTransactionSwapQuotes_Input | GetAssetsAndLiabilities_Input | GetAssetsAndLiabilitiesV2_Input | GetInviteLinkState_Input | GetSeed_Input | GetUserOperationsFromAdmin_Input | GetUsersAdminInfo_Input | ListAdminInvoiceSwaps_Input | ListAdminTxSwaps_Input | ListChannels_Input | ListPeers_Input | ListUtxos_Input | LndGetInfo_Input | OpenChannel_Input | PayAdminInvoiceSwap_Input | PayAdminTransactionSwap_Input | RefundAdminInvoiceSwap_Input | UpdateAdminNodeSettings_Input | UpdateAdminOnchainConfSettings_Input | UpdateChannelPolicy_Input
-export type AdminMethodOutputs = AddApp_Output | AddPeer_Output | AuthApp_Output | BanUser_Output | BumpTx_Output | CloseChannel_Output | CreateOneTimeInviteLink_Output | GetAdminInvoiceSwapQuotes_Output | GetAdminNodeSettings_Output | GetAdminOnchainConfSettings_Output | GetAdminTransactionSwapQuotes_Output | GetAssetsAndLiabilities_Output | GetAssetsAndLiabilitiesV2_Output | GetInviteLinkState_Output | GetSeed_Output | GetUserOperationsFromAdmin_Output | GetUsersAdminInfo_Output | ListAdminInvoiceSwaps_Output | ListAdminTxSwaps_Output | ListChannels_Output | ListPeers_Output | ListUtxos_Output | LndGetInfo_Output | OpenChannel_Output | PayAdminInvoiceSwap_Output | PayAdminTransactionSwap_Output | RefundAdminInvoiceSwap_Output | UpdateAdminNodeSettings_Output | UpdateAdminOnchainConfSettings_Output | UpdateChannelPolicy_Output
+export type AdminMethodInputs = AddApp_Input | AddPeer_Input | AdminSendCoins_Input | AdminSendUserToUser_Input | AuthApp_Input | BanUser_Input | BumpTx_Input | CloseChannel_Input | CreateOneTimeInviteLink_Input | GetAdminInvoiceSwapQuotes_Input | GetAdminNodeSettings_Input | GetAdminOnchainConfSettings_Input | GetAdminTransactionSwapQuotes_Input | GetAssetsAndLiabilities_Input | GetAssetsAndLiabilitiesV2_Input | GetInviteLinkState_Input | GetSeed_Input | GetUserOperationsFromAdmin_Input | GetUsersAdminInfo_Input | ListAdminInvoiceSwaps_Input | ListAdminTxSwaps_Input | ListChannels_Input | ListPeers_Input | ListUtxos_Input | LndGetInfo_Input | OpenChannel_Input | PayAdminInvoiceSwap_Input | PayAdminTransactionSwap_Input | RefundAdminInvoiceSwap_Input | UpdateAdminNodeSettings_Input | UpdateAdminOnchainConfSettings_Input | UpdateChannelPolicy_Input
+export type AdminMethodOutputs = AddApp_Output | AddPeer_Output | AdminSendCoins_Output | AdminSendUserToUser_Output | AuthApp_Output | BanUser_Output | BumpTx_Output | CloseChannel_Output | CreateOneTimeInviteLink_Output | GetAdminInvoiceSwapQuotes_Output | GetAdminNodeSettings_Output | GetAdminOnchainConfSettings_Output | GetAdminTransactionSwapQuotes_Output | GetAssetsAndLiabilities_Output | GetAssetsAndLiabilitiesV2_Output | GetInviteLinkState_Output | GetSeed_Output | GetUserOperationsFromAdmin_Output | GetUsersAdminInfo_Output | ListAdminInvoiceSwaps_Output | ListAdminTxSwaps_Output | ListChannels_Output | ListPeers_Output | ListUtxos_Output | LndGetInfo_Output | OpenChannel_Output | PayAdminInvoiceSwap_Output | PayAdminTransactionSwap_Output | RefundAdminInvoiceSwap_Output | UpdateAdminNodeSettings_Output | UpdateAdminOnchainConfSettings_Output | UpdateChannelPolicy_Output
 export type AppContext = {
     app_id: string
 }
@@ -44,8 +44,8 @@ export type MetricsContext = {
     app_id: string
     operator_id: string
 }
-export type MetricsMethodInputs = GetAppsMetrics_Input | GetBundleMetrics_Input | GetErrorStats_Input | GetLndForwardingMetrics_Input | GetLndMetrics_Input | GetProvidersDisruption_Input | GetSingleBundleMetrics_Input | GetSingleUsageMetrics_Input | GetUsageMetrics_Input | PingSubProcesses_Input | ResetMetricsStorages_Input | SubToWebRtcCandidates_Input | SubmitWebRtcMessage_Input | ZipMetricsStorages_Input
-export type MetricsMethodOutputs = GetAppsMetrics_Output | GetBundleMetrics_Output | GetErrorStats_Output | GetLndForwardingMetrics_Output | GetLndMetrics_Output | GetProvidersDisruption_Output | GetSingleBundleMetrics_Output | GetSingleUsageMetrics_Output | GetUsageMetrics_Output | PingSubProcesses_Output | ResetMetricsStorages_Output | SubToWebRtcCandidates_Output | SubmitWebRtcMessage_Output | ZipMetricsStorages_Output
+export type MetricsMethodInputs = GetAppsMetrics_Input | GetBundleMetrics_Input | GetErrorStats_Input | GetFailedOutgoingPayments_Input | GetLndForwardingMetrics_Input | GetLndMetrics_Input | GetPaymentDestinations_Input | GetProvidersDisruption_Input | GetSingleBundleMetrics_Input | GetSingleUsageMetrics_Input | GetUsageMetrics_Input | PingSubProcesses_Input | ResetMetricsStorages_Input | SubToWebRtcCandidates_Input | SubmitWebRtcMessage_Input | ZipMetricsStorages_Input
+export type MetricsMethodOutputs = GetAppsMetrics_Output | GetBundleMetrics_Output | GetErrorStats_Output | GetFailedOutgoingPayments_Output | GetLndForwardingMetrics_Output | GetLndMetrics_Output | GetPaymentDestinations_Output | GetProvidersDisruption_Output | GetSingleBundleMetrics_Output | GetSingleUsageMetrics_Output | GetUsageMetrics_Output | PingSubProcesses_Output | ResetMetricsStorages_Output | SubToWebRtcCandidates_Output | SubmitWebRtcMessage_Output | ZipMetricsStorages_Output
 export type UserContext = {
     app_id: string
     app_user_id: string
@@ -75,6 +75,12 @@ export type AddProduct_Output = ResultError | ({ status: 'OK' } & Product)
 
 export type AddUserOffer_Input = {rpcName:'AddUserOffer', req: OfferCreateRequest}
 export type AddUserOffer_Output = ResultError | ({ status: 'OK' } & OfferId)
+
+export type AdminSendCoins_Input = {rpcName:'AdminSendCoins', req: AdminSendCoinsRequest}
+export type AdminSendCoins_Output = ResultError | ({ status: 'OK' } & AdminSendCoinsResponse)
+
+export type AdminSendUserToUser_Input = {rpcName:'AdminSendUserToUser', req: AdminSendUserToUserRequest}
+export type AdminSendUserToUser_Output = ResultError | ({ status: 'OK' } & AdminSendUserToUserResponse)
 
 export type AuthApp_Input = {rpcName:'AuthApp', req: AuthAppRequest}
 export type AuthApp_Output = ResultError | ({ status: 'OK' } & AuthApp)
@@ -157,6 +163,9 @@ export type GetDebitAuthorizations_Output = ResultError | ({ status: 'OK' } & De
 export type GetErrorStats_Input = {rpcName:'GetErrorStats'}
 export type GetErrorStats_Output = ResultError | ({ status: 'OK' } & ErrorStats)
 
+export type GetFailedOutgoingPayments_Input = {rpcName:'GetFailedOutgoingPayments', req: FailedOutgoingPaymentsRequest}
+export type GetFailedOutgoingPayments_Output = ResultError | ({ status: 'OK' } & FailedOutgoingPayments)
+
 export type GetHttpCreds_Input = {rpcName:'GetHttpCreds'}
 export type GetHttpCreds_Output = ResultError | ({ status: 'OK' } & HttpCreds)
 
@@ -207,6 +216,9 @@ export type GetMigrationUpdate_Output = ResultError | { status: 'OK' }
 
 export type GetNPubLinkingState_Input = {rpcName:'GetNPubLinkingState', req: GetNPubLinking}
 export type GetNPubLinkingState_Output = ResultError | ({ status: 'OK' } & NPubLinking)
+
+export type GetPaymentDestinations_Input = {rpcName:'GetPaymentDestinations', req: PaymentDestinationsRequest}
+export type GetPaymentDestinations_Output = ResultError | ({ status: 'OK' } & PaymentDestinations)
 
 export type GetPaymentState_Input = {rpcName:'GetPaymentState', req: GetPaymentStateRequest}
 export type GetPaymentState_Output = ResultError | ({ status: 'OK' } & PaymentState)
@@ -406,6 +418,8 @@ export type ServerMethods = {
     AddPeer?: (req: AddPeer_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<void>
     AddProduct?: (req: AddProduct_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<Product>
     AddUserOffer?: (req: AddUserOffer_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<OfferId>
+    AdminSendCoins?: (req: AdminSendCoins_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<AdminSendCoinsResponse>
+    AdminSendUserToUser?: (req: AdminSendUserToUser_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<AdminSendUserToUserResponse>
     AuthApp?: (req: AuthApp_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<AuthApp>
     AuthorizeManage?: (req: AuthorizeManage_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<ManageAuthorization>
     BanDebit?: (req: BanDebit_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<void>
@@ -432,6 +446,7 @@ export type ServerMethods = {
     GetBundleMetrics?: (req: GetBundleMetrics_Input & {ctx: MetricsContext, requestContext?: RequestContext }) => Promise<BundleMetrics>
     GetDebitAuthorizations?: (req: GetDebitAuthorizations_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<DebitAuthorizations>
     GetErrorStats?: (req: GetErrorStats_Input & {ctx: MetricsContext, requestContext?: RequestContext }) => Promise<ErrorStats>
+    GetFailedOutgoingPayments?: (req: GetFailedOutgoingPayments_Input & {ctx: MetricsContext, requestContext?: RequestContext }) => Promise<FailedOutgoingPayments>
     GetHttpCreds?: (req: GetHttpCreds_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<HttpCreds>
     GetInviteLinkState?: (req: GetInviteLinkState_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<GetInviteTokenStateResponse>
     GetLNURLChannelLink?: (req: GetLNURLChannelLink_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<LnurlLinkResponse>
@@ -447,6 +462,7 @@ export type ServerMethods = {
     GetManageAuthorizations?: (req: GetManageAuthorizations_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<ManageAuthorizations>
     GetMigrationUpdate?: (req: GetMigrationUpdate_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<void>
     GetNPubLinkingState?: (req: GetNPubLinkingState_Input & {ctx: AppContext, requestContext?: RequestContext }) => Promise<NPubLinking>
+    GetPaymentDestinations?: (req: GetPaymentDestinations_Input & {ctx: MetricsContext, requestContext?: RequestContext }) => Promise<PaymentDestinations>
     GetPaymentState?: (req: GetPaymentState_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<PaymentState>
     GetProvidersDisruption?: (req: GetProvidersDisruption_Input & {ctx: MetricsContext, requestContext?: RequestContext }) => Promise<ProvidersDisruption>
     GetSeed?: (req: GetSeed_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<LndSeed>
@@ -901,6 +917,119 @@ export const AdminOnchainConfSettingsValidate = (o?: AdminOnchainConfSettings, o
 
     if (typeof o.tier3_confs_env_locked !== 'boolean') return new Error(`${path}.tier3_confs_env_locked: is not a boolean`)
     if (opts.tier3_confs_env_locked_CustomCheck && !opts.tier3_confs_env_locked_CustomCheck(o.tier3_confs_env_locked)) return new Error(`${path}.tier3_confs_env_locked: custom check failed`)
+
+    return null
+}
+
+export type AdminSendCoinsRequest = {
+    address: string
+    amount?: number
+    sat_per_v_byte?: number
+    send_all?: boolean
+}
+export type AdminSendCoinsRequestOptionalField = 'amount' | 'sat_per_v_byte' | 'send_all'
+export const AdminSendCoinsRequestOptionalFields: AdminSendCoinsRequestOptionalField[] = ['amount', 'sat_per_v_byte', 'send_all']
+export type AdminSendCoinsRequestOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: AdminSendCoinsRequestOptionalField[]
+    address_CustomCheck?: (v: string) => boolean
+    amount_CustomCheck?: (v?: number) => boolean
+    sat_per_v_byte_CustomCheck?: (v?: number) => boolean
+    send_all_CustomCheck?: (v?: boolean) => boolean
+}
+export const AdminSendCoinsRequestValidate = (o?: AdminSendCoinsRequest, opts: AdminSendCoinsRequestOptions = {}, path: string = 'AdminSendCoinsRequest::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.address !== 'string') return new Error(`${path}.address: is not a string`)
+    if (opts.address_CustomCheck && !opts.address_CustomCheck(o.address)) return new Error(`${path}.address: custom check failed`)
+
+    if ((o.amount || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('amount')) && typeof o.amount !== 'number') return new Error(`${path}.amount: is not a number`)
+    if (opts.amount_CustomCheck && !opts.amount_CustomCheck(o.amount)) return new Error(`${path}.amount: custom check failed`)
+
+    if ((o.sat_per_v_byte || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('sat_per_v_byte')) && typeof o.sat_per_v_byte !== 'number') return new Error(`${path}.sat_per_v_byte: is not a number`)
+    if (opts.sat_per_v_byte_CustomCheck && !opts.sat_per_v_byte_CustomCheck(o.sat_per_v_byte)) return new Error(`${path}.sat_per_v_byte: custom check failed`)
+
+    if ((o.send_all || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('send_all')) && typeof o.send_all !== 'boolean') return new Error(`${path}.send_all: is not a boolean`)
+    if (opts.send_all_CustomCheck && !opts.send_all_CustomCheck(o.send_all)) return new Error(`${path}.send_all: custom check failed`)
+
+    return null
+}
+
+export type AdminSendCoinsResponse = {
+    amount: number
+    network_fee: number
+    tx_id: string
+}
+export const AdminSendCoinsResponseOptionalFields: [] = []
+export type AdminSendCoinsResponseOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    amount_CustomCheck?: (v: number) => boolean
+    network_fee_CustomCheck?: (v: number) => boolean
+    tx_id_CustomCheck?: (v: string) => boolean
+}
+export const AdminSendCoinsResponseValidate = (o?: AdminSendCoinsResponse, opts: AdminSendCoinsResponseOptions = {}, path: string = 'AdminSendCoinsResponse::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.amount !== 'number') return new Error(`${path}.amount: is not a number`)
+    if (opts.amount_CustomCheck && !opts.amount_CustomCheck(o.amount)) return new Error(`${path}.amount: custom check failed`)
+
+    if (typeof o.network_fee !== 'number') return new Error(`${path}.network_fee: is not a number`)
+    if (opts.network_fee_CustomCheck && !opts.network_fee_CustomCheck(o.network_fee)) return new Error(`${path}.network_fee: custom check failed`)
+
+    if (typeof o.tx_id !== 'string') return new Error(`${path}.tx_id: is not a string`)
+    if (opts.tx_id_CustomCheck && !opts.tx_id_CustomCheck(o.tx_id)) return new Error(`${path}.tx_id: custom check failed`)
+
+    return null
+}
+
+export type AdminSendUserToUserRequest = {
+    amount: number
+    from_user_id: string
+    to_user_id: string
+}
+export const AdminSendUserToUserRequestOptionalFields: [] = []
+export type AdminSendUserToUserRequestOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    amount_CustomCheck?: (v: number) => boolean
+    from_user_id_CustomCheck?: (v: string) => boolean
+    to_user_id_CustomCheck?: (v: string) => boolean
+}
+export const AdminSendUserToUserRequestValidate = (o?: AdminSendUserToUserRequest, opts: AdminSendUserToUserRequestOptions = {}, path: string = 'AdminSendUserToUserRequest::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.amount !== 'number') return new Error(`${path}.amount: is not a number`)
+    if (opts.amount_CustomCheck && !opts.amount_CustomCheck(o.amount)) return new Error(`${path}.amount: custom check failed`)
+
+    if (typeof o.from_user_id !== 'string') return new Error(`${path}.from_user_id: is not a string`)
+    if (opts.from_user_id_CustomCheck && !opts.from_user_id_CustomCheck(o.from_user_id)) return new Error(`${path}.from_user_id: custom check failed`)
+
+    if (typeof o.to_user_id !== 'string') return new Error(`${path}.to_user_id: is not a string`)
+    if (opts.to_user_id_CustomCheck && !opts.to_user_id_CustomCheck(o.to_user_id)) return new Error(`${path}.to_user_id: custom check failed`)
+
+    return null
+}
+
+export type AdminSendUserToUserResponse = {
+    amount: number
+    fees: number
+}
+export const AdminSendUserToUserResponseOptionalFields: [] = []
+export type AdminSendUserToUserResponseOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    amount_CustomCheck?: (v: number) => boolean
+    fees_CustomCheck?: (v: number) => boolean
+}
+export const AdminSendUserToUserResponseValidate = (o?: AdminSendUserToUserResponse, opts: AdminSendUserToUserResponseOptions = {}, path: string = 'AdminSendUserToUserResponse::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.amount !== 'number') return new Error(`${path}.amount: is not a number`)
+    if (opts.amount_CustomCheck && !opts.amount_CustomCheck(o.amount)) return new Error(`${path}.amount: custom check failed`)
+
+    if (typeof o.fees !== 'number') return new Error(`${path}.fees: is not a number`)
+    if (opts.fees_CustomCheck && !opts.fees_CustomCheck(o.fees)) return new Error(`${path}.fees: custom check failed`)
 
     return null
 }
@@ -2222,6 +2351,165 @@ export const ErrorStatsValidate = (o?: ErrorStats, opts: ErrorStatsOptions = {},
     const past6hErr = ErrorStatValidate(o.past6h, opts.past6h_Options, `${path}.past6h`)
     if (past6hErr !== null) return past6hErr
     
+
+    return null
+}
+
+export type FailedOutgoingPayment = {
+    amount_sats: number
+    app_id?: string
+    dest_pubkey: string
+    failed_at_unix: number
+    failure_reason: string
+    invoice: string
+    liquidity_provider?: string
+    operator_reason: string
+    serial_id: number
+    user_id: string
+}
+export type FailedOutgoingPaymentOptionalField = 'app_id' | 'liquidity_provider'
+export const FailedOutgoingPaymentOptionalFields: FailedOutgoingPaymentOptionalField[] = ['app_id', 'liquidity_provider']
+export type FailedOutgoingPaymentOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: FailedOutgoingPaymentOptionalField[]
+    amount_sats_CustomCheck?: (v: number) => boolean
+    app_id_CustomCheck?: (v?: string) => boolean
+    dest_pubkey_CustomCheck?: (v: string) => boolean
+    failed_at_unix_CustomCheck?: (v: number) => boolean
+    failure_reason_CustomCheck?: (v: string) => boolean
+    invoice_CustomCheck?: (v: string) => boolean
+    liquidity_provider_CustomCheck?: (v?: string) => boolean
+    operator_reason_CustomCheck?: (v: string) => boolean
+    serial_id_CustomCheck?: (v: number) => boolean
+    user_id_CustomCheck?: (v: string) => boolean
+}
+export const FailedOutgoingPaymentValidate = (o?: FailedOutgoingPayment, opts: FailedOutgoingPaymentOptions = {}, path: string = 'FailedOutgoingPayment::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.amount_sats !== 'number') return new Error(`${path}.amount_sats: is not a number`)
+    if (opts.amount_sats_CustomCheck && !opts.amount_sats_CustomCheck(o.amount_sats)) return new Error(`${path}.amount_sats: custom check failed`)
+
+    if ((o.app_id || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('app_id')) && typeof o.app_id !== 'string') return new Error(`${path}.app_id: is not a string`)
+    if (opts.app_id_CustomCheck && !opts.app_id_CustomCheck(o.app_id)) return new Error(`${path}.app_id: custom check failed`)
+
+    if (typeof o.dest_pubkey !== 'string') return new Error(`${path}.dest_pubkey: is not a string`)
+    if (opts.dest_pubkey_CustomCheck && !opts.dest_pubkey_CustomCheck(o.dest_pubkey)) return new Error(`${path}.dest_pubkey: custom check failed`)
+
+    if (typeof o.failed_at_unix !== 'number') return new Error(`${path}.failed_at_unix: is not a number`)
+    if (opts.failed_at_unix_CustomCheck && !opts.failed_at_unix_CustomCheck(o.failed_at_unix)) return new Error(`${path}.failed_at_unix: custom check failed`)
+
+    if (typeof o.failure_reason !== 'string') return new Error(`${path}.failure_reason: is not a string`)
+    if (opts.failure_reason_CustomCheck && !opts.failure_reason_CustomCheck(o.failure_reason)) return new Error(`${path}.failure_reason: custom check failed`)
+
+    if (typeof o.invoice !== 'string') return new Error(`${path}.invoice: is not a string`)
+    if (opts.invoice_CustomCheck && !opts.invoice_CustomCheck(o.invoice)) return new Error(`${path}.invoice: custom check failed`)
+
+    if ((o.liquidity_provider || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('liquidity_provider')) && typeof o.liquidity_provider !== 'string') return new Error(`${path}.liquidity_provider: is not a string`)
+    if (opts.liquidity_provider_CustomCheck && !opts.liquidity_provider_CustomCheck(o.liquidity_provider)) return new Error(`${path}.liquidity_provider: custom check failed`)
+
+    if (typeof o.operator_reason !== 'string') return new Error(`${path}.operator_reason: is not a string`)
+    if (opts.operator_reason_CustomCheck && !opts.operator_reason_CustomCheck(o.operator_reason)) return new Error(`${path}.operator_reason: custom check failed`)
+
+    if (typeof o.serial_id !== 'number') return new Error(`${path}.serial_id: is not a number`)
+    if (opts.serial_id_CustomCheck && !opts.serial_id_CustomCheck(o.serial_id)) return new Error(`${path}.serial_id: custom check failed`)
+
+    if (typeof o.user_id !== 'string') return new Error(`${path}.user_id: is not a string`)
+    if (opts.user_id_CustomCheck && !opts.user_id_CustomCheck(o.user_id)) return new Error(`${path}.user_id: custom check failed`)
+
+    return null
+}
+
+export type FailedOutgoingPaymentReasonCount = {
+    count: number
+    failure_reason: string
+    operator_reason: string
+}
+export const FailedOutgoingPaymentReasonCountOptionalFields: [] = []
+export type FailedOutgoingPaymentReasonCountOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    count_CustomCheck?: (v: number) => boolean
+    failure_reason_CustomCheck?: (v: string) => boolean
+    operator_reason_CustomCheck?: (v: string) => boolean
+}
+export const FailedOutgoingPaymentReasonCountValidate = (o?: FailedOutgoingPaymentReasonCount, opts: FailedOutgoingPaymentReasonCountOptions = {}, path: string = 'FailedOutgoingPaymentReasonCount::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.count !== 'number') return new Error(`${path}.count: is not a number`)
+    if (opts.count_CustomCheck && !opts.count_CustomCheck(o.count)) return new Error(`${path}.count: custom check failed`)
+
+    if (typeof o.failure_reason !== 'string') return new Error(`${path}.failure_reason: is not a string`)
+    if (opts.failure_reason_CustomCheck && !opts.failure_reason_CustomCheck(o.failure_reason)) return new Error(`${path}.failure_reason: custom check failed`)
+
+    if (typeof o.operator_reason !== 'string') return new Error(`${path}.operator_reason: is not a string`)
+    if (opts.operator_reason_CustomCheck && !opts.operator_reason_CustomCheck(o.operator_reason)) return new Error(`${path}.operator_reason: custom check failed`)
+
+    return null
+}
+
+export type FailedOutgoingPayments = {
+    payments: FailedOutgoingPayment[]
+    reason_counts: FailedOutgoingPaymentReasonCount[]
+}
+export const FailedOutgoingPaymentsOptionalFields: [] = []
+export type FailedOutgoingPaymentsOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    payments_ItemOptions?: FailedOutgoingPaymentOptions
+    payments_CustomCheck?: (v: FailedOutgoingPayment[]) => boolean
+    reason_counts_ItemOptions?: FailedOutgoingPaymentReasonCountOptions
+    reason_counts_CustomCheck?: (v: FailedOutgoingPaymentReasonCount[]) => boolean
+}
+export const FailedOutgoingPaymentsValidate = (o?: FailedOutgoingPayments, opts: FailedOutgoingPaymentsOptions = {}, path: string = 'FailedOutgoingPayments::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (!Array.isArray(o.payments)) return new Error(`${path}.payments: is not an array`)
+    for (let index = 0; index < o.payments.length; index++) {
+        const paymentsErr = FailedOutgoingPaymentValidate(o.payments[index], opts.payments_ItemOptions, `${path}.payments[${index}]`)
+        if (paymentsErr !== null) return paymentsErr
+    }
+    if (opts.payments_CustomCheck && !opts.payments_CustomCheck(o.payments)) return new Error(`${path}.payments: custom check failed`)
+
+    if (!Array.isArray(o.reason_counts)) return new Error(`${path}.reason_counts: is not an array`)
+    for (let index = 0; index < o.reason_counts.length; index++) {
+        const reason_countsErr = FailedOutgoingPaymentReasonCountValidate(o.reason_counts[index], opts.reason_counts_ItemOptions, `${path}.reason_counts[${index}]`)
+        if (reason_countsErr !== null) return reason_countsErr
+    }
+    if (opts.reason_counts_CustomCheck && !opts.reason_counts_CustomCheck(o.reason_counts)) return new Error(`${path}.reason_counts: custom check failed`)
+
+    return null
+}
+
+export type FailedOutgoingPaymentsRequest = {
+    from_serial_id?: number
+    from_unix?: number
+    take?: number
+    to_unix?: number
+}
+export type FailedOutgoingPaymentsRequestOptionalField = 'from_serial_id' | 'from_unix' | 'take' | 'to_unix'
+export const FailedOutgoingPaymentsRequestOptionalFields: FailedOutgoingPaymentsRequestOptionalField[] = ['from_serial_id', 'from_unix', 'take', 'to_unix']
+export type FailedOutgoingPaymentsRequestOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: FailedOutgoingPaymentsRequestOptionalField[]
+    from_serial_id_CustomCheck?: (v?: number) => boolean
+    from_unix_CustomCheck?: (v?: number) => boolean
+    take_CustomCheck?: (v?: number) => boolean
+    to_unix_CustomCheck?: (v?: number) => boolean
+}
+export const FailedOutgoingPaymentsRequestValidate = (o?: FailedOutgoingPaymentsRequest, opts: FailedOutgoingPaymentsRequestOptions = {}, path: string = 'FailedOutgoingPaymentsRequest::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if ((o.from_serial_id || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('from_serial_id')) && typeof o.from_serial_id !== 'number') return new Error(`${path}.from_serial_id: is not a number`)
+    if (opts.from_serial_id_CustomCheck && !opts.from_serial_id_CustomCheck(o.from_serial_id)) return new Error(`${path}.from_serial_id: custom check failed`)
+
+    if ((o.from_unix || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('from_unix')) && typeof o.from_unix !== 'number') return new Error(`${path}.from_unix: is not a number`)
+    if (opts.from_unix_CustomCheck && !opts.from_unix_CustomCheck(o.from_unix)) return new Error(`${path}.from_unix: custom check failed`)
+
+    if ((o.take || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('take')) && typeof o.take !== 'number') return new Error(`${path}.take: is not a number`)
+    if (opts.take_CustomCheck && !opts.take_CustomCheck(o.take)) return new Error(`${path}.take: custom check failed`)
+
+    if ((o.to_unix || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('to_unix')) && typeof o.to_unix !== 'number') return new Error(`${path}.to_unix: is not a number`)
+    if (opts.to_unix_CustomCheck && !opts.to_unix_CustomCheck(o.to_unix)) return new Error(`${path}.to_unix: custom check failed`)
 
     return null
 }
@@ -4757,6 +5045,87 @@ export const PayerDataValidate = (o?: PayerData, opts: PayerDataOptions = {}, pa
     for (const key in o.data) {
         if (typeof o.data[key] !== 'string') return new Error(`${path}.data['${key}']: is not a string`)
     }
+
+    return null
+}
+
+export type PaymentDestination = {
+    alias?: string
+    count: number
+    pubkey: string
+    volume_sats: number
+}
+export type PaymentDestinationOptionalField = 'alias'
+export const PaymentDestinationOptionalFields: PaymentDestinationOptionalField[] = ['alias']
+export type PaymentDestinationOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: PaymentDestinationOptionalField[]
+    alias_CustomCheck?: (v?: string) => boolean
+    count_CustomCheck?: (v: number) => boolean
+    pubkey_CustomCheck?: (v: string) => boolean
+    volume_sats_CustomCheck?: (v: number) => boolean
+}
+export const PaymentDestinationValidate = (o?: PaymentDestination, opts: PaymentDestinationOptions = {}, path: string = 'PaymentDestination::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if ((o.alias || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('alias')) && typeof o.alias !== 'string') return new Error(`${path}.alias: is not a string`)
+    if (opts.alias_CustomCheck && !opts.alias_CustomCheck(o.alias)) return new Error(`${path}.alias: custom check failed`)
+
+    if (typeof o.count !== 'number') return new Error(`${path}.count: is not a number`)
+    if (opts.count_CustomCheck && !opts.count_CustomCheck(o.count)) return new Error(`${path}.count: custom check failed`)
+
+    if (typeof o.pubkey !== 'string') return new Error(`${path}.pubkey: is not a string`)
+    if (opts.pubkey_CustomCheck && !opts.pubkey_CustomCheck(o.pubkey)) return new Error(`${path}.pubkey: custom check failed`)
+
+    if (typeof o.volume_sats !== 'number') return new Error(`${path}.volume_sats: is not a number`)
+    if (opts.volume_sats_CustomCheck && !opts.volume_sats_CustomCheck(o.volume_sats)) return new Error(`${path}.volume_sats: custom check failed`)
+
+    return null
+}
+
+export type PaymentDestinations = {
+    destinations: PaymentDestination[]
+}
+export const PaymentDestinationsOptionalFields: [] = []
+export type PaymentDestinationsOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    destinations_ItemOptions?: PaymentDestinationOptions
+    destinations_CustomCheck?: (v: PaymentDestination[]) => boolean
+}
+export const PaymentDestinationsValidate = (o?: PaymentDestinations, opts: PaymentDestinationsOptions = {}, path: string = 'PaymentDestinations::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (!Array.isArray(o.destinations)) return new Error(`${path}.destinations: is not an array`)
+    for (let index = 0; index < o.destinations.length; index++) {
+        const destinationsErr = PaymentDestinationValidate(o.destinations[index], opts.destinations_ItemOptions, `${path}.destinations[${index}]`)
+        if (destinationsErr !== null) return destinationsErr
+    }
+    if (opts.destinations_CustomCheck && !opts.destinations_CustomCheck(o.destinations)) return new Error(`${path}.destinations: custom check failed`)
+
+    return null
+}
+
+export type PaymentDestinationsRequest = {
+    from_unix?: number
+    to_unix?: number
+}
+export type PaymentDestinationsRequestOptionalField = 'from_unix' | 'to_unix'
+export const PaymentDestinationsRequestOptionalFields: PaymentDestinationsRequestOptionalField[] = ['from_unix', 'to_unix']
+export type PaymentDestinationsRequestOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: PaymentDestinationsRequestOptionalField[]
+    from_unix_CustomCheck?: (v?: number) => boolean
+    to_unix_CustomCheck?: (v?: number) => boolean
+}
+export const PaymentDestinationsRequestValidate = (o?: PaymentDestinationsRequest, opts: PaymentDestinationsRequestOptions = {}, path: string = 'PaymentDestinationsRequest::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if ((o.from_unix || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('from_unix')) && typeof o.from_unix !== 'number') return new Error(`${path}.from_unix: is not a number`)
+    if (opts.from_unix_CustomCheck && !opts.from_unix_CustomCheck(o.from_unix)) return new Error(`${path}.from_unix: custom check failed`)
+
+    if ((o.to_unix || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('to_unix')) && typeof o.to_unix !== 'number') return new Error(`${path}.to_unix: is not a number`)
+    if (opts.to_unix_CustomCheck && !opts.to_unix_CustomCheck(o.to_unix)) return new Error(`${path}.to_unix: custom check failed`)
 
     return null
 }

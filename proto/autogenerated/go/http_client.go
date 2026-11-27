@@ -54,17 +54,19 @@ type ClientParams struct {
 	RetrieveUserAuth         func() (string, error)
 }
 type Client struct {
-	AddApp            func(req AddAppRequest) (*AuthApp, error)
-	AddAppInvoice     func(req AddAppInvoiceRequest) (*NewInvoiceResponse, error)
-	AddAppUser        func(req AddAppUserRequest) (*AppUser, error)
-	AddAppUserInvoice func(req AddAppUserInvoiceRequest) (*NewInvoiceResponse, error)
-	AddPeer           func(req AddPeerRequest) error
-	AddProduct        func(req AddProductRequest) (*Product, error)
-	AddUserOffer      func(req OfferCreateRequest) (*OfferId, error)
-	AuthApp           func(req AuthAppRequest) (*AuthApp, error)
-	AuthorizeManage   func(req ManageAuthorizationRequest) (*ManageAuthorization, error)
-	BanDebit          func(req DebitOperation) error
-	BanUser           func(req BanUserRequest) (*BanUserResponse, error)
+	AddApp              func(req AddAppRequest) (*AuthApp, error)
+	AddAppInvoice       func(req AddAppInvoiceRequest) (*NewInvoiceResponse, error)
+	AddAppUser          func(req AddAppUserRequest) (*AppUser, error)
+	AddAppUserInvoice   func(req AddAppUserInvoiceRequest) (*NewInvoiceResponse, error)
+	AddPeer             func(req AddPeerRequest) error
+	AddProduct          func(req AddProductRequest) (*Product, error)
+	AddUserOffer        func(req OfferCreateRequest) (*OfferId, error)
+	AdminSendCoins      func(req AdminSendCoinsRequest) (*AdminSendCoinsResponse, error)
+	AdminSendUserToUser func(req AdminSendUserToUserRequest) (*AdminSendUserToUserResponse, error)
+	AuthApp             func(req AuthAppRequest) (*AuthApp, error)
+	AuthorizeManage     func(req ManageAuthorizationRequest) (*ManageAuthorization, error)
+	BanDebit            func(req DebitOperation) error
+	BanUser             func(req BanUserRequest) (*BanUserResponse, error)
 	// batching method: BatchUser not implemented
 	BumpTx                         func(req BumpTx) error
 	CloseChannel                   func(req CloseChannelRequest) (*CloseChannelResponse, error)
@@ -88,6 +90,7 @@ type Client struct {
 	GetBundleMetrics               func(req LatestBundleMetricReq) (*BundleMetrics, error)
 	GetDebitAuthorizations         func() (*DebitAuthorizations, error)
 	GetErrorStats                  func() (*ErrorStats, error)
+	GetFailedOutgoingPayments      func(req FailedOutgoingPaymentsRequest) (*FailedOutgoingPayments, error)
 	GetHttpCreds                   func() (*HttpCreds, error)
 	GetInviteLinkState             func(req GetInviteTokenStateRequest) (*GetInviteTokenStateResponse, error)
 	GetLNURLChannelLink            func() (*LnurlLinkResponse, error)
@@ -103,6 +106,7 @@ type Client struct {
 	GetManageAuthorizations        func() (*ManageAuthorizations, error)
 	GetMigrationUpdate             func() (*MigrationUpdate, error)
 	GetNPubLinkingState            func(req GetNPubLinking) (*NPubLinking, error)
+	GetPaymentDestinations         func(req PaymentDestinationsRequest) (*PaymentDestinations, error)
 	GetPaymentState                func(req GetPaymentStateRequest) (*PaymentState, error)
 	GetProvidersDisruption         func() (*ProvidersDisruption, error)
 	GetSeed                        func() (*LndSeed, error)
@@ -357,6 +361,64 @@ func NewClient(params ClientParams) *Client {
 				return nil, fmt.Errorf(result.Reason)
 			}
 			res := OfferId{}
+			err = json.Unmarshal(resBody, &res)
+			if err != nil {
+				return nil, err
+			}
+			return &res, nil
+		},
+		AdminSendCoins: func(req AdminSendCoinsRequest) (*AdminSendCoinsResponse, error) {
+			auth, err := params.RetrieveAdminAuth()
+			if err != nil {
+				return nil, err
+			}
+			finalRoute := "/api/admin/chain/send"
+			body, err := json.Marshal(req)
+			if err != nil {
+				return nil, err
+			}
+			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
+			if err != nil {
+				return nil, err
+			}
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return nil, err
+			}
+			if result.Status == "ERROR" {
+				return nil, fmt.Errorf(result.Reason)
+			}
+			res := AdminSendCoinsResponse{}
+			err = json.Unmarshal(resBody, &res)
+			if err != nil {
+				return nil, err
+			}
+			return &res, nil
+		},
+		AdminSendUserToUser: func(req AdminSendUserToUserRequest) (*AdminSendUserToUserResponse, error) {
+			auth, err := params.RetrieveAdminAuth()
+			if err != nil {
+				return nil, err
+			}
+			finalRoute := "/api/admin/user/send/u2u"
+			body, err := json.Marshal(req)
+			if err != nil {
+				return nil, err
+			}
+			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
+			if err != nil {
+				return nil, err
+			}
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return nil, err
+			}
+			if result.Status == "ERROR" {
+				return nil, fmt.Errorf(result.Reason)
+			}
+			res := AdminSendUserToUserResponse{}
 			err = json.Unmarshal(resBody, &res)
 			if err != nil {
 				return nil, err
@@ -1056,6 +1118,35 @@ func NewClient(params ClientParams) *Client {
 			}
 			return &res, nil
 		},
+		GetFailedOutgoingPayments: func(req FailedOutgoingPaymentsRequest) (*FailedOutgoingPayments, error) {
+			auth, err := params.RetrieveMetricsAuth()
+			if err != nil {
+				return nil, err
+			}
+			finalRoute := "/api/reports/failed-outgoing-payments"
+			body, err := json.Marshal(req)
+			if err != nil {
+				return nil, err
+			}
+			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
+			if err != nil {
+				return nil, err
+			}
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return nil, err
+			}
+			if result.Status == "ERROR" {
+				return nil, fmt.Errorf(result.Reason)
+			}
+			res := FailedOutgoingPayments{}
+			err = json.Unmarshal(resBody, &res)
+			if err != nil {
+				return nil, err
+			}
+			return &res, nil
+		},
 		GetHttpCreds: func() (*HttpCreds, error) {
 			auth, err := params.RetrieveUserAuth()
 			if err != nil {
@@ -1348,6 +1439,35 @@ func NewClient(params ClientParams) *Client {
 				return nil, fmt.Errorf(result.Reason)
 			}
 			res := NPubLinking{}
+			err = json.Unmarshal(resBody, &res)
+			if err != nil {
+				return nil, err
+			}
+			return &res, nil
+		},
+		GetPaymentDestinations: func(req PaymentDestinationsRequest) (*PaymentDestinations, error) {
+			auth, err := params.RetrieveMetricsAuth()
+			if err != nil {
+				return nil, err
+			}
+			finalRoute := "/api/reports/payment-destinations"
+			body, err := json.Marshal(req)
+			if err != nil {
+				return nil, err
+			}
+			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
+			if err != nil {
+				return nil, err
+			}
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return nil, err
+			}
+			if result.Status == "ERROR" {
+				return nil, fmt.Errorf(result.Reason)
+			}
+			res := PaymentDestinations{}
 			err = json.Unmarshal(resBody, &res)
 			if err != nil {
 				return nil, err

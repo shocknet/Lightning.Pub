@@ -9,13 +9,14 @@ import { LightningClient } from '../../../proto/lnd/lightning.client.js'
 import { InvoicesClient } from '../../../proto/lnd/invoices.client.js'
 import { RouterClient } from '../../../proto/lnd/router.client.js'
 import { ChainNotifierClient } from '../../../proto/lnd/chainnotifier.client.js'
-import { GetInfoResponse, AddressType, NewAddressResponse, AddInvoiceResponse, Invoice_InvoiceState, PayReq, Payment_PaymentStatus, Payment, PaymentFailureReason, SendCoinsResponse, EstimateFeeResponse, ChannelBalanceResponse, TransactionDetails, ListChannelsResponse, ClosedChannelsResponse, PendingChannelsResponse, ForwardingHistoryResponse, CoinSelectionStrategy, OpenStatusUpdate, CloseStatusUpdate, PendingUpdate, ChannelEventUpdate_UpdateType, ListPaymentsResponse, ListInvoiceResponse } from '../../../proto/lnd/lightning.js'
+import { GetInfoResponse, AddressType, NewAddressResponse, AddInvoiceResponse, Invoice_InvoiceState, PayReq, Payment_PaymentStatus, Payment, PaymentFailureReason, SendCoinsResponse, EstimateFeeResponse, ChannelBalanceResponse, TransactionDetails, ListChannelsResponse, ClosedChannelsResponse, PendingChannelsResponse, ForwardingHistoryResponse, CoinSelectionStrategy, OpenStatusUpdate, CloseStatusUpdate, PendingUpdate, ChannelEventUpdate_UpdateType, ListPaymentsResponse, ListInvoiceResponse, OutPoint } from '../../../proto/lnd/lightning.js'
 import { OpenChannelReq } from './openChannelReq.js';
 import { AddInvoiceReq } from './addInvoiceReq.js';
 import { DEFAULT_PAYMENT_TIMEOUT_SECONDS, PayInvoiceReq } from './payInvoiceReq.js';
 import { SendCoinsReq } from './sendCoinsReq.js';
 import { AddressPaidCb, InvoicePaidCb, NodeInfo, Invoice, DecodedInvoice, PaidInvoice, NewBlockCb, HtlcCb, BalanceInfo, ChannelEventCb, UnlockLndCb, NewAddressCb } from './settings.js';
 import { ERROR, getLogger, DEBUG, INFO } from '../helpers/logger.js';
+import { destPubkeyFromBolt11 } from '../helpers/paymentFailureReason.js';
 import { HtlcEvent_EventType } from '../../../proto/lnd/router.js';
 import { LiquidityProvider } from '../main/liquidityProvider.js';
 import { Utils } from '../helpers/utilsWrapper.js';
@@ -23,7 +24,7 @@ import { TxPointSettings } from '../storage/tlv/stateBundler.js';
 import { WalletKitClient } from '../../../proto/lnd/walletkit.client.js';
 import SettingsManager from '../main/settingsManager.js';
 import { LndNodeSettings, LndSettings } from '../main/settings.js';
-import { ListAddressesResponse, PublishResponse, ChangeAddressType } from '../../../proto/lnd/walletkit.js';
+import { ListAddressesResponse, PublishResponse, ChangeAddressType, UtxoLease } from '../../../proto/lnd/walletkit.js';
 import { isPaymentNotInitiatedError } from './trackPaymentError.js';
 import { broadcastPublishedTx } from './publishError.js';
 import { Transaction } from 'bitcoinjs-lib'
@@ -213,9 +214,9 @@ export default class {
      * error is still a successful RPC. Call BroadcastTransaction for any
      * publication that records a txid or reports success to the user.
      */
-    async PublishTransaction(txHex: string): Promise<PublishResponse> {
+    async PublishTransaction(txHex: string, label = ""): Promise<PublishResponse> {
         const res = await this.walletKit.publishTransaction({
-            txHex: Buffer.from(txHex, 'hex'), label: ""
+            txHex: Buffer.from(txHex, 'hex'), label
         }, DeadLineMetadata())
         return res.response
     }
@@ -228,10 +229,10 @@ export default class {
      * often misses them). Unconfirmed wallet history is not treated as
      * acceptance: an evicted or policy-rejected tx can remain in GetTx.
      */
-    async BroadcastTransaction(txHex: string): Promise<{ txId: string }> {
+    async BroadcastTransaction(txHex: string, label = ""): Promise<{ txId: string }> {
         return broadcastPublishedTx(
             txHex,
-            () => this.PublishTransaction(txHex),
+            () => this.PublishTransaction(txHex, label),
             async (txId) => {
                 try {
                     const tx = await this.GetTx(txId)
@@ -499,7 +500,7 @@ export default class {
      * Build and sign an on-chain payment without broadcasting.
      * UTXOs are locked by FundPsbt until publish or lease expiry.
      */
-    async CraftAddressPayment(address: string, amount: number, satPerVByte: number): Promise<{ txId: string, txHex: string, feeSats: number }> {
+    async CraftAddressPayment(address: string, amount: number, satPerVByte: number): Promise<{ txId: string, txHex: string, feeSats: number, inputSum: number, lockedUtxos: UtxoLease[] }> {
         this.log(DEBUG, "Crafting address payment (no broadcast)")
         if (this.liquidProvider.getSettings().useOnlyLiquidityProvider) {
             throw new Error("Address payments not supported when USE_ONLY_LIQUIDITY_PROVIDER is enabled")
@@ -543,7 +544,26 @@ export default class {
             throw new Error("crafted transaction has negative fee")
         }
         this.log(DEBUG, "Crafted address payment", { txId, feeSats, amount })
-        return { txId, txHex, feeSats }
+        return { txId, txHex, feeSats, inputSum, lockedUtxos: funded.response.lockedUtxos }
+    }
+
+    async RequiredReserve(): Promise<number> {
+        const res = await this.walletKit.requiredReserve({ additionalPublicChannels: 0 }, DeadLineMetadata())
+        return Number(res.response.requiredReserve)
+    }
+
+    async ReleaseLeases(leases: UtxoLease[]): Promise<void> {
+        for (const lease of leases) {
+            if (!lease.outpoint) continue
+            try {
+                await this.walletKit.releaseOutput({
+                    id: lease.id,
+                    outpoint: lease.outpoint,
+                }, DeadLineMetadata())
+            } catch (err: any) {
+                this.log(ERROR, "Failed to release UTXO lease", err?.message || err)
+            }
+        }
     }
 
     async GetInfo(): Promise<NodeInfo> {
@@ -830,13 +850,17 @@ export default class {
                     throw new Error("Payment hash not found in invoice")
                 }
 
-                return { numSatoshis, paymentHash }
+                return { numSatoshis, paymentHash, destination: destPubkeyFromBolt11(paymentRequest) }
             } catch (err: any) {
                 throw new Error(`Failed to decode invoice: ${err.message}`)
             }
         }
         const res = await this.lightning.decodePayReq({ payReq: paymentRequest }, DeadLineMetadata())
-        return { numSatoshis: Number(res.response.numSatoshis), paymentHash: res.response.paymentHash }
+        return {
+            numSatoshis: Number(res.response.numSatoshis),
+            paymentHash: res.response.paymentHash,
+            destination: res.response.destination || '',
+        }
     }
 
     isMalformedBolt11 = (paymentRequest: string): boolean => {
@@ -1083,7 +1107,7 @@ export default class {
         }
     }
 
-    async PayAddress(address: string, amount: number, satPerVByte: number, label = "", { useProvider, from }: TxActionOptions): Promise<SendCoinsResponse> {
+    async PayAddress(address: string, amount: number, satPerVByte: number, label = "", { useProvider, from }: TxActionOptions, sendAll = false, outpoints: OutPoint[] = []): Promise<SendCoinsResponse> {
         this.log(DEBUG, "Paying address")
         // Address payments not supported when bypass is enabled
         if (this.liquidProvider.getSettings().useOnlyLiquidityProvider) {
@@ -1097,12 +1121,13 @@ export default class {
             throw new Error("provider payments not support chain payments yet")
         }
         await this.Health()
+        const trackedAmount = sendAll ? 0 : amount
         try {
-            const res = await this.lightning.sendCoins(SendCoinsReq(address, amount, satPerVByte, label), DeadLineMetadata())
-            this.utils.stateBundler.AddTxPoint('paidAnAddress', amount, { from, used: 'lnd', timeDiscount: true })
+            const res = await this.lightning.sendCoins(SendCoinsReq(address, amount, satPerVByte, label, sendAll, outpoints), DeadLineMetadata())
+            this.utils.stateBundler.AddTxPoint('paidAnAddress', trackedAmount, { from, used: 'lnd', timeDiscount: true })
             return res.response
         } catch (err) {
-            this.utils.stateBundler.AddTxPointFailed('paidAnAddress', amount, { from, used: 'lnd' })
+            this.utils.stateBundler.AddTxPointFailed('paidAnAddress', trackedAmount, { from, used: 'lnd' })
             throw err
         }
     }

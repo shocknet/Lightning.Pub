@@ -88,6 +88,17 @@ message UsersAdminInfo {
     int64 total = 2;
 }
 
+message AdminSendUserToUserRequest {
+    string from_user_id = 1;
+    string to_user_id = 2;
+    int64 amount = 3;
+}
+
+message AdminSendUserToUserResponse {
+    int64 amount = 1;
+    int64 fees = 2;
+}
+
 
 enum TrackedOperationType {
     USER = 0;
@@ -320,6 +331,53 @@ message AppMetrics {
 
 message AppsMetrics {
     repeated AppMetrics apps = 1;
+}
+
+message FailedOutgoingPaymentsRequest {
+    optional int64 from_unix = 1;
+    optional int64 to_unix = 2;
+    optional int64 take = 3;
+    optional int64 from_serial_id = 4;
+}
+
+message FailedOutgoingPayment {
+    int64 serial_id = 1;
+    string user_id = 2;
+    int64 amount_sats = 3;
+    string failure_reason = 4;
+    string operator_reason = 5;
+    string dest_pubkey = 6;
+    int64 failed_at_unix = 7;
+    optional string app_id = 8;
+    optional string liquidity_provider = 9;
+    string invoice = 10;
+}
+
+message FailedOutgoingPaymentReasonCount {
+    string failure_reason = 1;
+    string operator_reason = 2;
+    int64 count = 3;
+}
+
+message FailedOutgoingPayments {
+    repeated FailedOutgoingPayment payments = 1;
+    repeated FailedOutgoingPaymentReasonCount reason_counts = 2;
+}
+
+message PaymentDestinationsRequest {
+    optional int64 from_unix = 1;
+    optional int64 to_unix = 2;
+}
+
+message PaymentDestination {
+    string pubkey = 1;
+    optional string alias = 2;
+    int64 count = 3;
+    int64 volume_sats = 4;
+}
+
+message PaymentDestinations {
+    repeated PaymentDestination destinations = 1;
 }
 
 message LndMetricsRequest {
@@ -1170,6 +1228,19 @@ message TransactionSwapQuoteList {
 message AdminTxSwapResponse {
     string tx_id = 1;
     int64 network_fee = 2;
+}
+
+message AdminSendCoinsRequest {
+    string address = 1;
+    optional int64 amount = 2;          // required unless send_all
+    optional int64 sat_per_v_byte = 3;  // estimated if omitted
+    optional bool send_all = 4;
+}
+
+message AdminSendCoinsResponse {
+    string tx_id = 1;
+    int64 amount = 2;
+    int64 network_fee = 3;
 }
 
 message TxSwapOperation {

@@ -227,6 +227,52 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
+    if (!opts.allowNotImplementedMethods && !methods.AdminSendCoins) throw new Error('method: AdminSendCoins is not implemented')
+    app.post('/api/admin/chain/send', json(), urlencoded({ extended: true }), async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'AdminSendCoins', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        const requestContext = createRequestContext(req, res)
+        try {
+            if (!methods.AdminSendCoins) throw new Error('method: AdminSendCoins is not implemented')
+            const authContext = await opts.AdminAuthGuard(req.headers['authorization'], requestContext)
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            const request = req.body
+            const error = Types.AdminSendCoinsRequestValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            const query = req.query
+            const params = req.params
+            const response =  await methods.AdminSendCoins({rpcName:'AdminSendCoins', ctx:authContext , req: request, requestContext})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.AdminSendUserToUser) throw new Error('method: AdminSendUserToUser is not implemented')
+    app.post('/api/admin/user/send/u2u', json(), urlencoded({ extended: true }), async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'AdminSendUserToUser', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        const requestContext = createRequestContext(req, res)
+        try {
+            if (!methods.AdminSendUserToUser) throw new Error('method: AdminSendUserToUser is not implemented')
+            const authContext = await opts.AdminAuthGuard(req.headers['authorization'], requestContext)
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            const request = req.body
+            const error = Types.AdminSendUserToUserRequestValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            const query = req.query
+            const params = req.params
+            const response =  await methods.AdminSendUserToUser({rpcName:'AdminSendUserToUser', ctx:authContext , req: request, requestContext})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
     if (!opts.allowNotImplementedMethods && !methods.AuthApp) throw new Error('method: AuthApp is not implemented')
     app.post('/api/admin/app/auth', json(), urlencoded({ extended: true }), async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'AuthApp', batch: false, nostr: false, batchSize: 0}
@@ -1228,6 +1274,29 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
+    if (!opts.allowNotImplementedMethods && !methods.GetFailedOutgoingPayments) throw new Error('method: GetFailedOutgoingPayments is not implemented')
+    app.post('/api/reports/failed-outgoing-payments', json(), urlencoded({ extended: true }), async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'GetFailedOutgoingPayments', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        const requestContext = createRequestContext(req, res)
+        try {
+            if (!methods.GetFailedOutgoingPayments) throw new Error('method: GetFailedOutgoingPayments is not implemented')
+            const authContext = await opts.MetricsAuthGuard(req.headers['authorization'], requestContext)
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            const request = req.body
+            const error = Types.FailedOutgoingPaymentsRequestValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            const query = req.query
+            const params = req.params
+            const response =  await methods.GetFailedOutgoingPayments({rpcName:'GetFailedOutgoingPayments', ctx:authContext , req: request, requestContext})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
     if (!opts.allowNotImplementedMethods && !methods.GetHttpCreds) throw new Error('method: GetHttpCreds is not implemented')
     app.post('/api/user/http_creds', json(), urlencoded({ extended: true }), async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'GetHttpCreds', batch: false, nostr: false, batchSize: 0}
@@ -1547,6 +1616,29 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             const query = req.query
             const params = req.params
             const response =  await methods.GetNPubLinkingState({rpcName:'GetNPubLinkingState', ctx:authContext , req: request, requestContext})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.GetPaymentDestinations) throw new Error('method: GetPaymentDestinations is not implemented')
+    app.post('/api/reports/payment-destinations', json(), urlencoded({ extended: true }), async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'GetPaymentDestinations', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        const requestContext = createRequestContext(req, res)
+        try {
+            if (!methods.GetPaymentDestinations) throw new Error('method: GetPaymentDestinations is not implemented')
+            const authContext = await opts.MetricsAuthGuard(req.headers['authorization'], requestContext)
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            const request = req.body
+            const error = Types.PaymentDestinationsRequestValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            const query = req.query
+            const params = req.params
+            const response =  await methods.GetPaymentDestinations({rpcName:'GetPaymentDestinations', ctx:authContext , req: request, requestContext})
             stats.handle = process.hrtime.bigint()
             res.json({status: 'OK', ...response})
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])

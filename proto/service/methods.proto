@@ -126,6 +126,13 @@ service LightningPub {
         option (nostr) = true;
     };
 
+    rpc AdminSendCoins(structs.AdminSendCoinsRequest) returns (structs.AdminSendCoinsResponse) {
+        option (auth_type)  = "Admin";
+        option (http_method) = "post";
+        option (http_route) = "/api/admin/chain/send";
+        option (nostr) = true;
+    };
+
     rpc BumpTx(structs.BumpTx) returns (structs.Empty) {
         option (auth_type)  = "Admin";
         option (http_method) = "post";
@@ -287,6 +294,13 @@ service LightningPub {
         option (nostr) = true;
     }
 
+    rpc AdminSendUserToUser(structs.AdminSendUserToUserRequest) returns (structs.AdminSendUserToUserResponse) {
+        option (auth_type) = "Admin";
+        option (http_method) = "post";
+        option (http_route) = "/api/admin/user/send/u2u";
+        option (nostr) = true;
+    }
+
     rpc GetAdminNodeSettings(structs.Empty) returns (structs.AdminNodeSettings) {
         option (auth_type) = "Admin";
         option (http_method) = "get";
@@ -355,6 +369,20 @@ service LightningPub {
         option (auth_type)  = "Metrics";
         option (http_method) = "post";
         option (http_route) = "/api/reports/apps";
+        option (nostr) = true;
+    }
+
+    rpc GetFailedOutgoingPayments(structs.FailedOutgoingPaymentsRequest) returns (structs.FailedOutgoingPayments) {
+        option (auth_type)  = "Metrics";
+        option (http_method) = "post";
+        option (http_route) = "/api/reports/failed-outgoing-payments";
+        option (nostr) = true;
+    }
+
+    rpc GetPaymentDestinations(structs.PaymentDestinationsRequest) returns (structs.PaymentDestinations) {
+        option (auth_type)  = "Metrics";
+        option (http_method) = "post";
+        option (http_route) = "/api/reports/payment-destinations";
         option (nostr) = true;
     }
 

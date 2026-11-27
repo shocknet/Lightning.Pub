@@ -33,6 +33,16 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [OfferCreateRequest](#OfferCreateRequest)
   - output: [OfferId](#OfferId)
 
+- AdminSendCoins
+  - auth type: __Admin__
+  - input: [AdminSendCoinsRequest](#AdminSendCoinsRequest)
+  - output: [AdminSendCoinsResponse](#AdminSendCoinsResponse)
+
+- AdminSendUserToUser
+  - auth type: __Admin__
+  - input: [AdminSendUserToUserRequest](#AdminSendUserToUserRequest)
+  - output: [AdminSendUserToUserResponse](#AdminSendUserToUserResponse)
+
 - AuthApp
   - auth type: __Admin__
   - input: [AuthAppRequest](#AuthAppRequest)
@@ -148,6 +158,11 @@ The nostr server will send back a message response, and inside the body there wi
   - This methods has an __empty__ __request__ body
   - output: [ErrorStats](#ErrorStats)
 
+- GetFailedOutgoingPayments
+  - auth type: __Metrics__
+  - input: [FailedOutgoingPaymentsRequest](#FailedOutgoingPaymentsRequest)
+  - output: [FailedOutgoingPayments](#FailedOutgoingPayments)
+
 - GetHttpCreds
   - auth type: __User__
   - This methods has an __empty__ __request__ body
@@ -207,6 +222,11 @@ The nostr server will send back a message response, and inside the body there wi
   - auth type: __User__
   - This methods has an __empty__ __request__ body
   - output: [MigrationUpdate](#MigrationUpdate)
+
+- GetPaymentDestinations
+  - auth type: __Metrics__
+  - input: [PaymentDestinationsRequest](#PaymentDestinationsRequest)
+  - output: [PaymentDestinations](#PaymentDestinations)
 
 - GetPaymentState
   - auth type: __User__
@@ -524,6 +544,20 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [OfferCreateRequest](#OfferCreateRequest)
   - output: [OfferId](#OfferId)
 
+- AdminSendCoins
+  - auth type: __Admin__
+  - http method: __post__
+  - http route: __/api/admin/chain/send__
+  - input: [AdminSendCoinsRequest](#AdminSendCoinsRequest)
+  - output: [AdminSendCoinsResponse](#AdminSendCoinsResponse)
+
+- AdminSendUserToUser
+  - auth type: __Admin__
+  - http method: __post__
+  - http route: __/api/admin/user/send/u2u__
+  - input: [AdminSendUserToUserRequest](#AdminSendUserToUserRequest)
+  - output: [AdminSendUserToUserResponse](#AdminSendUserToUserResponse)
+
 - AuthApp
   - auth type: __Admin__
   - http method: __post__
@@ -713,6 +747,13 @@ The nostr server will send back a message response, and inside the body there wi
   - This methods has an __empty__ __request__ body
   - output: [ErrorStats](#ErrorStats)
 
+- GetFailedOutgoingPayments
+  - auth type: __Metrics__
+  - http method: __post__
+  - http route: __/api/reports/failed-outgoing-payments__
+  - input: [FailedOutgoingPaymentsRequest](#FailedOutgoingPaymentsRequest)
+  - output: [FailedOutgoingPayments](#FailedOutgoingPayments)
+
 - GetHttpCreds
   - auth type: __User__
   - http method: __post__
@@ -821,6 +862,13 @@ The nostr server will send back a message response, and inside the body there wi
   - http route: __/api/app/user/npub/state__
   - input: [GetNPubLinking](#GetNPubLinking)
   - output: [NPubLinking](#NPubLinking)
+
+- GetPaymentDestinations
+  - auth type: __Metrics__
+  - http method: __post__
+  - http route: __/api/reports/payment-destinations__
+  - input: [PaymentDestinationsRequest](#PaymentDestinationsRequest)
+  - output: [PaymentDestinations](#PaymentDestinations)
 
 - GetPaymentState
   - auth type: __User__
@@ -1304,6 +1352,26 @@ The nostr server will send back a message response, and inside the body there wi
   - __tier3_confs__: _number_
   - __tier3_confs_env_locked__: _boolean_
 
+### AdminSendCoinsRequest
+  - __address__: _string_
+  - __amount__: _number_ *this field is optional
+  - __sat_per_v_byte__: _number_ *this field is optional
+  - __send_all__: _boolean_ *this field is optional
+
+### AdminSendCoinsResponse
+  - __amount__: _number_
+  - __network_fee__: _number_
+  - __tx_id__: _string_
+
+### AdminSendUserToUserRequest
+  - __amount__: _number_
+  - __from_user_id__: _string_
+  - __to_user_id__: _string_
+
+### AdminSendUserToUserResponse
+  - __amount__: _number_
+  - __fees__: _number_
+
 ### AdminTxSwapResponse
   - __network_fee__: _number_
   - __tx_id__: _string_
@@ -1517,6 +1585,33 @@ The nostr server will send back a message response, and inside the body there wi
   - __past1m__: _[ErrorStat](#ErrorStat)_
   - __past24h__: _[ErrorStat](#ErrorStat)_
   - __past6h__: _[ErrorStat](#ErrorStat)_
+
+### FailedOutgoingPayment
+  - __amount_sats__: _number_
+  - __app_id__: _string_ *this field is optional
+  - __dest_pubkey__: _string_
+  - __failed_at_unix__: _number_
+  - __failure_reason__: _string_
+  - __invoice__: _string_
+  - __liquidity_provider__: _string_ *this field is optional
+  - __operator_reason__: _string_
+  - __serial_id__: _number_
+  - __user_id__: _string_
+
+### FailedOutgoingPaymentReasonCount
+  - __count__: _number_
+  - __failure_reason__: _string_
+  - __operator_reason__: _string_
+
+### FailedOutgoingPayments
+  - __payments__: ARRAY of: _[FailedOutgoingPayment](#FailedOutgoingPayment)_
+  - __reason_counts__: ARRAY of: _[FailedOutgoingPaymentReasonCount](#FailedOutgoingPaymentReasonCount)_
+
+### FailedOutgoingPaymentsRequest
+  - __from_serial_id__: _number_ *this field is optional
+  - __from_unix__: _number_ *this field is optional
+  - __take__: _number_ *this field is optional
+  - __to_unix__: _number_ *this field is optional
 
 ### FrequencyRule
   - __amount__: _number_
@@ -1938,6 +2033,19 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### PayerData
   - __data__: MAP with key: _string_ and value: _string_
+
+### PaymentDestination
+  - __alias__: _string_ *this field is optional
+  - __count__: _number_
+  - __pubkey__: _string_
+  - __volume_sats__: _number_
+
+### PaymentDestinations
+  - __destinations__: ARRAY of: _[PaymentDestination](#PaymentDestination)_
+
+### PaymentDestinationsRequest
+  - __from_unix__: _number_ *this field is optional
+  - __to_unix__: _number_ *this field is optional
 
 ### PaymentState
   - __amount__: _number_
