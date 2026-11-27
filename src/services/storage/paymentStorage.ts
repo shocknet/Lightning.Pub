@@ -345,6 +345,18 @@ export default class {
         }, txId)
     }
 
+    ListSuccessfulExternalInvoicePayments(range: { from?: number, to?: number }, txId?: string): Promise<UserInvoicePayment[]> {
+        return this.dbs.Find<UserInvoicePayment>('UserInvoicePayment', {
+            where: {
+                internal: false,
+                ...paidAtFilter(range),
+            },
+            order: {
+                serial_id: 'DESC',
+            },
+        }, txId)
+    }
+
     GetUserDebitPayments(userId: string, sinceUnix: number, debitToNpub: string, txId?: string): Promise<UserInvoicePayment[]> {
         const pending = {
             user: { user_id: userId },

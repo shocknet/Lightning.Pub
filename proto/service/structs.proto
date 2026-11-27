@@ -364,6 +364,22 @@ message FailedOutgoingPayments {
     repeated FailedOutgoingPaymentReasonCount reason_counts = 2;
 }
 
+message PaymentDestinationsRequest {
+    optional int64 from_unix = 1;
+    optional int64 to_unix = 2;
+}
+
+message PaymentDestination {
+    string pubkey = 1;
+    optional string alias = 2;
+    int64 count = 3;
+    int64 volume_sats = 4;
+}
+
+message PaymentDestinations {
+    repeated PaymentDestination destinations = 1;
+}
+
 message LndMetricsRequest {
     optional int64 from_unix = 1;
     optional int64 to_unix = 2;

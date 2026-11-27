@@ -56,6 +56,9 @@ export default (mainHandler: Main): Types.ServerMethods => {
         GetFailedOutgoingPayments: async ({ ctx, req }) => {
             return mainHandler.metricsManager.GetFailedOutgoingPayments(req)
         },
+        GetPaymentDestinations: async ({ ctx, req }) => {
+            return mainHandler.metricsManager.GetPaymentDestinations(req)
+        },
         GetLndMetrics: async ({ ctx, req }) => {
             return mainHandler.metricsManager.GetLndMetrics(req)
         },

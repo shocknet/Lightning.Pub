@@ -106,6 +106,7 @@ type Client struct {
 	GetManageAuthorizations        func() (*ManageAuthorizations, error)
 	GetMigrationUpdate             func() (*MigrationUpdate, error)
 	GetNPubLinkingState            func(req GetNPubLinking) (*NPubLinking, error)
+	GetPaymentDestinations         func(req PaymentDestinationsRequest) (*PaymentDestinations, error)
 	GetPaymentState                func(req GetPaymentStateRequest) (*PaymentState, error)
 	GetProvidersDisruption         func() (*ProvidersDisruption, error)
 	GetSeed                        func() (*LndSeed, error)
@@ -1438,6 +1439,35 @@ func NewClient(params ClientParams) *Client {
 				return nil, fmt.Errorf(result.Reason)
 			}
 			res := NPubLinking{}
+			err = json.Unmarshal(resBody, &res)
+			if err != nil {
+				return nil, err
+			}
+			return &res, nil
+		},
+		GetPaymentDestinations: func(req PaymentDestinationsRequest) (*PaymentDestinations, error) {
+			auth, err := params.RetrieveMetricsAuth()
+			if err != nil {
+				return nil, err
+			}
+			finalRoute := "/api/reports/payment-destinations"
+			body, err := json.Marshal(req)
+			if err != nil {
+				return nil, err
+			}
+			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
+			if err != nil {
+				return nil, err
+			}
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return nil, err
+			}
+			if result.Status == "ERROR" {
+				return nil, fmt.Errorf(result.Reason)
+			}
+			res := PaymentDestinations{}
 			err = json.Unmarshal(resBody, &res)
 			if err != nil {
 				return nil, err

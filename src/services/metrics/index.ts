@@ -228,6 +228,38 @@ export default class Handler {
         }
     }
 
+    async GetPaymentDestinations(req: Types.PaymentDestinationsRequest): Promise<Types.PaymentDestinations> {
+        const range = { from: req.from_unix, to: req.to_unix }
+        const payments = await this.storage.paymentStorage.ListSuccessfulExternalInvoicePayments(range)
+        const byDest = new Map<string, Types.PaymentDestination>()
+        for (const payment of payments) {
+            const pubkey = payment.dest_pubkey || destPubkeyFromBolt11(payment.invoice)
+            if (!pubkey) continue
+            const existing = byDest.get(pubkey)
+            if (existing) {
+                existing.count += 1
+                existing.volume_sats += payment.paid_amount
+            } else {
+                const item: Types.PaymentDestination = {
+                    pubkey,
+                    count: 1,
+                    volume_sats: payment.paid_amount,
+                }
+                const alias = channelPeerLabel(this.channelAliases, pubkey)
+                if (alias) {
+                    item.alias = alias
+                }
+                byDest.set(pubkey, item)
+            }
+        }
+        return {
+            destinations: Array.from(byDest.values()).sort((a, b) => {
+                if (b.volume_sats !== a.volume_sats) return b.volume_sats - a.volume_sats
+                return b.count - a.count
+            }),
+        }
+    }
+
     async GetErrorStats(): Promise<Types.ErrorStats> {
         const last24h = this.storage.metricsEventStorage.getlast24hCache()
         const nowUnix = Math.floor(Date.now() / 1000)

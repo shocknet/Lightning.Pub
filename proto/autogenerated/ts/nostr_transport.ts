@@ -1066,6 +1066,22 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     },getState: () => 'OPEN', close: nostrSubClose, subMore: nostrSubMore}})
                 }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
                 break
+            case 'GetPaymentDestinations':
+                try {
+                    if (!methods.GetPaymentDestinations) throw new Error('method: GetPaymentDestinations is not implemented')
+                    const authContext = await opts.NostrMetricsAuthGuard(req.appId, req.authIdentifier)
+                    stats.guard = process.hrtime.bigint()
+                    authCtx = authContext
+                    const request = req.body
+                    const error = Types.PaymentDestinationsRequestValidate(request)
+                    stats.validate = process.hrtime.bigint()
+                    if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback)
+                    const response = await methods.GetPaymentDestinations({rpcName:'GetPaymentDestinations', ctx:authContext , req: request})
+                    stats.handle = process.hrtime.bigint()
+                    res({status: 'OK', ...response})
+                    opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+                break
             case 'GetPaymentState':
                 try {
                     if (!methods.GetPaymentState) throw new Error('method: GetPaymentState is not implemented')

@@ -223,6 +223,11 @@ The nostr server will send back a message response, and inside the body there wi
   - This methods has an __empty__ __request__ body
   - output: [MigrationUpdate](#MigrationUpdate)
 
+- GetPaymentDestinations
+  - auth type: __Metrics__
+  - input: [PaymentDestinationsRequest](#PaymentDestinationsRequest)
+  - output: [PaymentDestinations](#PaymentDestinations)
+
 - GetPaymentState
   - auth type: __User__
   - input: [GetPaymentStateRequest](#GetPaymentStateRequest)
@@ -857,6 +862,13 @@ The nostr server will send back a message response, and inside the body there wi
   - http route: __/api/app/user/npub/state__
   - input: [GetNPubLinking](#GetNPubLinking)
   - output: [NPubLinking](#NPubLinking)
+
+- GetPaymentDestinations
+  - auth type: __Metrics__
+  - http method: __post__
+  - http route: __/api/reports/payment-destinations__
+  - input: [PaymentDestinationsRequest](#PaymentDestinationsRequest)
+  - output: [PaymentDestinations](#PaymentDestinations)
 
 - GetPaymentState
   - auth type: __User__
@@ -2021,6 +2033,19 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### PayerData
   - __data__: MAP with key: _string_ and value: _string_
+
+### PaymentDestination
+  - __alias__: _string_ *this field is optional
+  - __count__: _number_
+  - __pubkey__: _string_
+  - __volume_sats__: _number_
+
+### PaymentDestinations
+  - __destinations__: ARRAY of: _[PaymentDestination](#PaymentDestination)_
+
+### PaymentDestinationsRequest
+  - __from_unix__: _number_ *this field is optional
+  - __to_unix__: _number_ *this field is optional
 
 ### PaymentState
   - __amount__: _number_

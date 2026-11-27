@@ -847,6 +847,19 @@ type PayInvoiceResponse struct {
 type PayerData struct {
 	Data map[string]string `json:"data"`
 }
+type PaymentDestination struct {
+	Alias       string `json:"alias"`
+	Count       int64  `json:"count"`
+	Pubkey      string `json:"pubkey"`
+	Volume_sats int64  `json:"volume_sats"`
+}
+type PaymentDestinations struct {
+	Destinations []PaymentDestination `json:"destinations"`
+}
+type PaymentDestinationsRequest struct {
+	From_unix int64 `json:"from_unix"`
+	To_unix   int64 `json:"to_unix"`
+}
 type PaymentState struct {
 	Amount       int64  `json:"amount"`
 	Internal     bool   `json:"internal"`

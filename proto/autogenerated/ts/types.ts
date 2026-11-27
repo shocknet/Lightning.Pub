@@ -44,8 +44,8 @@ export type MetricsContext = {
     app_id: string
     operator_id: string
 }
-export type MetricsMethodInputs = GetAppsMetrics_Input | GetBundleMetrics_Input | GetErrorStats_Input | GetFailedOutgoingPayments_Input | GetLndForwardingMetrics_Input | GetLndMetrics_Input | GetProvidersDisruption_Input | GetSingleBundleMetrics_Input | GetSingleUsageMetrics_Input | GetUsageMetrics_Input | PingSubProcesses_Input | ResetMetricsStorages_Input | SubToWebRtcCandidates_Input | SubmitWebRtcMessage_Input | ZipMetricsStorages_Input
-export type MetricsMethodOutputs = GetAppsMetrics_Output | GetBundleMetrics_Output | GetErrorStats_Output | GetFailedOutgoingPayments_Output | GetLndForwardingMetrics_Output | GetLndMetrics_Output | GetProvidersDisruption_Output | GetSingleBundleMetrics_Output | GetSingleUsageMetrics_Output | GetUsageMetrics_Output | PingSubProcesses_Output | ResetMetricsStorages_Output | SubToWebRtcCandidates_Output | SubmitWebRtcMessage_Output | ZipMetricsStorages_Output
+export type MetricsMethodInputs = GetAppsMetrics_Input | GetBundleMetrics_Input | GetErrorStats_Input | GetFailedOutgoingPayments_Input | GetLndForwardingMetrics_Input | GetLndMetrics_Input | GetPaymentDestinations_Input | GetProvidersDisruption_Input | GetSingleBundleMetrics_Input | GetSingleUsageMetrics_Input | GetUsageMetrics_Input | PingSubProcesses_Input | ResetMetricsStorages_Input | SubToWebRtcCandidates_Input | SubmitWebRtcMessage_Input | ZipMetricsStorages_Input
+export type MetricsMethodOutputs = GetAppsMetrics_Output | GetBundleMetrics_Output | GetErrorStats_Output | GetFailedOutgoingPayments_Output | GetLndForwardingMetrics_Output | GetLndMetrics_Output | GetPaymentDestinations_Output | GetProvidersDisruption_Output | GetSingleBundleMetrics_Output | GetSingleUsageMetrics_Output | GetUsageMetrics_Output | PingSubProcesses_Output | ResetMetricsStorages_Output | SubToWebRtcCandidates_Output | SubmitWebRtcMessage_Output | ZipMetricsStorages_Output
 export type UserContext = {
     app_id: string
     app_user_id: string
@@ -216,6 +216,9 @@ export type GetMigrationUpdate_Output = ResultError | { status: 'OK' }
 
 export type GetNPubLinkingState_Input = {rpcName:'GetNPubLinkingState', req: GetNPubLinking}
 export type GetNPubLinkingState_Output = ResultError | ({ status: 'OK' } & NPubLinking)
+
+export type GetPaymentDestinations_Input = {rpcName:'GetPaymentDestinations', req: PaymentDestinationsRequest}
+export type GetPaymentDestinations_Output = ResultError | ({ status: 'OK' } & PaymentDestinations)
 
 export type GetPaymentState_Input = {rpcName:'GetPaymentState', req: GetPaymentStateRequest}
 export type GetPaymentState_Output = ResultError | ({ status: 'OK' } & PaymentState)
@@ -459,6 +462,7 @@ export type ServerMethods = {
     GetManageAuthorizations?: (req: GetManageAuthorizations_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<ManageAuthorizations>
     GetMigrationUpdate?: (req: GetMigrationUpdate_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<void>
     GetNPubLinkingState?: (req: GetNPubLinkingState_Input & {ctx: AppContext, requestContext?: RequestContext }) => Promise<NPubLinking>
+    GetPaymentDestinations?: (req: GetPaymentDestinations_Input & {ctx: MetricsContext, requestContext?: RequestContext }) => Promise<PaymentDestinations>
     GetPaymentState?: (req: GetPaymentState_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<PaymentState>
     GetProvidersDisruption?: (req: GetProvidersDisruption_Input & {ctx: MetricsContext, requestContext?: RequestContext }) => Promise<ProvidersDisruption>
     GetSeed?: (req: GetSeed_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<LndSeed>
@@ -5041,6 +5045,87 @@ export const PayerDataValidate = (o?: PayerData, opts: PayerDataOptions = {}, pa
     for (const key in o.data) {
         if (typeof o.data[key] !== 'string') return new Error(`${path}.data['${key}']: is not a string`)
     }
+
+    return null
+}
+
+export type PaymentDestination = {
+    alias?: string
+    count: number
+    pubkey: string
+    volume_sats: number
+}
+export type PaymentDestinationOptionalField = 'alias'
+export const PaymentDestinationOptionalFields: PaymentDestinationOptionalField[] = ['alias']
+export type PaymentDestinationOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: PaymentDestinationOptionalField[]
+    alias_CustomCheck?: (v?: string) => boolean
+    count_CustomCheck?: (v: number) => boolean
+    pubkey_CustomCheck?: (v: string) => boolean
+    volume_sats_CustomCheck?: (v: number) => boolean
+}
+export const PaymentDestinationValidate = (o?: PaymentDestination, opts: PaymentDestinationOptions = {}, path: string = 'PaymentDestination::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if ((o.alias || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('alias')) && typeof o.alias !== 'string') return new Error(`${path}.alias: is not a string`)
+    if (opts.alias_CustomCheck && !opts.alias_CustomCheck(o.alias)) return new Error(`${path}.alias: custom check failed`)
+
+    if (typeof o.count !== 'number') return new Error(`${path}.count: is not a number`)
+    if (opts.count_CustomCheck && !opts.count_CustomCheck(o.count)) return new Error(`${path}.count: custom check failed`)
+
+    if (typeof o.pubkey !== 'string') return new Error(`${path}.pubkey: is not a string`)
+    if (opts.pubkey_CustomCheck && !opts.pubkey_CustomCheck(o.pubkey)) return new Error(`${path}.pubkey: custom check failed`)
+
+    if (typeof o.volume_sats !== 'number') return new Error(`${path}.volume_sats: is not a number`)
+    if (opts.volume_sats_CustomCheck && !opts.volume_sats_CustomCheck(o.volume_sats)) return new Error(`${path}.volume_sats: custom check failed`)
+
+    return null
+}
+
+export type PaymentDestinations = {
+    destinations: PaymentDestination[]
+}
+export const PaymentDestinationsOptionalFields: [] = []
+export type PaymentDestinationsOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    destinations_ItemOptions?: PaymentDestinationOptions
+    destinations_CustomCheck?: (v: PaymentDestination[]) => boolean
+}
+export const PaymentDestinationsValidate = (o?: PaymentDestinations, opts: PaymentDestinationsOptions = {}, path: string = 'PaymentDestinations::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (!Array.isArray(o.destinations)) return new Error(`${path}.destinations: is not an array`)
+    for (let index = 0; index < o.destinations.length; index++) {
+        const destinationsErr = PaymentDestinationValidate(o.destinations[index], opts.destinations_ItemOptions, `${path}.destinations[${index}]`)
+        if (destinationsErr !== null) return destinationsErr
+    }
+    if (opts.destinations_CustomCheck && !opts.destinations_CustomCheck(o.destinations)) return new Error(`${path}.destinations: custom check failed`)
+
+    return null
+}
+
+export type PaymentDestinationsRequest = {
+    from_unix?: number
+    to_unix?: number
+}
+export type PaymentDestinationsRequestOptionalField = 'from_unix' | 'to_unix'
+export const PaymentDestinationsRequestOptionalFields: PaymentDestinationsRequestOptionalField[] = ['from_unix', 'to_unix']
+export type PaymentDestinationsRequestOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: PaymentDestinationsRequestOptionalField[]
+    from_unix_CustomCheck?: (v?: number) => boolean
+    to_unix_CustomCheck?: (v?: number) => boolean
+}
+export const PaymentDestinationsRequestValidate = (o?: PaymentDestinationsRequest, opts: PaymentDestinationsRequestOptions = {}, path: string = 'PaymentDestinationsRequest::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if ((o.from_unix || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('from_unix')) && typeof o.from_unix !== 'number') return new Error(`${path}.from_unix: is not a number`)
+    if (opts.from_unix_CustomCheck && !opts.from_unix_CustomCheck(o.from_unix)) return new Error(`${path}.from_unix: custom check failed`)
+
+    if ((o.to_unix || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('to_unix')) && typeof o.to_unix !== 'number') return new Error(`${path}.to_unix: is not a number`)
+    if (opts.to_unix_CustomCheck && !opts.to_unix_CustomCheck(o.to_unix)) return new Error(`${path}.to_unix: custom check failed`)
 
     return null
 }
