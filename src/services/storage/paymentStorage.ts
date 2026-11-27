@@ -20,6 +20,7 @@ import { InvoiceSwapFundingLock } from './entity/InvoiceSwapFundingLock.js';
 import { InvoiceSwapRow, isInvoiceSwapBackupRow, isTransactionSwapBackupRow, mapInvoiceSwapBackupRow, TransactionSwapRow, mapTransactionSwapBackupRow } from '../backup/segments.js';
 import { swapOwnerIds } from '../lnd/swaps/swapOwnership.js';
 import { getLogger } from '../helpers/logger.js';
+import { destPubkeyFromBolt11 } from '../helpers/paymentFailureReason.js';
 export type InboundOptionals = { product?: Product, callbackUrl?: string, expiry: number, expectedPayer?: User, linkedApplication?: Application, zapInfo?: ZapInfo, offerId?: string, payerData?: InvoicePayerData, rejectUnauthorized?: boolean, token?: string, blind?: boolean, clinkRequesterPub?: string, clinkRequesterEventId?: string }
 export const defaultInvoiceExpiry = 60 * 60
 export type AppOperationTotals = {
@@ -355,6 +356,20 @@ export default class {
                 serial_id: 'DESC',
             },
         }, txId)
+    }
+
+    async BackfillEmptyDestPubkeys(txId?: string): Promise<number> {
+        const payments = await this.dbs.Find<UserInvoicePayment>('UserInvoicePayment', {
+            where: { dest_pubkey: '' },
+        }, txId)
+        let updated = 0
+        for (const payment of payments) {
+            const dest = destPubkeyFromBolt11(payment.invoice)
+            if (!dest) continue
+            await this.dbs.Update<UserInvoicePayment>('UserInvoicePayment', payment.serial_id, { dest_pubkey: dest }, txId)
+            updated += 1
+        }
+        return updated
     }
 
     GetUserDebitPayments(userId: string, sinceUnix: number, debitToNpub: string, txId?: string): Promise<UserInvoicePayment[]> {

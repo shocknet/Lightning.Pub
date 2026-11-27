@@ -1,4 +1,7 @@
+import { createHash } from 'crypto'
 import { decode as decodeBolt11 } from 'light-bolt11-decoder'
+import { bech32 } from '@scure/base'
+import * as ecc from 'tiny-secp256k1'
 import { PaymentFailureReason } from '../../../proto/lnd/lightning.js'
 
 export type OperatorPaymentFailure = {
@@ -64,13 +67,48 @@ export const destPubkeyFromBolt11 = (invoice: string): string => {
         const decoded = decodeBolt11(invoice)
         for (const section of decoded.sections) {
             if ((section as { name: string }).name === 'payee') {
-                return (section as { value?: string }).value || ''
+                const payee = (section as { value?: string }).value || ''
+                if (payee) return payee
             }
         }
+        return recoverDestFromBolt11Signature(invoice)
     } catch {
         return ''
     }
-    return ''
+}
+
+const recoverDestFromBolt11Signature = (invoice: string): string => {
+    const decoded = bech32.decode(invoice.toLowerCase(), Number.MAX_SAFE_INTEGER)
+    if (decoded.words.length < 104) return ''
+    const dataWords = decoded.words.slice(0, -104)
+    const sigWords = decoded.words.slice(-104)
+    const sigBuf = Buffer.from(bech32.fromWords(sigWords))
+    if (sigBuf.length !== 65) return ''
+    const recoveryId = sigBuf[64]
+    if (recoveryId < 0 || recoveryId > 3) return ''
+    const hash = createHash('sha256').update(Buffer.concat([
+        Buffer.from(decoded.prefix, 'utf8'),
+        Buffer.from(convertBits(dataWords, 5, 8, true)),
+    ])).digest()
+    const pub = ecc.recover(hash, sigBuf.subarray(0, 64), recoveryId as 0 | 1 | 2 | 3, true)
+    return pub ? Buffer.from(pub).toString('hex') : ''
+}
+
+const convertBits = (data: number[], inBits: number, outBits: number, pad: boolean): number[] => {
+    let value = 0
+    let bits = 0
+    const maxV = (1 << outBits) - 1
+    const result: number[] = []
+    for (const word of data) {
+        value = (value << inBits) | word
+        bits += inBits
+        while (bits >= outBits) {
+            bits -= outBits
+            result.push((value >> bits) & maxV)
+        }
+    }
+    if (pad && bits > 0) result.push((value << (outBits - bits)) & maxV)
+    return result
 }
 
 export const toOperatorPaymentFailure = (failureReason: string | undefined | null): OperatorPaymentFailure => {

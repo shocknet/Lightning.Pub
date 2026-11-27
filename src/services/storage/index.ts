@@ -105,6 +105,10 @@ export default class {
         this.productStorage = new ProductStorage(this.dbs, this.userStorage)
         this.applicationStorage = new ApplicationStorage(this.dbs, this.userStorage)
         this.paymentStorage = new PaymentStorage(this.dbs, this.userStorage)
+        const destBackfilled = await this.paymentStorage.BackfillEmptyDestPubkeys()
+        if (destBackfilled > 0) {
+            log(`backfilled dest_pubkey on ${destBackfilled} invoice payments`)
+        }
         this.metricsStorage = new MetricsStorage(this.settings, this.utils)
         this.metricsEventStorage = new MetricsEventStorage(this.settings, this.utils.tlvStorageFactory)
         this.liquidityStorage = new LiquidityStorage(this.dbs)
