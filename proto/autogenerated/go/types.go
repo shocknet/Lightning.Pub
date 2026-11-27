@@ -79,6 +79,13 @@ const (
 	USAGE_METRIC  SingleMetricType = "USAGE_METRIC"
 )
 
+type SortDirection string
+
+const (
+	ASC  SortDirection = "ASC"
+	DESC SortDirection = "DESC"
+)
+
 type TrackedOperationType string
 
 const (
@@ -95,6 +102,15 @@ const (
 	OUTGOING_INVOICE      UserOperationType = "OUTGOING_INVOICE"
 	OUTGOING_TX           UserOperationType = "OUTGOING_TX"
 	OUTGOING_USER_TO_USER UserOperationType = "OUTGOING_USER_TO_USER"
+)
+
+type UsersAdminSortBy string
+
+const (
+	BALANCE    UsersAdminSortBy = "BALANCE"
+	LAST_SEEN  UsersAdminSortBy = "LAST_SEEN"
+	UPDATED_AT UsersAdminSortBy = "UPDATED_AT"
+	USER_ID    UsersAdminSortBy = "USER_ID"
 )
 
 type UtxoOrigin string
@@ -1057,8 +1073,10 @@ type UsersAdminInfo struct {
 	Users []UserAdminInfo `json:"users"`
 }
 type UsersAdminInfoRequest struct {
-	Skip int64 `json:"skip"`
-	Take int64 `json:"take"`
+	Skip     int64            `json:"skip"`
+	Sort_by  UsersAdminSortBy `json:"sort_by"`
+	Sort_dir SortDirection    `json:"sort_dir"`
+	Take     int64            `json:"take"`
 }
 type UsersInfo struct {
 	Always_been_inactive int64 `json:"always_been_inactive"`

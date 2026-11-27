@@ -78,9 +78,23 @@ message UserAdminInfo {
     optional int64 last_seen_at_unix = 6;
 }
 
+enum UsersAdminSortBy {
+    UPDATED_AT = 0;
+    BALANCE = 1;
+    USER_ID = 2;
+    LAST_SEEN = 3;
+}
+
+enum SortDirection {
+    DESC = 0;
+    ASC = 1;
+}
+
 message UsersAdminInfoRequest {
     optional int64 skip = 1;
     optional int64 take = 2;
+    optional UsersAdminSortBy sort_by = 3;
+    optional SortDirection sort_dir = 4;
 }
 
 message UsersAdminInfo {

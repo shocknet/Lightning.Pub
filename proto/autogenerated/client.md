@@ -2197,6 +2197,8 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### UsersAdminInfoRequest
   - __skip__: _number_ *this field is optional
+  - __sort_by__: _[UsersAdminSortBy](#UsersAdminSortBy)_ *this field is optional
+  - __sort_dir__: _[SortDirection](#SortDirection)_ *this field is optional
   - __take__: _number_ *this field is optional
 
 ### UsersInfo
@@ -2239,6 +2241,10 @@ The nostr server will send back a message response, and inside the body there wi
   - __BUNDLE_METRIC__
   - __USAGE_METRIC__
 
+### SortDirection
+  - __ASC__
+  - __DESC__
+
 ### TrackedOperationType
   - __ROOT__
   - __USER__
@@ -2250,6 +2256,12 @@ The nostr server will send back a message response, and inside the body there wi
   - __OUTGOING_INVOICE__
   - __OUTGOING_TX__
   - __OUTGOING_USER_TO_USER__
+
+### UsersAdminSortBy
+  - __BALANCE__
+  - __LAST_SEEN__
+  - __UPDATED_AT__
+  - __USER_ID__
 
 ### UtxoOrigin
   - __CHANNEL__

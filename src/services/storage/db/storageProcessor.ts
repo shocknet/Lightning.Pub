@@ -119,6 +119,16 @@ export type FindAndCountOperation<T> = {
     debug?: boolean
 }
 
+export type FindUsersByLastSeenOperation = {
+    type: 'findUsersByLastSeen'
+    opId: string
+    skip?: number
+    take: number
+    dir: 'ASC' | 'DESC'
+    txId?: string
+    debug?: boolean
+}
+
 export type SumOperation<T> = {
     type: 'sum'
     entity: DBNames
@@ -148,7 +158,7 @@ export interface IStorageOperation {
 }
 
 export type StorageOperation<T> = ConnectOperation | StartTxOperation | EndTxOperation<T> | DeleteOperation<T> | RemoveOperation<T> | UpdateOperation<T> |
-    FindOneOperation<T> | FindOperation<T> | FindAndCountOperation<T> | CreateAndSaveOperation<T> | IncrementOperation<T> | DecrementOperation<T> | SumOperation<T> | PingOperation
+    FindOneOperation<T> | FindOperation<T> | FindAndCountOperation<T> | FindUsersByLastSeenOperation | CreateAndSaveOperation<T> | IncrementOperation<T> | DecrementOperation<T> | SumOperation<T> | PingOperation
 
 export type SuccessOperationResponse<T> = { success: true, type: string, data: T, opId: string }
 export type OperationResponse<T> = SuccessOperationResponse<T> | ErrorOperationResponse
@@ -234,6 +244,9 @@ class StorageProcessor {
                     break;
                 case 'findAndCount':
                     await this.handleFindAndCount(operation);
+                    break;
+                case 'findUsersByLastSeen':
+                    await this.handleFindUsersByLastSeen(operation);
                     break;
                 case 'sum':
                     await this.handleSum(operation);
@@ -500,6 +513,29 @@ class StorageProcessor {
         this.sendResponse({
             success: true,
             type: 'findAndCount',
+            data: res,
+            opId: operation.opId
+        });
+    }
+
+    private async handleFindUsersByLastSeen(operation: FindUsersByLastSeenOperation) {
+        const dir = operation.dir === 'ASC' ? 'ASC' : 'DESC'
+        const res = await this.handleRead(operation.txId, async eM => {
+            const userRepo = eM.getRepository(this.getEntity('User'))
+            const users = await userRepo
+                .createQueryBuilder('u')
+                .leftJoin(this.getEntity('UserAccess'), 'ua', 'ua.user_id = u.user_id')
+                .orderBy('COALESCE(ua.last_seen_at_unix, 0)', dir)
+                .addOrderBy('u.serial_id', dir)
+                .offset(operation.skip ?? 0)
+                .limit(operation.take)
+                .getMany()
+            const total = await userRepo.count()
+            return [users, total]
+        })
+        this.sendResponse({
+            success: true,
+            type: 'findUsersByLastSeen',
             data: res,
             opId: operation.opId
         });

@@ -541,6 +541,14 @@ export const enumCheckSingleMetricType = (e?: SingleMetricType): boolean => {
     for (const v in SingleMetricType) if (e === v) return true
     return false
 }
+export enum SortDirection {
+    ASC = 'ASC',
+    DESC = 'DESC',
+}
+export const enumCheckSortDirection = (e?: SortDirection): boolean => {
+    for (const v in SortDirection) if (e === v) return true
+    return false
+}
 export enum TrackedOperationType {
     ROOT = 'ROOT',
     USER = 'USER',
@@ -559,6 +567,16 @@ export enum UserOperationType {
 }
 export const enumCheckUserOperationType = (e?: UserOperationType): boolean => {
     for (const v in UserOperationType) if (e === v) return true
+    return false
+}
+export enum UsersAdminSortBy {
+    BALANCE = 'BALANCE',
+    LAST_SEEN = 'LAST_SEEN',
+    UPDATED_AT = 'UPDATED_AT',
+    USER_ID = 'USER_ID',
+}
+export const enumCheckUsersAdminSortBy = (e?: UsersAdminSortBy): boolean => {
+    for (const v in UsersAdminSortBy) if (e === v) return true
     return false
 }
 export enum UtxoOrigin {
@@ -6275,13 +6293,17 @@ export const UsersAdminInfoValidate = (o?: UsersAdminInfo, opts: UsersAdminInfoO
 
 export type UsersAdminInfoRequest = {
     skip?: number
+    sort_by?: UsersAdminSortBy
+    sort_dir?: SortDirection
     take?: number
 }
-export type UsersAdminInfoRequestOptionalField = 'skip' | 'take'
-export const UsersAdminInfoRequestOptionalFields: UsersAdminInfoRequestOptionalField[] = ['skip', 'take']
+export type UsersAdminInfoRequestOptionalField = 'skip' | 'sort_by' | 'sort_dir' | 'take'
+export const UsersAdminInfoRequestOptionalFields: UsersAdminInfoRequestOptionalField[] = ['skip', 'sort_by', 'sort_dir', 'take']
 export type UsersAdminInfoRequestOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: UsersAdminInfoRequestOptionalField[]
     skip_CustomCheck?: (v?: number) => boolean
+    sort_by_CustomCheck?: (v?: UsersAdminSortBy) => boolean
+    sort_dir_CustomCheck?: (v?: SortDirection) => boolean
     take_CustomCheck?: (v?: number) => boolean
 }
 export const UsersAdminInfoRequestValidate = (o?: UsersAdminInfoRequest, opts: UsersAdminInfoRequestOptions = {}, path: string = 'UsersAdminInfoRequest::root.'): Error | null => {
@@ -6290,6 +6312,12 @@ export const UsersAdminInfoRequestValidate = (o?: UsersAdminInfoRequest, opts: U
 
     if ((o.skip || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('skip')) && typeof o.skip !== 'number') return new Error(`${path}.skip: is not a number`)
     if (opts.skip_CustomCheck && !opts.skip_CustomCheck(o.skip)) return new Error(`${path}.skip: custom check failed`)
+
+    if ((o.sort_by || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('sort_by')) && !enumCheckUsersAdminSortBy(o.sort_by)) return new Error(`${path}.sort_by: is not a valid UsersAdminSortBy`)
+    if (opts.sort_by_CustomCheck && !opts.sort_by_CustomCheck(o.sort_by)) return new Error(`${path}.sort_by: custom check failed`)
+
+    if ((o.sort_dir || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('sort_dir')) && !enumCheckSortDirection(o.sort_dir)) return new Error(`${path}.sort_dir: is not a valid SortDirection`)
+    if (opts.sort_dir_CustomCheck && !opts.sort_dir_CustomCheck(o.sort_dir)) return new Error(`${path}.sort_dir: custom check failed`)
 
     if ((o.take || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('take')) && typeof o.take !== 'number') return new Error(`${path}.take: is not a number`)
     if (opts.take_CustomCheck && !opts.take_CustomCheck(o.take)) return new Error(`${path}.take: custom check failed`)
