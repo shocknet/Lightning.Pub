@@ -34,6 +34,7 @@ export default async (T: TestBase) => {
     await safelySetUserBalance(T, T.user2, USER2_FUNDING_SATS)
     await testGetUsersAdminInfo(T)
     await testGetUsersAdminInfoPagination(T)
+    await testGetUsersAdminInfoSorting(T)
     await testGetUserOperationsFromAdminOutgoingPayment(T)
     await testGetUserOperationsFromAdminWorksForBannedUser(T)
     await runSanityCheck(T)
@@ -75,6 +76,46 @@ const testGetUsersAdminInfoPagination = async (T: TestBase) => {
     T.expect(page.users.length).to.equal(1)
     T.expect(page.total).to.equal(full.total)
     T.d("GetUsersAdminInfo pagination respects skip and take")
+}
+
+const collectPagedUsers = async (T: TestBase, req: Types.UsersAdminInfoRequest) => {
+    const out: Types.UserAdminInfo[] = []
+    for (let skip = 0; ; skip++) {
+        const page = await getUsersAdminInfo(T, { ...req, skip, take: 1 })
+        T.expect(Types.UsersAdminInfoValidate(page)).to.equal(null)
+        if (page.users.length === 0) break
+        out.push(...page.users)
+        if (out.length >= page.total) break
+    }
+    return out
+}
+
+const testGetUsersAdminInfoSorting = async (T: TestBase) => {
+    T.d("starting testGetUsersAdminInfoSorting")
+    await T.main.storage.userStorage.UpsertUserAccess(T.user1.userId, 1_700_000_200)
+    await T.main.storage.userStorage.UpsertUserAccess(T.user2.userId, 1_700_000_100)
+
+    const byBalDesc = await collectPagedUsers(T, { sort_by: Types.UsersAdminSortBy.BALANCE, sort_dir: Types.SortDirection.DESC })
+    const byBalAsc = await collectPagedUsers(T, { sort_by: Types.UsersAdminSortBy.BALANCE, sort_dir: Types.SortDirection.ASC })
+    for (let i = 1; i < byBalDesc.length; i++) {
+        T.expect(byBalDesc[i - 1].balance).to.be.at.least(byBalDesc[i].balance)
+        T.expect(byBalAsc[i - 1].balance).to.be.at.most(byBalAsc[i].balance)
+    }
+    T.expect(byBalDesc[0].user_id).to.equal(T.user1.userId)
+
+    const byIdAsc = await collectPagedUsers(T, { sort_by: Types.UsersAdminSortBy.USER_ID, sort_dir: Types.SortDirection.ASC })
+    for (let i = 1; i < byIdAsc.length; i++) {
+        T.expect(byIdAsc[i - 1].user_id.localeCompare(byIdAsc[i].user_id)).to.be.at.most(0)
+    }
+
+    const bySeenDesc = await collectPagedUsers(T, { sort_by: Types.UsersAdminSortBy.LAST_SEEN, sort_dir: Types.SortDirection.DESC })
+    const bySeenAsc = await collectPagedUsers(T, { sort_by: Types.UsersAdminSortBy.LAST_SEEN, sort_dir: Types.SortDirection.ASC })
+    for (let i = 1; i < bySeenDesc.length; i++) {
+        T.expect(bySeenDesc[i - 1].last_seen_at_unix ?? 0).to.be.at.least(bySeenDesc[i].last_seen_at_unix ?? 0)
+        T.expect(bySeenAsc[i - 1].last_seen_at_unix ?? 0).to.be.at.most(bySeenAsc[i].last_seen_at_unix ?? 0)
+    }
+    T.expect(bySeenDesc[0].user_id).to.equal(T.user1.userId)
+    T.d("GetUsersAdminInfo sorts across pages by balance, user_id, and last_seen")
 }
 
 const testGetUserOperationsFromAdminOutgoingPayment = async (T: TestBase) => {

@@ -54,8 +54,20 @@ export default class {
         }, txId)
     }
 
-    async GetUsers(filter: { skip?: number, take?: number }): Promise<{ users: User[], total: number }> {
-        const [users, total] = await this.dbs.FindAndCount<User>('User', { skip: filter.skip, take: filter.take || 20, order: { updated_at: 'DESC' } })
+    async GetUsers(filter: {
+        skip?: number
+        take?: number
+        sortBy?: 'updated_at' | 'balance' | 'user_id' | 'last_seen'
+        sortDir?: 'ASC' | 'DESC'
+    }): Promise<{ users: User[], total: number }> {
+        const take = filter.take || 20
+        const dir: 'ASC' | 'DESC' = filter.sortDir === 'ASC' ? 'ASC' : 'DESC'
+        if (filter.sortBy === 'last_seen') {
+            const [users, total] = await this.dbs.FindUsersByLastSeen<User>(filter.skip, take, dir)
+            return { users, total }
+        }
+        const order = userOrderFor(filter.sortBy, dir)
+        const [users, total] = await this.dbs.FindAndCount<User>('User', { skip: filter.skip, take, order })
         return { users, total }
     }
 
@@ -184,4 +196,13 @@ export default class {
     async DeleteUserAccess(userId: string, txId?: string) {
         return this.dbs.Delete<UserAccess>('UserAccess', { user_id: userId }, txId)
     }
+}
+
+function userOrderFor(
+    sortBy: 'updated_at' | 'balance' | 'user_id' | undefined,
+    dir: 'ASC' | 'DESC'
+): Record<string, 'ASC' | 'DESC'> {
+    if (sortBy === 'balance') return { balance_sats: dir, serial_id: dir }
+    if (sortBy === 'user_id') return { user_id: dir, serial_id: dir }
+    return { updated_at: dir, serial_id: dir }
 }

@@ -147,6 +147,8 @@ export default class {
         const { users, total } = await this.storage.userStorage.GetUsers({
             skip: req.skip,
             take: clampPageLimit(req.take, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE),
+            sortBy: mapUsersAdminSortBy(req.sort_by),
+            sortDir: req.sort_dir === Types.SortDirection.ASC ? 'ASC' : 'DESC',
         })
         const applications = await this.storage.applicationStorage.GetApplications()
 
@@ -284,5 +286,14 @@ export default class {
             }
         })
         this.log("Cleaned up inactive users")
+    }
+}
+
+function mapUsersAdminSortBy(sortBy?: Types.UsersAdminSortBy): 'updated_at' | 'balance' | 'user_id' | 'last_seen' {
+    switch (sortBy) {
+        case Types.UsersAdminSortBy.BALANCE: return 'balance'
+        case Types.UsersAdminSortBy.USER_ID: return 'user_id'
+        case Types.UsersAdminSortBy.LAST_SEEN: return 'last_seen'
+        default: return 'updated_at'
     }
 }
