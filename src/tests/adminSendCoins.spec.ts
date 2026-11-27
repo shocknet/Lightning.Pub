@@ -8,7 +8,7 @@ import {
 } from "./testBase.js"
 import { waitForLndSync } from "./lndSync.js"
 import { tryUntil } from "./networkSetup.js"
-import { spendExceedsNodeSurplus } from "../services/main/adminManager.js"
+import { AdminManager, spendExceedsNodeSurplus } from "../services/main/adminManager.js"
 
 export const ignore = false
 export const dev = false
@@ -21,6 +21,7 @@ export default async (T: TestBase) => {
     await fundPubOnchain(T, FUND_SATS)
     await testAdminSendCoinsSuccess(T)
     await testAdminSendCoinsSurplusCheck(T)
+    await testAdminSendCoinsPreparedTxSurplusAndConcurrency(T)
     await testAdminSendCoinsOutgoingOpsLocked(T)
     await testAdminSendCoinsValidation(T)
     await runSanityCheck(T)
@@ -105,6 +106,143 @@ const testAdminSendCoinsSurplusCheck = async (T: TestBase) => {
     T.expect(spendExceedsNodeSurplus(1_000, 10_000, 9_000)).to.equal(false)
     T.expect(spendExceedsNodeSurplus(50_000, 200_000, 2_000)).to.equal(false)
     T.d("surplus comparison treats spend above assets minus users as user-custodied")
+}
+
+const testAdminSendCoinsPreparedTxSurplusAndConcurrency = async (T: TestBase) => {
+    T.d("starting testAdminSendCoinsPreparedTxSurplusAndConcurrency")
+    let totalLndBalance = 19_000
+    let confirmedWalletBalance = 19_000
+    let requiredReserve = 0
+    const usersBalance = 9_000 // surplus = 10_000
+    let broadcastCalls = 0
+    let releasedLeaseBatches = 0
+    let txSeq = 0
+    let pinnedOutpointsPassed: any[] = []
+    let onBeforeCraft: (() => void) | null = null
+    const leasedValueBySeq = new Map<number, number>()
+
+    const stubStorage = {
+        paymentStorage: {
+            GetAddressOwner: async () => null,
+            GetTotalUsersBalance: async () => usersBalance,
+        },
+        metricsStorage: {
+            EnsureRootOperation: async () => { },
+        },
+    } as any
+
+    const stubLnd = {
+        EstimateSatPerVbyte: async () => ({ satPerVbyte: 2, minRelaySatPerVbyte: 1 }),
+        GetTotalBalace: async () => ({ totalLndBalance, othersFromLnd: { wc: confirmedWalletBalance } }),
+        RequiredReserve: async () => requiredReserve,
+        CraftAddressPayment: async (_addr: string, amount: number, satPerVByte: number) => {
+            onBeforeCraft?.()
+            txSeq += 1
+            const feeSats = satPerVByte * 150
+            // Simulate LND locking an input larger than spend (leaving change)
+            // and moving that input out of confirmedBalance into lockedBalance.
+            const inputSum = Math.min(confirmedWalletBalance, amount + feeSats + 1_000)
+            totalLndBalance -= inputSum
+            confirmedWalletBalance -= inputSum
+            leasedValueBySeq.set(txSeq, inputSum)
+            return {
+                txId: `tx-${txSeq}`,
+                txHex: `deadbeef${txSeq}`,
+                feeSats,
+                inputSum,
+                lockedUtxos: [{ id: new Uint8Array([txSeq]), outpoint: { txidStr: `in-${txSeq}`, outputIndex: 0 } }],
+            }
+        },
+        ReleaseLeases: async (leases: any[]) => {
+            releasedLeaseBatches += 1
+            for (const lease of leases) {
+                const id = lease.id[0]
+                const val = leasedValueBySeq.get(id) ?? 0
+                leasedValueBySeq.delete(id)
+                totalLndBalance += val
+                confirmedWalletBalance += val
+            }
+        },
+        BroadcastTransaction: async (_txHex: string) => {
+            broadcastCalls += 1
+            // Yield so a concurrent caller would overlap if not serialized.
+            await new Promise(resolve => setTimeout(resolve, 25))
+            const txId = `tx-${broadcastCalls}`
+            // On broadcast, locked inputs are consumed and change returns once confirmed;
+            // keep remaining confirmedBalance (already excluding inputSum) as in LND.
+            return { txId }
+        },
+        ListUnspent: async () => [
+            { confirmations: 3n, amountSat: 2_000n, outpoint: { txidStr: "confirmed-1", outputIndex: 0 } },
+            { confirmations: 1n, amountSat: 1_500n, outpoint: { txidStr: "confirmed-2", outputIndex: 1 } },
+            { confirmations: 0n, amountSat: 50_000n, outpoint: { txidStr: "unconfirmed-1", outputIndex: 0 } },
+        ],
+        PayAddress: async (_addr: string, _amt: number, _rate: number, _label: string, _opts: any, _sendAll: boolean, outpoints: any[]) => {
+            pinnedOutpointsPassed = outpoints
+            return { txid: "sweep-tx-1" }
+        },
+        GetTx: async () => ({ totalFees: 200n, amount: -3_500n }),
+    } as any
+
+    const mgr = new AdminManager(T.main.settings, stubStorage, T.main.adminManager.swaps)
+    mgr.lnd = stubLnd
+
+    // 1. Prepared tx fee pushes outflow over surplus (9_500 + 1_500 = 11_000 > 10_000):
+    // must reject before broadcast and release the locked UTXOs.
+    await expectThrowsAsync(
+        mgr.AdminSendCoins({ address: "bcrt1qsurplus", amount: 9_500, sat_per_v_byte: 10 }),
+        "amount exceeds node surplus above user liabilities",
+    )
+    T.expect(broadcastCalls).to.equal(0)
+    T.expect(releasedLeaseBatches).to.equal(1)
+
+    // 2. External spend between start and funding breaches LND anchor reserve:
+    // wallet starts at 100_000, reserve = 20_000, send costs 60_000 (59_700 + 300 fee).
+    // Another tool spends 25_000 before funding, leaving 75_000 (remaining 15_000 < 20_000).
+    totalLndBalance = 100_000
+    confirmedWalletBalance = 100_000
+    requiredReserve = 20_000
+    onBeforeCraft = () => {
+        totalLndBalance -= 25_000
+        confirmedWalletBalance -= 25_000
+        onBeforeCraft = null
+    }
+    await expectThrowsAsync(
+        mgr.AdminSendCoins({ address: "bcrt1qreserve", amount: 59_700, sat_per_v_byte: 2 }),
+        "amount would leave on-chain balance below LND anchor channel reserve",
+    )
+    T.expect(broadcastCalls).to.equal(0)
+    T.expect(releasedLeaseBatches).to.equal(2)
+    T.expect(confirmedWalletBalance).to.equal(75_000)
+
+    // 3. Two concurrent sends of 6_000 (+ 300 fee each) against 10_000 surplus:
+    // serialization ensures only one succeeds and the second sees the updated balance.
+    totalLndBalance = 19_000
+    confirmedWalletBalance = 19_000
+    requiredReserve = 0
+    const [first, second] = await Promise.allSettled([
+        mgr.AdminSendCoins({ address: "bcrt1qconcurrent1", amount: 6_000, sat_per_v_byte: 2 }),
+        mgr.AdminSendCoins({ address: "bcrt1qconcurrent2", amount: 6_000, sat_per_v_byte: 2 }),
+    ])
+    const fulfilled = [first, second].filter(r => r.status === "fulfilled")
+    const rejected = [first, second].filter(r => r.status === "rejected") as PromiseRejectedResult[]
+    T.expect(fulfilled).to.have.length(1)
+    T.expect(rejected).to.have.length(1)
+    T.expect(rejected[0].reason.message).to.include("amount exceeds node surplus above user liabilities")
+    T.expect(broadcastCalls).to.equal(1)
+    T.expect(releasedLeaseBatches).to.equal(3)
+
+    // 4. send_all pins only the confirmed outpoints checked against surplus (3_500 <= surplus)
+    // and ignores unconfirmed UTXOs.
+    totalLndBalance = 12_700
+    confirmedWalletBalance = 12_700
+    const sweepRes = await mgr.AdminSendCoins({ address: "bcrt1qsweep", send_all: true, sat_per_v_byte: 2 })
+    T.expect(sweepRes.tx_id).to.equal("sweep-tx-1")
+    T.expect(pinnedOutpointsPassed).to.deep.equal([
+        { txidStr: "confirmed-1", outputIndex: 0 },
+        { txidStr: "confirmed-2", outputIndex: 1 },
+    ])
+    T.d("prepared tx surplus, post-fund anchor reserve, concurrency lock, and send_all outpoint pinning enforced")
 }
 
 const testAdminSendCoinsOutgoingOpsLocked = async (T: TestBase) => {

@@ -212,6 +212,24 @@ const testUnboundedRangeIncludesRows = async (T: StorageTestBase, _seed: Seed) =
 
 const testPersistsDestPubkeyFromInvoice = async (T: StorageTestBase, seed: Seed) => {
     T.d('Starting testPersistsDestPubkeyFromInvoice')
+    const historicalDate = new Date('2024-06-15T12:00:00Z')
+    const historicalFailed = await T.storage.dbs.CreateAndSave<UserInvoicePayment>('UserInvoicePayment', {
+        user: seed.user,
+        linkedApplication: seed.app,
+        invoice: BOLT11_WITH_PAYEE,
+        paid_amount: 75,
+        routing_fees: 0,
+        service_fees: 0,
+        paid_at_unix: -1,
+        internal: false,
+        failure_reason: 'FAILURE_REASON_NO_ROUTE',
+        dest_pubkey: '',
+    })
+    await T.storage.dbs.Update<UserInvoicePayment>('UserInvoicePayment', historicalFailed.serial_id, {
+        updated_at: historicalDate,
+        created_at: historicalDate,
+    })
+
     const before = await T.storage.dbs.FindOne<UserInvoicePayment>('UserInvoicePayment', {
         where: { serial_id: seed.unsignedDest.serial_id },
     })
@@ -222,5 +240,11 @@ const testPersistsDestPubkeyFromInvoice = async (T: StorageTestBase, seed: Seed)
         where: { serial_id: seed.unsignedDest.serial_id },
     })
     T.expect(after?.dest_pubkey).to.equal(PAYEE_FROM_SIGNATURE)
+
+    const failedAfter = await T.storage.dbs.FindOne<UserInvoicePayment>('UserInvoicePayment', {
+        where: { serial_id: historicalFailed.serial_id },
+    })
+    T.expect(failedAfter?.dest_pubkey).to.equal(PAYEE_FROM_N_TAG)
+    T.expect(new Date(failedAfter!.updated_at).getTime()).to.equal(historicalDate.getTime())
     T.d('Finished testPersistsDestPubkeyFromInvoice')
 }

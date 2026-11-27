@@ -360,13 +360,18 @@ export default class {
 
     async BackfillEmptyDestPubkeys(txId?: string): Promise<number> {
         const payments = await this.dbs.Find<UserInvoicePayment>('UserInvoicePayment', {
-            where: { dest_pubkey: '' },
+            where: { dest_pubkey: '', internal: false },
         }, txId)
         let updated = 0
         for (const payment of payments) {
             const dest = destPubkeyFromBolt11(payment.invoice)
             if (!dest) continue
-            await this.dbs.Update<UserInvoicePayment>('UserInvoicePayment', payment.serial_id, { dest_pubkey: dest }, txId)
+            await this.dbs.Update<UserInvoicePayment>('UserInvoicePayment', payment.serial_id, {
+                dest_pubkey: dest,
+                // Preserve updated_at so TypeORM's UpdateDateColumn does not move
+                // historical failed payments into the current reporting period.
+                updated_at: payment.updated_at,
+            }, txId)
             updated += 1
         }
         return updated

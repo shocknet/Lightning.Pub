@@ -1,6 +1,6 @@
-import { CoinSelectionStrategy, SendCoinsRequest } from "../../../proto/lnd/lightning.js";
+import { CoinSelectionStrategy, OutPoint, SendCoinsRequest } from "../../../proto/lnd/lightning.js";
 
-export const SendCoinsReq = (address: string, amount: number, satPerVByte: number, label = "", sendAll = false): SendCoinsRequest => ({
+export const SendCoinsReq = (address: string, amount: number, satPerVByte: number, label = "", sendAll = false, outpoints: OutPoint[] = []): SendCoinsRequest => ({
     addr: address,
     amount: BigInt(sendAll ? 0 : amount),
     label: label,
@@ -11,5 +11,5 @@ export const SendCoinsReq = (address: string, amount: number, satPerVByte: numbe
     spendUnconfirmed: false,
     satPerByte: BigInt(0),
     coinSelectionStrategy: CoinSelectionStrategy.STRATEGY_LARGEST,
-    outpoints: [],
+    outpoints,
 })
