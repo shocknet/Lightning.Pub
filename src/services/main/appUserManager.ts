@@ -9,6 +9,8 @@ import SettingsManager from './settingsManager.js'
 import { BackupManager } from '../backup/backupManager.js'
 import { assertCallbackUrlAllowed } from '../helpers/safeOutboundFetch.js'
 import { clampPageLimit, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from '../helpers/pageLimit.js'
+import { pickDefaultApp } from './adminNodeSettings.js'
+import { Application } from '../storage/entity/Application.js'
 
 function appUserAdminInfo(appUser: {
     identifier: string
@@ -82,6 +84,33 @@ export default class {
                 nostr_pub: appUser.nostr_public_key || ""
             }))
         }
+    }
+
+    async AdminSendUserToUser(req: Types.AdminSendUserToUserRequest): Promise<Types.AdminSendUserToUserResponse> {
+        if (req.from_user_id === req.to_user_id) {
+            throw new Error("from_user_id and to_user_id must be different")
+        }
+        const app = await this.resolveAppForAdminTransfer(req.from_user_id)
+        const result = await this.applicationManager.paymentManager.SendUserToUserPayment(
+            req.from_user_id, req.to_user_id, req.amount, app)
+        return { amount: result.amount, fees: result.fees }
+    }
+
+    private async resolveAppForAdminTransfer(fromUserId: string): Promise<Application> {
+        const ownedApp = await this.storage.applicationStorage.IsApplicationOwner(fromUserId)
+        if (ownedApp) {
+            return ownedApp
+        }
+        const memberships = await this.storage.applicationStorage.GetAllAppUsersFromUser(fromUserId)
+        if (memberships.length > 0) {
+            return memberships[0].application
+        }
+        const apps = await this.storage.applicationStorage.GetApplications()
+        const defaultApp = pickDefaultApp(apps, this.settings.getSettings().serviceSettings.defaultAppName)
+        if (defaultApp) {
+            return defaultApp
+        }
+        throw new Error("no application found for transfer")
     }
 
     async GetUserInfo(ctx: Types.UserContext): Promise<Types.UserInfo> {

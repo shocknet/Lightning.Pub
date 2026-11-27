@@ -33,6 +33,11 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [OfferCreateRequest](#OfferCreateRequest)
   - output: [OfferId](#OfferId)
 
+- AdminSendUserToUser
+  - auth type: __Admin__
+  - input: [AdminSendUserToUserRequest](#AdminSendUserToUserRequest)
+  - output: [AdminSendUserToUserResponse](#AdminSendUserToUserResponse)
+
 - AuthApp
   - auth type: __Admin__
   - input: [AuthAppRequest](#AuthAppRequest)
@@ -523,6 +528,13 @@ The nostr server will send back a message response, and inside the body there wi
   - http route: __/api/user/offer/add__
   - input: [OfferCreateRequest](#OfferCreateRequest)
   - output: [OfferId](#OfferId)
+
+- AdminSendUserToUser
+  - auth type: __Admin__
+  - http method: __post__
+  - http route: __/api/admin/user/send/u2u__
+  - input: [AdminSendUserToUserRequest](#AdminSendUserToUserRequest)
+  - output: [AdminSendUserToUserResponse](#AdminSendUserToUserResponse)
 
 - AuthApp
   - auth type: __Admin__
@@ -1303,6 +1315,15 @@ The nostr server will send back a message response, and inside the body there wi
   - __tier2_limit_sats__: _number_
   - __tier3_confs__: _number_
   - __tier3_confs_env_locked__: _boolean_
+
+### AdminSendUserToUserRequest
+  - __amount__: _number_
+  - __from_user_id__: _string_
+  - __to_user_id__: _string_
+
+### AdminSendUserToUserResponse
+  - __amount__: _number_
+  - __fees__: _number_
 
 ### AdminTxSwapResponse
   - __network_fee__: _number_

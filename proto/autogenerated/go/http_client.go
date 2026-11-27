@@ -54,17 +54,18 @@ type ClientParams struct {
 	RetrieveUserAuth         func() (string, error)
 }
 type Client struct {
-	AddApp            func(req AddAppRequest) (*AuthApp, error)
-	AddAppInvoice     func(req AddAppInvoiceRequest) (*NewInvoiceResponse, error)
-	AddAppUser        func(req AddAppUserRequest) (*AppUser, error)
-	AddAppUserInvoice func(req AddAppUserInvoiceRequest) (*NewInvoiceResponse, error)
-	AddPeer           func(req AddPeerRequest) error
-	AddProduct        func(req AddProductRequest) (*Product, error)
-	AddUserOffer      func(req OfferCreateRequest) (*OfferId, error)
-	AuthApp           func(req AuthAppRequest) (*AuthApp, error)
-	AuthorizeManage   func(req ManageAuthorizationRequest) (*ManageAuthorization, error)
-	BanDebit          func(req DebitOperation) error
-	BanUser           func(req BanUserRequest) (*BanUserResponse, error)
+	AddApp              func(req AddAppRequest) (*AuthApp, error)
+	AddAppInvoice       func(req AddAppInvoiceRequest) (*NewInvoiceResponse, error)
+	AddAppUser          func(req AddAppUserRequest) (*AppUser, error)
+	AddAppUserInvoice   func(req AddAppUserInvoiceRequest) (*NewInvoiceResponse, error)
+	AddPeer             func(req AddPeerRequest) error
+	AddProduct          func(req AddProductRequest) (*Product, error)
+	AddUserOffer        func(req OfferCreateRequest) (*OfferId, error)
+	AdminSendUserToUser func(req AdminSendUserToUserRequest) (*AdminSendUserToUserResponse, error)
+	AuthApp             func(req AuthAppRequest) (*AuthApp, error)
+	AuthorizeManage     func(req ManageAuthorizationRequest) (*ManageAuthorization, error)
+	BanDebit            func(req DebitOperation) error
+	BanUser             func(req BanUserRequest) (*BanUserResponse, error)
 	// batching method: BatchUser not implemented
 	BumpTx                         func(req BumpTx) error
 	CloseChannel                   func(req CloseChannelRequest) (*CloseChannelResponse, error)
@@ -357,6 +358,35 @@ func NewClient(params ClientParams) *Client {
 				return nil, fmt.Errorf(result.Reason)
 			}
 			res := OfferId{}
+			err = json.Unmarshal(resBody, &res)
+			if err != nil {
+				return nil, err
+			}
+			return &res, nil
+		},
+		AdminSendUserToUser: func(req AdminSendUserToUserRequest) (*AdminSendUserToUserResponse, error) {
+			auth, err := params.RetrieveAdminAuth()
+			if err != nil {
+				return nil, err
+			}
+			finalRoute := "/api/admin/user/send/u2u"
+			body, err := json.Marshal(req)
+			if err != nil {
+				return nil, err
+			}
+			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
+			if err != nil {
+				return nil, err
+			}
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return nil, err
+			}
+			if result.Status == "ERROR" {
+				return nil, fmt.Errorf(result.Reason)
+			}
+			res := AdminSendUserToUserResponse{}
 			err = json.Unmarshal(resBody, &res)
 			if err != nil {
 				return nil, err

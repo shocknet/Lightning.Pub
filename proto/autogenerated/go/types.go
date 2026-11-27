@@ -165,6 +165,15 @@ type AdminOnchainConfSettings struct {
 	Tier3_confs            int64 `json:"tier3_confs"`
 	Tier3_confs_env_locked bool  `json:"tier3_confs_env_locked"`
 }
+type AdminSendUserToUserRequest struct {
+	Amount       int64  `json:"amount"`
+	From_user_id string `json:"from_user_id"`
+	To_user_id   string `json:"to_user_id"`
+}
+type AdminSendUserToUserResponse struct {
+	Amount int64 `json:"amount"`
+	Fees   int64 `json:"fees"`
+}
 type AdminTxSwapResponse struct {
 	Network_fee int64  `json:"network_fee"`
 	Tx_id       string `json:"tx_id"`

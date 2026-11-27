@@ -287,6 +287,13 @@ service LightningPub {
         option (nostr) = true;
     }
 
+    rpc AdminSendUserToUser(structs.AdminSendUserToUserRequest) returns (structs.AdminSendUserToUserResponse) {
+        option (auth_type) = "Admin";
+        option (http_method) = "post";
+        option (http_route) = "/api/admin/user/send/u2u";
+        option (nostr) = true;
+    }
+
     rpc GetAdminNodeSettings(structs.Empty) returns (structs.AdminNodeSettings) {
         option (auth_type) = "Admin";
         option (http_method) = "get";

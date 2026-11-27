@@ -88,6 +88,17 @@ message UsersAdminInfo {
     int64 total = 2;
 }
 
+message AdminSendUserToUserRequest {
+    string from_user_id = 1;
+    string to_user_id = 2;
+    int64 amount = 3;
+}
+
+message AdminSendUserToUserResponse {
+    int64 amount = 1;
+    int64 fees = 2;
+}
+
 
 enum TrackedOperationType {
     USER = 0;

@@ -198,6 +198,15 @@ export default (mainHandler: Main): Types.ServerMethods => {
         GetUsersAdminInfo: async ({ ctx, req }) => {
             return mainHandler.appUserManager.GetUsersAdminInfo(req)
         },
+        AdminSendUserToUser: async ({ req }) => {
+            const err = Types.AdminSendUserToUserRequestValidate(req, {
+                from_user_id_CustomCheck: id => id !== '',
+                to_user_id_CustomCheck: id => id !== '',
+                amount_CustomCheck: isPositiveSats,
+            })
+            if (err != null) throw new Error(err.message)
+            return mainHandler.appUserManager.AdminSendUserToUser(req)
+        },
         GetUserOperationsFromAdmin: async ({ req }) => {
             if (!req.user_id) throw new Error("user_id is required")
             return mainHandler.paymentManager.GetUserOperations(req.user_id, req, true)
