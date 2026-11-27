@@ -90,6 +90,10 @@ const untrackedLiquidityAsset = (pubkey: string): Types.LiquidityAssetProviderV2
     pubkey,
     tracked: undefined,
 })
+/** True when an on-chain spend would leave node assets below user liabilities. */
+export const spendExceedsNodeSurplus = (spendSats: number, totalAssets: number, usersBalance: number): boolean =>
+    spendSats > totalAssets - usersBalance
+
 export class AdminManager {
     settings: SettingsManager
     liquidityProvider: LiquidityProvider | null = null
@@ -741,21 +745,20 @@ export class AdminManager {
         const { totalLndBalance } = await this.lnd.GetTotalBalace()
         const lpBalance = this.liquidityProvider?.IsReady() ? this.liquidityProvider.GetLatestBalance() : 0
         const totalAssets = totalLndBalance + lpBalance
-        const surplus = totalAssets - usersBalance
 
         let estimatedFee = 0
         let sendAllConfirmed = 0
         if (sendAll) {
             const wallet = await this.lnd.GetBalance()
             sendAllConfirmed = wallet.confirmedBalance
-            if (sendAllConfirmed > surplus) {
+            if (spendExceedsNodeSurplus(sendAllConfirmed, totalAssets, usersBalance)) {
                 throw new Error("send_all would spend user-custodied funds")
             }
         } else {
             const estimated = await this.lnd.EstimateChainFees(req.address, amount!, 1)
             estimatedFee = Number(estimated.feeSat)
             const spend = amount! + estimatedFee
-            if (spend > surplus) {
+            if (spendExceedsNodeSurplus(spend, totalAssets, usersBalance)) {
                 throw new Error("amount exceeds node surplus above user liabilities")
             }
         }
